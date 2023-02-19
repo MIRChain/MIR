@@ -32,9 +32,9 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
-	// "golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 )
 
 //SignatureLength indicates the byte length required to carry a signature with recovery id.
@@ -51,63 +51,75 @@ var (
 	secp256k1halfN = new(big.Int).Div(secp256k1N, big.NewInt(2))
 )
 
+var (
+	gost3410256N  = gost3410.CurveIdtc26gost341012256paramSetA().Q
+	gost3410256halfN = new(big.Int).Div(gost3410256N, big.NewInt(2))
+)
+
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
 
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum
 // because it doesn't copy the internal state, but also modifies the internal state.
-// type KeccakState interface {
-// 	hash.Hash
-// 	Read([]byte) (int, error)
-// }
+type KeccakState interface {
+	hash.Hash
+	Read([]byte) (int, error)
+}
 
-// // NewKeccakState creates a new KeccakState
-// func NewKeccakState() KeccakState {
-// 	return sha3.NewLegacyKeccak256().(KeccakState)
-// }
+// NewKeccakState creates a new KeccakState
+func NewKeccakState() KeccakState {
+	return sha3.NewLegacyKeccak256().(KeccakState)
+}
 
+// HashData hashes the provided data using the KeccakState and returns a 32 byte hash
+func HashData(kh KeccakState, data []byte) (h common.Hash) {
+	kh.Reset()
+	kh.Write(data)
+	kh.Read(h[:])
+	return h
+}
 
-// // Keccak256 calculates and returns the Keccak256 hash of the input data.
-// func Keccak256(data ...[]byte) []byte {
-// 	b := make([]byte, 32)
-// 	d := NewKeccakState()
-// 	for _, b := range data {
-// 		d.Write(b)
-// 	}
-// 	d.Read(b)
-// 	return b
-// }
+// Keccak256 calculates and returns the Keccak256 hash of the input data.
+func Keccak256(data ...[]byte) []byte {
+	b := make([]byte, 32)
+	d := NewKeccakState()
+	for _, b := range data {
+		d.Write(b)
+	}
+	d.Read(b)
+	return b
+}
 
-// // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
-// // converting it to an internal Hash data structure.
-// func Keccak256Hash(data ...[]byte) (h common.Hash) {
-// 	d := NewKeccakState()
-// 	for _, b := range data {
-// 		d.Write(b)
-// 	}
-// 	d.Read(h[:])
-// 	return h
-// }
+// Keccak256Hash calculates and returns the Keccak256 hash of the input data,
+// converting it to an internal Hash data structure.
+func Keccak256Hash(data ...[]byte) (h common.Hash) {
+	d := NewKeccakState()
+	for _, b := range data {
+		d.Write(b)
+	}
+	d.Read(h[:])
+	return h
+}
 
-// // Keccak512 calculates and returns the Keccak512 hash of the input data.
-// func Keccak512(data ...[]byte) []byte {
-// 	d := sha3.NewLegacyKeccak512()
-// 	for _, b := range data {
-// 		d.Write(b)
-// 	}
-// 	return d.Sum(nil)
-// }
+// Keccak512 calculates and returns the Keccak512 hash of the input data.
+func Keccak512(data ...[]byte) []byte {
+	d := sha3.NewLegacyKeccak512()
+	for _, b := range data {
+		d.Write(b)
+	}
+	return d.Sum(nil)
+}
 
 // CreateAddress creates an ethereum address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64) common.Address {
 	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce})
-	return common.BytesToAddress(Streebog256(data)[12:])
+	return common.BytesToAddress(Keccak256(data)[12:])
 }
 
 // CreateAddress2 creates an ethereum address given the address bytes, initial
 // contract code hash and a salt.
 func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
-	return common.BytesToAddress(Streebog256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
+	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
 }
 
 // ToECDSA creates a private key with the given D value.
@@ -248,9 +260,9 @@ func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
 }
 
 // GenerateKey generates a new private key.
-// func GenerateKey() (*ecdsa.PrivateKey, error) {
-// 	return ecdsa.GenerateKey(S256(), rand.Reader)
-// }
+func GenerateKey() (*ecdsa.PrivateKey, error) {
+	return ecdsa.GenerateKey(S256(), rand.Reader)
+}
 
 // ValidateSignatureValues verifies whether the signature values are valid with
 // the given chain rules. The v value is assumed to be either 0 or 1.
@@ -267,79 +279,13 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
 }
 
-// func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
-// 	pubBytes := FromECDSAPub(&p)
-// 	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-// }
-
-// Mir 
-func PubkeyToAddress(p csp.Cert) common.Address {
-	// pubBytes := FromECDSAPub(&p)
-	pubBytes := p.Info().PublicKeyBytes()
-	return common.BytesToAddress(Streebog256(pubBytes[1:])[12:])
+func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
+	pubBytes := FromECDSAPub(&p)
+	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
 }
 
 func zeroBytes(bytes []byte) {
 	for i := range bytes {
 		bytes[i] = 0
 	}
-}
-
-
-// StreebogState wraps sha3.state. In addition to the usual hash methods, it also supports
-// Read to get a variable amount of data from the hash state. Read is faster than Sum
-// because it doesn't copy the internal state, but also modifies the internal state.
-type StreebogState interface {
-	hash.Hash
-}
-
-// NewKeccakState creates a new KeccakState
-func NewStreebogState() StreebogState {
-	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		panic(err)
-	}
-	return hash
-}
-
-// HashData hashes the provided data using the StreebogState and returns a 32 byte hash
-func HashData(kh StreebogState, data []byte) (h common.Hash) {
-	kh.Reset()
-	kh.Write(data)
-	kh.Sum(h[:])
-	return h
-}
-
-// Keccak256 calculates and returns the Keccak256 hash of the input data.
-func Streebog256(data ...[]byte) []byte {
-	b := make([]byte, 32)
-	d := NewStreebogState()
-	for _, b := range data {
-		d.Write(b)
-	}
-	d.Sum(b)
-	return b
-}
-
-// Keccak256Hash calculates and returns the Keccak256 hash of the input data,
-// converting it to an internal Hash data structure.
-func StreebogHash(data ...[]byte) (h common.Hash) {
-	d := NewStreebogState()
-	for _, b := range data {
-		d.Write(b)
-	}
-	d.Sum(h[:])
-	return h
-}
-
-// Keccak512 calculates and returns the Keccak512 hash of the input data.
-func Streebog512(data ...[]byte) []byte {
-	d, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_512})
-	if err != nil {
-		panic(err)
-	}
-	for _, b := range data {
-		d.Write(b)
-	}
-	return d.Sum(nil)
 }
