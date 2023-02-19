@@ -343,6 +343,8 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 		Name: "Mir",
 		Flags: []cli.Flag{
 			utils.SignerCertFlag,
+			utils.CryptoSwitchFlag,
+			utils.CryptoGostCurveFlag,
 		},
 	},
 }

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build !nacl && !js && cgo
 // +build !nacl,!js,cgo
 
 package crypto
@@ -24,6 +25,7 @@ import (
 	"fmt"
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
 )
 
@@ -64,7 +66,21 @@ func Sign(digestHash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 // The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 // The signature should have the 64 byte [R || S] format.
 func VerifySignature(pubkey, digestHash, signature []byte) bool {
-	return secp256k1.VerifySignature(pubkey, digestHash, signature)
+	switch CryptoAlg {
+	case NIST:
+		return secp256k1.VerifySignature(pubkey, digestHash, signature)
+	case GOST:
+		pub, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
+		if err != nil {
+			return false
+		}
+		ver, err := pub.VerifyDigest(digestHash, signature[:128])
+		if err != nil {
+			return false
+		}
+		return ver
+	}
+	return false
 }
 
 // DecompressPubkey parses a public key in the 33-byte compressed format.

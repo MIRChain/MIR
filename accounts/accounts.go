@@ -24,8 +24,9 @@ import (
 	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	// "github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/event"
+	"golang.org/x/crypto/sha3"
 )
 
 // Account represents an Ethereum account located at a specific location defined
@@ -194,13 +195,13 @@ func TextHash(data []byte) []byte {
 // This gives context to the signed message and prevents signing of transactions.
 func TextAndHash(data []byte) ([]byte, string) {
 	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), string(data))
-	// hasher := sha3.NewLegacyKeccak256()
+	hasher := sha3.NewLegacyKeccak256()
 	
 	// Mir - Gost hash 34.11
-	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		panic(err)
-	}
+	// hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	// if err != nil {
+	// 	panic(err)
+	// }
 	
 	hasher.Write([]byte(msg))
 	return hasher.Sum(nil), msg

@@ -17,6 +17,8 @@ package gost3410
 
 import "math/big"
 
+var GostCurve *Curve
+
 var (
 	CurveGostR34102001ParamSetcc func() *Curve = func() *Curve {
 		curve, err := NewCurve(

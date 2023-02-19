@@ -1074,6 +1074,16 @@ var (
 		Name:  "signercert",
 		Usage: "Certificate to use for sining blocks",
 	}
+	CryptoSwitchFlag = cli.StringFlag{
+		Name:  "crypto",
+		Usage: "Switch between differet tyoes of cryptography - NIST, GOST, PostQuantum",
+		Value: "nist",
+	}
+	CryptoGostCurveFlag = cli.StringFlag{
+		Name:  "gostcurve",
+		Usage: "Gost ECDSA curve parameters",
+		Value: "341012256paramsetA",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating

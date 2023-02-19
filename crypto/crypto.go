@@ -51,12 +51,23 @@ var (
 	secp256k1halfN = new(big.Int).Div(secp256k1N, big.NewInt(2))
 )
 
+var errInvalidPubkey = errors.New("invalid secp256k1 public key")
+
+// Mir config values
 var (
-	gost3410256N  = gost3410.CurveIdtc26gost341012256paramSetA().Q
-	gost3410256halfN = new(big.Int).Div(gost3410256N, big.NewInt(2))
+	gost3410N  = gost3410.GostCurve.Q
+	gost3410halfN = new(big.Int).Div(gost3410N, big.NewInt(2))
+)
+type CryptoType int 
+
+const (
+	NIST CryptoType = iota
+	GOST
+	GOST_CSP
+	PQC
 )
 
-var errInvalidPubkey = errors.New("invalid secp256k1 public key")
+var CryptoAlg CryptoType
 
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum

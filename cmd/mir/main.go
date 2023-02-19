@@ -31,6 +31,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/console/prompt"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethclient"
@@ -46,7 +48,7 @@ import (
 )
 
 const (
-	clientIdentifier = "geth" // Client identifier to advertise over the network
+	clientIdentifier = "mir" // Client identifier to advertise over the network
 )
 
 var (
@@ -54,7 +56,7 @@ var (
 	gitCommit = ""
 	gitDate   = ""
 	// The app that holds all commands and flags.
-	app = flags.NewApp(gitCommit, gitDate, "the go-ethereum command line interface")
+	app = flags.NewApp(gitCommit, gitDate, "the mir-ethereum command line interface")
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
@@ -217,6 +219,8 @@ var (
 		
 		//Mir
 		utils.SignerCertFlag,
+		utils.CryptoSwitchFlag,
+		utils.CryptoGostCurveFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -268,7 +272,7 @@ func init() {
 	// Initialize the CLI app and start Mir
 	app.Action = mir
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2021 The go-ethereum Authors"
+	app.Copyright = "Copyright 2013-2023 The go-ethereum and Mir Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
@@ -380,14 +384,36 @@ func mir(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
+	// Mir - set crypto before the start of services 
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			crypto.CryptoAlg = crypto.GOST
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			crypto.CryptoAlg = crypto.GOST_CSP
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			crypto.CryptoAlg = crypto.NIST
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		}
+	}
+
 	prepare(ctx)
 	stack, backend := makeFullNode(ctx)
 	defer stack.Close()
 
 	// Mir - check if signer cert is loaded
-	if stack.Config().SignerCert.Bytes() == nil {
-		return fmt.Errorf("signer cert cant be nil")
-	}
+	// if stack.Config().SignerCert.Bytes() == nil {
+	// 	return fmt.Errorf("signer cert cant be nil")
+	// }
 
 	startNode(ctx, stack, backend)
 	stack.Wait()

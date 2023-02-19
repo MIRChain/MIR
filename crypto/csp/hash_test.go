@@ -10,7 +10,7 @@ import (
 func TestHash_Sum(t *testing.T) {
 	buf := new(bytes.Buffer)
 	for _, testStr := range []string{"", "some test string"} {
-			for _, algo := range []asn1.ObjectIdentifier{GOST_R34 nbvc11, GOST_R3411_12_256, GOST_R3411_12_512} {
+			for _, algo := range []asn1.ObjectIdentifier{GOST_R3411, GOST_R3411_12_256, GOST_R3411_12_512} {
 			func() {
 				h, err := NewHash(HashOptions{HashAlg: algo})
 				if err != nil {
