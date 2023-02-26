@@ -153,26 +153,40 @@ func TestSign(t *testing.T) {
 	CryptoAlg = GOST_CSP
 	store, err := csp.SystemStore("My")
 	if err != nil {
-		t.Errorf("Sign error: %s", err)
+		t.Errorf("Store error: %s", err)
 	}
 	defer store.Close()
 	crt, err := store.GetBySubjectId("43ad4195a67f95eea752861c96297045bb9ea5a7")
 	if err != nil {
-		t.Errorf("Sign error: %s", err)
+		t.Errorf("Get cert error: %s", err)
 	}
 	defer crt.Close()
-	sig, err = Sign(msg, crt)
+	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("43ad4195a67f95eea752861c96297045bb9ea5a7"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+	sig, err = Sign(digest, crt)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
 	t.Log("Sig csp", len(sig))
-
-	recoveredGostPub, err := Ecrecover(gostMsg.Sum(nil), gostSig)
+	recoveredGostPub, err := Ecrecover(digest, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	if bytes.Compare(gostKey.Public().Raw(), recoveredGostPub) !=0 {
-		t.Errorf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub)
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], recoveredGostPub) {
+		t.Errorf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
 	}
 }
 

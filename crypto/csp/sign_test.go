@@ -16,7 +16,7 @@ func TestSignHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	skid := "7e2747ab453e7e5c3c12feebb10d253cc772b7f5"
+	skid := "43ad4195a67f95eea752861c96297045bb9ea5a7"
 	// crt, err := store.GetByThumb(signCertThumb)
 	crt, err := store.GetBySubjectId(skid)
 	if err != nil {
@@ -71,15 +71,15 @@ func TestSignDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	skid := "7e2747ab453e7e5c3c12feebb10d253cc772b7f5"
+	skid := "43ad4195a67f95eea752861c96297045bb9ea5a7"
 	// crt, err := store.GetByThumb(signCertThumb)
 	crt, err := store.GetBySubjectId(skid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer crt.Close()
-	testData := "Test string"
-	hash, err := NewHash(HashOptions{})
+	testData := []byte(skid)
+	hash, err := NewHash(HashOptions{SignCert: crt, HashAlg: GOST_R3411_12_256})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,19 +97,12 @@ func TestSignDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("hash digest: %x", digest)
-	sig, err := Sign(digest, crt)
+	sig, err := hash.Sign()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("signature: %x", sig)
-	var res bool
-	if res, err = VerifySignatureRaw(digest, sig, crt.Info().PublicKeyBytes()[2:66]); err != nil {
-		t.Errorf("%+v", err)
-	}
-	assert.Equal(t, true, res)
-	if res, err = VerifyDigestField(digest, sig, crt.Info().PublicKeyBytes()[2:66]); err != nil {
-		t.Errorf("%+v", err)
-	}
-	assert.Equal(t, true, res)
+	err = hash.VerifyWithPub(sig, crt.Info().PublicKeyBytes())
+	assert.NoError(t, err)
 	hash.Reset()
 }

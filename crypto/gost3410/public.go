@@ -118,13 +118,7 @@ func (our *PublicKey) Equal(theirKey crypto.PublicKey) bool {
 	return our.X.Cmp(their.X) == 0 && our.Y.Cmp(their.Y) == 0 && our.C.Equal(their.C)
 }
 
-func RecoverCompact(curve Curve, digest, signature []byte, i int) (*big.Int, *big.Int, error) {
-	pointSize :=curve.PointSize()
-	if len(signature) != 2*pointSize {
-		return nil, nil, fmt.Errorf("gost3410: len(signature) != %d", 2*pointSize)
-	}
-	r := bytes2big(signature[:pointSize])
-	s := bytes2big(signature[pointSize:2*pointSize])
+func RecoverCompact(curve Curve, digest []byte, r *big.Int, s *big.Int, i int) (*big.Int, *big.Int, error) {
 
 	if r.Cmp(zero) <= 0 ||
 		r.Cmp(curve.Q) >= 0 ||
