@@ -22,16 +22,39 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
+	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.
 func Ecrecover(hash, sig []byte) ([]byte, error) {
-	return secp256k1.RecoverPubkey(hash, sig)
+	switch CryptoAlg {
+	case NIST:
+		return secp256k1.RecoverPubkey(hash, sig)
+	case GOST:
+		v := int((sig[64]) & ^byte(4))
+		r := new(big.Int).SetBytes(sig[:32])
+		s := new(big.Int).SetBytes(sig[32:64])
+		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), hash, r, s, v)
+		pubKey := gost3410.PublicKey{
+			C: gost3410.GostCurve,
+			X: X,
+			Y: Y,
+		}
+		if err != nil{
+			return nil, err
+		}
+		return gost3410.Marshal(*gost3410.GostCurve, pubKey.X, pubKey.Y), nil
+	default:
+		return nil, errors.New("crypro algo should be one of NIST, GOST, GOST_CSP, PQC")
+	}
 }
 
 // SigToPub returns the public key that created the given signature.
@@ -53,13 +76,63 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 // solution is to hash any input before calculating the signature.
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
-func Sign(digestHash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
-	if len(digestHash) != DigestLength {
-		return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
+func Sign(digestHash []byte, prv interface{}) (sig []byte, err error) {
+	switch CryptoAlg {
+	case NIST:
+		key := (prv).(*ecdsa.PrivateKey)
+		if len(digestHash) != DigestLength {
+			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
+		}
+		seckey := math.PaddedBigBytes(key.D, key.Params().BitSize/8)
+		defer zeroBytes(seckey)
+		return secp256k1.Sign(digestHash, seckey)
+	case GOST:
+		key := (prv).(*gost3410.PrivateKey)
+		if len(digestHash) != DigestLength {
+			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
+		}
+		sig, err := key.SignDigest(digestHash, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		r := new(big.Int).SetBytes(sig[:32])
+		s := new(big.Int).SetBytes(sig[32:64])
+		var resSig []byte
+		for i := 0; i < (1+1)*2; i++ {
+			X, Y, err := gost3410.RecoverCompact(*key.C, digestHash, r, s, i)
+			pub := key.PublicKey()
+			if err == nil && X.Cmp(pub.X) == 0 && Y.Cmp(pub.Y) == 0 {
+				resSig = append(resSig, sig...)
+				resSig = append(resSig, byte(i))
+			}
+		}
+		return resSig, nil
+	case GOST_CSP:
+		crt := prv.(csp.Cert)
+		sig, err := Sign(digestHash, crt)
+		if err != nil {
+			return nil, err
+		}
+		var resSig []byte
+		r, s, revHash := RevertCSP(digestHash, sig[:64])
+		for i := 0; i < (1+1)*2; i++ {
+			X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, i)
+			if err != nil {
+				return nil, err
+			}
+			pub, err := gost3410.NewPublicKey(gost3410.GostCurve, crt.Info().PublicKeyBytes())
+			if err != nil {
+				return nil, err
+			}
+			if err == nil && X.Cmp(pub.X) == 0 && Y.Cmp(pub.Y) == 0 {
+				resSig = append(resSig, sig...)
+				resSig = append(resSig, byte(i))
+			}
+		}
+		return resSig, nil
+	default:
+		return nil, errors.New("wrong signing key type")
 	}
-	seckey := math.PaddedBigBytes(prv.D, prv.Params().BitSize/8)
-	defer zeroBytes(seckey)
-	return secp256k1.Sign(digestHash, seckey)
 }
 
 // VerifySignature checks that the given public key created signature over digest.
@@ -79,8 +152,15 @@ func VerifySignature(pubkey, digestHash, signature []byte) bool {
 			return false
 		}
 		return ver
+	case GOST_CSP:
+		res, err := csp.VerifySignatureRaw(digestHash, signature, pubkey)
+		if err != nil {
+			return false
+		}
+		return res
+	default: 
+		return false
 	}
-	return false
 }
 
 // DecompressPubkey parses a public key in the 33-byte compressed format.
@@ -100,4 +180,24 @@ func CompressPubkey(pubkey *ecdsa.PublicKey) []byte {
 // S256 returns an instance of the secp256k1 curve.
 func S256() elliptic.Curve {
 	return secp256k1.S256()
+}
+
+func RevertCSP(hash, signature []byte) (r, s *big.Int, revertHash []byte) {
+	revertHash = make([]byte, 32)
+	copy(revertHash, hash)
+	reverse(revertHash)
+
+	sig := make([]byte, 64)
+	copy(sig, signature)
+	reverse(sig)
+	s = new(big.Int).SetBytes(sig[:32])
+	r = new(big.Int).SetBytes(sig[32:64])
+
+	return
+}
+
+func reverse(d []byte) {
+	for i, j := 0, len(d)-1; i < j; i, j = i+1, j-1 {
+		d[i], d[j] = d[j], d[i]
+	}
 }

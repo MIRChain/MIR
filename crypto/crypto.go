@@ -32,7 +32,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -54,10 +53,11 @@ var (
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
 
 // Mir config values
-var (
-	gost3410N  = gost3410.GostCurve.Q
-	gost3410halfN = new(big.Int).Div(gost3410N, big.NewInt(2))
-)
+// var (
+// 	gost3410N  = gost3410.GostCurve.Q
+// 	gost3410halfN = new(big.Int).Div(gost3410N, big.NewInt(2))
+// )
+
 type CryptoType int 
 
 const (
@@ -67,7 +67,7 @@ const (
 	PQC
 )
 
-var CryptoAlg CryptoType
+var CryptoAlg CryptoType = NIST
 
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum

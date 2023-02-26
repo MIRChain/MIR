@@ -19,6 +19,7 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"encoding/hex"
 	"io/ioutil"
 	"math/big"
@@ -28,6 +29,10 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
+	"github.com/stretchr/testify/assert"
 )
 
 var testAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"
@@ -93,6 +98,7 @@ func TestUnmarshalPubkey(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
+	CryptoAlg = NIST
 	key, _ := HexToECDSA(testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
 
@@ -119,6 +125,54 @@ func TestSign(t *testing.T) {
 	recoveredAddr2 := PubkeyToAddress(*recoveredPub2)
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
+	}
+
+	CryptoAlg = GOST
+	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
+	gostMsg := gost3411.New(32)
+	gostMsg.Write(([]byte("foo")))
+	gostSig, err := Sign(gostMsg.Sum(nil), gostKey)
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+	ver, err := gostKey.Public().VerifyDigest(gostMsg.Sum(nil), gostSig[:64])
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+	assert.Equal(t, true, ver)
+	r := new(big.Int).SetBytes(gostSig[:32])
+	s := new(big.Int).SetBytes(gostSig[32:64])
+	for i := 0; i < (1+1)*2; i++ {
+		X, Y, err := gost3410.RecoverCompact(*gostKey.C, gostMsg.Sum(nil), r, s, i)
+		if err == nil && X.Cmp(gostKey.Public().X) == 0 && Y.Cmp(gostKey.Public().Y) == 0 {
+			t.Log("Recovered X ", X.String())
+			t.Log("Recovered Y ", Y.String())
+		}
+	}
+
+	CryptoAlg = GOST_CSP
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+	defer store.Close()
+	crt, err := store.GetBySubjectId("43ad4195a67f95eea752861c96297045bb9ea5a7")
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+	defer crt.Close()
+	sig, err = Sign(msg, crt)
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+	t.Log("Sig csp", len(sig))
+
+	recoveredGostPub, err := Ecrecover(gostMsg.Sum(nil), gostSig)
+	if err != nil {
+		t.Errorf("ECRecover error: %s", err)
+	}
+	if bytes.Compare(gostKey.Public().Raw(), recoveredGostPub) !=0 {
+		t.Errorf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub)
 	}
 }
 
