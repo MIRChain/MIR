@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 )
 
 

@@ -18,6 +18,7 @@ package gost3410
 import (
 	"bytes"
 	"crypto/rand"
+	"math/big"
 	"testing"
 	"testing/quick"
 )
@@ -83,7 +84,9 @@ func TestRFCVectors(t *testing.T) {
 		t.FailNow()
 	}
 	pubKey := prv.PublicKey()
-	recovPubX, recovPubY, err := RecoverCompact(*pubKey.C, digest, signature, 0)
+	_r := new(big.Int).SetBytes(signature[:32])
+	_s := new(big.Int).SetBytes(signature[32:64])
+	recovPubX, recovPubY, err := RecoverCompact(*pubKey.C, digest, _r, _s, 0)
 	// pointSize := pubKey.C.PointSize()
 	// raw := append(
 	// 	pad(recovPubY.Bytes(), pointSize),

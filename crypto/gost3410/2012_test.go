@@ -69,7 +69,12 @@ func TestStdVector1(t *testing.T) {
 		t.FailNow()
 	}
 	pubKey := prv.PublicKey()
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, sign, 1)
+	_r := new(big.Int).SetBytes(r)
+	_s := new(big.Int).SetBytes(s)
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// pointSize := pubKey.C.PointSize()
 	// raw := append(
 	// 	pad(recovPubY.Bytes(), pointSize),
@@ -209,7 +214,9 @@ func TestStdVector2(t *testing.T) {
 		t.FailNow()
 	}
 
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, sign, 1)
+	_r := new(big.Int).SetBytes(r)
+	_s := new(big.Int).SetBytes(s)
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 1)
 	// pointSize := pubKey.C.PointSize()
 	// raw := append(
 	// 	pad(recovPubY.Bytes(), pointSize),
@@ -383,7 +390,9 @@ func TestGCL3Vectors(t *testing.T) {
 	if err != nil || !valid {
 		t.FailNow()
 	}
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, signature, 1)
+	_r := new(big.Int).SetBytes(ourSign[:32])
+	_s := new(big.Int).SetBytes(ourSign[32:64])
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 1)
 	// pointSize := pubKey.C.PointSize()
 	// raw := append(
 	// 	pad(recovPubY.Bytes(), pointSize),
@@ -422,7 +431,9 @@ func TestRandom2012(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest[:], sign, 1)
+		_r := new(big.Int).SetBytes(sign[:32])
+		_s := new(big.Int).SetBytes(sign[32:64])
+		recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest[:], _r, _s, 1)
 		// pointSize := pubKey.C.PointSize()
 		// raw := append(
 		// 	pad(recovPubY.Bytes(), pointSize),

@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 )
 
 func (h *Hash) Sign() ([]byte, error) {
