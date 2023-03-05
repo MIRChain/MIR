@@ -77,35 +77,39 @@ func EcrecoverCsp(digestHash, sig []byte) ([]byte, error) {
 }
 
 // SigToPub returns the public key that created the given signature.
-func SigToPub(hash, sig []byte) (interface{}, error) {
-	switch CryptoAlg {
-	case NIST:
-		s, err := Ecrecover(hash, sig)
-		if err != nil {
-			return nil, err
-		}
-
-		x, y := elliptic.Unmarshal(S256(), s)
-		return ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
-	case GOST:
-		s, err := Ecrecover(hash, sig)
-		if err != nil {
-			return nil, err
-		}
-		pubKey, err := gost3410.NewPublicKey(gost3410.GostCurve, s)
-		if err != nil {
-			return nil, err
-		}
-		return pubKey, nil
-	case GOST_CSP:
-		s, err := Ecrecover(hash, sig)
-		if err != nil {
-			return nil, err
-		}
-		return s, nil
-	default:
-		return nil, nil
+func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
+	s, err := Ecrecover(hash, sig)
+	if err != nil {
+		return nil, err
 	}
+
+	x, y := elliptic.Unmarshal(S256(), s)
+	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+}
+func SigToPubGost(hash, sig []byte) (*gost3410.PublicKey, error) {
+	s, err := Ecrecover(hash, sig)
+	if err != nil {
+		return nil, err
+	}
+	pubKey, err := gost3410.NewPublicKey(gost3410.GostCurve, s)
+	if err != nil {
+		return nil, err
+	}
+	return pubKey, nil
+}
+
+func SigToPubCsp(hash, sig []byte) (interface{}, error) {
+	s, err := Ecrecover(hash, sig)
+	if err != nil {
+		return nil, err
+	}
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		return nil, fmt.Errorf("store error: %s", err)
+	}
+	defer store.Close()
+
+	return s, nil
 }
 
 // Sign calculates an ECDSA signature.
