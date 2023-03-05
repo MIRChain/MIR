@@ -23,7 +23,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -35,58 +34,78 @@ import (
 
 // Ecrecover returns the uncompressed public key that created the given signature.
 func Ecrecover(digestHash, sig []byte) ([]byte, error) {
-	switch CryptoAlg {
-	case NIST:
-		return secp256k1.RecoverPubkey(digestHash, sig)
-	case GOST:
-		v := int((sig[64]) & ^byte(4))
-		r := new(big.Int).SetBytes(sig[:32])
-		s := new(big.Int).SetBytes(sig[32:64])
-		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), digestHash, r, s, v)
-		pubKey := gost3410.PublicKey{
-			C: gost3410.GostCurve,
-			X: X,
-			Y: Y,
-		}
-		if err != nil{
-			return nil, err
-		}
-		return gost3410.Marshal(*gost3410.GostCurve, pubKey.X, pubKey.Y), nil
-	case GOST_CSP:
-		hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-		if err != nil {
-			return nil, err
-		}
-		defer hash.Close()
-		_, err = hash.Write(digestHash)
-		if err != nil {
-			return nil, err
-		}
-		digest := hash.Sum(nil)
-		r, s, revHash := RevertCSP(digest, sig)
-		pub := make([]byte, 0, 64)
-		X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, int(sig[64]))
-		if err != nil{
-			return nil, err
-		}
-		pub = append(pub, Y.Bytes()...)
-		pub = append(pub, X.Bytes()...)
-		reverse(pub)
-		return pub, nil
-	default:
-		return nil, errors.New("crypro algo should be one of NIST, GOST, GOST_CSP, PQC")
-	}
+	return secp256k1.RecoverPubkey(digestHash, sig)
 }
 
-// SigToPub returns the public key that created the given signature.
-func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
-	s, err := Ecrecover(hash, sig)
+func EcrecoverGost(digestHash, sig []byte) ([]byte, error) {
+	v := int((sig[64]) & ^byte(4))
+	r := new(big.Int).SetBytes(sig[:32])
+	s := new(big.Int).SetBytes(sig[32:64])
+	X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), digestHash, r, s, v)
+	pubKey := gost3410.PublicKey{
+		C: gost3410.GostCurve,
+		X: X,
+		Y: Y,
+	}
+	if err != nil{
+		return nil, err
+	}
+	return gost3410.Marshal(*gost3410.GostCurve, pubKey.X, pubKey.Y), nil
+}
+
+func EcrecoverCsp(digestHash, sig []byte) ([]byte, error) {
+	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	if err != nil {
 		return nil, err
 	}
+	defer hash.Close()
+	_, err = hash.Write(digestHash)
+	if err != nil {
+		return nil, err
+	}
+	digest := hash.Sum(nil)
+	r, s, revHash := RevertCSP(digest, sig)
+	pub := make([]byte, 0, 64)
+	X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, int(sig[64]))
+	if err != nil{
+		return nil, err
+	}
+	pub = append(pub, Y.Bytes()...)
+	pub = append(pub, X.Bytes()...)
+	reverse(pub)
+	return pub, nil
+}
 
-	x, y := elliptic.Unmarshal(S256(), s)
-	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+// SigToPub returns the public key that created the given signature.
+func SigToPub(hash, sig []byte) (interface{}, error) {
+	switch CryptoAlg {
+	case NIST:
+		s, err := Ecrecover(hash, sig)
+		if err != nil {
+			return nil, err
+		}
+
+		x, y := elliptic.Unmarshal(S256(), s)
+		return ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+	case GOST:
+		s, err := Ecrecover(hash, sig)
+		if err != nil {
+			return nil, err
+		}
+		pubKey, err := gost3410.NewPublicKey(gost3410.GostCurve, s)
+		if err != nil {
+			return nil, err
+		}
+		return pubKey, nil
+	case GOST_CSP:
+		s, err := Ecrecover(hash, sig)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
+	default:
+		return nil, nil
+	}
 }
 
 // Sign calculates an ECDSA signature.
@@ -97,87 +116,81 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 // solution is to hash any input before calculating the signature.
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
-func Sign(digestHash []byte, prv interface{}) (sig []byte, err error) {
-	switch CryptoAlg {
-	case NIST:
-		key := (prv).(*ecdsa.PrivateKey)
-		if len(digestHash) != DigestLength {
-			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
-		}
-		seckey := math.PaddedBigBytes(key.D, key.Params().BitSize/8)
-		defer zeroBytes(seckey)
-		return secp256k1.Sign(digestHash, seckey)
-	case GOST:
-		key := (prv).(*gost3410.PrivateKey)
-		if len(digestHash) != DigestLength {
-			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
-		}
-		sig, err := key.SignDigest(digestHash, rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-		r := new(big.Int).SetBytes(sig[:32])
-		s := new(big.Int).SetBytes(sig[32:64])
-		var resSig []byte
-		for i := 0; i < (1+1)*2; i++ {
-			X, Y, err := gost3410.RecoverCompact(*key.C, digestHash, r, s, i)
-			pub := key.PublicKey()
-			if err == nil && X.Cmp(pub.X) == 0 && Y.Cmp(pub.Y) == 0 {
-				resSig = append(resSig, sig...)
-				resSig = append(resSig, byte(i))
-			}
-		}
-		return resSig, nil
-	case GOST_CSP:
-		crt := prv.(csp.Cert)
-		defer crt.Close()
-		hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
-		if err != nil {
-			return nil, err
-		}
-		defer hash.Close()
-		_, err = hash.Write(digestHash)
-		if err != nil {
-			return nil, err
-		}
-		digest := hash.Sum(nil)
-		sig, err := hash.Sign()
-		if err != nil {
-			return nil, err
-		}
-		var resSig []byte
-		r, s, revHash := RevertCSP(digest, sig)
-		pubKey := make([]byte, 64)
-		copy(pubKey[:], crt.Info().PublicKeyBytes()[2:66])
-		reverse(pubKey)
-		pubKeyX := new(big.Int).SetBytes(pubKey[32 : 64])
-		pubKeyY := new(big.Int).SetBytes(pubKey[ : 32])
-		gostKey := gost3410.PublicKey{
-			C: gost3410.CurveIdGostR34102001CryptoProAParamSet(),
-			X: pubKeyX,
-			Y: pubKeyY,
-		}
-		for i := 0; i < 4; i++ {
-			X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, i)
-			if err == nil && X.Cmp(gostKey.X) == 0 && Y.Cmp(gostKey.Y) == 0 {
-				resSig = append(resSig, sig...)
-				resSig = append(resSig, byte(i))
-			}
-		}
-		return resSig, nil
-	default:
-		return nil, errors.New("wrong signing key type")
+func Sign(digestHash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
+	if len(digestHash) != DigestLength {
+		return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
 	}
+	seckey := math.PaddedBigBytes(prv.D, prv.Params().BitSize/8)
+	defer zeroBytes(seckey)
+	return secp256k1.Sign(digestHash, seckey)
+}
+
+func SignGost(digestHash []byte, prv *gost3410.PrivateKey) (resSig []byte, err error) {
+	if len(digestHash) != DigestLength {
+		return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
+	}
+	sig, err := prv.SignDigest(digestHash, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	r := new(big.Int).SetBytes(sig[:32])
+	s := new(big.Int).SetBytes(sig[32:64])
+	for i := 0; i < (1+1)*2; i++ {
+		X, Y, err := gost3410.RecoverCompact(*prv.C, digestHash, r, s, i)
+		pub := prv.PublicKey()
+		if err == nil && X.Cmp(pub.X) == 0 && Y.Cmp(pub.Y) == 0 {
+			resSig = append(resSig, sig...)
+			resSig = append(resSig, byte(i))
+		}
+	}
+	return resSig, nil
+}
+
+func SignCsp(digestHash []byte, crt *csp.Cert) (resSig []byte, err error) {
+	defer crt.Close()
+	hash, err := csp.NewHash(csp.HashOptions{SignCert: *crt, HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		return nil, err
+	}
+	defer hash.Close()
+	_, err = hash.Write(digestHash)
+	if err != nil {
+		return nil, err
+	}
+	digest := hash.Sum(nil)
+	sig, err := hash.Sign()
+	if err != nil {
+		return nil, err
+	}
+	r, s, revHash := RevertCSP(digest, sig)
+	pubKey := make([]byte, 64)
+	copy(pubKey[:], crt.Info().PublicKeyBytes()[2:66])
+	reverse(pubKey)
+	pubKeyX := new(big.Int).SetBytes(pubKey[32 : 64])
+	pubKeyY := new(big.Int).SetBytes(pubKey[ : 32])
+	gostKey := gost3410.PublicKey{
+		C: gost3410.CurveIdGostR34102001CryptoProAParamSet(),
+		X: pubKeyX,
+		Y: pubKeyY,
+	}
+	for i := 0; i < 4; i++ {
+		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, i)
+		if err == nil && X.Cmp(gostKey.X) == 0 && Y.Cmp(gostKey.Y) == 0 {
+			resSig = append(resSig, sig...)
+			resSig = append(resSig, byte(i))
+		}
+	}
+	return resSig, nil
 }
 
 // VerifySignature checks that the given public key created signature over digest.
 // The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 // The signature should have the 64 byte [R || S] format.
 func VerifySignature(pubkey, digestHash, signature []byte) bool {
-	switch CryptoAlg {
-	case NIST:
-		return secp256k1.VerifySignature(pubkey, digestHash, signature)
-	case GOST:
+	return secp256k1.VerifySignature(pubkey, digestHash, signature)
+}
+
+func VerifySignatureGost(pubkey, digestHash, signature []byte) bool {
 		pub, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
 		if err != nil {
 			return false
@@ -187,15 +200,14 @@ func VerifySignature(pubkey, digestHash, signature []byte) bool {
 			return false
 		}
 		return ver
-	case GOST_CSP:
-		res, err := csp.VerifySignatureRaw(digestHash, signature, pubkey)
-		if err != nil {
-			return false
-		}
-		return res
-	default: 
+}
+
+func VerifySignatureScp(pubkey, digestHash, signature []byte) bool {
+	res, err := csp.VerifySignatureRaw(digestHash, signature, pubkey)
+	if err != nil {
 		return false
 	}
+	return res
 }
 
 // DecompressPubkey parses a public key in the 33-byte compressed format.

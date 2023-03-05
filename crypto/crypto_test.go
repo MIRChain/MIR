@@ -122,7 +122,7 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	recoveredAddr2 := PubkeyToAddress(*recoveredPub2)
+	recoveredAddr2 := PubkeyToAddress(recoveredPub2)
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
 	}
@@ -131,7 +131,7 @@ func TestSign(t *testing.T) {
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	gostSig, err := Sign(gostMsg.Sum(nil), gostKey)
+	gostSig, err := SignGost(gostMsg.Sum(nil), gostKey)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
@@ -176,12 +176,12 @@ func TestSign(t *testing.T) {
 	hash.Reset()
 	hash.Close()
 	t.Logf("hash digest: %x", digest)
-	sig, err = Sign(digest, crt)
+	sig, err = SignCsp(digest, &crt)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
 	t.Log("Sig csp", len(sig))
-	recoveredGostPub, err := Ecrecover(digest, sig)
+	recoveredGostPub, err := EcrecoverCsp(digest, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}

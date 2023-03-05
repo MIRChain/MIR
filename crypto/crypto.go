@@ -32,6 +32,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -290,9 +291,22 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
 }
 
-func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
-	pubBytes := FromECDSAPub(&p)
-	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+func PubkeyToAddress(p interface{}) common.Address {
+	switch CryptoAlg {
+	case NIST:
+		p := (p).(ecdsa.PublicKey)
+		pubBytes := FromECDSAPub(&p)
+		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	case GOST:
+		p := (p).(gost3410.PublicKey)
+		pubBytes := p.Raw()
+		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	case GOST_CSP:
+		pubBytes := (p).([]byte)
+		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	default:
+		panic("cant convert pub key to address")
+	}
 }
 
 func zeroBytes(bytes []byte) {
