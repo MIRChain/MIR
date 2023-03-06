@@ -77,6 +77,7 @@ type KeyStore struct {
 
 type unlocked struct {
 	*Key
+	*KeyCsp
 	abort chan struct{}
 }
 

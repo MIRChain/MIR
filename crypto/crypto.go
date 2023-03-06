@@ -271,9 +271,18 @@ func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
 	return ioutil.WriteFile(file, []byte(k), 0600)
 }
 
+func SaveECDSAGost(file string, key *gost3410.PrivateKey) error {
+	k := hex.EncodeToString(key.Raw())
+	return ioutil.WriteFile(file, []byte(k), 0600)
+}
+
 // GenerateKey generates a new private key.
 func GenerateKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(S256(), rand.Reader)
+}
+
+func GenerateKeyGost() (*gost3410.PrivateKey, error) {
+	return gost3410.GenPrivateKey(gost3410.GostCurve, rand.Reader)
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with
@@ -291,22 +300,18 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
 }
 
-func PubkeyToAddress(p interface{}) common.Address {
-	switch CryptoAlg {
-	case NIST:
-		p := (p).(ecdsa.PublicKey)
-		pubBytes := FromECDSAPub(&p)
-		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-	case GOST:
-		p := (p).(gost3410.PublicKey)
-		pubBytes := p.Raw()
-		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-	case GOST_CSP:
-		pubBytes := (p).([]byte)
-		return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-	default:
-		panic("cant convert pub key to address")
-	}
+func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
+	pubBytes := FromECDSAPub(&p)
+	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+}
+
+func PubkeyToAddressGost(p gost3410.PublicKey) common.Address {
+	pubBytes := p.Raw()
+	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+}
+
+func PubkeyToAddressCsp(p []byte) common.Address {
+	return common.BytesToAddress(Keccak256(p[1:])[12:])
 }
 
 func zeroBytes(bytes []byte) {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -94,6 +95,26 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 	}
 	return tx.WithSignature(s, sig)
 }
+
+func SignTxCsp(tx *Transaction, s Signer, prv string) (*Transaction, error) {
+	h := s.Hash(tx)
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	crt, err := store.GetBySubjectId(prv)
+	if err != nil {
+		return nil, err
+	}
+	defer crt.Close()
+	sig, err := crypto.SignCsp(h[:], &crt)
+	if err != nil {
+		return nil, err
+	}
+	return tx.WithSignature(s, sig)
+}
+
 
 // SignNewTx creates a transaction and signs it.
 func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {

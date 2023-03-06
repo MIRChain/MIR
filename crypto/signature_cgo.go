@@ -98,17 +98,11 @@ func SigToPubGost(hash, sig []byte) (*gost3410.PublicKey, error) {
 	return pubKey, nil
 }
 
-func SigToPubCsp(hash, sig []byte) (interface{}, error) {
+func SigToPubCsp(hash, sig []byte) ([]byte, error) {
 	s, err := Ecrecover(hash, sig)
 	if err != nil {
 		return nil, err
 	}
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		return nil, fmt.Errorf("store error: %s", err)
-	}
-	defer store.Close()
-
 	return s, nil
 }
 
