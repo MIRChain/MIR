@@ -54,3 +54,24 @@ profile.cov
 generated-release-notes.md
 
 build/PEEPS
+
+# MIR
+
+/dev_chain*/node*/keystore/
+/dev_chain*/node*/masterchain/
+/dev_chain*/node*/quorum-raft-state/
+/dev_chain*/node*/raft-snap/
+/dev_chain*/node*/raft-wal/
+/dev_chain*/node*/enode.key
+/dev_chain/node*/meth.ipc
+
+/dev_chain*/learner*/keystore/
+/dev_chain*/learner*/masterchain/
+/dev_chain*/learner*/quorum-raft-state/
+/dev_chain*/learner*/raft-snap/
+/dev_chain*/learner*/raft-wal/
+/dev_chain*/learner*/enode.key
+/dev_chain*/learner*/meth.ipc
+/dev_chain*/masterchain_data
+
+*/masterchain_data/

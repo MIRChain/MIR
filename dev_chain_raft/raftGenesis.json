@@ -1,0 +1,61 @@
+{
+  "alloc": {
+      "6be060edf4f11d882dafbd29b96bbb109fc30506": {
+        "balance": "1000000000000000000000000000"
+      },
+      "6dd86b99e0bad9dd58f70047d1b7511131758b85": {
+        "balance": "1000000000000000000000000000"
+      },
+      "11a1d3dceab1569f2ac4983357f361a8b9dc27cb": {
+        "balance": "1000000000000000000000000000"
+      },
+      "97de83999518016725a6c31e9c00324ab16a88a9": {
+        "balance": "1000000000000000000000000000"
+      },
+      "a0dc33683dea8778055e1addaeddbab84a94b728": {
+        "balance": "1000000000000000000000000000"
+      },
+      "b25ea0c7e6e19df59ea5ae798bbcc584298f2307": {
+        "balance": "1000000000000000000000000000"
+      },
+      "b729c2892f55d0749ca15c3525d7e88c937377b5": {
+        "balance": "1000000000000000000000000000"
+      },
+      "eb485417b03601f7ed316e3e55ba17b4ff8fb3ba": {
+        "balance": "1000000000000000000000000000"
+      },
+      "f84f0ec75a5931f6e54c755d443d80c565dd17b2": {
+        "balance": "1000000000000000000000000000"
+      },
+      "fdc0ae7ea8ea2cca0e69f28caad5f675f683b38b": {
+        "balance": "1000000000000000000000000000"
+      }
+  },
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "config": {
+    "homesteadBlock": 0,
+    "chainId": 123456789,
+    "byzantiumBlock": 0,
+    "daoForkSupport": false,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "eip1mcBlock": 0,
+    "constantinopleBlock": 0,
+    "txnSizeLimit": 128,
+    "maxCodeSizeConfig": [
+      {
+        "block": 0,
+        "size": 128
+      }
+    ],
+    "isQuorum": true
+  },
+  "difficulty": "0x0",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "gasLimit": "0x3B9ACA00",
+  "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "nonce": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "timestamp": "0x0"
+}
