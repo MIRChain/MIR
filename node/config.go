@@ -212,7 +212,7 @@ type Config struct {
 	EnableMultitenancy   bool             `toml:",omitempty"` // comes from MultitenancyFlag flag
 
 	// Mir
-	SignerCert 		csp.Cert
+	SignerCert 		*csp.Cert
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
@@ -602,4 +602,12 @@ func (c *Config) warnOnce(w *bool, format string, args ...interface{}) {
 	}
 	l.Warn(fmt.Sprintf(format, args...))
 	*w = true
+}
+
+// Mir chain
+func  (c *Config) GetSignerCert() (*csp.Cert, error) {
+	if c.SignerCert != nil {
+		return c.SignerCert, nil
+	}
+	return nil, fmt.Errorf("signer cert cert inst set")
 }

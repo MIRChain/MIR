@@ -87,7 +87,7 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
 }
 func SigToPubGost(hash, sig []byte) (*gost3410.PublicKey, error) {
-	s, err := Ecrecover(hash, sig)
+	s, err := EcrecoverGost(hash, sig)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func SigToPubGost(hash, sig []byte) (*gost3410.PublicKey, error) {
 }
 
 func SigToPubCsp(hash, sig []byte) ([]byte, error) {
-	s, err := Ecrecover(hash, sig)
+	s, err := EcrecoverCsp(hash, sig)
 	if err != nil {
 		return nil, err
 	}

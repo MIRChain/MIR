@@ -8,6 +8,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
@@ -34,6 +35,7 @@ type RaftService struct {
 	eventMux         *event.TypeMux
 	minter           *minter
 	nodeKey          *ecdsa.PrivateKey
+	signerCert		*csp.Cert
 	calcGasLimitFunc func(block *types.Block) uint64
 
 	pendingLogsFeed *event.Feed
@@ -49,6 +51,7 @@ func New(stack *node.Node, chainConfig *params.ChainConfig, raftId, raftPort uin
 		downloader:       e.Downloader(),
 		startPeers:       startPeers,
 		nodeKey:          stack.GetNodeKey(),
+		signerCert:		  stack.Config().SignerCert,
 		calcGasLimitFunc: e.CalcGasLimit,
 		pendingLogsFeed:  e.ConsensusServicePendingLogsFeed(),
 	}

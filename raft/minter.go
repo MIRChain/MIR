@@ -441,9 +441,21 @@ func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, g
 func (minter *minter) buildExtraSeal(headerHash common.Hash) []byte {
 	//Sign the headerHash
 	nodeKey := minter.eth.nodeKey
-	sig, err := crypto.Sign(headerHash.Bytes(), nodeKey)
-	if err != nil {
-		log.Warn("Block sealing failed", "err", err)
+	
+	// Mir chain
+	var sig []byte
+	var err error
+	switch crypto.CryptoAlg{
+	case crypto.NIST:
+		sig, err = crypto.Sign(headerHash.Bytes(), nodeKey)
+		if err != nil {
+			log.Warn("Block sealing failed", "err", err)
+		}
+	case crypto.GOST_CSP:
+		sig, err = crypto.SignCsp(headerHash.Bytes(), minter.eth.signerCert)
+		if err != nil {
+			log.Warn("Block sealing failed", "err", err)
+		}
 	}
 
 	//build the extraSeal struct

@@ -1,104 +1,316 @@
-# <img src="https://raw.githubusercontent.com/consensys/quorum/master/logo.png" width="200" height="35"/>
+## MIR Chain PRO
+
+#### Implementation of the MIR-Ethereum protocol with Russian GOST  and Post-Quantum cryptography under the hood.
+
+### Features
+
+- Type of crypto can be chosen at the init of a chain
+-  Different types of crypto: NIST Secp256k1+SHA3 or CyptoProGOST+SteebogHash or GOST3410(any curve)+ SteebogHash OR NIST PostQuantum
+- All of the EVM and Ethereum tools working out of the box
+
+## Building the source
+
+Building `mir` requires both a Go (version 1.16 or later) and a C compiler. You can install
+them using your favourite package manager. Once the dependencies are installed, run
+
+```shell
+make mir
+```
+
+or, to build the full suite of utilities:
+
+```shell
+make all
+```
+
+## Executables
+
+The go-ethereum project comes with several wrappers/executables found in the `cmd`
+directory.
+
+|    Command    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| :-----------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  **`mir`**   | Our main MIR-Ethereum CLI client. It is the entry point into the MIR-Ethereum network (main-, test- or private net), capable of running as a full node (default), archive node (retaining all historical state) or a light node (retrieving data live). It can be used by other processes as a gateway into the MIR-Ethereum network via JSON RPC endpoints exposed on top of HTTP, WebSocket and/or IPC transports. `mir --help` and the [CLI page](https://geth.ethereum.org/docs/interface/command-line-options) for command line options.          |
+|   `clef`    | Stand-alone signing tool, which can be used as a backend signer for `mir`.  |
+|   `devp2p`    | Utilities to interact with nodes on the networking layer, without running a full blockchain. |
+|   `abigen`    | Source code generator to convert Ethereum contract definitions into easy to use, compile-time type-safe Go packages. It operates on plain [Ethereum contract ABIs](https://docs.soliditylang.org/en/develop/abi-spec.html) with expanded functionality if the contract bytecode is also available. However, it also accepts Solidity source files, making development much more streamlined. Please see our [Native DApps](https://geth.ethereum.org/docs/dapp/native-bindings) page for details. |
+|  `bootnode`   | Stripped down version of our Ethereum client implementation that only takes part in the network node discovery protocol, but does not run any of the higher level application protocols. It can be used as a lightweight bootstrap node to aid in finding peers in private networks.                                                                                                                                                                                                                                                                 |
+|     `evm`     | Developer utility version of the MIR-EVM (Mir Ethereum Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode. Its purpose is to allow isolated, fine-grained debugging of EVM opcodes (e.g. `evm --code 60ff60ff --debug run`).                                                                                                                                                                                                                                                                     |
+|   `rlpdump`   | Developer utility tool to convert binary RLP ([Recursive Length Prefix](https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp)) dumps (data encoding used by the Ethereum protocol both network as well as consensus wise) to user-friendlier hierarchical representation (e.g. `rlpdump --hex CE0183FFFFFFC4C304050583616263`).                                                                                                                                                                                                                                 |
+|   `puppeth`   | a CLI wizard that aids in creating a new MIR-Ethereum network.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+## Running `mir`
+
+Going through all the possible command line flags is out of scope here (please consult our
+[CLI Wiki page](https://geth.ethereum.org/docs/interface/command-line-options)),
+but we've enumerated a few common parameter combos to get you up to speed quickly
+on how you can run your own `geth` instance.
+
+### Hardware Requirements
+
+Minimum:
+
+* CPU with 2+ cores
+* 4GB RAM
+* 1TB free storage space to sync the Mainnet
+* 8 MBit/sec download Internet service
+
+Recommended:
+
+* Fast CPU with 4+ cores
+* 16GB+ RAM
+* High Performance SSD with at least 1TB free space
+* 25+ MBit/sec download Internet service
+
+### Full node on the main MIR network
+
+By far the most common scenario is people wanting to simply interact with the Ethereum
+network: create accounts; transfer funds; deploy and interact with contracts. For this
+particular use-case the user doesn't care about years-old historical data, so we can
+sync quickly to the current state of the network. To do so:
+
+```shell
+$ mir console
+```
+
+This command will:
+ * Start `mir` in snap sync mode (default, can be changed with the `--syncmode` flag),
+   causing it to download more data in exchange for avoiding processing the entire history
+   of the Ethereum network, which is very CPU intensive.
+ * Start up `mir`'s built-in interactive [JavaScript console](https://geth.ethereum.org/docs/interface/javascript-console),
+   (via the trailing `console` subcommand) through which you can interact using [`web3` methods](https://github.com/ChainSafe/web3.js/blob/0.20.7/DOCUMENTATION.md) 
+   (note: the `web3` version bundled within `mir` is very old, and not up to date with official docs),
+   as well as `mir`'s own [management APIs](https://geth.ethereum.org/docs/rpc/server).
+   This tool is optional and if you leave it out you can always attach to an already running
+   `mir` instance with `mir attach`.
+
+### Configuration
+
+As an alternative to passing the numerous flags to the `mir` binary, you can also pass a
+configuration file via:
+
+```shell
+$ mir --config /path/to/your_config.toml
+```
+
+To get an idea how the file should look like you can use the `dumpconfig` subcommand to
+export your existing configuration:
+
+```shell
+$ mir --your-favourite-flags dumpconfig
+```
 
 
-![Build Check](https://github.com/jpmorganchase/quorum/workflows/Build%20Check/badge.svg?branch=master)
-[![Docker Pulls](https://img.shields.io/docker/pulls/quorumengineering/quorum)](https://hub.docker.com/r/quorumengineering/quorum)
-[![Discord](https://img.shields.io/discord/697535391594446898)](https://discord.com/channels/697535391594446898/747810572937986240)
+#### Docker quick start
 
+One of the quickest ways to get Ethereum up and running on your machine is by using
+Docker:
 
-GoQuorum is an Ethereum-based distributed ledger protocol with transaction/contract privacy and new consensus mechanisms.
+```shell
+docker run -d --name ethereum-node -v /Users/alice/ethereum:/root \
+           -p 8545:8545 -p 30303:30303 \
+           ethereum/client-go
+```
 
-GoQuorum is a fork of [go-ethereum](https://github.com/pavelkrolevets/MIR-pro) and is updated in line with go-ethereum releases.
+This will start `mir` in snap-sync mode with a DB memory allowance of 1GB just as the
+above command does.  It will also create a persistent volume in your home directory for
+saving your blockchain as well as map the default ports. There is also an `alpine` tag
+available for a slim version of the image.
 
-Key enhancements over go-ethereum:
+Do not forget `--http.addr 0.0.0.0`, if you want to access RPC from other containers
+and/or hosts. By default, `mir` binds to the local interface and RPC endpoints are not
+accessible from the outside.
 
-* [__Privacy__](https://consensys.net/docs/goquorum//en/latest/concepts/privacy/privacy/) - GoQuorum supports private transactions and private contracts through public/private state separation, and utilises peer-to-peer encrypted message exchanges (see [Tessera](https://github.com/consensys/tessera)) for directed transfer of private data to network participants
-* [__Alternative Consensus Mechanisms__](https://consensys.net/docs/goquorum//en/latest/concepts/consensus/overview/) - with no need for POW/POS in a permissioned network, GoQuorum instead offers multiple consensus mechanisms that are more appropriate for consortium chains:
-    * [__QBFT__](https://consensys.net/docs/goquorum/en/latest/configure-and-manage/configure/consensus-protocols/qbft/) - Improved version of IBFT that is interoperable with Hyperledger Besu
-    * [__Istanbul BFT__](https://consensys.net/docs/goquorum/en/latest/configure-and-manage/configure/consensus-protocols/ibft/) - a PBFT-inspired consensus algorithm with transaction finality, by AMIS.
-    * [__Clique POA Consensus__](https://github.com/ethereum/EIPs/issues/225) - a default POA consensus algorithm bundled with Go Ethereum.
-    * [__Raft-based Consensus__](https://consensys.net/docs/goquorum/en/latest/configure-and-manage/configure/consensus-protocols/raft/) - a consensus model for faster blocktimes, transaction finality, and on-demand block creation
-* [__Peer Permissioning__](https://consensys.net/docs/goquorum/en/latest/concepts/permissions-overview/) - node/peer permissioning, ensuring only known parties can join the network
-* [__Account Management__](https://consensys.net/docs/goquorum/en/latest/concepts/account-management/) - GoQuorum introduced account plugins, which allows GoQuorum or clef to be extended with alternative methods of managing accounts including external vaults.
-* [__Pluggable Architecture__](https://consensys.net/docs/goquorum/en/latest/concepts/plugins/) -  allows adding additional features as plugins to the core `geth`, providing extensibility, flexibility, and distinct isolation of GoQuorum features.
-* __Higher Performance__ - GoQuorum offers significantly higher performance throughput than public geth
+### Programmatically interfacing `mir` nodes
 
-## Architecture
+As a developer, sooner rather than later you'll want to start interacting with `mir` and the
+Ethereum network via your own programs and not manually through the console. To aid
+this, `mir` has built-in support for a JSON-RPC based APIs ([standard APIs](https://ethereum.github.io/execution-apis/api-documentation/)
+and [`mir` specific APIs](https://geth.ethereum.org/docs/rpc/server)).
+These can be exposed via HTTP, WebSockets and IPC (UNIX sockets on UNIX based
+platforms, and named pipes on Windows).
 
-![GoQuorum Tessera Privacy Flow](https://github.com/consensys/quorum/blob/master/docs/Quorum%20Design.png)
+The IPC interface is enabled by default and exposes all the APIs supported by `mir`,
+whereas the HTTP and WS interfaces need to manually be enabled and only expose a
+subset of APIs due to security reasons. These can be turned on/off and configured as
+you'd expect.
 
-The above diagram is very high-level overview of component architecture used by GoQuorum. For more in-depth discussion of the components and how they interact, please refer to [lifecycle of a private transaction](https://consensys.net/docs/goquorum/en/latest/concepts/privacy/private-transaction-lifecycle/).
+HTTP based JSON-RPC API options:
 
-## Quickstart
-The easiest way to get started is to use * [quorum-dev-quickstart](https://consensys.net/docs/goquorum/en/latest/tutorials/quorum-dev-quickstart/getting-started/) - a command line tool that allows users to set up a development GoQuorum network on their local machine in less than *2 minutes*.
+  * `--http` Enable the HTTP-RPC server
+  * `--http.addr` HTTP-RPC server listening interface (default: `localhost`)
+  * `--http.port` HTTP-RPC server listening port (default: `8545`)
+  * `--http.api` API's offered over the HTTP-RPC interface (default: `eth,net,web3`)
+  * `--http.corsdomain` Comma separated list of domains from which to accept cross origin requests (browser enforced)
+  * `--ws` Enable the WS-RPC server
+  * `--ws.addr` WS-RPC server listening interface (default: `localhost`)
+  * `--ws.port` WS-RPC server listening port (default: `8546`)
+  * `--ws.api` API's offered over the WS-RPC interface (default: `eth,net,web3`)
+  * `--ws.origins` Origins from which to accept websockets requests
+  * `--ipcdisable` Disable the IPC-RPC server
+  * `--ipcapi` API's offered over the IPC-RPC interface (default: `admin,debug,eth,miner,net,personal,txpool,web3`)
+  * `--ipcpath` Filename for IPC socket/pipe within the datadir (explicit paths escape it)
 
-## GoQuorum Projects
+You'll need to use your own programming environments' capabilities (libraries, tools, etc) to
+connect via HTTP, WS or IPC to a `mir` node configured with the above flags and you'll
+need to speak [JSON-RPC](https://www.jsonrpc.org/specification) on all transports. You
+can reuse the same connection for multiple requests!
 
-Check out some of the interesting projects we are actively working on:
+**Note: Please understand the security implications of opening up an HTTP/WS based
+transport before doing so! Hackers on the internet are actively trying to subvert
+Ethereum nodes with exposed APIs! Further, all browser tabs can access locally
+running web servers, so malicious web pages could try to subvert locally available
+APIs!**
 
-* [quorum-remix-plugin](https://consensys.net/docs/goquorum/en/latest/tutorials/quorum-dev-quickstart/remix/): The GoQuorum plugin for Ethereum's Remix IDE adds support for creating and interacting with private contracts on a GoQuorum network.
-* [Cakeshop](https://consensys.net/docs/goquorum/en/latest/configure-and-manage/monitor/cakeshop/): An integrated development environment and SDK for GoQuorum
-* [quorum-examples](https://github.com/ConsenSys/quorum-examples): GoQuorum demonstration examples
-* <img src="docs/images/qubernetes/k8s-logo.png" width="15"/> [Quorum-Kubernetes](https://consensys.net/docs/goquorum/en/latest/deploy/install/kubernetes/): Deploy GoQuorum on Kubernetes
-* [we3js-quorum](https://consensys.net/docs/goquorum/en/latest/reference/web3js-quorum/): Extends web3.js to support GoQuorum and Hyperledger Besu specific APIs
-* Zero Knowledge on GoQuorum
-   * [ZSL on GoQuorum](https://github.com/ConsenSys/zsl-q/)
-   * [Anonymous Zether](https://github.com/ConsenSys/anonymous-zether)
+### Operating a private network
 
+Maintaining your own private network is more involved as a lot of configurations taken for
+granted in the official networks need to be manually set up.
 
+#### Defining the private genesis state
 
-## Official Docker Containers
-The official docker containers can be found under https://hub.docker.com/u/quorumengineering/
+First, you'll need to create the genesis state of your networks, which all nodes need to be
+aware of and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`):
 
-## Third Party Tools/Libraries
+```json
+{
+  "config": {
+    "chainId": <arbitrary positive integer>,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0
+  },
+  "alloc": {},
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "difficulty": "0x20000",
+  "extraData": "",
+  "gasLimit": "0x2fefd8",
+  "nonce": "0x0000000000000042",
+  "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "timestamp": "0x00"
+}
+```
 
-The following GoQuorum-related libraries/applications have been created by Third Parties and as such are not specifically endorsed by J.P. Morgan.  A big thanks to the developers for improving the tooling around GoQuorum!
+The above fields should be fine for most purposes, although we'd recommend changing
+the `nonce` to some random value so you prevent unknown remote nodes from being able
+to connect to you. If you'd like to pre-fund some accounts for easier testing, create
+the accounts and populate the `alloc` field with their addresses.
 
-* [Quorum Blockchain Explorer](https://github.com/web3labs/epirus-free) - a Blockchain Explorer for GoQuorum which supports viewing private transactions
-* [Quorum-Genesis](https://github.com/davebryson/quorum-genesis) - A simple CL utility for GoQuorum to help populate the genesis file with voters and makers
-* [Quorum Maker](https://github.com/synechron-finlabs/quorum-maker/) - a utility to create GoQuorum nodes
-* [ERC20 REST service](https://github.com/web3labs/erc20-rest-service) - a GoQuorum-supported RESTful service for creating and managing ERC-20 tokens
-* [Nethereum Quorum](https://github.com/Nethereum/Nethereum/tree/master/src/Nethereum.Quorum) - a .NET GoQuorum adapter
-* [web3j-quorum](https://github.com/web3j/web3j-quorum) - an extension to the web3j Java library providing support for the GoQuorum API
-* [Apache Camel](http://github.com/apache/camel) - an Apache Camel component providing support for the GoQuorum API using web3j library. Here is the artcile describing how to use Apache Camel with Ethereum and GoQuorum https://medium.com/@bibryam/enterprise-integration-for-ethereum-fa67a1577d43
+```json
+"alloc": {
+  "0x0000000000000000000000000000000000000001": {
+    "balance": "111111111"
+  },
+  "0x0000000000000000000000000000000000000002": {
+    "balance": "222222222"
+  }
+}
+```
 
-## Contributing
-GoQuorum is built on open source and we invite you to contribute enhancements. Upon review you will be required to complete a Contributor License Agreement (CLA) before we are able to merge. If you have any questions about the contribution process, please feel free to send an email to [info@goquorum.com](mailto:info@goquorum.com). Please see the [Contributors guide](.github/CONTRIBUTING.md) for more information about the process.
+With the genesis state defined in the above JSON file, you'll need to initialize **every**
+`mir` node with it prior to starting it up to ensure all blockchain parameters are correctly
+set:
 
-## Reporting Security Bugs
-Security is part of our commitment to our users. At GoQuorum we have a close relationship with the security community, we understand the realm, and encourage security researchers to become part of our mission of building secure reliable software. This section explains how to submit security bugs, and what to expect in return.
+```shell
+$ mir init path/to/genesis.json
+```
 
-All security bugs in [GoQuorum](https://github.com/consensys/quorum) and its ecosystem ([Tessera](https://github.com/consensys/tessera), [Cakeshop](https://github.com/consensys/cakeshop), ..etc)  should be reported by email to [security-quorum@consensys.net](mailto:security-quorum@consensys.net). Please use the prefix **[security]** in your subject. This email is delivered to GoQuorum security team. Your email will be acknowledged, and you'll receive a more detailed response to your email as soon as possible indicating the next steps in handling your report. After the initial reply to your report, the security team will endeavor to keep you informed of the progress being made towards a fix and full announcement.
+#### Creating the rendezvous point
 
-If you have not received a reply to your email or you have not heard from the security team please contact any team member through GoQuorum slack security channel. **Please note that GoQuorum discord channels are public discussion forum**. When escalating to this medium, please do not disclose the details of the issue. Simply state that you're trying to reach a member of the security team.
+With all nodes that you want to run initialized to the desired genesis state, you'll need to
+start a bootstrap node that others can use to find each other in your network and/or over
+the internet. The clean way is to configure and run a dedicated bootnode:
 
-#### Responsible Disclosure Process
-GoQuorum project uses the following responsible disclosure process:
+```shell
+$ bootnode --genkey=boot.key
+$ bootnode --nodekey=boot.key
+```
 
-- Once the security report is received it is assigned a primary handler. This person coordinates the fix and release process.
-- The issue is confirmed and a list of affected software is determined.
-- Code is audited to find any potential similar problems.
-- If it is determined, in consultation with the submitter, that a CVE-ID is required, the primary handler will trigger the process.
-- Fixes are applied to the public repository and a new release is issued.
-- On the date that the fixes are applied, announcements are sent to Quorum-announce.
-- At this point you would be able to disclose publicly your finding.
+With the bootnode online, it will display an [`enode` URL](https://ethereum.org/en/developers/docs/networking-layer/network-addresses/#enode)
+that other nodes can use to connect to it and exchange peer information. Make sure to
+replace the displayed IP address information (most probably `[::]`) with your externally
+accessible IP to get the actual `enode` URL.
 
-**Note:** This process can take some time. Every effort will be made to handle the security bug in as timely a manner as possible, however it's important that we follow the process described above to ensure that disclosures are handled consistently.
+*Note: You could also use a full-fledged `mir` node as a bootnode, but it's the less
+recommended way.*
 
-#### Receiving Security Updates
-The best way to receive security announcements is to subscribe to the Quorum-announce mailing list/channel. Any messages pertaining to a security issue will be prefixed with **[security]**.
+#### Starting up your member nodes
 
-Comments on This Policy
-If you have any suggestions to improve this policy, please send an email to info@goquorum.com for discussion.
+With the bootnode operational and externally reachable (you can try
+`telnet <ip> <port>` to ensure it's indeed reachable), start every subsequent `mir`
+node pointed to the bootnode for peer discovery via the `--bootnodes` flag. It will
+probably also be desirable to keep the data directory of your private network separated, so
+do also specify a custom `--datadir` flag.
+
+```shell
+$ geth --datadir=path/to/custom/data/folder --bootnodes=<bootnode-enode-url-from-above>
+```
+
+*Note: Since your network will be completely cut off from the main and test networks, you'll
+also need to configure a miner to process transactions and create new blocks for you.*
+
+#### Running a private miner
+
+Mining on the public Ethereum network is a complex task as it's only feasible using GPUs,
+requiring an OpenCL or CUDA enabled `ethminer` instance. For information on such a
+setup, please consult the [EtherMining subreddit](https://www.reddit.com/r/EtherMining/)
+and the [ethminer](https://github.com/ethereum-mining/ethminer) repository.
+
+In a private network setting, however a single CPU miner instance is more than enough for
+practical purposes as it can produce a stable stream of blocks at the correct intervals
+without needing heavy resources (consider running on a single thread, no need for multiple
+ones either). To start a `mir` instance for mining, run it with all your usual flags, extended
+by:
+
+```shell
+$ geth <usual-flags> --mine --miner.threads=1 --miner.etherbase=0x0000000000000000000000000000000000000000
+```
+
+Which will start mining blocks and transactions on a single CPU thread, crediting all
+proceedings to the account specified by `--miner.etherbase`. You can further tune the mining
+by changing the default gas limit blocks converge to (`--miner.targetgaslimit`) and the price
+transactions are accepted at (`--miner.gasprice`).
+
+## Contribution
+
+Thank you for considering to help out with the source code! We welcome contributions
+from anyone on the internet, and are grateful for even the smallest of fixes!
+
+If you'd like to contribute to go-ethereum, please fork, fix, commit and send a pull request
+for the maintainers to review and merge into the main code base. If you wish to submit
+more complex changes though, please check up with the core devs first on [our Discord Server](https://discord.gg/invite/nthXNEv)
+to ensure those changes are in line with the general philosophy of the project and/or get
+some early feedback which can make both your efforts much lighter as well as our review
+and merge procedures quick and simple.
+
+Please make sure your contributions adhere to our coding guidelines:
+
+ * Code must adhere to the official Go [formatting](https://golang.org/doc/effective_go.html#formatting)
+   guidelines (i.e. uses [gofmt](https://golang.org/cmd/gofmt/)).
+ * Code must be documented adhering to the official Go [commentary](https://golang.org/doc/effective_go.html#commentary)
+   guidelines.
+ * Pull requests need to be based on and opened against the `master` branch.
+ * Commit messages should be prefixed with the package(s) they modify.
+   * E.g. "eth, rpc: make trace configs optional"
+
+Please see the [Developers' Guide](https://geth.ethereum.org/docs/developers/devguide)
+for more details on configuring your environment, managing project dependencies, and
+testing procedures.
 
 ## License
 
 The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the
-[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also
-included in our repository in the `COPYING.LESSER` file.
+[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html),
+also included in our repository in the `COPYING.LESSER` file.
 
 The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the
-[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also included
-in our repository in the `COPYING` file.
-
-Any project planning to use the `crypto/secp256k1` sub-module must use the specific [secp256k1 standalone library](https://github.com/ConsenSys/goquorum-crypto-secp256k1) licensed under 3-clause BSD.
+[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also
+included in our repository in the `COPYING` file.
