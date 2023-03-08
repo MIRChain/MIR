@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -761,7 +762,7 @@ func (n *Node) IsPermissionEnabled() bool {
 // Quorum
 //
 // delegate call to node.Config
-func (n *Node) GetNodeKey() *ecdsa.PrivateKey {
+func (n *Node) GetNodeKey() *T {
 	return n.config.NodeKey()
 }
 

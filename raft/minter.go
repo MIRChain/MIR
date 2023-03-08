@@ -17,6 +17,7 @@
 package raft
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -31,6 +32,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -52,11 +55,11 @@ type work struct {
 	header       *types.Header
 }
 
-type minter struct {
+type minter [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
 	config           *params.ChainConfig
 	mu               sync.Mutex
 	mux              *event.TypeMux
-	eth              *RaftService
+	eth              *RaftService[T]
 	chain            *core.BlockChain
 	chainDb          ethdb.Database
 	coinbase         common.Address
@@ -77,8 +80,8 @@ type extraSeal struct {
 	Signature []byte // Signature of the block minter
 }
 
-func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Duration, etherbase common.Address) *minter {
-	minter := &minter{
+func newMinter[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](config *params.ChainConfig, eth *RaftService[T], blockTime time.Duration, etherbase common.Address) *minter[T] {
+	minter := &minter[T]{
 		config:           config,
 		eth:              eth,
 		mux:              eth.EventMux(),
@@ -105,12 +108,12 @@ func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Dura
 	return minter
 }
 
-func (minter *minter) start() {
+func (minter *minter[T]) start() {
 	atomic.StoreInt32(&minter.minting, 1)
 	minter.requestMinting()
 }
 
-func (minter *minter) stop() {
+func (minter *minter[T]) stop() {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
@@ -121,20 +124,20 @@ func (minter *minter) stop() {
 // Notify the minting loop that minting should occur, if it's not already been
 // requested. Due to the use of a RingChannel, this function is idempotent if
 // called multiple times before the minting occurs.
-func (minter *minter) requestMinting() {
+func (minter *minter[T]) requestMinting() {
 	minter.shouldMine.In() <- struct{}{}
 }
 
 type AddressTxes map[common.Address]types.Transactions
 
-func (minter *minter) updateSpeculativeChainPerNewHead(newHeadBlock *types.Block) {
+func (minter *minter[T]) updateSpeculativeChainPerNewHead(newHeadBlock *types.Block) {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
 	minter.speculativeChain.accept(newHeadBlock)
 }
 
-func (minter *minter) updateSpeculativeChainPerInvalidOrdering(headBlock *types.Block, invalidBlock *types.Block) {
+func (minter *minter[T]) updateSpeculativeChainPerInvalidOrdering(headBlock *types.Block, invalidBlock *types.Block) {
 	invalidHash := invalidBlock.Hash()
 
 	log.Info("Handling InvalidRaftOrdering", "invalid block", invalidHash, "current head", headBlock.Hash())
@@ -152,7 +155,7 @@ func (minter *minter) updateSpeculativeChainPerInvalidOrdering(headBlock *types.
 	minter.speculativeChain.unwindFrom(invalidHash, headBlock)
 }
 
-func (minter *minter) eventLoop() {
+func (minter *minter[T]) eventLoop() {
 	defer minter.chainHeadSub.Unsubscribe()
 	defer minter.txPreSub.Unsubscribe()
 
@@ -229,7 +232,7 @@ func throttle(rate time.Duration, f func()) func() {
 //   1. A block is guaranteed to be minted within `blockTime` of being
 //      requested.
 //   2. We never mint a block more frequently than `blockTime`.
-func (minter *minter) mintingLoop() {
+func (minter *minter[T]) mintingLoop() {
 	throttledMintNewBlock := throttle(minter.blockTime, func() {
 		if atomic.LoadInt32(&minter.minting) == 1 {
 			minter.mintNewBlock()
@@ -254,7 +257,7 @@ func generateNanoTimestamp(parent *types.Block) (tstamp int64) {
 }
 
 // Assumes mu is held.
-func (minter *minter) createWork() *work {
+func (minter *minter[T]) createWork() *work {
 	parent := minter.speculativeChain.head
 	parentNumber := parent.Number()
 	tstamp := generateNanoTimestamp(parent)
@@ -296,7 +299,7 @@ func (minter *minter) createWork() *work {
 	}
 }
 
-func (minter *minter) getTransactions() *types.TransactionsByPriceAndNonce {
+func (minter *minter[T]) getTransactions() *types.TransactionsByPriceAndNonce {
 	allAddrTxes, err := minter.eth.TxPool().Pending()
 	if err != nil { // TODO: handle
 		panic(err)
@@ -307,7 +310,7 @@ func (minter *minter) getTransactions() *types.TransactionsByPriceAndNonce {
 }
 
 // Sends-off events asynchronously.
-func (minter *minter) firePendingBlockEvents(logs []*types.Log) {
+func (minter *minter[T]) firePendingBlockEvents(logs []*types.Log) {
 	// Copy logs before we mutate them, adding a block hash.
 	copiedLogs := make([]*types.Log, len(logs))
 	for i, l := range logs {
@@ -321,7 +324,7 @@ func (minter *minter) firePendingBlockEvents(logs []*types.Log) {
 	}()
 }
 
-func (minter *minter) mintNewBlock() {
+func (minter *minter[T]) mintNewBlock() {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
@@ -438,24 +441,12 @@ func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, g
 	return publicReceipt, privateReceipt, nil
 }
 
-func (minter *minter) buildExtraSeal(headerHash common.Hash) []byte {
+func (minter *minter[T]) buildExtraSeal(headerHash common.Hash) []byte {
 	//Sign the headerHash
 	nodeKey := minter.eth.nodeKey
-	
-	// Mir chain
-	var sig []byte
-	var err error
-	switch crypto.CryptoAlg{
-	case crypto.NIST:
-		sig, err = crypto.Sign(headerHash.Bytes(), nodeKey)
-		if err != nil {
-			log.Warn("Block sealing failed", "err", err)
-		}
-	case crypto.GOST_CSP:
-		sig, err = crypto.SignCsp(headerHash.Bytes(), minter.eth.signerCert)
-		if err != nil {
-			log.Warn("Block sealing failed", "err", err)
-		}
+	sig, err := crypto.Sign(headerHash.Bytes(), nodeKey)
+	if err != nil {
+		log.Warn("Block sealing failed", "err", err)
 	}
 
 	//build the extraSeal struct

@@ -23,6 +23,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
@@ -113,6 +115,53 @@ func (v *Secp256k1) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+// Gost3410 is the "gost3410" key, which holds a public key.
+type Gost3410 gost3410.PublicKey
+
+func (v Gost3410) ENRKey() string { return "gost3410" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v Gost3410) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, (*gost3410.PublicKey)(&v).Raw())
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *Gost3410) DecodeRLP(s *rlp.Stream) error {
+	buf, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	pk, err := gost3410.NewPublicKey(gost3410.GostCurve, buf)
+	if err != nil {
+		return err
+	}
+	*v = (Gost3410)(*pk)
+	return nil
+}
+
+type Gost3410CSP csp.PublicKey
+
+func (v Gost3410CSP) ENRKey() string { return "gost3410" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v Gost3410CSP) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, (*csp.PublicKey)(&v).Raw())
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *Gost3410CSP) DecodeRLP(s *rlp.Stream) error {
+	buf, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	pk, err := csp.NewPublicKey(gost3410.GostCurve, buf)
+	if err != nil {
+		return err
+	}
+	*v = (Gost3410)(*pk)
+	return nil
+}
+
 // s256raw is an unparsed secp256k1 public key entry.
 type s256raw []byte
 
@@ -129,11 +178,25 @@ func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
 	return r.Load(&pubkey)
 }
 
-func signV4Compat(r *enr.Record, pubkey *ecdsa.PublicKey) {
-	r.Set((*Secp256k1)(pubkey))
-	if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
-		panic(err)
+func signV4Compat[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](r *enr.Record, key T) {
+	switch pubkey := any(key).(type) {
+	case *ecdsa.PublicKey:
+		r.Set((*Secp256k1)(pubkey))
+		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+			panic(err)
+		}
+	case *gost3410.PublicKey:
+		r.Set((*Secp256k1)(pubkey))
+		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+			panic(err)
+		}
+	case *csp.PublicKey:
+		r.Set((*Secp256k1)(pubkey))
+		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+			panic(err)
+		}
 	}
+
 }
 
 // NullID is the "null" ENR identity scheme. This scheme stores the node

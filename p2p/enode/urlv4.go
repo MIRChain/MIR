@@ -28,6 +28,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
@@ -82,7 +84,7 @@ func ParseV4(rawurl string) (*Node, error) {
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
+func NewV4[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](pubkey *T, ip net.IP, tcp, udp int) *Node {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
@@ -92,7 +94,7 @@ func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 
 // broken out from `func NewV4` (above) same in upstream go-ethereum, but taken out
 // to avoid code duplication b/t NewV4 and NewV4Hostname
-func newV4(pubkey *ecdsa.PublicKey, r enr.Record, tcp, udp int) *Node {
+func newV4[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](pubkey *T, r enr.Record, tcp, udp int) *Node {
 	if udp != 0 {
 		r.Set(enr.UDP(udp))
 	}

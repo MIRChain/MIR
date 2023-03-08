@@ -9,6 +9,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
@@ -20,7 +21,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
-type RaftService struct {
+type RaftService [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
 	blockchain     *core.BlockChain
 	chainDb        ethdb.Database // Block chain database
 	txMu           sync.Mutex
@@ -34,15 +35,14 @@ type RaftService struct {
 	// we need an event mux to instantiate the blockchain
 	eventMux         *event.TypeMux
 	minter           *minter
-	nodeKey          *ecdsa.PrivateKey
-	signerCert		*csp.Cert
+	nodeKey          *T
 	calcGasLimitFunc func(block *types.Block) uint64
 
 	pendingLogsFeed *event.Feed
 }
 
-func New(stack *node.Node, chainConfig *params.ChainConfig, raftId, raftPort uint16, joinExisting bool, blockTime time.Duration, e *eth.Ethereum, startPeers []*enode.Node, raftLogDir string, useDns bool) (*RaftService, error) {
-	service := &RaftService{
+func New [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] (stack *node.Node, chainConfig *params.ChainConfig, raftId, raftPort uint16, joinExisting bool, blockTime time.Duration, e *eth.Ethereum, startPeers []*enode.Node, raftLogDir string, useDns bool) (*RaftService[T], error) {
+	service := &RaftService[T]{
 		eventMux:         stack.EventMux(),
 		chainDb:          e.ChainDb(),
 		blockchain:       e.BlockChain(),
@@ -50,8 +50,7 @@ func New(stack *node.Node, chainConfig *params.ChainConfig, raftId, raftPort uin
 		accountManager:   e.AccountManager(),
 		downloader:       e.Downloader(),
 		startPeers:       startPeers,
-		nodeKey:          stack.GetNodeKey(),
-		signerCert:		  stack.Config().SignerCert,
+		nodeKey:		  stack.GetNodeKey(),
 		calcGasLimitFunc: e.CalcGasLimit,
 		pendingLogsFeed:  e.ConsensusServicePendingLogsFeed(),
 	}
@@ -72,7 +71,7 @@ func New(stack *node.Node, chainConfig *params.ChainConfig, raftId, raftPort uin
 
 // Utility methods
 
-func (service *RaftService) apis() []rpc.API {
+func (service *RaftService[T]) apis() []rpc.API {
 	return []rpc.API{
 		{
 			Namespace: "raft",
@@ -85,25 +84,25 @@ func (service *RaftService) apis() []rpc.API {
 
 // Backend interface methods:
 
-func (service *RaftService) AccountManager() *accounts.Manager { return service.accountManager }
-func (service *RaftService) BlockChain() *core.BlockChain      { return service.blockchain }
-func (service *RaftService) ChainDb() ethdb.Database           { return service.chainDb }
-func (service *RaftService) DappDb() ethdb.Database            { return nil }
-func (service *RaftService) EventMux() *event.TypeMux          { return service.eventMux }
-func (service *RaftService) TxPool() *core.TxPool              { return service.txPool }
+func (service *RaftService[T]) AccountManager() *accounts.Manager { return service.accountManager }
+func (service *RaftService[T]) BlockChain() *core.BlockChain      { return service.blockchain }
+func (service *RaftService[T]) ChainDb() ethdb.Database           { return service.chainDb }
+func (service *RaftService[T]) DappDb() ethdb.Database            { return nil }
+func (service *RaftService[T]) EventMux() *event.TypeMux          { return service.eventMux }
+func (service *RaftService[T]) TxPool() *core.TxPool              { return service.txPool }
 
 // node.Lifecycle interface methods:
 
 // Start implements node.Service, starting the background data propagation thread
 // of the protocol.
-func (service *RaftService) Start() error {
+func (service *RaftService[T]) Start() error {
 	service.raftProtocolManager.Start()
 	return nil
 }
 
 // Stop implements node.Service, stopping the background data propagation thread
 // of the protocol.
-func (service *RaftService) Stop() error {
+func (service *RaftService[T]) Stop() error {
 	service.blockchain.Stop()
 	service.raftProtocolManager.Stop()
 	service.minter.stop()
