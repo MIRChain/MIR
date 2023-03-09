@@ -21,7 +21,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
-type RaftService [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
+type RaftService  [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.PrivateKey | *gost3410.PrivateKey | *csp.Cert] struct {
 	blockchain     *core.BlockChain
 	chainDb        ethdb.Database // Block chain database
 	txMu           sync.Mutex
@@ -35,7 +35,7 @@ type RaftService [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
 	// we need an event mux to instantiate the blockchain
 	eventMux         *event.TypeMux
 	minter           *minter
-	nodeKey          *T
+	nodeKey          T
 	calcGasLimitFunc func(block *types.Block) uint64
 
 	pendingLogsFeed *event.Feed

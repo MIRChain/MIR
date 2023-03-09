@@ -17,10 +17,10 @@
 package discover
 
 import (
-	"crypto/ecdsa"
 	"net"
 
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
@@ -36,9 +36,9 @@ type UDPConn interface {
 }
 
 // Config holds settings for the discovery listener.
-type Config struct {
+type Config [T crypto.PrivateKey] struct {
 	// These settings are required and configure the UDP listener:
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey T
 
 	// These settings are optional:
 	NetRestrict  *netutil.Netlist   // network whitelist
@@ -49,7 +49,7 @@ type Config struct {
 	Clock        mclock.Clock
 }
 
-func (cfg Config) withDefaults() Config {
+func (cfg Config[T]) withDefaults() Config[T] {
 	if cfg.Log == nil {
 		cfg.Log = log.Root()
 	}
@@ -63,7 +63,7 @@ func (cfg Config) withDefaults() Config {
 }
 
 // ListenUDP starts listening for discovery packets on the given UDP socket.
-func ListenUDP(c UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv4, error) {
+func ListenUDP [T crypto.PrivateKey] (c UDPConn, ln *enode.LocalNode[T], cfg Config[T]) (*UDPv4[T], error) {
 	return ListenV4(c, ln, cfg)
 }
 

@@ -70,7 +70,7 @@ import (
 type Config = ethconfig.Config
 
 // Ethereum implements the Ethereum full node service.
-type Ethereum struct {
+type Ethereum [T crypto.PrivateKey ] struct {
 	config *ethconfig.Config
 
 	// Handlers
@@ -100,20 +100,20 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	p2pServer *p2p.Server
+	p2pServer *p2p.Server[T]
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
 	// Quorum - consensus as eth-service (e.g. raft)
 	consensusServicePendingLogsFeed *event.Feed
 	qlightServerHandler             *handler
-	qlightP2pServer                 *p2p.Server
+	qlightP2pServer                 *p2p.Server[T]
 	qlightTokenHolder               *qlight.TokenHolder
 }
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
+func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*Ethereum[T], error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -177,7 +177,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		rawdb.WriteQuorumEIP155Activation(chainDb)
 	}
 
-	eth := &Ethereum{
+	eth := &Ethereum[T]{
 		config:            config,
 		chainDb:           chainDb,
 		eventMux:          stack.EventMux(),

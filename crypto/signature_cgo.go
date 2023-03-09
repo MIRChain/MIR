@@ -114,7 +114,7 @@ func SigToPubCsp(hash, sig []byte) ([]byte, error) {
 // solution is to hash any input before calculating the signature.
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
-func Sign[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](digestHash []byte, key *T) (sig []byte, err error) {
+func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 	switch prv:=any(key).(type) {
 	case *ecdsa.PrivateKey:
 		if len(digestHash) != DigestLength {

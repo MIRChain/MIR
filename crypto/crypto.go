@@ -32,6 +32,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
@@ -70,6 +71,15 @@ const (
 
 var CryptoAlg CryptoType = NIST
 
+type PrivateKey interface {
+	ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.PrivateKey | *gost3410.PrivateKey | *csp.Cert
+}
+
+type PublicKey interface {
+	ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey | *ecdsa.PublicKey | *gost3410.PublicKey | *csp.PublicKey
+	GetX() *big.Int
+	GetY() *big.Int
+}
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum
 // because it doesn't copy the internal state, but also modifies the internal state.

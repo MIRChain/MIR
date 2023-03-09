@@ -39,10 +39,10 @@ type node struct {
 
 type encPubkey [64]byte
 
-func encodePubkey(key *ecdsa.PublicKey) encPubkey {
-	var e encPubkey
-	math.ReadBits(key.X, e[:len(e)/2])
-	math.ReadBits(key.Y, e[len(e)/2:])
+func encodePubkey [T crypto.PublicKey] (key T) encPubkey {
+	var e encPubkey 
+	math.ReadBits(key.GetX(), e[:len(e)/2])
+	math.ReadBits(key.GetY(), e[len(e)/2:])
 	return e
 }
 

@@ -55,7 +55,7 @@ const (
 // Config represents a small collection of configuration values to fine tune the
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
-type Config [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
+type Config [T crypto.PrivateKey ] struct {
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of geth is "geth". If no
 	// value is specified, the basename of the current executable is used.
@@ -522,7 +522,7 @@ func (c *Config[T]) IsPermissionEnabled() bool {
 	return true
 }
 
-func makeAccountManager[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](conf *Config[T]) (*accounts.Manager, string, error) {
+func makeAccountManager [T crypto.PrivateKey ](conf *Config[T]) (*accounts.Manager, string, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 	var ephemeral string
 	if keydir == "" {

@@ -250,7 +250,7 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 }
 
 // Encode encodes a discovery packet.
-func Encode(priv *ecdsa.PrivateKey, req Packet) (packet, hash []byte, err error) {
+func Encode [T crypto.PrivateKey] (priv T, req Packet) (packet, hash []byte, err error) {
 	b := new(bytes.Buffer)
 	b.Write(headSpace)
 	b.WriteByte(req.Kind())

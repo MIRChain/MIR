@@ -44,17 +44,37 @@ var ValidSchemesForTesting = enr.SchemeMap{
 type V4ID struct{}
 
 // SignV4 signs a record using the v4 scheme.
-func SignV4(r *enr.Record, privkey *ecdsa.PrivateKey) error {
+func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
 	// Copy r to avoid modifying it if signing fails.
 	cpy := *r
 	cpy.Set(enr.ID("v4"))
-	cpy.Set(Secp256k1(privkey.PublicKey))
-
-	h := sha3.NewLegacyKeccak256()
-	rlp.Encode(h, cpy.AppendElements(nil))
-	sig, err := crypto.Sign(h.Sum(nil), privkey)
-	if err != nil {
-		return err
+	var sig []byte
+	var err error
+	switch privkey := any(key).(type) {
+	case *ecdsa.PrivateKey:
+		cpy.Set(Secp256k1(privkey.PublicKey))
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, cpy.AppendElements(nil))
+		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		if err != nil {
+			return err
+		}
+	case *gost3410.PrivateKey:
+		cpy.Set(Gost3410(*privkey.PublicKey()))
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, cpy.AppendElements(nil))
+		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		if err != nil {
+			return err
+		}
+	case *csp.Cert:
+		cpy.Set(Gost3410CSP(*privkey.GetPublicKey()))
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, cpy.AppendElements(nil))
+		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		if err != nil {
+			return err
+		}
 	}
 	sig = sig[:len(sig)-1] // remove v
 	if err = cpy.SetSig(V4ID{}, sig); err == nil {
@@ -154,11 +174,11 @@ func (v *Gost3410CSP) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
-	pk, err := csp.NewPublicKey(gost3410.GostCurve, buf)
+	pk, err := csp.NewPublicKey(buf)
 	if err != nil {
 		return err
 	}
-	*v = (Gost3410)(*pk)
+	*v = (Gost3410CSP)(*pk)
 	return nil
 }
 
@@ -178,7 +198,7 @@ func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
 	return r.Load(&pubkey)
 }
 
-func signV4Compat[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](r *enr.Record, key T) {
+func signV4Compat[T crypto.PublicKey ](r *enr.Record, key T) {
 	switch pubkey := any(key).(type) {
 	case *ecdsa.PublicKey:
 		r.Set((*Secp256k1)(pubkey))
@@ -186,12 +206,12 @@ func signV4Compat[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](r *en
 			panic(err)
 		}
 	case *gost3410.PublicKey:
-		r.Set((*Secp256k1)(pubkey))
+		r.Set((*Gost3410)(pubkey))
 		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
 			panic(err)
 		}
 	case *csp.PublicKey:
-		r.Set((*Secp256k1)(pubkey))
+		r.Set((*Gost3410CSP)(pubkey))
 		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
 			panic(err)
 		}

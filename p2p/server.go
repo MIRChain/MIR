@@ -70,8 +70,8 @@ const (
 var errServerStopped = errors.New("server stopped")
 
 // Config holds Server options.
-type Config [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
-	// This field must be set to a valid secp256k1 private key.
+type Config [T crypto.PrivateKey] struct {
+	// This field must be set to a valid secp256k1 private key, or GOST3410 private key, or CryptoPro cert
 	PrivateKey T `toml:"-"`
 
 	// MaxPeers is the maximum number of peers that can be
@@ -165,7 +165,7 @@ type Config [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
 }
 
 // Server manages all peer connections.
-type Server [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
+type Server [T crypto.PrivateKey] struct {
 	// Config fields may not be modified while the server is running.
 	Config[T]
 
@@ -185,8 +185,8 @@ type Server [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ] struct {
 	log          log.Logger
 
 	nodedb    *enode.DB
-	localnode *enode.LocalNode
-	ntab      *discover.UDPv4
+	localnode *enode.LocalNode[T]
+	ntab      *discover.UDPv4[T]
 	DiscV5    *discover.UDPv5
 	discmix   *enode.FairMix
 	dialsched *dialScheduler
@@ -304,7 +304,7 @@ func (c *conn) set(f connFlag, val bool) {
 }
 
 // LocalNode returns the local node record.
-func (srv *Server[T]) LocalNode() *enode.LocalNode {
+func (srv *Server[T]) LocalNode() *enode.LocalNode[T] {
 	return srv.localnode
 }
 
@@ -392,9 +392,15 @@ func (srv *Server[T]) Self() *enode.Node {
 	srv.lock.Lock()
 	ln := srv.localnode
 	srv.lock.Unlock()
-
 	if ln == nil {
-		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+		switch key := any(srv.PrivateKey).(type) {
+		case *ecdsa.PrivateKey:
+			return enode.NewV4(&key.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+		case *gost3410.PrivateKey:
+			return enode.NewV4(key.Public(), net.ParseIP("0.0.0.0"), 0, 0)
+		case *csp.Cert:
+			return enode.NewV4(key.GetPublicKey(), net.ParseIP("0.0.0.0"), 0, 0)
+		}
 	}
 	return ln.Node()
 }
@@ -464,7 +470,7 @@ func (srv *Server[T]) Start() (err error) {
 	}
 
 	// static fields
-	if srv.PrivateKey == nil {
+	if &srv.PrivateKey == nil {
 		return errors.New("Server.PrivateKey must be set to a non-nil key")
 	}
 	if srv.newTransport == nil {
@@ -502,7 +508,16 @@ func (srv *Server[T]) Start() (err error) {
 
 func (srv *Server[T]) setupLocalNode() error {
 	// Create the devp2p handshake.
-	pubkey := crypto.FromECDSAPub(&srv.PrivateKey.PublicKey)
+	var pubkey []byte
+	switch key := any(srv.PrivateKey).(type) {
+	case *ecdsa.PrivateKey:
+		pubkey = crypto.FromECDSAPub(&key.PublicKey)
+	case *gost3410.PrivateKey:
+		pubkey = key.Raw()
+	case *csp.Cert:
+		pubkey = key.Info().PublicKeyBytes()[2:66]
+	}
+
 	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[1:]}
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())
@@ -590,7 +605,7 @@ func (srv *Server[T]) setupDiscovery() error {
 			unhandled = make(chan discover.ReadPacket, 100)
 			sconn = &sharedUDPConn{conn, unhandled}
 		}
-		cfg := discover.Config{
+		cfg := discover.Config[T]{
 			PrivateKey:  srv.PrivateKey,
 			NetRestrict: srv.NetRestrict,
 			Bootnodes:   srv.BootstrapNodes,
@@ -607,7 +622,7 @@ func (srv *Server[T]) setupDiscovery() error {
 
 	// Discovery V5
 	if srv.DiscoveryV5 {
-		cfg := discover.Config{
+		cfg := discover.Config[T]{
 			PrivateKey:  srv.PrivateKey,
 			NetRestrict: srv.NetRestrict,
 			Bootnodes:   srv.BootstrapNodesV5,

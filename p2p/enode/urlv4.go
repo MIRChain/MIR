@@ -84,7 +84,7 @@ func ParseV4(rawurl string) (*Node, error) {
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](pubkey *T, ip net.IP, tcp, udp int) *Node {
+func NewV4[T crypto.PublicKey ] (pubkey T, ip net.IP, tcp, udp int) *Node {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
@@ -94,7 +94,7 @@ func NewV4[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](pubkey *T, i
 
 // broken out from `func NewV4` (above) same in upstream go-ethereum, but taken out
 // to avoid code duplication b/t NewV4 and NewV4Hostname
-func newV4[T ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey ](pubkey *T, r enr.Record, tcp, udp int) *Node {
+func newV4[T crypto.PublicKey ](pubkey T, r enr.Record, tcp, udp int) *Node {
 	if udp != 0 {
 		r.Set(enr.UDP(udp))
 	}
@@ -283,9 +283,24 @@ func (n *Node) URLv4() string {
 }
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
-func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
-	e := make([]byte, 64)
-	math.ReadBits(key.X, e[:len(e)/2])
-	math.ReadBits(key.Y, e[len(e)/2:])
-	return ID(crypto.Keccak256Hash(e))
+func PubkeyToIDV4[T *ecdsa.PublicKey | *gost3410.PublicKey | *csp.PublicKey ] (key T) ID {
+	switch pubkey := any(key).(type) {
+	case *ecdsa.PublicKey:
+		e := make([]byte, 64)
+		math.ReadBits(pubkey.X, e[:len(e)/2])
+		math.ReadBits(pubkey.Y, e[len(e)/2:])
+		return ID(crypto.Keccak256Hash(e))
+	case *gost3410.PublicKey:
+		e := make([]byte, 64)
+		math.ReadBits(pubkey.X, e[:len(e)/2])
+		math.ReadBits(pubkey.Y, e[len(e)/2:])
+		return ID(crypto.Keccak256Hash(e))
+	case *csp.PublicKey:
+		e := make([]byte, 64)
+		math.ReadBits(pubkey.X, e[:len(e)/2])
+		math.ReadBits(pubkey.Y, e[len(e)/2:])
+		return ID(crypto.Keccak256Hash(e))
+	default:
+		panic("cant infer type of public key")
+	}
 }

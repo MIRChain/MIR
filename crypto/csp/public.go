@@ -52,3 +52,21 @@ func NewPublicKey(raw []byte) (*PublicKey, error) {
 		new(big.Int).SetBytes(key[:curveByteLen]),
 	}, nil
 }
+
+func (p *PublicKey) Raw() []byte {
+	curve := gost3410.CurveIdGostR34102001CryptoProAParamSet()
+	curveBitLen := curve.P.BitLen()
+	curveByteLen := curveBitLen/8
+	key := make([]byte, 2*curveByteLen)
+	copy(key[:curveByteLen], p.Y.Bytes())
+	copy(key[curveByteLen:2*curveByteLen], p.X.Bytes())
+	reverse(key)
+	return key
+}
+
+func (prv *PublicKey) GetX() *big.Int {
+	return prv.X
+}
+func (prv *PublicKey) GetY() *big.Int {
+	return prv.Y
+}
