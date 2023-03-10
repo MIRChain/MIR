@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -72,11 +73,11 @@ const (
 var CryptoAlg CryptoType = NIST
 
 type PrivateKey interface {
-	ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.PrivateKey | *gost3410.PrivateKey | *csp.Cert
+	nist.PrivateKey | gost3410.PrivateKey | csp.Cert | *nist.PrivateKey  | *gost3410.PrivateKey | *csp.Cert
 }
 
 type PublicKey interface {
-	ecdsa.PublicKey | gost3410.PublicKey | csp.PublicKey | *ecdsa.PublicKey | *gost3410.PublicKey | *csp.PublicKey
+	nist.PublicKey | gost3410.PublicKey | csp.PublicKey | *nist.PublicKey | *gost3410.PublicKey | *csp.PublicKey
 	GetX() *big.Int
 	GetY() *big.Int
 }
@@ -193,12 +194,21 @@ func FromECDSA(priv *ecdsa.PrivateKey) []byte {
 }
 
 // UnmarshalPubkey converts bytes to a secp256k1 public key.
-func UnmarshalPubkey(pub []byte) (*ecdsa.PublicKey, error) {
-	x, y := elliptic.Unmarshal(S256(), pub)
-	if x == nil {
-		return nil, errInvalidPubkey
+func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
+	var pubKey P
+	switch p := any(&pubKey).(type) {
+	case *nist.PublicKey:
+		x, y := elliptic.Unmarshal(S256(), pub)
+		if x == nil {
+			return ZeroPublicKey[P](), errInvalidPubkey
+		}
+		*p=nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
+	case *gost3410.PublicKey:
+		p, _ = gost3410.NewPublicKey(gost3410.GostCurve, pub) 
+	case *csp.PublicKey:
+		p, _ = csp.NewPublicKey(pub)
 	}
-	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+	return pubKey, fmt.Errorf("cant infer pub key type")
 }
 
 func FromECDSAPub(pub *ecdsa.PublicKey) []byte {
@@ -328,4 +338,14 @@ func zeroBytes(bytes []byte) {
 	for i := range bytes {
 		bytes[i] = 0
 	}
+}
+
+func ZeroPrivateKey[T PrivateKey]() T {
+	var res T
+	return res
+}
+
+func ZeroPublicKey[P PublicKey]() P {
+	var res P
+	return res
 }

@@ -74,7 +74,7 @@ func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte 
 }
 
 // makeIDSignature creates the ID nonce signature.
-func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
+func makeIDSignature[T crypto.PrivateKey, P crypto.PublicKey](hash hash.Hash, key T, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
 	input := idNonceHash(hash, challenge, ephkey, destID)
 	switch key.Curve {
 	case crypto.S256():
@@ -94,7 +94,7 @@ type s256raw []byte
 func (s256raw) ENRKey() string { return "secp256k1" }
 
 // verifyIDSignature checks that signature over idnonce was made by the given node.
-func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, ephkey []byte, destID enode.ID) error {
+func verifyIDSignature[P crypto.PublicKey](hash hash.Hash, sig []byte, n *enode.Node[P], challenge, ephkey []byte, destID enode.ID) error {
 	switch idscheme := n.Record().IdentityScheme(); idscheme {
 	case "v4":
 		var pubkey s256raw

@@ -24,6 +24,7 @@ import (
 )
 
 type PrivateKey struct {
+	PublicKey
 	C   *Curve
 	Key *big.Int
 }
@@ -41,7 +42,12 @@ func NewPrivateKey(c *Curve, raw []byte) (*PrivateKey, error) {
 	if k.Cmp(zero) == 0 {
 		return nil, errors.New("gogost/gost3410: zero private key")
 	}
-	return &PrivateKey{c, k.Mod(k, c.Q)}, nil
+	x, y, err := c.Exp(k.Mod(k, c.Q), c.X, c.Y)
+	if err != nil {
+		return nil, err
+	}
+	pk := PublicKey{c, x, y}
+	return &PrivateKey{pk, c, k.Mod(k, c.Q)}, nil
 }
 
 func GenPrivateKey(c *Curve, rand io.Reader) (*PrivateKey, error) {
@@ -58,13 +64,13 @@ func (prv *PrivateKey) Raw() []byte {
 	return raw
 }
 
-func (prv *PrivateKey) PublicKey() *PublicKey {
-	x, y, err := prv.C.Exp(prv.Key, prv.C.X, prv.C.Y)
-	if err != nil {
-		return &PublicKey{prv.C, new(big.Int), new(big.Int)}
-	}
-	return &PublicKey{prv.C, x, y}
-}
+// func (prv *PrivateKey) PublicKey() *PublicKey {
+// 	x, y, err := prv.C.Exp(prv.Key, prv.C.X, prv.C.Y)
+// 	if err != nil {
+// 		return &PublicKey{prv.C, new(big.Int), new(big.Int)}
+// 	}
+// 	return &PublicKey{prv.C, x, y}
+// }
 
 func (prv *PrivateKey) SignDigest(digest []byte, rand io.Reader) ([]byte, error) {
 	// 1. Select random nonce k in [1, N-1]
@@ -124,7 +130,7 @@ func (prv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpt
 }
 
 func (prv *PrivateKey) Public() *PublicKey {
-	return prv.PublicKey()
+	return &prv.PublicKey
 }
 
 type PrivateKeyReverseDigest struct {

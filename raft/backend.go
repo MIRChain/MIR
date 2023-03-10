@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
-type RaftService  [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.PrivateKey | *gost3410.PrivateKey | *csp.Cert] struct {
+type RaftService [T crypto.PrivateKey]  struct {
 	blockchain     *core.BlockChain
 	chainDb        ethdb.Database // Block chain database
 	txMu           sync.Mutex
@@ -29,12 +30,12 @@ type RaftService  [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.
 	accountManager *accounts.Manager
 	downloader     *downloader.Downloader
 
-	raftProtocolManager *ProtocolManager
+	raftProtocolManager *ProtocolManager[T]
 	startPeers          []*enode.Node
 
 	// we need an event mux to instantiate the blockchain
 	eventMux         *event.TypeMux
-	minter           *minter
+	minter           *minter[T]
 	nodeKey          T
 	calcGasLimitFunc func(block *types.Block) uint64
 

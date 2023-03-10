@@ -18,6 +18,7 @@ package v5wire
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
@@ -128,10 +129,10 @@ var (
 
 // Codec encodes and decodes Discovery v5 packets.
 // This type is not safe for concurrent use.
-type Codec struct {
+type Codec [T crypto.PrivateKey, P crypto.PublicKey]  struct {
 	sha256    hash.Hash
-	localnode *enode.LocalNode
-	privkey   *ecdsa.PrivateKey
+	localnode *enode.LocalNode[T,P]
+	privkey   T
 	sc        *SessionCache
 
 	// encoder buffers
@@ -145,8 +146,8 @@ type Codec struct {
 }
 
 // NewCodec creates a wire codec.
-func NewCodec(ln *enode.LocalNode, key *ecdsa.PrivateKey, clock mclock.Clock) *Codec {
-	c := &Codec{
+func NewCodec[T crypto.PrivateKey, P crypto.PublicKey] (ln *enode.LocalNode[T,P], key T, clock mclock.Clock) *Codec[T] {
+	c := &Codec[T]{
 		sha256:    sha256.New(),
 		localnode: ln,
 		privkey:   key,
@@ -158,7 +159,7 @@ func NewCodec(ln *enode.LocalNode, key *ecdsa.PrivateKey, clock mclock.Clock) *C
 // Encode encodes a packet to a node. 'id' and 'addr' specify the destination node. The
 // 'challenge' parameter should be the most recently received WHOAREYOU packet from that
 // node.
-func (c *Codec) Encode(id enode.ID, addr string, packet Packet, challenge *Whoareyou) ([]byte, Nonce, error) {
+func (c *Codec[T]) Encode(id enode.ID, addr string, packet Packet, challenge *Whoareyou) ([]byte, Nonce, error) {
 	// Create the packet header.
 	var (
 		head    Header

@@ -36,6 +36,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -55,7 +56,7 @@ const (
 // Config represents a small collection of configuration values to fine tune the
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
-type Config [T crypto.PrivateKey ] struct {
+type Config [T crypto.PrivateKey, P crypto.PublicKey ] struct {
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of geth is "geth". If no
 	// value is specified, the basename of the current executable is used.
@@ -80,10 +81,10 @@ type Config [T crypto.PrivateKey ] struct {
 	RaftLogDir string
 
 	// Configuration of peer-to-peer networking.
-	P2P p2p.Config[T]
+	P2P p2p.Config[T, P]
 
 	// Quorum
-	QP2P *p2p.Config[T] `toml:",omitempty"`
+	QP2P *p2p.Config[T, P] `toml:",omitempty"`
 
 	// KeyStoreDir is the file system folder that contains private keys. The directory can
 	// be specified as a relative path, in which case it is resolved relative to the
@@ -219,7 +220,7 @@ type Config [T crypto.PrivateKey ] struct {
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
 // account the set data folders as well as the designated platform we're currently
 // running on.
-func (c *Config[T]) IPCEndpoint() string {
+func (c *Config[T, P]) IPCEndpoint() string {
 	// Short circuit if IPC has not been enabled
 	if c.IPCPath == "" {
 		return ""
@@ -242,14 +243,14 @@ func (c *Config[T]) IPCEndpoint() string {
 }
 
 // NodeDB returns the path to the discovery node database.
-func (c *Config[T]) NodeDB() string {
+func (c *Config[T, P]) NodeDB() string {
 	if c.DataDir == "" {
 		return "" // ephemeral
 	}
 	return c.ResolvePath(datadirNodeDatabase)
 }
 
-func (c *Config[T]) QNodeDB() string {
+func (c *Config[T, P]) QNodeDB() string {
 	if c.DataDir == "" {
 		return "" // ephemeral
 	}
@@ -264,13 +265,13 @@ func DefaultIPCEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](cl
 			panic("empty executable name")
 		}
 	}
-	config := &Config[T]{DataDir: DefaultDataDir(), IPCPath: clientIdentifier + ".ipc"}
+	config := &Config[T, P]{DataDir: DefaultDataDir(), IPCPath: clientIdentifier + ".ipc"}
 	return config.IPCEndpoint()
 }
 
 // HTTPEndpoint resolves an HTTP endpoint based on the configured host interface
 // and port parameters.
-func (c *Config[T]) HTTPEndpoint() string {
+func (c *Config[T, P]) HTTPEndpoint() string {
 	if c.HTTPHost == "" {
 		return ""
 	}
@@ -279,13 +280,13 @@ func (c *Config[T]) HTTPEndpoint() string {
 
 // DefaultHTTPEndpoint returns the HTTP endpoint used by default.
 func DefaultHTTPEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ]() string {
-	config := &Config[T]{HTTPHost: DefaultHTTPHost, HTTPPort: DefaultHTTPPort}
+	config := &Config[T, P]{HTTPHost: DefaultHTTPHost, HTTPPort: DefaultHTTPPort}
 	return config.HTTPEndpoint()
 }
 
 // WSEndpoint resolves a websocket endpoint based on the configured host interface
 // and port parameters.
-func (c *Config[T]) WSEndpoint() string {
+func (c *Config[T,P]) WSEndpoint() string {
 	if c.WSHost == "" {
 		return ""
 	}
@@ -294,18 +295,18 @@ func (c *Config[T]) WSEndpoint() string {
 
 // DefaultWSEndpoint returns the websocket endpoint used by default.
 func DefaultWSEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ]() string {
-	config := &Config[T]{WSHost: DefaultWSHost, WSPort: DefaultWSPort}
+	config := &Config[T,P]{WSHost: DefaultWSHost, WSPort: DefaultWSPort}
 	return config.WSEndpoint()
 }
 
 // ExtRPCEnabled returns the indicator whether node enables the external
 // RPC(http, ws or graphql).
-func (c *Config[T]) ExtRPCEnabled() bool {
+func (c *Config[T,P]) ExtRPCEnabled() bool {
 	return c.HTTPHost != "" || c.WSHost != ""
 }
 
 // NodeName returns the devp2p node identifier.
-func (c *Config[T]) NodeName() string {
+func (c *Config[T,P]) NodeName() string {
 	name := c.name()
 	// Backwards compatibility: previous versions used title-cased "Geth", keep that.
 	if name == "geth" || name == "geth-testnet" {
@@ -322,7 +323,7 @@ func (c *Config[T]) NodeName() string {
 	return name
 }
 
-func (c *Config[T]) name() string {
+func (c *Config[T,P]) name() string {
 	if c.Name == "" {
 		progname := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
 		if progname == "" {
@@ -343,7 +344,7 @@ var isOldGethResource = map[string]bool{
 }
 
 // ResolvePath resolves path in the instance directory.
-func (c *Config[T]) ResolvePath(path string) string {
+func (c *Config[T,P]) ResolvePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
@@ -367,7 +368,7 @@ func (c *Config[T]) ResolvePath(path string) string {
 	return filepath.Join(c.instanceDir(), path)
 }
 
-func (c *Config[T]) instanceDir() string {
+func (c *Config[T,P]) instanceDir() string {
 	if c.DataDir == "" {
 		return ""
 	}
@@ -377,58 +378,58 @@ func (c *Config[T]) instanceDir() string {
 // NodeKey retrieves the currently configured private key of the node, checking
 // first any manually set key, falling back to the one found in the configured
 // data folder. If no key can be found, a new one is generated.
-func (c *Config[T]) NodeKey() T {
+func (c *Config[T,P]) NodeKey() T {
 	// Use any specifically configured key.
-	if c.P2P.PrivateKey != nil {
+	if c.P2P.PrivateKey != crypto.ZeroPrivateKey[T]() {
 		return c.P2P.PrivateKey
 	}
 	switch any(c.P2P.PrivateKey).(type) {
-	case *ecdsa.PrivateKey:
-			// Generate ephemeral key if no datadir is being used.
-	if c.DataDir == "" {
+	case *nist.PrivateKey:
+		// Generate ephemeral key if no datadir is being used.
+		if c.DataDir == "" {
+			key, err := crypto.GenerateKey()
+			if err != nil {
+				log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+			}
+			return nist.PrivateKey{key}
+		}
+		keyfile := c.ResolvePath(datadirPrivateKey)
+		if key, err := crypto.LoadECDSA(keyfile); err == nil {
+			return key
+		}
+		// No persistent key found, generate and store a new one.
 		key, err := crypto.GenerateKey()
 		if err != nil {
-			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+			log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
+		}
+		instanceDir := filepath.Join(c.DataDir, c.name())
+		if err := os.MkdirAll(instanceDir, 0700); err != nil {
+			log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+			return key
+		}
+		keyfile = filepath.Join(instanceDir, datadirPrivateKey)
+		if err := crypto.SaveECDSA(keyfile, key); err != nil {
+			log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 		}
 		return key
+	default:
+		return crypto.ZeroPrivateKey[T]()
 	}
-
-	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, err := crypto.LoadECDSA(keyfile); err == nil {
-		return key
-	}
-	// No persistent key found, generate and store a new one.
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
-	}
-	instanceDir := filepath.Join(c.DataDir, c.name())
-	if err := os.MkdirAll(instanceDir, 0700); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return key
-	}
-	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveECDSA(keyfile, key); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-	}
-	return key
-	}
-
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.
-func (c *Config[T]) StaticNodes() []*enode.Node {
+func (c *Config[T,P]) StaticNodes() []*enode.Node[P] {
 	return c.parsePersistentNodes(&c.staticNodesWarning, c.ResolvePath(datadirStaticNodes))
 }
 
 // TrustedNodes returns a list of node enode URLs configured as trusted nodes.
-func (c *Config[T]) TrustedNodes() []*enode.Node {
+func (c *Config[T,P]) TrustedNodes() []*enode.Node[P] {
 	return c.parsePersistentNodes(&c.trustedNodesWarning, c.ResolvePath(datadirTrustedNodes))
 }
 
 // parsePersistentNodes parses a list of discovery node URLs loaded from a .json
 // file from within the data directory.
-func (c *Config[T]) parsePersistentNodes(w *bool, path string) []*enode.Node {
+func (c *Config[T,P]) parsePersistentNodes(w *bool, path string) []*enode.Node[P] {
 	// Short circuit if no node config is present
 	if c.DataDir == "" {
 		return nil
@@ -445,12 +446,12 @@ func (c *Config[T]) parsePersistentNodes(w *bool, path string) []*enode.Node {
 		return nil
 	}
 	// Interpret the list as a discovery node array
-	var nodes []*enode.Node
+	var nodes []*enode.Node[P]
 	for _, url := range nodelist {
 		if url == "" {
 			continue
 		}
-		node, err := enode.Parse(enode.ValidSchemes, url)
+		node, err := enode.Parse[P](enode.ValidSchemes, url)
 		if err != nil {
 			log.Error(fmt.Sprintf("Node URL %s: %v\n", url, err))
 			continue
@@ -461,7 +462,7 @@ func (c *Config[T]) parsePersistentNodes(w *bool, path string) []*enode.Node {
 }
 
 // AccountConfig determines the settings for scrypt and keydirectory
-func (c *Config[T]) AccountConfig() (int, int, string, error) {
+func (c *Config[T,P]) AccountConfig() (int, int, string, error) {
 	scryptN := keystore.StandardScryptN
 	scryptP := keystore.StandardScryptP
 	if c.UseLightweightKDF {
@@ -491,7 +492,7 @@ func (c *Config[T]) AccountConfig() (int, int, string, error) {
 // Quorum
 //
 // Make sure plugin base dir exists
-func (c *Config[T]) ResolvePluginBaseDir() error {
+func (c *Config[T,P]) ResolvePluginBaseDir() error {
 	if c.Plugins == nil {
 		return nil
 	}
@@ -513,7 +514,7 @@ func (c *Config[T]) ResolvePluginBaseDir() error {
 }
 
 // check if smart-contract-based permissioning is enabled by reading `--permissioned` flag and checking permission config file
-func (c *Config[T]) IsPermissionEnabled() bool {
+func (c *Config[T,P]) IsPermissionEnabled() bool {
 	fullPath := filepath.Join(c.DataDir, params.PERMISSION_MODEL_CONFIG)
 	if _, err := os.Stat(fullPath); err != nil {
 		log.Warn(fmt.Sprintf("%s file is missing. Smart-contract-based permission service will be disabled", params.PERMISSION_MODEL_CONFIG), "error", err)
@@ -522,7 +523,7 @@ func (c *Config[T]) IsPermissionEnabled() bool {
 	return true
 }
 
-func makeAccountManager [T crypto.PrivateKey ](conf *Config[T]) (*accounts.Manager, string, error) {
+func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T,P]) (*accounts.Manager, string, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 	var ephemeral string
 	if keydir == "" {
@@ -594,7 +595,7 @@ func makeAccountManager [T crypto.PrivateKey ](conf *Config[T]) (*accounts.Manag
 
 var warnLock sync.Mutex
 
-func (c *Config[T]) warnOnce(w *bool, format string, args ...interface{}) {
+func (c *Config[T,P]) warnOnce(w *bool, format string, args ...interface{}) {
 	warnLock.Lock()
 	defer warnLock.Unlock()
 
@@ -610,7 +611,7 @@ func (c *Config[T]) warnOnce(w *bool, format string, args ...interface{}) {
 }
 
 // Mir chain
-func  (c *Config[T]) GetSignerCert() (*csp.Cert, error) {
+func  (c *Config[T,P]) GetSignerCert() (*csp.Cert, error) {
 	if c.SignerCert != nil {
 		return c.SignerCert, nil
 	}

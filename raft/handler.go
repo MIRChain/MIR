@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"crypto"
 	"errors"
 	"fmt"
 	"io"
@@ -35,7 +36,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
-type ProtocolManager struct {
+type ProtocolManager [T crypto.PrivateKey] struct {
 	mu       sync.RWMutex // For protecting concurrent JS access to "local peer" and "remote peer" state
 	quitSync chan struct{}
 	stopped  bool
@@ -58,13 +59,13 @@ type ProtocolManager struct {
 	removedPeers mapset.Set // *Permanently removed* peers
 
 	// P2P transport
-	p2pServer *p2p.Server
+	p2pServer *p2p.Server[T]
 	useDns    bool
 
 	// Blockchain services
 	blockchain *core.BlockChain
 	downloader *downloader.Downloader
-	minter     *minter
+	minter     *minter[T]
 
 	// Blockchain events
 	eventMux      *event.TypeMux

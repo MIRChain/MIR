@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
@@ -51,7 +52,7 @@ func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
 	var sig []byte
 	var err error
 	switch privkey := any(key).(type) {
-	case *ecdsa.PrivateKey:
+	case *nist.PrivateKey:
 		cpy.Set(Secp256k1(privkey.PublicKey))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
@@ -60,7 +61,7 @@ func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
 			return err
 		}
 	case *gost3410.PrivateKey:
-		cpy.Set(Gost3410(*privkey.PublicKey()))
+		cpy.Set(Gost3410(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
 		sig, err = crypto.Sign(h.Sum(nil), privkey)
@@ -68,7 +69,7 @@ func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
 			return err
 		}
 	case *csp.Cert:
-		cpy.Set(Gost3410CSP(*privkey.GetPublicKey()))
+		cpy.Set(Gost3410CSP(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
 		sig, err = crypto.Sign(h.Sum(nil), privkey)
@@ -198,10 +199,10 @@ func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
 	return r.Load(&pubkey)
 }
 
-func signV4Compat[T crypto.PublicKey ](r *enr.Record, key T) {
+func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
 	switch pubkey := any(key).(type) {
-	case *ecdsa.PublicKey:
-		r.Set((*Secp256k1)(pubkey))
+	case *nist.PublicKey:
+		r.Set((*Secp256k1)(pubkey.PublicKey))
 		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
 			panic(err)
 		}
@@ -233,11 +234,11 @@ func (NullID) NodeAddr(r *enr.Record) []byte {
 	return id[:]
 }
 
-func SignNull(r *enr.Record, id ID) *Node {
+func SignNull[T crypto.PrivateKey, P crypto.PublicKey](r *enr.Record, id ID) *Node[P] {
 	r.Set(enr.ID("null"))
 	r.Set(enr.WithEntry("nulladdr", id))
 	if err := r.SetSig(NullID{}, []byte{}); err != nil {
 		panic(err)
 	}
-	return &Node{r: *r, id: id}
+	return &Node[P]{r: *r, id: id}
 }

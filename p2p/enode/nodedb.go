@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -69,7 +70,7 @@ var zeroIP = make(net.IP, 16)
 
 // DB is the node database, storing previously seen nodes and any collected metadata about
 // them for QoS purposes.
-type DB struct {
+type DB [P crypto.PublicKey] struct {
 	lvl    *leveldb.DB   // Interface to the database itself
 	runner sync.Once     // Ensures we can start at most one expirer
 	quit   chan struct{} // Channel to signal the expiring thread to stop
@@ -77,25 +78,25 @@ type DB struct {
 
 // OpenDB opens a node database for storing and retrieving infos about known peers in the
 // network. If no path is given an in-memory, temporary database is constructed.
-func OpenDB(path string) (*DB, error) {
+func OpenDB[P crypto.PublicKey](path string) (*DB[P], error) {
 	if path == "" {
-		return newMemoryDB()
+		return newMemoryDB[P]()
 	}
-	return newPersistentDB(path)
+	return newPersistentDB[P](path)
 }
 
 // newMemoryNodeDB creates a new in-memory node database without a persistent backend.
-func newMemoryDB() (*DB, error) {
+func newMemoryDB[P crypto.PublicKey]() (*DB[P], error) {
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{lvl: db, quit: make(chan struct{})}, nil
+	return &DB[P]{lvl: db, quit: make(chan struct{})}, nil
 }
 
 // newPersistentNodeDB creates/opens a leveldb backed persistent node database,
 // also flushing its contents in case of a version mismatch.
-func newPersistentDB(path string) (*DB, error) {
+func newPersistentDB[P crypto.PublicKey](path string) (*DB[P], error) {
 	opts := &opt.Options{OpenFilesCacheCapacity: 5}
 	db, err := leveldb.OpenFile(path, opts)
 	if _, iscorrupted := err.(*errors.ErrCorrupted); iscorrupted {
@@ -125,10 +126,10 @@ func newPersistentDB(path string) (*DB, error) {
 			if err = os.RemoveAll(path); err != nil {
 				return nil, err
 			}
-			return newPersistentDB(path)
+			return newPersistentDB[P](path)
 		}
 	}
-	return &DB{lvl: db, quit: make(chan struct{})}, nil
+	return &DB[P]{lvl: db, quit: make(chan struct{})}, nil
 }
 
 // nodeKey returns the database key for a node record.
@@ -196,7 +197,7 @@ func localItemKey(id ID, field string) []byte {
 }
 
 // fetchInt64 retrieves an integer associated with a particular key.
-func (db *DB) fetchInt64(key []byte) int64 {
+func (db *DB[P]) fetchInt64(key []byte) int64 {
 	blob, err := db.lvl.Get(key, nil)
 	if err != nil {
 		return 0
@@ -209,14 +210,14 @@ func (db *DB) fetchInt64(key []byte) int64 {
 }
 
 // storeInt64 stores an integer in the given key.
-func (db *DB) storeInt64(key []byte, n int64) error {
+func (db *DB[P]) storeInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
 	return db.lvl.Put(key, blob, nil)
 }
 
 // fetchUint64 retrieves an integer associated with a particular key.
-func (db *DB) fetchUint64(key []byte) uint64 {
+func (db *DB[P]) fetchUint64(key []byte) uint64 {
 	blob, err := db.lvl.Get(key, nil)
 	if err != nil {
 		return 0
@@ -226,23 +227,23 @@ func (db *DB) fetchUint64(key []byte) uint64 {
 }
 
 // storeUint64 stores an integer in the given key.
-func (db *DB) storeUint64(key []byte, n uint64) error {
+func (db *DB[P]) storeUint64(key []byte, n uint64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutUvarint(blob, n)]
 	return db.lvl.Put(key, blob, nil)
 }
 
 // Node retrieves a node with a given id from the database.
-func (db *DB) Node(id ID) *Node {
+func (db *DB[P]) Node(id ID) *Node[P] {
 	blob, err := db.lvl.Get(nodeKey(id), nil)
 	if err != nil {
 		return nil
 	}
-	return mustDecodeNode(id[:], blob)
+	return mustDecodeNode[P](id[:], blob)
 }
 
-func mustDecodeNode(id, data []byte) *Node {
-	node := new(Node)
+func mustDecodeNode[P crypto.PublicKey](id, data []byte) *Node[P] {
+	node := new(Node[P])
 	if err := rlp.DecodeBytes(data, &node.r); err != nil {
 		panic(fmt.Errorf("p2p/enode: can't decode node %x in DB: %v", id, err))
 	}
@@ -252,7 +253,7 @@ func mustDecodeNode(id, data []byte) *Node {
 }
 
 // UpdateNode inserts - potentially overwriting - a node into the peer database.
-func (db *DB) UpdateNode(node *Node) error {
+func (db *DB[P]) UpdateNode(node *Node[P]) error {
 	if node.Seq() < db.NodeSeq(node.ID()) {
 		return nil
 	}
@@ -267,13 +268,13 @@ func (db *DB) UpdateNode(node *Node) error {
 }
 
 // NodeSeq returns the stored record sequence number of the given node.
-func (db *DB) NodeSeq(id ID) uint64 {
+func (db *DB[P]) NodeSeq(id ID) uint64 {
 	return db.fetchUint64(nodeItemKey(id, zeroIP, dbNodeSeq))
 }
 
 // Resolve returns the stored record of the node if it has a larger sequence
 // number than n.
-func (db *DB) Resolve(n *Node) *Node {
+func (db *DB[P]) Resolve(n *Node[P]) *Node[P] {
 	if n.Seq() > db.NodeSeq(n.ID()) {
 		return n
 	}
@@ -281,7 +282,7 @@ func (db *DB) Resolve(n *Node) *Node {
 }
 
 // DeleteNode deletes all information associated with a node.
-func (db *DB) DeleteNode(id ID) {
+func (db *DB[P]) DeleteNode(id ID) {
 	deleteRange(db.lvl, nodeKey(id))
 }
 
@@ -302,13 +303,13 @@ func deleteRange(db *leveldb.DB, prefix []byte) {
 // it would require significant overhead to exactly trace the first successful
 // convergence, it's simpler to "ensure" the correct state when an appropriate
 // condition occurs (i.e. a successful bonding), and discard further events.
-func (db *DB) ensureExpirer() {
+func (db *DB[P]) ensureExpirer() {
 	db.runner.Do(func() { go db.expirer() })
 }
 
 // expirer should be started in a go routine, and is responsible for looping ad
 // infinitum and dropping stale data from the database.
-func (db *DB) expirer() {
+func (db *DB[P]) expirer() {
 	tick := time.NewTicker(dbCleanupCycle)
 	defer tick.Stop()
 	for {
@@ -323,7 +324,7 @@ func (db *DB) expirer() {
 
 // expireNodes iterates over the database and deletes all nodes that have not
 // been seen (i.e. received a pong from) for some time.
-func (db *DB) expireNodes() {
+func (db *DB[P]) expireNodes() {
 	it := db.lvl.NewIterator(util.BytesPrefix([]byte(dbNodePrefix)), nil)
 	defer it.Release()
 	if !it.Next() {
@@ -362,7 +363,7 @@ func (db *DB) expireNodes() {
 
 // LastPingReceived retrieves the time of the last ping packet received from
 // a remote node.
-func (db *DB) LastPingReceived(id ID, ip net.IP) time.Time {
+func (db *DB[P]) LastPingReceived(id ID, ip net.IP) time.Time {
 	if ip = ip.To16(); ip == nil {
 		return time.Time{}
 	}
@@ -370,7 +371,7 @@ func (db *DB) LastPingReceived(id ID, ip net.IP) time.Time {
 }
 
 // UpdateLastPingReceived updates the last time we tried contacting a remote node.
-func (db *DB) UpdateLastPingReceived(id ID, ip net.IP, instance time.Time) error {
+func (db *DB[P]) UpdateLastPingReceived(id ID, ip net.IP, instance time.Time) error {
 	if ip = ip.To16(); ip == nil {
 		return errInvalidIP
 	}
@@ -378,7 +379,7 @@ func (db *DB) UpdateLastPingReceived(id ID, ip net.IP, instance time.Time) error
 }
 
 // LastPongReceived retrieves the time of the last successful pong from remote node.
-func (db *DB) LastPongReceived(id ID, ip net.IP) time.Time {
+func (db *DB[P]) LastPongReceived(id ID, ip net.IP) time.Time {
 	if ip = ip.To16(); ip == nil {
 		return time.Time{}
 	}
@@ -388,7 +389,7 @@ func (db *DB) LastPongReceived(id ID, ip net.IP) time.Time {
 }
 
 // UpdateLastPongReceived updates the last pong time of a node.
-func (db *DB) UpdateLastPongReceived(id ID, ip net.IP, instance time.Time) error {
+func (db *DB[P]) UpdateLastPongReceived(id ID, ip net.IP, instance time.Time) error {
 	if ip = ip.To16(); ip == nil {
 		return errInvalidIP
 	}
@@ -396,7 +397,7 @@ func (db *DB) UpdateLastPongReceived(id ID, ip net.IP, instance time.Time) error
 }
 
 // FindFails retrieves the number of findnode failures since bonding.
-func (db *DB) FindFails(id ID, ip net.IP) int {
+func (db *DB[P]) FindFails(id ID, ip net.IP) int {
 	if ip = ip.To16(); ip == nil {
 		return 0
 	}
@@ -404,7 +405,7 @@ func (db *DB) FindFails(id ID, ip net.IP) int {
 }
 
 // UpdateFindFails updates the number of findnode failures since bonding.
-func (db *DB) UpdateFindFails(id ID, ip net.IP, fails int) error {
+func (db *DB[P]) UpdateFindFails(id ID, ip net.IP, fails int) error {
 	if ip = ip.To16(); ip == nil {
 		return errInvalidIP
 	}
@@ -412,7 +413,7 @@ func (db *DB) UpdateFindFails(id ID, ip net.IP, fails int) error {
 }
 
 // FindFailsV5 retrieves the discv5 findnode failure counter.
-func (db *DB) FindFailsV5(id ID, ip net.IP) int {
+func (db *DB[P]) FindFailsV5(id ID, ip net.IP) int {
 	if ip = ip.To16(); ip == nil {
 		return 0
 	}
@@ -420,7 +421,7 @@ func (db *DB) FindFailsV5(id ID, ip net.IP) int {
 }
 
 // UpdateFindFailsV5 stores the discv5 findnode failure counter.
-func (db *DB) UpdateFindFailsV5(id ID, ip net.IP, fails int) error {
+func (db *DB[P]) UpdateFindFailsV5(id ID, ip net.IP, fails int) error {
 	if ip = ip.To16(); ip == nil {
 		return errInvalidIP
 	}
@@ -428,21 +429,21 @@ func (db *DB) UpdateFindFailsV5(id ID, ip net.IP, fails int) error {
 }
 
 // LocalSeq retrieves the local record sequence counter.
-func (db *DB) localSeq(id ID) uint64 {
+func (db *DB[P]) localSeq(id ID) uint64 {
 	return db.fetchUint64(localItemKey(id, dbLocalSeq))
 }
 
 // storeLocalSeq stores the local record sequence counter.
-func (db *DB) storeLocalSeq(id ID, n uint64) {
+func (db *DB[P]) storeLocalSeq(id ID, n uint64) {
 	db.storeUint64(localItemKey(id, dbLocalSeq), n)
 }
 
 // QuerySeeds retrieves random nodes to be used as potential seed nodes
 // for bootstrapping.
-func (db *DB) QuerySeeds(n int, maxAge time.Duration) []*Node {
+func (db *DB[P]) QuerySeeds(n int, maxAge time.Duration) []*Node[P] {
 	var (
 		now   = time.Now()
-		nodes = make([]*Node, 0, n)
+		nodes = make([]*Node[P], 0, n)
 		it    = db.lvl.NewIterator(nil, nil)
 		id    ID
 	)
@@ -458,7 +459,7 @@ seek:
 		id[0] = ctr + id[0]%16
 		it.Seek(nodeKey(id))
 
-		n := nextNode(it)
+		n := nextNode[P](it)
 		if n == nil {
 			id[0] = 0
 			continue seek // iterator exhausted
@@ -478,19 +479,19 @@ seek:
 
 // reads the next node record from the iterator, skipping over other
 // database entries.
-func nextNode(it iterator.Iterator) *Node {
+func nextNode[P crypto.PublicKey](it iterator.Iterator) *Node[P] {
 	for end := false; !end; end = !it.Next() {
 		id, rest := splitNodeKey(it.Key())
 		if string(rest) != dbDiscoverRoot {
 			continue
 		}
-		return mustDecodeNode(id[:], it.Value())
+		return mustDecodeNode[P](id[:], it.Value())
 	}
 	return nil
 }
 
 // close flushes and closes the database files.
-func (db *DB) Close() {
+func (db *DB[P]) Close() {
 	close(db.quit)
 	db.lvl.Close()
 }

@@ -31,15 +31,15 @@ import (
 
 // node represents a host on the network.
 // The fields of Node may not be modified.
-type node struct {
-	enode.Node
+type node [P crypto.PublicKey] struct {
+	enode.Node[P]
 	addedAt        time.Time // time when the node was added to the table
 	livenessChecks uint      // how often liveness was checked
 }
 
 type encPubkey [64]byte
 
-func encodePubkey [T crypto.PublicKey] (key T) encPubkey {
+func encodePubkey [P crypto.PublicKey] (key P) encPubkey {
 	var e encPubkey 
 	math.ReadBits(key.GetX(), e[:len(e)/2])
 	math.ReadBits(key.GetY(), e[len(e)/2:])
@@ -64,34 +64,34 @@ func (e encPubkey) id() enode.ID {
 	return enode.ID(crypto.Keccak256Hash(e[:]))
 }
 
-func wrapNode(n *enode.Node) *node {
-	return &node{Node: *n}
+func wrapNode[P crypto.PublicKey](n *enode.Node[P]) *node[P] {
+	return &node[P]{Node: *n}
 }
 
-func wrapNodes(ns []*enode.Node) []*node {
-	result := make([]*node, len(ns))
+func wrapNodes[P crypto.PublicKey](ns []*enode.Node[P]) []*node[P] {
+	result := make([]*node[P], len(ns))
 	for i, n := range ns {
-		result[i] = wrapNode(n)
+		result[i] = wrapNode[P](n)
 	}
 	return result
 }
 
-func unwrapNode(n *node) *enode.Node {
+func unwrapNode[P crypto.PublicKey](n *node[P]) *enode.Node[P] {
 	return &n.Node
 }
 
-func unwrapNodes(ns []*node) []*enode.Node {
-	result := make([]*enode.Node, len(ns))
+func unwrapNodes[P crypto.PublicKey](ns []*node[P]) []*enode.Node[P] {
+	result := make([]*enode.Node[P], len(ns))
 	for i, n := range ns {
 		result[i] = unwrapNode(n)
 	}
 	return result
 }
 
-func (n *node) addr() *net.UDPAddr {
+func (n *node[P]) addr() *net.UDPAddr {
 	return &net.UDPAddr{IP: n.IP(), Port: n.UDP()}
 }
 
-func (n *node) String() string {
+func (n *node[P]) String() string {
 	return n.Node.String()
 }

@@ -20,33 +20,34 @@ import (
 	"context"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
-type lookup struct {
+type lookup [P crypto.PublicKey] struct {
 	tab         *Table
-	queryfunc   func(*node) ([]*node, error)
-	replyCh     chan []*node
+	queryfunc   func(*node[P]) ([]*node[P], error)
+	replyCh     chan []*node[P]
 	cancelCh    <-chan struct{}
 	asked, seen map[enode.ID]bool
 	result      nodesByDistance
-	replyBuffer []*node
+	replyBuffer []*node[P]
 	queries     int
 }
 
-type queryFunc func(*node) ([]*node, error)
+type queryFunc [P crypto.PublicKey] func(*node[P]) ([]*node[P], error)
 
-func newLookup(ctx context.Context, tab *Table, target enode.ID, q queryFunc) *lookup {
-	it := &lookup{
+func newLookup[P crypto.PublicKey](ctx context.Context, tab *Table, target enode.ID, q queryFunc[P]) *lookup[P] {
+	it := &lookup[P]{
 		tab:       tab,
 		queryfunc: q,
 		asked:     make(map[enode.ID]bool),
 		seen:      make(map[enode.ID]bool),
 		result:    nodesByDistance{target: target},
-		replyCh:   make(chan []*node, alpha),
+		replyCh:   make(chan []*node[P], alpha),
 		cancelCh:  ctx.Done(),
 		queries:   -1,
 	}
@@ -57,7 +58,7 @@ func newLookup(ctx context.Context, tab *Table, target enode.ID, q queryFunc) *l
 }
 
 // run runs the lookup to completion and returns the closest nodes found.
-func (it *lookup) run() []*enode.Node {
+func (it *lookup[P]) run() []*enode.Node[P] {
 	for it.advance() {
 	}
 	return unwrapNodes(it.result.entries)
@@ -65,7 +66,7 @@ func (it *lookup) run() []*enode.Node {
 
 // advance advances the lookup until any new nodes have been found.
 // It returns false when the lookup has ended.
-func (it *lookup) advance() bool {
+func (it *lookup[P]) advance() bool {
 	for it.startQueries() {
 		select {
 		case nodes := <-it.replyCh:
@@ -88,7 +89,7 @@ func (it *lookup) advance() bool {
 	return false
 }
 
-func (it *lookup) shutdown() {
+func (it *lookup[P]) shutdown() {
 	for it.queries > 0 {
 		<-it.replyCh
 		it.queries--
@@ -97,7 +98,7 @@ func (it *lookup) shutdown() {
 	it.replyBuffer = nil
 }
 
-func (it *lookup) startQueries() bool {
+func (it *lookup[P]) startQueries() bool {
 	if it.queryfunc == nil {
 		return false
 	}
@@ -129,7 +130,7 @@ func (it *lookup) startQueries() bool {
 	return it.queries > 0
 }
 
-func (it *lookup) slowdown() {
+func (it *lookup[P]) slowdown() {
 	sleep := time.NewTimer(1 * time.Second)
 	defer sleep.Stop()
 	select {
@@ -138,7 +139,7 @@ func (it *lookup) slowdown() {
 	}
 }
 
-func (it *lookup) query(n *node, reply chan<- []*node) {
+func (it *lookup[P]) query(n *node[P], reply chan<- []*node[P]) {
 	fails := it.tab.db.FindFails(n.ID(), n.IP())
 	r, err := it.queryfunc(n)
 	if err == errClosed {
@@ -171,23 +172,23 @@ func (it *lookup) query(n *node, reply chan<- []*node) {
 
 // lookupIterator performs lookup operations and iterates over all seen nodes.
 // When a lookup finishes, a new one is created through nextLookup.
-type lookupIterator struct {
-	buffer     []*node
-	nextLookup lookupFunc
+type lookupIterator [P crypto.PublicKey] struct {
+	buffer     []*node[P]
+	nextLookup lookupFunc[P]
 	ctx        context.Context
 	cancel     func()
-	lookup     *lookup
+	lookup     *lookup[P]
 }
 
-type lookupFunc func(ctx context.Context) *lookup
+type lookupFunc [P crypto.PublicKey] func(ctx context.Context) *lookup[P]
 
-func newLookupIterator(ctx context.Context, next lookupFunc) *lookupIterator {
+func newLookupIterator[P crypto.PublicKey](ctx context.Context, next lookupFunc[P]) *lookupIterator[P] {
 	ctx, cancel := context.WithCancel(ctx)
-	return &lookupIterator{ctx: ctx, cancel: cancel, nextLookup: next}
+	return &lookupIterator[P]{ctx: ctx, cancel: cancel, nextLookup: next}
 }
 
 // Node returns the current node.
-func (it *lookupIterator) Node() *enode.Node {
+func (it *lookupIterator[P]) Node() *enode.Node[P] {
 	if len(it.buffer) == 0 {
 		return nil
 	}
@@ -195,7 +196,7 @@ func (it *lookupIterator) Node() *enode.Node {
 }
 
 // Next moves to the next node.
-func (it *lookupIterator) Next() bool {
+func (it *lookupIterator[P]) Next() bool {
 	// Consume next node in buffer.
 	if len(it.buffer) > 0 {
 		it.buffer = it.buffer[1:]
@@ -221,6 +222,6 @@ func (it *lookupIterator) Next() bool {
 }
 
 // Close ends the iterator.
-func (it *lookupIterator) Close() {
+func (it *lookupIterator[P]) Close() {
 	it.cancel()
 }

@@ -43,7 +43,7 @@ import (
 // Node is a container on which services can be registered.
 type Node [T crypto.PrivateKey ]struct {
 	eventmux      *event.TypeMux
-	config        *Config[T]
+	config        *Config[T,P]
 	accman        *accounts.Manager
 	log           log.Logger
 	ephemKeystore string            // if non-empty, the key directory that will be removed by Stop
@@ -76,7 +76,7 @@ const (
 )
 
 // New creates a new P2P node, ready for protocol registration.
-func New[T crypto.PrivateKey ] (conf *Config[T]) (*Node[T], error) {
+func New[T crypto.PrivateKey ] (conf *Config[T,P]) (*Node[T], error) {
 	// Copy config and resolve the datadir so future changes to the current
 	// working directory don't affect the node.
 	confCopy := *conf
@@ -575,7 +575,7 @@ func (n *Node[T]) RPCHandler() (*rpc.Server, error) {
 }
 
 // Config returns the configuration of node.
-func (n *Node[T]) Config() *Config[T] {
+func (n *Node[T]) Config() *Config[T,P] {
 	return n.config
 }
 

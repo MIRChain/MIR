@@ -26,6 +26,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
@@ -33,18 +34,18 @@ import (
 var errMissingPrefix = errors.New("missing 'enr:' prefix for base64-encoded record")
 
 // Node represents a host on the network.
-type Node struct {
+type Node [P crypto.PublicKey] struct {
 	r  enr.Record
 	id ID
 }
 
 // New wraps a node record. The record must be valid according to the given
 // identity scheme.
-func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
+func New[P crypto.PublicKey] (validSchemes enr.IdentityScheme, r *enr.Record) (*Node[P], error) {
 	if err := r.VerifySignature(validSchemes); err != nil {
 		return nil, err
 	}
-	node := &Node{r: *r}
+	node := &Node[P]{r: *r}
 	if n := copy(node.id[:], validSchemes.NodeAddr(&node.r)); n != len(ID{}) {
 		return nil, fmt.Errorf("invalid node ID length %d, need %d", n, len(ID{}))
 	}
@@ -52,8 +53,8 @@ func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
 }
 
 // MustParse parses a node record or enode:// URL. It panics if the input is invalid.
-func MustParse(rawurl string) *Node {
-	n, err := Parse(ValidSchemes, rawurl)
+func MustParse[P crypto.PublicKey] (rawurl string) *Node[P] {
+	n, err := Parse[P](ValidSchemes, rawurl)
 	if err != nil {
 		panic("invalid node: " + err.Error())
 	}
@@ -61,9 +62,9 @@ func MustParse(rawurl string) *Node {
 }
 
 // Parse decodes and verifies a base64-encoded node record.
-func Parse(validSchemes enr.IdentityScheme, input string) (*Node, error) {
+func Parse[P crypto.PublicKey] (validSchemes enr.IdentityScheme, input string) (*Node[P], error) {
 	if strings.HasPrefix(input, "enode://") {
-		return ParseV4(input)
+		return ParseV4[P](input)
 	}
 	if !strings.HasPrefix(input, "enr:") {
 		return nil, errMissingPrefix
@@ -76,27 +77,27 @@ func Parse(validSchemes enr.IdentityScheme, input string) (*Node, error) {
 	if err := rlp.DecodeBytes(bin, &r); err != nil {
 		return nil, err
 	}
-	return New(validSchemes, &r)
+	return New[P](validSchemes, &r)
 }
 
 // ID returns the node identifier.
-func (n *Node) ID() ID {
+func (n *Node[P]) ID() ID {
 	return n.id
 }
 
 // Seq returns the sequence number of the underlying record.
-func (n *Node) Seq() uint64 {
+func (n *Node[P]) Seq() uint64 {
 	return n.r.Seq()
 }
 
 // Quorum
 // Incomplete returns true for nodes with no IP address and no hostname if with raftport.
-func (n *Node) Incomplete() bool {
+func (n *Node[P]) Incomplete() bool {
 	return n.IP() == nil && (!n.HasRaftPort() || (n.Host() == "" && n.HasRaftPort()))
 }
 
 // Load retrieves an entry from the underlying record.
-func (n *Node) Load(k enr.Entry) error {
+func (n *Node[P]) Load(k enr.Entry) error {
 	return n.r.Load(k)
 }
 
@@ -105,7 +106,7 @@ func (n *Node) Load(k enr.Entry) error {
 // Quorum
 // To support DNS lookup in node ip. The function performs hostname lookup if hostname is defined in enr.Hostname
 // and falls back to enr.IP value in case of failure. It also makes sure the resolved IP is in IPv4 or IPv6 format
-func (n *Node) IP() net.IP {
+func (n *Node[P]) IP() net.IP {
 	if n.Host() == "" {
 		// no host is set, so use the IP directly
 		return n.loadIP()
@@ -124,7 +125,7 @@ func (n *Node) IP() net.IP {
 	return ip
 }
 
-func (n *Node) loadIP() net.IP {
+func (n *Node[P]) loadIP() net.IP {
 	var (
 		ip4 enr.IPv4
 		ip6 enr.IPv6
@@ -139,7 +140,7 @@ func (n *Node) loadIP() net.IP {
 }
 
 // Quorum
-func (n *Node) Host() string {
+func (n *Node[P]) Host() string {
 	var hostname string
 	n.Load((*enr.Hostname)(&hostname))
 	return hostname
@@ -148,14 +149,14 @@ func (n *Node) Host() string {
 // End-Quorum
 
 // UDP returns the UDP port of the node.
-func (n *Node) UDP() int {
+func (n *Node[P]) UDP() int {
 	var port enr.UDP
 	n.Load(&port)
 	return int(port)
 }
 
 // used by Quorum RAFT - returns the Raft port of the node
-func (n *Node) RaftPort() int {
+func (n *Node[P]) RaftPort() int {
 	var port enr.RaftPort
 	err := n.Load(&port)
 	if err != nil {
@@ -164,19 +165,19 @@ func (n *Node) RaftPort() int {
 	return int(port)
 }
 
-func (n *Node) HasRaftPort() bool {
+func (n *Node[P]) HasRaftPort() bool {
 	return n.RaftPort() > 0
 }
 
 // UDP returns the TCP port of the node.
-func (n *Node) TCP() int {
+func (n *Node[P]) TCP() int {
 	var port enr.TCP
 	n.Load(&port)
 	return int(port)
 }
 
 // Pubkey returns the secp256k1 public key of the node, if present.
-func (n *Node) Pubkey() *ecdsa.PublicKey {
+func (n *Node[P]) Pubkey() *ecdsa.PublicKey {
 	var key ecdsa.PublicKey
 	if n.Load((*Secp256k1)(&key)) != nil {
 		return nil
@@ -186,14 +187,14 @@ func (n *Node) Pubkey() *ecdsa.PublicKey {
 
 // Record returns the node's record. The return value is a copy and may
 // be modified by the caller.
-func (n *Node) Record() *enr.Record {
+func (n *Node[P]) Record() *enr.Record {
 	cpy := n.r
 	return &cpy
 }
 
 // ValidateComplete checks whether n has a valid IP and UDP port.
 // Deprecated: don't use this method.
-func (n *Node) ValidateComplete() error {
+func (n *Node[P]) ValidateComplete() error {
 	if n.Incomplete() {
 		return errors.New("missing IP address")
 	}
@@ -210,7 +211,7 @@ func (n *Node) ValidateComplete() error {
 }
 
 // String returns the text representation of the record.
-func (n *Node) String() string {
+func (n *Node[P]) String() string {
 	if isNewV4(n) {
 		return n.URLv4() // backwards-compatibility glue for NewV4 nodes
 	}
@@ -220,13 +221,13 @@ func (n *Node) String() string {
 }
 
 // MarshalText implements encoding.TextMarshaler.
-func (n *Node) MarshalText() ([]byte, error) {
+func (n *Node[P]) MarshalText() ([]byte, error) {
 	return []byte(n.String()), nil
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
-func (n *Node) UnmarshalText(text []byte) error {
-	dec, err := Parse(ValidSchemes, string(text))
+func (n *Node[P]) UnmarshalText(text []byte) error {
+	dec, err := Parse[P](ValidSchemes, string(text))
 	if err == nil {
 		*n = *dec
 	}

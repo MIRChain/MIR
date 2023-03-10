@@ -64,7 +64,7 @@ func TestRFCVectors(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
-	pub := prv.PublicKey()
+	pub := prv.Public()
 	if bytes.Compare(pub.Raw()[:32], pubX) != 0 {
 		t.FailNow()
 	}
@@ -83,7 +83,7 @@ func TestRFCVectors(t *testing.T) {
 	if err != nil || !valid {
 		t.FailNow()
 	}
-	pubKey := prv.PublicKey()
+	pubKey := prv.Public()
 	_r := new(big.Int).SetBytes(signature[:32])
 	_s := new(big.Int).SetBytes(signature[32:64])
 	recovPubX, recovPubY, err := RecoverCompact(*pubKey.C, digest, _r, _s, 0)
@@ -111,7 +111,7 @@ func TestRandom2001(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		pub := prv.PublicKey()
+		pub := prv.Public()
 		pubRaw := pub.Raw()
 		pub, err = NewPublicKey(c, pubRaw)
 		if err != nil {
@@ -158,7 +158,7 @@ func BenchmarkVerify2001(b *testing.B) {
 	if err != nil {
 		b.FailNow()
 	}
-	pub := prv.PublicKey()
+	pub := prv.Public()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pub.VerifyDigest(digest, sign)
@@ -173,7 +173,7 @@ func TestPrvEqualsTo1(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
-	pub := prv.PublicKey()
+	pub := prv.Public()
 	digest := []byte{
 		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
 		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,

@@ -136,8 +136,7 @@ func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 		s := new(big.Int).SetBytes(sig[32:64])
 		for i := 0; i < (1+1)*2; i++ {
 			X, Y, err := gost3410.RecoverCompact(*prv.C, digestHash, r, s, i)
-			pub := prv.PublicKey()
-			if err == nil && X.Cmp(pub.X) == 0 && Y.Cmp(pub.Y) == 0 {
+			if err == nil && X.Cmp(prv.PublicKey.X) == 0 && Y.Cmp(prv.PublicKey.Y) == 0 {
 				resSig = append(resSig, sig...)
 				resSig = append(resSig, byte(i))
 			}

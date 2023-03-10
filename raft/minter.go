@@ -55,7 +55,7 @@ type work struct {
 	header       *types.Header
 }
 
-type minter [T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert | *ecdsa.PrivateKey | *gost3410.PrivateKey | *csp.Cert] struct {
+type minter [T crypto.PrivateKey]  struct {
 	config           *params.ChainConfig
 	mu               sync.Mutex
 	mux              *event.TypeMux

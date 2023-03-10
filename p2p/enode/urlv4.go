@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
@@ -39,8 +40,8 @@ var (
 )
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
-func MustParseV4(rawurl string) *Node {
-	n, err := ParseV4(rawurl)
+func MustParseV4[P crypto.PublicKey](rawurl string) *Node[P] {
+	n, err := ParseV4[P](rawurl)
 	if err != nil {
 		panic("invalid node URL: " + err.Error())
 	}
@@ -71,30 +72,30 @@ func MustParseV4(rawurl string) *Node {
 // and UDP discovery port 30301.
 //
 //    enode://<hex node id>@10.3.58.6:30303?discport=30301
-func ParseV4(rawurl string) (*Node, error) {
+func ParseV4[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
-		id, err := parsePubkey(m[1])
+		id, err := parsePubkey[P](m[1])
 		if err != nil {
 			return nil, fmt.Errorf("invalid public key (%v)", err)
 		}
-		return NewV4(id, nil, 0, 0), nil
+		return NewV4[P](id, nil, 0, 0), nil
 	}
-	return parseComplete(rawurl)
+	return parseComplete[P](rawurl)
 }
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4[T crypto.PublicKey ] (pubkey T, ip net.IP, tcp, udp int) *Node {
+func NewV4[P crypto.PublicKey] (pubkey P, ip net.IP, tcp, udp int) *Node[P] {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
 	}
-	return newV4(pubkey, r, tcp, udp)
+	return newV4[P](pubkey, r, tcp, udp)
 }
 
 // broken out from `func NewV4` (above) same in upstream go-ethereum, but taken out
 // to avoid code duplication b/t NewV4 and NewV4Hostname
-func newV4[T crypto.PublicKey ](pubkey T, r enr.Record, tcp, udp int) *Node {
+func newV4[P crypto.PublicKey](pubkey P, r enr.Record, tcp, udp int) *Node[P] {
 	if udp != 0 {
 		r.Set(enr.UDP(udp))
 	}
@@ -102,7 +103,7 @@ func newV4[T crypto.PublicKey ](pubkey T, r enr.Record, tcp, udp int) *Node {
 		r.Set(enr.TCP(tcp))
 	}
 	signV4Compat(&r, pubkey)
-	n, err := New(v4CompatID{}, &r)
+	n, err := New[P](v4CompatID{}, &r)
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +111,7 @@ func newV4[T crypto.PublicKey ](pubkey T, r enr.Record, tcp, udp int) *Node {
 }
 
 // isNewV4 returns true for nodes created by NewV4.
-func isNewV4(n *Node) bool {
+func isNewV4[P crypto.PublicKey](n *Node[P]) bool {
 	var k s256raw
 	return n.r.IdentityScheme() == "" && n.r.Load(&k) == nil && len(n.r.Signature()) == 0
 }
@@ -120,7 +121,7 @@ func isNewV4(n *Node) bool {
 // NewV4Hostname creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature. It sets the hostname or ip
 // of the node depends on hostname context
-func NewV4Hostname(pubkey *ecdsa.PublicKey, hostname string, tcp, udp, raftPort int) *Node {
+func NewV4Hostname[P crypto.PublicKey] (pubkey P, hostname string, tcp, udp, raftPort int) *Node[P] {
 	var r enr.Record
 
 	if ip := net.ParseIP(hostname); ip == nil {
@@ -138,9 +139,9 @@ func NewV4Hostname(pubkey *ecdsa.PublicKey, hostname string, tcp, udp, raftPort 
 
 // End-Quorum
 
-func parseComplete(rawurl string) (*Node, error) {
+func parseComplete[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 	var (
-		id               *ecdsa.PublicKey
+		id               P
 		ip               net.IP
 		tcpPort, udpPort uint64
 	)
@@ -155,7 +156,7 @@ func parseComplete(rawurl string) (*Node, error) {
 	if u.User == nil {
 		return nil, errors.New("does not contain node ID")
 	}
-	if id, err = parsePubkey(u.User.String()); err != nil {
+	if id, err = parsePubkey[P](u.User.String()); err != nil {
 		return nil, fmt.Errorf("invalid public key (%v)", err)
 	}
 	qv := u.Query()
@@ -202,28 +203,28 @@ func parseComplete(rawurl string) (*Node, error) {
 	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
 }
 
-func HexPubkey(h string) (*ecdsa.PublicKey, error) {
-	k, err := parsePubkey(h)
+func HexPubkey[P crypto.PublicKey](h string) (P, error) {
+	k, err := parsePubkey[P](h)
 	if err != nil {
-		return nil, err
+		return crypto.ZeroPublicKey[P](), err
 	}
 	return k, err
 }
 
 // parsePubkey parses a hex-encoded secp256k1 public key.
-func parsePubkey(in string) (*ecdsa.PublicKey, error) {
+func parsePubkey[P crypto.PublicKey](in string) (P, error) {
 	b, err := hex.DecodeString(in)
 	if err != nil {
-		return nil, err
+		return crypto.ZeroPublicKey[P](), err
 	} else if len(b) != 64 {
-		return nil, fmt.Errorf("wrong length, want %d hex chars", 128)
+		return crypto.ZeroPublicKey[P](), fmt.Errorf("wrong length, want %d hex chars", 128)
 	}
 	b = append([]byte{0x4}, b...)
-	return crypto.UnmarshalPubkey(b)
+	return crypto.UnmarshalPubkey[P](b)
 }
 
 // used by Quorum RAFT - to derive enodeID
-func (n *Node) EnodeID() string {
+func (n *Node[P]) EnodeID() string {
 	var (
 		scheme enr.ID
 		nodeid string
@@ -240,7 +241,7 @@ func (n *Node) EnodeID() string {
 	return nodeid
 }
 
-func (n *Node) URLv4() string {
+func (n *Node[P]) URLv4() string {
 	var (
 		scheme enr.ID
 		nodeid string
@@ -283,9 +284,9 @@ func (n *Node) URLv4() string {
 }
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
-func PubkeyToIDV4[T *ecdsa.PublicKey | *gost3410.PublicKey | *csp.PublicKey ] (key T) ID {
+func PubkeyToIDV4[T crypto.PublicKey ] (key T) ID {
 	switch pubkey := any(key).(type) {
-	case *ecdsa.PublicKey:
+	case *nist.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])

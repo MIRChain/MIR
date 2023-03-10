@@ -18,7 +18,7 @@ type PublicKey struct {
 }
 
 // Get pub key values from cert
-func (c Cert) GetPublicKey() *PublicKey {
+func (c Cert) Public() *PublicKey {
 	ci := CertInfo{c.pCert.pCertInfo}
 	pb := ci.pCertInfo.SubjectPublicKeyInfo.PublicKey
 	pubKeyBytes := C.GoBytes(unsafe.Pointer(pb.pbData), C.int(pb.cbData))[2:66]

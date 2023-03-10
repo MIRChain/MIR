@@ -156,22 +156,9 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	// Recover the public key and the Ethereum address
 	var pubkey []byte 
 	var err error
-	switch crypto.CryptoAlg {
-	case crypto.NIST:
-		pubkey, err = crypto.Ecrecover(SealHash(header).Bytes(), signature)
-		if err != nil {
-			return common.Address{}, err
-		}
-	case crypto.GOST:
-		pubkey, err = crypto.EcrecoverGost(SealHash(header).Bytes(), signature)
-		if err != nil {
-			return common.Address{}, err
-		}
-	case crypto.GOST_CSP:
-		pubkey, err = crypto.EcrecoverCsp(SealHash(header).Bytes(), signature)
-		if err != nil {
-			return common.Address{}, err
-		}
+	pubkey, err = crypto.Ecrecover(SealHash(header).Bytes(), signature)
+	if err != nil {
+		return common.Address{}, err
 	}
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])

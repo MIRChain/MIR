@@ -19,7 +19,6 @@ package discover
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
 	"fmt"
@@ -30,6 +29,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v5wire"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -60,13 +60,13 @@ type codecV5 interface {
 }
 
 // UDPv5 is the implementation of protocol version 5.
-type UDPv5 struct {
+type UDPv5 [T crypto.PrivateKey]  struct {
 	// static fields
 	conn         UDPConn
 	tab          *Table
 	netrestrict  *netutil.Netlist
-	priv         *ecdsa.PrivateKey
-	localNode    *enode.LocalNode
+	priv         T
+	localNode    *enode.LocalNode[T]
 	db           *enode.DB
 	log          log.Logger
 	clock        mclock.Clock
@@ -122,7 +122,7 @@ type callTimeout struct {
 }
 
 // ListenV5 listens on the given connection.
-func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+func ListenV5[T crypto.PrivateKey](conn UDPConn, ln *enode.LocalNode[T], cfg Config[T,P]) (*UDPv5, error) {
 	t, err := newUDPv5(conn, ln, cfg)
 	if err != nil {
 		return nil, err
@@ -135,10 +135,10 @@ func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 }
 
 // newUDPv5 creates a UDPv5 transport, but doesn't start any goroutines.
-func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+func newUDPv5[T crypto.PrivateKey](conn UDPConn, ln *enode.LocalNode[T], cfg Config[T,P]) (*UDPv5, error) {
 	closeCtx, cancelCloseCtx := context.WithCancel(context.Background())
 	cfg = cfg.withDefaults()
-	t := &UDPv5{
+	t := &UDPv5[T]{
 		// static fields
 		conn:         conn,
 		localNode:    ln,
