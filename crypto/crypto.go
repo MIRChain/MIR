@@ -225,7 +225,7 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 }
 
 func FromECDSAPub[P PublicKey](pub P) []byte {
-	switch p := any(&pub).(type) {
+	switch p := any(pub).(type) {
 	case *nist.PublicKey:
 		if pub == ZeroPublicKey[P]() || pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")

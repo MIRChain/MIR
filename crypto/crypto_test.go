@@ -100,11 +100,11 @@ func TestUnmarshalPubkey(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	CryptoAlg = NIST
-	key, _ := HexToECDSA[*nist.PrivateKey](testPrivHex)
+	key, _ := HexToECDSA[nist.PrivateKey](testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
 
 	msg := Keccak256([]byte("foo"))
-	sig, err := Sign(msg, key)
+	sig, err := Sign(msg, &key)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
@@ -112,8 +112,8 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	pubKey, _ := UnmarshalPubkey[*nist.PublicKey](recoveredPub)
-	recoveredAddr := PubkeyToAddress(pubKey)
+	pubKey, _ := UnmarshalPubkey[nist.PublicKey](recoveredPub)
+	recoveredAddr := PubkeyToAddress(&pubKey)
 	if addr != recoveredAddr {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr)
 	}

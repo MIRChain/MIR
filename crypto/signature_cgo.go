@@ -117,7 +117,7 @@ func SigToPubCsp(hash, sig []byte) ([]byte, error) {
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
 func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 	switch prv:=any(key).(type) {
-	case *ecdsa.PrivateKey:
+	case *nist.PrivateKey:
 		if len(digestHash) != DigestLength {
 			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
 		}
