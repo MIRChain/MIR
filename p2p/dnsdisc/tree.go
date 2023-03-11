@@ -27,6 +27,9 @@ import (
 	"strings"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -34,52 +37,62 @@ import (
 )
 
 // Tree is a merkle tree of node records.
-type Tree struct {
-	root    *rootEntry
+type Tree [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	root    rootEntry[P]
 	entries map[string]entry
 }
 
 // Sign signs the tree with the given private key and sets the sequence number.
-func (t *Tree) Sign(key *ecdsa.PrivateKey, domain string) (url string, err error) {
-	root := *t.root
+func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
+	root := t.root
 	sig, err := crypto.Sign(root.sigHash(), key)
 	if err != nil {
 		return "", err
 	}
 	root.sig = sig
-	t.root = &root
-	link := newLinkEntry(domain, &key.PublicKey)
+	t.root = root
+	var link *linkEntry[P]
+	switch key := any(key).(type) {
+	case *nist.PrivateKey:
+		link = newLinkEntry[P](domain, key.Public())
+		return link.String(), nil
+	case *gost3410.PrivateKey:
+		link = newLinkEntry[P](domain, key.Public())
+		return link.String(), nil
+	case *csp.Cert:
+		link = newLinkEntry[P](domain, key.Public())
+	}
 	return link.String(), nil
 }
 
 // SetSignature verifies the given signature and assigns it as the tree's current
 // signature if valid.
-func (t *Tree) SetSignature(pubkey *ecdsa.PublicKey, signature string) error {
+func (t *Tree[T,P]) SetSignature(pubkey P, signature string) error {
 	sig, err := b64format.DecodeString(signature)
 	if err != nil || len(sig) != crypto.SignatureLength {
 		return errInvalidSig
 	}
-	root := *t.root
+	root := t.root
 	root.sig = sig
 	if !root.verifySignature(pubkey) {
 		return errInvalidSig
 	}
-	t.root = &root
+	t.root = root
 	return nil
 }
 
 // Seq returns the sequence number of the tree.
-func (t *Tree) Seq() uint {
+func (t *Tree[T,P]) Seq() uint {
 	return t.root.seq
 }
 
 // Signature returns the signature of the tree.
-func (t *Tree) Signature() string {
+func (t *Tree[T,P]) Signature() string {
 	return b64format.EncodeToString(t.root.sig)
 }
 
 // ToTXT returns all DNS TXT records required for the tree.
-func (t *Tree) ToTXT(domain string) map[string]string {
+func (t *Tree[T,P]) ToTXT(domain string) map[string]string {
 	records := map[string]string{domain: t.root.String()}
 	for _, e := range t.entries {
 		sd := subdomain(e)
@@ -92,10 +105,10 @@ func (t *Tree) ToTXT(domain string) map[string]string {
 }
 
 // Links returns all links contained in the tree.
-func (t *Tree) Links() []string {
+func (t *Tree[T,P]) Links() []string {
 	var links []string
 	for _, e := range t.entries {
-		if le, ok := e.(*linkEntry); ok {
+		if le, ok := e.(*linkEntry[P]); ok {
 			links = append(links, le.String())
 		}
 	}
@@ -103,10 +116,10 @@ func (t *Tree) Links() []string {
 }
 
 // Nodes returns all nodes contained in the tree.
-func (t *Tree) Nodes() []*enode.Node {
-	var nodes []*enode.Node
+func (t *Tree[T,P]) Nodes() []*enode.Node[P] {
+	var nodes []*enode.Node[P]
 	for _, e := range t.entries {
-		if ee, ok := e.(*enrEntry); ok {
+		if ee, ok := e.(*enrEntry[P]); ok {
 			nodes = append(nodes, ee.node)
 		}
 	}
@@ -151,9 +164,9 @@ const (
 )
 
 // MakeTree creates a tree containing the given nodes and links.
-func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
+func MakeTree[T crypto.PrivateKey, P crypto.PublicKey](seq uint, nodes []*enode.Node[P], links []string) (*Tree[T,P], error) {
 	// Sort records by ID and ensure all nodes have a valid record.
-	records := make([]*enode.Node, len(nodes))
+	records := make([]*enode.Node[P], len(nodes))
 
 	copy(records, nodes)
 	sortByID(records)
@@ -166,11 +179,11 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	// Create the leaf list.
 	enrEntries := make([]entry, len(records))
 	for i, r := range records {
-		enrEntries[i] = &enrEntry{r}
+		enrEntries[i] = &enrEntry[P]{r}
 	}
 	linkEntries := make([]entry, len(links))
 	for i, l := range links {
-		le, err := parseLink(l)
+		le, err := parseLink[P](l)
 		if err != nil {
 			return nil, err
 		}
@@ -178,16 +191,16 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	}
 
 	// Create intermediate nodes.
-	t := &Tree{entries: make(map[string]entry)}
+	t := &Tree[T,P]{entries: make(map[string]entry)}
 	eroot := t.build(enrEntries)
 	t.entries[subdomain(eroot)] = eroot
 	lroot := t.build(linkEntries)
 	t.entries[subdomain(lroot)] = lroot
-	t.root = &rootEntry{seq: seq, eroot: subdomain(eroot), lroot: subdomain(lroot)}
+	t.root = rootEntry[P]{seq: seq, eroot: subdomain(eroot), lroot: subdomain(lroot)}
 	return t, nil
 }
 
-func (t *Tree) build(entries []entry) entry {
+func (t *Tree[T,P]) build(entries []entry) entry {
 	if len(entries) == 1 {
 		return entries[0]
 	}
@@ -213,7 +226,7 @@ func (t *Tree) build(entries []entry) entry {
 	return t.build(subtrees)
 }
 
-func sortByID(nodes []*enode.Node) []*enode.Node {
+func sortByID[P crypto.PublicKey](nodes []*enode.Node[P]) []*enode.Node[P] {
 	sort.Slice(nodes, func(i, j int) bool {
 		return bytes.Compare(nodes[i].ID().Bytes(), nodes[j].ID().Bytes()) < 0
 	})
@@ -227,7 +240,7 @@ type entry interface {
 }
 
 type (
-	rootEntry struct {
+	rootEntry [P crypto.PublicKey] struct {
 		eroot string
 		lroot string
 		seq   uint
@@ -236,13 +249,13 @@ type (
 	branchEntry struct {
 		children []string
 	}
-	enrEntry struct {
-		node *enode.Node
+	enrEntry [P crypto.PublicKey] struct {
+		node *enode.Node[P]
 	}
-	linkEntry struct {
+	linkEntry [P crypto.PublicKey] struct {
 		str    string
 		domain string
-		pubkey *ecdsa.PublicKey
+		pubkey P
 	}
 )
 
@@ -266,17 +279,17 @@ func subdomain(e entry) string {
 	return b32format.EncodeToString(h.Sum(nil)[:16])
 }
 
-func (e *rootEntry) String() string {
+func (e rootEntry[P]) String() string {
 	return fmt.Sprintf(rootPrefix+" e=%s l=%s seq=%d sig=%s", e.eroot, e.lroot, e.seq, b64format.EncodeToString(e.sig))
 }
 
-func (e *rootEntry) sigHash() []byte {
+func (e rootEntry[P]) sigHash() []byte {
 	h := sha3.NewLegacyKeccak256()
 	fmt.Fprintf(h, rootPrefix+" e=%s l=%s seq=%d", e.eroot, e.lroot, e.seq)
 	return h.Sum(nil)
 }
 
-func (e *rootEntry) verifySignature(pubkey *ecdsa.PublicKey) bool {
+func (e rootEntry[P]) verifySignature(pubkey P) bool {
 	sig := e.sig[:crypto.RecoveryIDOffset] // remove recovery id
 	enckey := crypto.FromECDSAPub(pubkey)
 	return crypto.VerifySignature(enckey, e.sigHash(), sig)
@@ -286,60 +299,60 @@ func (e *branchEntry) String() string {
 	return branchPrefix + strings.Join(e.children, ",")
 }
 
-func (e *enrEntry) String() string {
+func (e *enrEntry[P]) String() string {
 	return e.node.String()
 }
 
-func (e *linkEntry) String() string {
+func (e *linkEntry[P]) String() string {
 	return linkPrefix + e.str
 }
 
-func newLinkEntry(domain string, pubkey *ecdsa.PublicKey) *linkEntry {
+func newLinkEntry[P crypto.PublicKey](domain string, pubkey P) *linkEntry[P] {
 	key := b32format.EncodeToString(crypto.CompressPubkey(pubkey))
 	str := key + "@" + domain
-	return &linkEntry{str, domain, pubkey}
+	return &linkEntry[P]{str, domain, pubkey}
 }
 
 // Entry Parsing
 
-func parseEntry(e string, validSchemes enr.IdentityScheme) (entry, error) {
+func parseEntry[P crypto.PublicKey](e string, validSchemes enr.IdentityScheme) (entry, error) {
 	switch {
 	case strings.HasPrefix(e, linkPrefix):
-		return parseLinkEntry(e)
+		return parseLinkEntry[P](e)
 	case strings.HasPrefix(e, branchPrefix):
 		return parseBranch(e)
 	case strings.HasPrefix(e, enrPrefix):
-		return parseENR(e, validSchemes)
+		return parseENR[P](e, validSchemes)
 	default:
 		return nil, errUnknownEntry
 	}
 }
 
-func parseRoot(e string) (rootEntry, error) {
+func parseRoot[P crypto.PublicKey](e string) (rootEntry[P], error) {
 	var eroot, lroot, sig string
 	var seq uint
 	if _, err := fmt.Sscanf(e, rootPrefix+" e=%s l=%s seq=%d sig=%s", &eroot, &lroot, &seq, &sig); err != nil {
-		return rootEntry{}, entryError{"root", errSyntax}
+		return rootEntry[P]{}, entryError{"root", errSyntax}
 	}
 	if !isValidHash(eroot) || !isValidHash(lroot) {
-		return rootEntry{}, entryError{"root", errInvalidChild}
+		return rootEntry[P]{}, entryError{"root", errInvalidChild}
 	}
 	sigb, err := b64format.DecodeString(sig)
 	if err != nil || len(sigb) != crypto.SignatureLength {
-		return rootEntry{}, entryError{"root", errInvalidSig}
+		return rootEntry[P]{}, entryError{"root", errInvalidSig}
 	}
-	return rootEntry{eroot, lroot, seq, sigb}, nil
+	return rootEntry[P]{eroot, lroot, seq, sigb}, nil
 }
 
-func parseLinkEntry(e string) (entry, error) {
-	le, err := parseLink(e)
+func parseLinkEntry[P crypto.PublicKey](e string) (entry, error) {
+	le, err := parseLink[P](e)
 	if err != nil {
 		return nil, err
 	}
 	return le, nil
 }
 
-func parseLink(e string) (*linkEntry, error) {
+func parseLink[P crypto.PublicKey](e string) (*linkEntry[P], error) {
 	if !strings.HasPrefix(e, linkPrefix) {
 		return nil, fmt.Errorf("wrong/missing scheme 'enrtree' in URL")
 	}
@@ -357,7 +370,7 @@ func parseLink(e string) (*linkEntry, error) {
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
-	return &linkEntry{e, domain, key}, nil
+	return &linkEntry[P]{e, domain, key}, nil
 }
 
 func parseBranch(e string) (entry, error) {
@@ -375,7 +388,7 @@ func parseBranch(e string) (entry, error) {
 	return &branchEntry{hashes}, nil
 }
 
-func parseENR(e string, validSchemes enr.IdentityScheme) (entry, error) {
+func parseENR[P crypto.PublicKey](e string, validSchemes enr.IdentityScheme) (entry, error) {
 	e = e[len(enrPrefix):]
 	enc, err := b64format.DecodeString(e)
 	if err != nil {
@@ -385,11 +398,11 @@ func parseENR(e string, validSchemes enr.IdentityScheme) (entry, error) {
 	if err := rlp.DecodeBytes(enc, &rec); err != nil {
 		return nil, entryError{"enr", err}
 	}
-	n, err := enode.New(validSchemes, &rec)
+	n, err := enode.New[P](validSchemes, &rec)
 	if err != nil {
 		return nil, entryError{"enr", err}
 	}
-	return &enrEntry{n}, nil
+	return &enrEntry[P]{n}, nil
 }
 
 func isValidHash(s string) bool {
@@ -414,10 +427,10 @@ func truncateHash(hash string) string {
 // URL encoding
 
 // ParseURL parses an enrtree:// URL and returns its components.
-func ParseURL(url string) (domain string, pubkey *ecdsa.PublicKey, err error) {
-	le, err := parseLink(url)
+func ParseURL[P crypto.PublicKey](url string) (domain string, pubkey P, err error) {
+	le, err := parseLink[P](url)
 	if err != nil {
-		return "", nil, err
+		return "", crypto.ZeroPublicKey[P](), err
 	}
 	return le.domain, le.pubkey, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
-func (pm *ProtocolManager) openWAL(maybeRaftSnapshot *raftpb.Snapshot) *wal.WAL {
+func (pm *ProtocolManager[T,P]) openWAL(maybeRaftSnapshot *raftpb.Snapshot) *wal.WAL {
 	if !wal.Exist(pm.waldir) {
 		if err := os.Mkdir(pm.waldir, 0750); err != nil {
 			fatalf("cannot create waldir: %s", err)
@@ -38,7 +38,7 @@ func (pm *ProtocolManager) openWAL(maybeRaftSnapshot *raftpb.Snapshot) *wal.WAL 
 	return wal
 }
 
-func (pm *ProtocolManager) replayWAL(maybeRaftSnapshot *raftpb.Snapshot) (*wal.WAL, []raftpb.Entry) {
+func (pm *ProtocolManager[T,P]) replayWAL(maybeRaftSnapshot *raftpb.Snapshot) (*wal.WAL, []raftpb.Entry) {
 	log.Info("replaying WAL")
 	wal := pm.openWAL(maybeRaftSnapshot)
 

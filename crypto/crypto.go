@@ -146,43 +146,48 @@ func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Add
 }
 
 // ToECDSA creates a private key with the given D value.
-func ToECDSA(d []byte) (*ecdsa.PrivateKey, error) {
-	return toECDSA(d, true)
+func ToECDSA[T PrivateKey](d []byte) (T, error) {
+	return toECDSA[T](d, true)
 }
 
 // ToECDSAUnsafe blindly converts a binary blob to a private key. It should almost
 // never be used unless you are sure the input is valid and want to avoid hitting
 // errors due to bad origin encoding (0 prefixes cut off).
-func ToECDSAUnsafe(d []byte) *ecdsa.PrivateKey {
-	priv, _ := toECDSA(d, false)
+func ToECDSAUnsafe[T PrivateKey](d []byte) T {
+	priv, _ := toECDSA[T](d, false)
 	return priv
 }
 
 // toECDSA creates a private key with the given D value. The strict parameter
 // controls whether the key's length should be enforced at the curve size or
 // it can also accept legacy encodings (0 prefixes).
-func toECDSA(d []byte, strict bool) (*ecdsa.PrivateKey, error) {
-	priv := new(ecdsa.PrivateKey)
-	priv.PublicKey.Curve = S256()
-	if strict && 8*len(d) != priv.Params().BitSize {
-		return nil, fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
+func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
+	var prv T
+	switch p:=any(&prv).(type) {
+	case *nist.PrivateKey:
+		priv := new(ecdsa.PrivateKey)
+		priv.PublicKey.Curve = S256()
+		if strict && 8*len(d) != priv.Params().BitSize {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
+		}
+		priv.D = new(big.Int).SetBytes(d)
+	
+		// The priv.D must < N
+		if priv.D.Cmp(secp256k1N) >= 0 {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, >=N")
+		}
+		// The priv.D must not be zero or negative.
+		if priv.D.Sign() <= 0 {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, zero or negative")
+		}
+	
+		priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(d)
+		if priv.PublicKey.X == nil {
+			return ZeroPrivateKey[T](), errors.New("invalid private key")
+		}
+		*p = nist.PrivateKey{priv}
 	}
-	priv.D = new(big.Int).SetBytes(d)
-
-	// The priv.D must < N
-	if priv.D.Cmp(secp256k1N) >= 0 {
-		return nil, fmt.Errorf("invalid private key, >=N")
-	}
-	// The priv.D must not be zero or negative.
-	if priv.D.Sign() <= 0 {
-		return nil, fmt.Errorf("invalid private key, zero or negative")
-	}
-
-	priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(d)
-	if priv.PublicKey.X == nil {
-		return nil, errors.New("invalid private key")
-	}
-	return priv, nil
+	return prv, nil
 }
 
 // FromECDSA exports a private key into a binary dump.
@@ -204,36 +209,56 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 		}
 		*p=nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
 	case *gost3410.PublicKey:
-		p, _ = gost3410.NewPublicKey(gost3410.GostCurve, pub) 
+		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub) 
+		if err == nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p=*k
 	case *csp.PublicKey:
-		p, _ = csp.NewPublicKey(pub)
+		k, err := csp.NewPublicKey(pub)
+		if err == nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p=*k
 	}
 	return pubKey, fmt.Errorf("cant infer pub key type")
 }
 
-func FromECDSAPub(pub *ecdsa.PublicKey) []byte {
-	if pub == nil || pub.X == nil || pub.Y == nil {
-		return nil
+func FromECDSAPub[P PublicKey](pub P) []byte {
+	switch p := any(&pub).(type) {
+	case *nist.PublicKey:
+		if pub == ZeroPublicKey[P]() || pub.GetX() == nil || pub.GetY() == nil {
+			panic("nil nil")
+		}
+		return elliptic.Marshal(S256(), pub.GetX(), pub.GetY())
+	case *gost3410.PublicKey:
+		if pub == ZeroPublicKey[P]() || pub.GetX() == nil || pub.GetY() == nil {
+			panic("nil nil")
+		}
+		return p.Raw()
+	case *csp.PublicKey:
+		return p.Raw()
+	default:
+		panic("cant infer pubkey type")
 	}
-	return elliptic.Marshal(S256(), pub.X, pub.Y)
 }
 
 // HexToECDSA parses a secp256k1 private key.
-func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
+func HexToECDSA[T PrivateKey](hexkey string) (T, error) {
 	b, err := hex.DecodeString(hexkey)
 	if byteErr, ok := err.(hex.InvalidByteError); ok {
-		return nil, fmt.Errorf("invalid hex character %q in private key", byte(byteErr))
+		return ZeroPrivateKey[T](), fmt.Errorf("invalid hex character %q in private key", byte(byteErr))
 	} else if err != nil {
-		return nil, errors.New("invalid hex data for private key")
+		return ZeroPrivateKey[T](), errors.New("invalid hex data for private key")
 	}
-	return ToECDSA(b)
+	return ToECDSA[T](b)
 }
 
 // LoadECDSA loads a secp256k1 private key from the given file.
-func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
+func LoadECDSA[T PrivateKey](file string) (T, error) {
 	fd, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		return ZeroPrivateKey[T](), err
 	}
 	defer fd.Close()
 
@@ -241,15 +266,15 @@ func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
 	buf := make([]byte, 64)
 	n, err := readASCII(buf, r)
 	if err != nil {
-		return nil, err
+		return ZeroPrivateKey[T](), err
 	} else if n != len(buf) {
-		return nil, fmt.Errorf("key file too short, want 64 hex characters")
+		return ZeroPrivateKey[T](), fmt.Errorf("key file too short, want 64 hex characters")
 	}
 	if err := checkKeyFileEnd(r); err != nil {
-		return nil, err
+		return ZeroPrivateKey[T](), err
 	}
 
-	return HexToECDSA(string(buf))
+	return HexToECDSA[T](string(buf))
 }
 
 // readASCII reads into 'buf', stopping when the buffer is full or
@@ -320,8 +345,8 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
 }
 
-func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
-	pubBytes := FromECDSAPub(&p)
+func PubkeyToAddress[P PublicKey](pub P) common.Address {
+	pubBytes := FromECDSAPub(pub)
 	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
 }
 

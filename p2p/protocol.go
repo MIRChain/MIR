@@ -19,12 +19,13 @@ package p2p
 import (
 	"fmt"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
 // Protocol represents a P2P subprotocol implementation.
-type Protocol struct {
+type Protocol [P crypto.PublicKey] struct {
 	// Name should contain the official protocol name,
 	// often a three-letter word.
 	Name string
@@ -57,13 +58,13 @@ type Protocol struct {
 	// DialCandidates, if non-nil, is a way to tell Server about protocol-specific nodes
 	// that should be dialed. The server continuously reads nodes from the iterator and
 	// attempts to create connections to them.
-	DialCandidates enode.Iterator
+	DialCandidates enode.Iterator[P]
 
 	// Attributes contains protocol specific information for the node record.
 	Attributes []enr.Entry
 }
 
-func (p Protocol) cap() Cap {
+func (p Protocol[P]) cap() Cap {
 	return Cap{p.Name, p.Version}
 }
 

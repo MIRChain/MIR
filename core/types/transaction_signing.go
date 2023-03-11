@@ -17,14 +17,12 @@
 package types
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -87,7 +85,7 @@ func LatestSignerForChainID(chainID *big.Int) Signer {
 }
 
 // SignTx signs the transaction using the given signer and private key.
-func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
+func SignTx[T crypto.PrivateKey](tx *Transaction, s Signer, prv T) (*Transaction, error) {
 	h := s.Hash(tx)
 	sig, err := crypto.Sign(h[:], prv)
 	if err != nil {
@@ -96,28 +94,8 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 	return tx.WithSignature(s, sig)
 }
 
-func SignTxCsp(tx *Transaction, s Signer, prv string) (*Transaction, error) {
-	h := s.Hash(tx)
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		return nil, err
-	}
-	defer store.Close()
-	crt, err := store.GetBySubjectId(prv)
-	if err != nil {
-		return nil, err
-	}
-	defer crt.Close()
-	sig, err := crypto.SignCsp(h[:], &crt)
-	if err != nil {
-		return nil, err
-	}
-	return tx.WithSignature(s, sig)
-}
-
-
 // SignNewTx creates a transaction and signs it.
-func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
+func SignNewTx[T crypto.PrivateKey](prv T, s Signer, txdata TxData) (*Transaction, error) {
 	tx := NewTx(txdata)
 	h := s.Hash(tx)
 	sig, err := crypto.Sign(h[:], prv)
@@ -129,7 +107,7 @@ func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, er
 
 // MustSignNewTx creates a transaction and signs it.
 // This panics if the transaction cannot be signed.
-func MustSignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) *Transaction {
+func MustSignNewTx[T crypto.PrivateKey](prv T, s Signer, txdata TxData) *Transaction {
 	tx, err := SignNewTx(prv, s, txdata)
 	if err != nil {
 		panic(err)

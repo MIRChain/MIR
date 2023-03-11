@@ -32,6 +32,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -55,10 +56,10 @@ func TestKeccak256Hasher(t *testing.T) {
 }
 
 func TestToECDSAErrors(t *testing.T) {
-	if _, err := HexToECDSA("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
+	if _, err := HexToECDSA[*nist.PrivateKey]("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
 	}
-	if _, err := HexToECDSA("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); err == nil {
+	if _, err := HexToECDSA[*nist.PrivateKey]("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
 	}
 }
@@ -71,11 +72,11 @@ func BenchmarkSha3(b *testing.B) {
 }
 
 func TestUnmarshalPubkey(t *testing.T) {
-	key, err := UnmarshalPubkey(nil)
+	key, err := UnmarshalPubkey[*nist.PublicKey](nil)
 	if err != errInvalidPubkey || key != nil {
 		t.Fatalf("expected error, got %v, %v", err, key)
 	}
-	key, err = UnmarshalPubkey([]byte{1, 2, 3})
+	key, err = UnmarshalPubkey[*nist.PublicKey]([]byte{1, 2, 3})
 	if err != errInvalidPubkey || key != nil {
 		t.Fatalf("expected error, got %v, %v", err, key)
 	}
@@ -88,7 +89,7 @@ func TestUnmarshalPubkey(t *testing.T) {
 			Y:     hexutil.MustDecodeBig("0xb01abc6e1db640cf3106b520344af1d58b00b57823db3e1407cbc433e1b6d04d"),
 		}
 	)
-	key, err = UnmarshalPubkey(enc)
+	key, err = UnmarshalPubkey[*nist.PublicKey](enc)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -99,7 +100,7 @@ func TestUnmarshalPubkey(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	CryptoAlg = NIST
-	key, _ := HexToECDSA(testPrivHex)
+	key, _ := HexToECDSA[*nist.PrivateKey](testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
 
 	msg := Keccak256([]byte("foo"))
@@ -111,8 +112,8 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	pubKey, _ := UnmarshalPubkey(recoveredPub)
-	recoveredAddr := PubkeyToAddress(*pubKey)
+	pubKey, _ := UnmarshalPubkey[*nist.PublicKey](recoveredPub)
+	recoveredAddr := PubkeyToAddress(pubKey)
 	if addr != recoveredAddr {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr)
 	}
@@ -122,7 +123,7 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	recoveredAddr2 := PubkeyToAddress(*recoveredPub2)
+	recoveredAddr2 := PubkeyToAddress(&nist.PublicKey{recoveredPub2})
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
 	}
@@ -200,9 +201,9 @@ func TestSign(t *testing.T) {
 // }
 
 func TestNewContractAddress(t *testing.T) {
-	key, _ := HexToECDSA(testPrivHex)
+	key, _ := HexToECDSA[*nist.PrivateKey](testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
-	genAddr := PubkeyToAddress(key.PublicKey)
+	genAddr := PubkeyToAddress(key.Public())
 	// sanity check before using addr to create contract address
 	checkAddr(t, genAddr, addr)
 
@@ -258,7 +259,7 @@ func TestLoadECDSA(t *testing.T) {
 		f.WriteString(test.input)
 		f.Close()
 
-		_, err = LoadECDSA(filename)
+		_, err = LoadECDSA[*nist.PrivateKey](filename)
 		switch {
 		case err != nil && test.err == "":
 			t.Fatalf("unexpected error for input %q:\n  %v", test.input, err)
@@ -279,11 +280,11 @@ func TestSaveECDSA(t *testing.T) {
 	f.Close()
 	defer os.Remove(file)
 
-	key, _ := HexToECDSA(testPrivHex)
-	if err := SaveECDSA(file, key); err != nil {
+	key, _ := HexToECDSA[*nist.PrivateKey](testPrivHex)
+	if err := SaveECDSA(file, key.PrivateKey); err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := LoadECDSA(file)
+	loaded, err := LoadECDSA[*nist.PrivateKey](file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +356,7 @@ func checkAddr(t *testing.T, addr0, addr1 common.Address) {
 // skip but keep it after they are done
 func TestPythonIntegration(t *testing.T) {
 	kh := "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
-	k0, _ := HexToECDSA(kh)
+	k0, _ := HexToECDSA[*nist.PrivateKey](kh)
 
 	msg0 := Keccak256([]byte("foo"))
 	sig0, _ := Sign(msg0, k0)

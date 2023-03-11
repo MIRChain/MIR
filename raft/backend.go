@@ -30,7 +30,7 @@ type RaftService [T crypto.PrivateKey]  struct {
 	accountManager *accounts.Manager
 	downloader     *downloader.Downloader
 
-	raftProtocolManager *ProtocolManager[T]
+	raftProtocolManager *ProtocolManager[T,P][T]
 	startPeers          []*enode.Node
 
 	// we need an event mux to instantiate the blockchain

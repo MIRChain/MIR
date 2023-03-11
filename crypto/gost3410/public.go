@@ -169,10 +169,10 @@ func RecoverCompact(curve Curve, digest []byte, r *big.Int, s *big.Int, i int) (
 
 }
 
-func (prv *PublicKey) GetX() *big.Int {
+func (prv PublicKey) GetX() *big.Int {
 	return prv.X
 }
 
-func (prv *PublicKey) GetY() *big.Int {
+func (prv PublicKey) GetY() *big.Int {
 	return prv.Y
 }

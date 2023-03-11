@@ -24,14 +24,12 @@ func (c Cert) Public() *PublicKey {
 	pubKeyBytes := C.GoBytes(unsafe.Pointer(pb.pbData), C.int(pb.cbData))[2:66]
 	curveBitLen := gost3410.CurveIdGostR34102001CryptoProAParamSet().P.BitLen()
 	curveByteLen := curveBitLen/8
-	key := make([]byte, curveBitLen)
-	copy(key, pubKeyBytes)
-	reverse(key)
+	reverse(pubKeyBytes)
 	return &PublicKey{
 		gost3410.CurveIdGostR34102001CryptoProAParamSet(),
 		curveByteLen,
-		new(big.Int).SetBytes(key[curveByteLen : 2*curveByteLen]),
-		new(big.Int).SetBytes(key[:curveByteLen]),
+		new(big.Int).SetBytes(pubKeyBytes[curveByteLen : 2*curveByteLen]),
+		new(big.Int).SetBytes(pubKeyBytes[:curveByteLen]),
 	}
 }
 
@@ -64,9 +62,9 @@ func (p *PublicKey) Raw() []byte {
 	return key
 }
 
-func (prv *PublicKey) GetX() *big.Int {
+func (prv PublicKey) GetX() *big.Int {
 	return prv.X
 }
-func (prv *PublicKey) GetY() *big.Int {
+func (prv PublicKey) GetY() *big.Int {
 	return prv.Y
 }

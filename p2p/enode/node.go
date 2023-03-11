@@ -17,7 +17,6 @@
 package enode
 
 import (
-	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -27,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
@@ -177,12 +177,16 @@ func (n *Node[P]) TCP() int {
 }
 
 // Pubkey returns the secp256k1 public key of the node, if present.
-func (n *Node[P]) Pubkey() *ecdsa.PublicKey {
-	var key ecdsa.PublicKey
-	if n.Load((*Secp256k1)(&key)) != nil {
-		return nil
+func (n *Node[P]) Pubkey() P {
+	var key P
+	switch key:= any(key).(type){
+	case *nist.PublicKey:
+		if n.Load((*Secp256k1)(&key)) != nil {
+			return nil
+		}
+		return &key
 	}
-	return &key
+
 }
 
 // Record returns the node's record. The return value is a copy and may

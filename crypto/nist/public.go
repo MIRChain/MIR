@@ -9,10 +9,10 @@ type PublicKey struct {
 	*ecdsa.PublicKey
 }
 
-func (p *PublicKey) GetX() *big.Int {
+func (p PublicKey) GetX() *big.Int {
 	return p.X
 }
 
-func (p *PublicKey) GetY() *big.Int {
+func (p PublicKey) GetY() *big.Int {
 	return p.Y
 }

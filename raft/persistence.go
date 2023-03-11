@@ -29,7 +29,7 @@ func openQuorumRaftDb(path string) (db *leveldb.DB, err error) {
 	return
 }
 
-func (pm *ProtocolManager) loadAppliedIndex() uint64 {
+func (pm *ProtocolManager[T,P]) loadAppliedIndex() uint64 {
 	dat, err := pm.quorumRaftDb.Get(appliedDbKey, nil)
 	var lastAppliedIndex uint64
 	if err == errors.ErrNotFound {
@@ -49,7 +49,7 @@ func (pm *ProtocolManager) loadAppliedIndex() uint64 {
 	return lastAppliedIndex
 }
 
-func (pm *ProtocolManager) writeAppliedIndex(index uint64) {
+func (pm *ProtocolManager[T,P]) writeAppliedIndex(index uint64) {
 	log.Info("persisted the latest applied index", "index", index)
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, index)

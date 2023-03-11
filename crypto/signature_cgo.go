@@ -29,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
 )
 
@@ -213,12 +214,29 @@ func VerifySignature(pubkey, digestHash, signature []byte) bool {
 }
 
 // DecompressPubkey parses a public key in the 33-byte compressed format.
-func DecompressPubkey(pubkey []byte) (*ecdsa.PublicKey, error) {
-	x, y := secp256k1.DecompressPubkey(pubkey)
-	if x == nil {
-		return nil, fmt.Errorf("invalid public key")
+func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
+	var pubKey P
+	switch p := any(&pubKey).(type) {
+	case *nist.PublicKey:
+		x, y := secp256k1.DecompressPubkey(pubkey)
+		if x == nil {
+			return ZeroPublicKey[P](), fmt.Errorf("invalid public key")
+		}
+		*p = nist.PublicKey{&ecdsa.PublicKey{X: x, Y: y, Curve: S256()}}
+	case *gost3410.PublicKey:
+		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
+		if err != nil {
+			return ZeroPublicKey[P](), fmt.Errorf("invalid gost 3410 public key")
+		}
+		*p=*k
+	case *csp.PublicKey:
+		k, err := csp.NewPublicKey(pubkey)
+		if err != nil {
+			return ZeroPublicKey[P](), fmt.Errorf("invalid csp public key")
+		}
+		*p=*k
 	}
-	return &ecdsa.PublicKey{X: x, Y: y, Curve: S256()}, nil
+	return pubKey, nil
 }
 
 // CompressPubkey encodes a public key to the 33-byte compressed format.

@@ -25,6 +25,9 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var (
@@ -32,6 +35,7 @@ var (
 	testsig     = hexutil.MustDecode("0x90f27b8b488db00b00606796d2987f6a5f59ae62ea05effe84fef5b8b0e549984a691139ad57a3f0b906637673aa2f63d1f55cb1a69199d4009eea23ceaddc9301")
 	testpubkey  = hexutil.MustDecode("0x04e32df42865e97135acfb65f3bae71bdc86f4d49150ad6a440b6f15878109880a0a2b2667f7e725ceea70c673093bf67663e0312623c8e091b13cf2c0f11ef652")
 	testpubkeyc = hexutil.MustDecode("0x02e32df42865e97135acfb65f3bae71bdc86f4d49150ad6a440b6f15878109880a")
+	testpubkeycgost = hexutil.MustDecode("0x45a3d0a1d7e6cf63214c40ee903446179a2714dc11782f6e8a30f74e3fedc0bd06c1c816b1199f5e322929d3d1d534e4be7f44635c9e03d73fff58bb733112c8")
 )
 
 func TestEcrecover(t *testing.T) {
@@ -87,20 +91,65 @@ func TestVerifySignatureMalleable(t *testing.T) {
 }
 
 func TestDecompressPubkey(t *testing.T) {
-	key, err := DecompressPubkey(testpubkeyc)
+	key, err := DecompressPubkey[nist.PublicKey](testpubkeyc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if uncompressed := FromECDSAPub(key); !bytes.Equal(uncompressed, testpubkey) {
 		t.Errorf("wrong public key result: got %x, want %x", uncompressed, testpubkey)
 	}
-	if _, err := DecompressPubkey(nil); err == nil {
+	if _, err := DecompressPubkey[nist.PublicKey](nil); err == nil {
 		t.Errorf("no error for nil pubkey")
 	}
-	if _, err := DecompressPubkey(testpubkeyc[:5]); err == nil {
+	if _, err := DecompressPubkey[nist.PublicKey](testpubkeyc[:5]); err == nil {
 		t.Errorf("no error for incomplete pubkey")
 	}
-	if _, err := DecompressPubkey(append(common.CopyBytes(testpubkeyc), 1, 2, 3)); err == nil {
+	if _, err := DecompressPubkey[nist.PublicKey](append(common.CopyBytes(testpubkeyc), 1, 2, 3)); err == nil {
+		t.Errorf("no error for pubkey with extra bytes at the end")
+	}
+
+	keyGost, err := DecompressPubkey[gost3410.PublicKey](testpubkeycgost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uncompressed := FromECDSAPub(keyGost); !bytes.Equal(uncompressed, testpubkeycgost) {
+		t.Errorf("wrong public key result: got %x, want %x", uncompressed, testpubkeycgost)
+	}
+	if _, err := DecompressPubkey[gost3410.PublicKey](nil); err == nil {
+		t.Errorf("no error for nil pubkey")
+	}
+	if _, err := DecompressPubkey[gost3410.PublicKey](testpubkeycgost[:5]); err == nil {
+		t.Errorf("no error for incomplete pubkey")
+	}
+	if _, err := DecompressPubkey[gost3410.PublicKey](append(common.CopyBytes(testpubkeycgost), 1, 2, 3)); err == nil {
+		t.Errorf("no error for pubkey with extra bytes at the end")
+	}
+
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Errorf("Store error: %s", err)
+	}
+	defer store.Close()
+	crt, err := store.GetBySubjectId("43ad4195a67f95eea752861c96297045bb9ea5a7")
+	if err != nil {
+		t.Errorf("Get cert error: %s", err)
+	}
+	defer crt.Close()
+	
+	keyCsp, err :=  DecompressPubkey[csp.PublicKey](crt.Public().Raw())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uncompressed := FromECDSAPub(keyCsp); !bytes.Equal(uncompressed, crt.Public().Raw()) {
+		t.Errorf("wrong public key result: got %x, want %x", uncompressed, crt.Public().Raw())
+	}
+	if _, err := DecompressPubkey[csp.PublicKey](nil); err == nil {
+		t.Errorf("no error for nil pubkey")
+	}
+	if _, err := DecompressPubkey[csp.PublicKey](crt.Public().Raw()[:5]); err == nil {
+		t.Errorf("no error for incomplete pubkey")
+	}
+	if _, err := DecompressPubkey[csp.PublicKey](append(common.CopyBytes(crt.Public().Raw()), 1, 2, 3)); err == nil {
 		t.Errorf("no error for pubkey with extra bytes at the end")
 	}
 }
@@ -125,7 +174,7 @@ func TestPubkeyRandom(t *testing.T) {
 		if err != nil {
 			t.Fatalf("iteration %d: %v", i, err)
 		}
-		pubkey2, err := DecompressPubkey(CompressPubkey(&key.PublicKey))
+		pubkey2, err := DecompressPubkey[*nist.PublicKey](CompressPubkey(&key.PublicKey))
 		if err != nil {
 			t.Fatalf("iteration %d: %v", i, err)
 		}
@@ -154,7 +203,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 func BenchmarkDecompressPubkey(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := DecompressPubkey(testpubkeyc); err != nil {
+		if _, err := DecompressPubkey[*nist.PublicKey](testpubkeyc); err != nil {
 			b.Fatal(err)
 		}
 	}

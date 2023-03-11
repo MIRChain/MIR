@@ -19,7 +19,6 @@ package p2p
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -130,7 +129,7 @@ type Config  [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Protocols should contain the protocols supported
 	// by the server. Matching protocols are launched for
 	// each peer.
-	Protocols []Protocol `toml:"-"`
+	Protocols []Protocol[P] `toml:"-"`
 
 	// If ListenAddr is set to a non-nil address, the server
 	// will listen for incoming connections.
@@ -185,11 +184,11 @@ type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	peerFeed     event.Feed
 	log          log.Logger
 
-	nodedb    *enode.DB
-	localnode *enode.LocalNode[T]
-	ntab      *discover.UDPv4[T]
+	nodedb    *enode.DB[P]
+	localnode *enode.LocalNode[T,P]
+	ntab      *discover.UDPv4[T,P]
 	DiscV5    *discover.UDPv5[T]
-	discmix   *enode.FairMix
+	discmix   *enode.FairMix[P]
 	dialsched *dialScheduler[T,P]
 
 	// Channels into the run loop.
@@ -305,7 +304,7 @@ func (c *conn[T, P]) set(f connFlag, val bool) {
 }
 
 // LocalNode returns the local node record.
-func (srv *Server[T, P]) LocalNode() *enode.LocalNode[T] {
+func (srv *Server[T, P]) LocalNode() *enode.LocalNode[T,P] {
 	return srv.localnode
 }
 
@@ -512,7 +511,7 @@ func (srv *Server[T, P]) setupLocalNode() error {
 	var pubkey []byte
 	switch key := any(srv.PrivateKey).(type) {
 	case *nist.PrivateKey:
-		pubkey = crypto.FromECDSAPub(key.PublicKey)
+		pubkey = crypto.FromECDSAPub(&key.PublicKey)
 	case *gost3410.PrivateKey:
 		pubkey = key.Raw()
 	case *csp.Cert:
@@ -526,7 +525,7 @@ func (srv *Server[T, P]) setupLocalNode() error {
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
 	// Create the local node.
-	db, err := enode.OpenDB(srv.Config.NodeDatabase)
+	db, err := enode.OpenDB[P](srv.Config.NodeDatabase)
 	if err != nil {
 		return err
 	}
@@ -561,7 +560,7 @@ func (srv *Server[T, P]) setupLocalNode() error {
 }
 
 func (srv *Server[T, P]) setupDiscovery() error {
-	srv.discmix = enode.NewFairMix(discmixTimeout)
+	srv.discmix = enode.NewFairMix[P](discmixTimeout)
 
 	// Add protocol-specific discovery sources.
 	added := make(map[string]bool)
@@ -631,9 +630,9 @@ func (srv *Server[T, P]) setupDiscovery() error {
 		}
 		var err error
 		if sconn != nil {
-			srv.DiscV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
+			srv.DiscV5, err = discover.ListenV5[T](sconn, srv.localnode, cfg)
 		} else {
-			srv.DiscV5, err = discover.ListenV5(conn, srv.localnode, cfg)
+			srv.DiscV5, err = discover.ListenV5[T](conn, srv.localnode, cfg)
 		}
 		if err != nil {
 			return err

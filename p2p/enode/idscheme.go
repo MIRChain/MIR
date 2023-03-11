@@ -113,7 +113,7 @@ func (V4ID) NodeAddr(r *enr.Record) []byte {
 }
 
 // Secp256k1 is the "secp256k1" key, which holds a public key.
-type Secp256k1 ecdsa.PublicKey
+type Secp256k1 nist.PublicKey
 
 func (v Secp256k1) ENRKey() string { return "secp256k1" }
 
