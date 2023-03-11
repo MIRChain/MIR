@@ -39,7 +39,7 @@ type clientTree [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	leafFailCount int
 	rootFailCount int
 
-	root  rootEntry[P]
+	root  *rootEntry[P]
 	enrs  *subtreeSync[T,P]
 	links *subtreeSync[T,P]
 

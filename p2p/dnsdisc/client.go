@@ -136,25 +136,25 @@ func (c *Client[T,P]) NewIterator(urls ...string) (enode.Iterator[P], error) {
 }
 
 // resolveRoot retrieves a root entry via DNS.
-func (c *Client[T,P]) resolveRoot(ctx context.Context, loc *linkEntry[P]) (rootEntry, error) {
+func (c *Client[T,P]) resolveRoot(ctx context.Context, loc *linkEntry[P]) (rootEntry[P], error) {
 	e, err, _ := c.singleflight.Do(loc.str, func() (interface{}, error) {
 		txts, err := c.cfg.Resolver.LookupTXT(ctx, loc.domain)
 		c.cfg.Logger.Trace("Updating DNS discovery root", "tree", loc.domain, "err", err)
 		if err != nil {
-			return rootEntry{}, err
+			return rootEntry[P]{}, err
 		}
 		for _, txt := range txts {
 			if strings.HasPrefix(txt, rootPrefix) {
 				return parseAndVerifyRoot(txt, loc)
 			}
 		}
-		return rootEntry{}, nameError{loc.domain, errNoRoot}
+		return rootEntry[P]{}, nameError{loc.domain, errNoRoot}
 	})
-	return e.(rootEntry), err
+	return e.(rootEntry[P]), err
 }
 
-func parseAndVerifyRoot[P crypto.PublicKey](txt string, loc *linkEntry[P]) (rootEntry, error) {
-	e, err := parseRoot(txt)
+func parseAndVerifyRoot[P crypto.PublicKey](txt string, loc *linkEntry[P]) (rootEntry[P], error) {
+	e, err := parseRoot[P](txt)
 	if err != nil {
 		return e, err
 	}
@@ -203,7 +203,7 @@ func (c *Client[T,P]) doResolveEntry(ctx context.Context, domain, hash string) (
 		return nil, err
 	}
 	for _, txt := range txts {
-		e, err := parseEntry(txt, c.cfg.ValidSchemes)
+		e, err := parseEntry[P](txt, c.cfg.ValidSchemes)
 		if err == errUnknownEntry {
 			continue
 		}
@@ -264,7 +264,7 @@ func (it *randomIterator[T,P]) Next() bool {
 
 // addTree adds an enrtree:// URL to the iterator.
 func (it *randomIterator[T,P]) addTree(url string) error {
-	le, err := parseLink(url)
+	le, err := parseLink[P](url)
 	if err != nil {
 		return fmt.Errorf("invalid enrtree URL: %v", err)
 	}
@@ -379,8 +379,8 @@ func (it *randomIterator[T,P]) rebuildTrees() {
 	// Add new trees.
 	for loc := range it.lc.backrefs {
 		if it.trees[loc] == nil {
-			link, _ := parseLink(linkPrefix + loc)
-			it.trees[loc] = newclientTree[T,P](it.c, &it.lc, link)
+			link, _ := parseLink[P](linkPrefix + loc)
+			it.trees[loc] = newClientTree[T,P](it.c, &it.lc, link)
 		}
 	}
 }

@@ -366,7 +366,7 @@ func parseLink[P crypto.PublicKey](e string) (*linkEntry[P], error) {
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
-	key, err := crypto.DecompressPubkey(keybytes)
+	key, err := crypto.DecompressPubkey[P](keybytes)
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}

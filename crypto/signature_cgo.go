@@ -34,11 +34,12 @@ import (
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.
-func Ecrecover(digestHash, sig []byte) ([]byte, error) {
-	switch CryptoAlg {
-	case NIST:
+func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
+	var pubKey P
+	switch any(&pubKey).(type) {
+	case *nist.PublicKey:
 		return secp256k1.RecoverPubkey(digestHash, sig)
-	case GOST:
+	case *gost3410.PublicKey:
 		v := int((sig[64]) & ^byte(4))
 		r := new(big.Int).SetBytes(sig[:32])
 		s := new(big.Int).SetBytes(sig[32:64])
@@ -52,7 +53,7 @@ func Ecrecover(digestHash, sig []byte) ([]byte, error) {
 			return nil, err
 		}
 		return gost3410.Marshal(*gost3410.GostCurve, pubKey.X, pubKey.Y), nil
-	case GOST_CSP:
+	case *csp.PublicKey:
 		hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 		if err != nil {
 			return nil, err
@@ -78,33 +79,41 @@ func Ecrecover(digestHash, sig []byte) ([]byte, error) {
 	}
 }
 // SigToPub returns the public key that created the given signature.
-func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
-	s, err := Ecrecover(hash, sig)
-	if err != nil {
-		return nil, err
-	}
+func SigToPub[P PublicKey](hash, sig []byte) (P, error) {
+	var pubKey P
+	switch p := any(&pubKey).(type) {
+	case *nist.PublicKey:
+		s, err := Ecrecover[P](hash, sig)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
 
-	x, y := elliptic.Unmarshal(S256(), s)
-	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
-}
-func SigToPubGost(hash, sig []byte) (*gost3410.PublicKey, error) {
-	s, err := Ecrecover(hash, sig)
-	if err != nil {
-		return nil, err
-	}
-	pubKey, err := gost3410.NewPublicKey(gost3410.GostCurve, s)
-	if err != nil {
-		return nil, err
+		x, y := elliptic.Unmarshal(S256(), s)
+		*p = nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
+	case *gost3410.PublicKey:
+		s, err := Ecrecover[P](hash, sig)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		key, err := gost3410.NewPublicKey(gost3410.GostCurve,s)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p = *key
+	case *csp.PublicKey:
+		s, err := Ecrecover[P](hash, sig)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		key, err := csp.NewPublicKey(s)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p=*key
+	default:
+		return ZeroPublicKey[P](), fmt.Errorf("cant infer pub key type")
 	}
 	return pubKey, nil
-}
-
-func SigToPubCsp(hash, sig []byte) ([]byte, error) {
-	s, err := Ecrecover(hash, sig)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
 }
 
 // Sign calculates an ECDSA signature.
@@ -188,11 +197,12 @@ func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 // VerifySignature checks that the given public key created signature over digest.
 // The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 // The signature should have the 64 byte [R || S] format.
-func VerifySignature(pubkey, digestHash, signature []byte) bool {
-	switch CryptoAlg {
-	case NIST:
+func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
+	var pubKey P
+	switch any(&pubKey).(type) {
+	case *nist.PublicKey:
 		return secp256k1.VerifySignature(pubkey, digestHash, signature)
-	case GOST:
+	case *gost3410.PublicKey:
 		pub, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
 		if err != nil {
 			return false
@@ -202,14 +212,14 @@ func VerifySignature(pubkey, digestHash, signature []byte) bool {
 			return false
 		}
 		return ver
-	case GOST_CSP:
+	case *csp.PublicKey:
 		res, err := csp.VerifySignatureRaw(digestHash, signature, pubkey)
 		if err != nil {
 			return false
 		}
 		return res
 	default:
-		return false
+		panic("cant infer pub key type")
 	}
 }
 
@@ -235,13 +245,28 @@ func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 			return ZeroPublicKey[P](), fmt.Errorf("invalid csp public key")
 		}
 		*p=*k
+	default:
+		return ZeroPublicKey[P](), fmt.Errorf("cant infer pub key type")
 	}
 	return pubKey, nil
 }
 
 // CompressPubkey encodes a public key to the 33-byte compressed format.
-func CompressPubkey(pubkey *ecdsa.PublicKey) []byte {
-	return secp256k1.CompressPubkey(pubkey.X, pubkey.Y)
+func CompressPubkey[P PublicKey](pubkey P) []byte {
+	if pubkey == ZeroPublicKey[P]() {
+		panic("trying to compress empty pub kye")
+	}
+	switch pubkey := any(&pubkey).(type) {
+	case *nist.PublicKey:
+		return secp256k1.CompressPubkey(pubkey.X, pubkey.Y)
+	case *gost3410.PublicKey:
+		return pubkey.Raw()
+	case *csp.PublicKey:
+		return pubkey.Raw()
+	default:
+		return nil
+	}
+
 }
 
 // S256 returns an instance of the secp256k1 curve.

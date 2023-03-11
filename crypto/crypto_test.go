@@ -108,7 +108,7 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
-	recoveredPub, err := Ecrecover(msg, sig)
+	recoveredPub, err := Ecrecover[*nist.PublicKey](msg, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
@@ -119,11 +119,11 @@ func TestSign(t *testing.T) {
 	}
 
 	// should be equal to SigToPub
-	recoveredPub2, err := SigToPub(msg, sig)
+	recoveredPub2, err := SigToPub[*nist.PublicKey](msg, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	recoveredAddr2 := PubkeyToAddress(&nist.PublicKey{recoveredPub2})
+	recoveredAddr2 := PubkeyToAddress(recoveredPub2)
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
 	}
@@ -182,7 +182,7 @@ func TestSign(t *testing.T) {
 		t.Errorf("Sign error: %s", err)
 	}
 	t.Log("Sig csp", len(sig))
-	recoveredGostPub, err := Ecrecover(digest, sig)
+	recoveredGostPub, err := Ecrecover[*nist.PublicKey](digest, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
