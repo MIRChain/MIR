@@ -306,7 +306,7 @@ func (ln *LocalNode[T,P]) sign() {
 	}
 	ln.bumpSeq()
 	r.SetSeq(ln.seq)
-	if err := SignV4(&r, ln.key); err != nil {
+	if err := SignV4[T,P](&r, ln.key); err != nil {
 		panic(fmt.Errorf("enode: can't sign record: %v", err))
 	}
 	n, err := New[P](ValidSchemes, &r)

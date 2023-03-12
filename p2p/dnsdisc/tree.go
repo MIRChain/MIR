@@ -18,7 +18,6 @@ package dnsdisc
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/base32"
 	"encoding/base64"
 	"fmt"
@@ -52,17 +51,36 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 	root.sig = sig
 	t.root = root
 	var link *linkEntry[P]
-	switch key := any(key).(type) {
+	// Haaacky - work on it later
+	switch key := any(&key).(type) {
 	case *nist.PrivateKey:
-		link = newLinkEntry[P](domain, key.Public())
+		var pub P
+		switch pubKey := any(&pub).(type) {
+		case *nist.PublicKey:
+			*pubKey=*key.Public()
+		}
+		link = newLinkEntry(domain, pub)
 		return link.String(), nil
 	case *gost3410.PrivateKey:
-		link = newLinkEntry[P](domain, key.Public())
+		var pub P
+		switch pubKey := any(&pub).(type) {
+		case *gost3410.PublicKey:
+			*pubKey=*key.Public()
+		}
+		link = newLinkEntry(domain, pub)
 		return link.String(), nil
 	case *csp.Cert:
-		link = newLinkEntry[P](domain, key.Public())
+		var pub P
+		switch pubKey := any(&pub).(type) {
+		case *csp.PublicKey:
+			*pubKey=*key.Public()
+		}
+		link = newLinkEntry(domain, pub)
+		return link.String(), nil
+	default:
+		return "", fmt.Errorf("cant infer pub key type")
 	}
-	return link.String(), nil
+
 }
 
 // SetSignature verifies the given signature and assigns it as the tree's current
@@ -292,7 +310,7 @@ func (e rootEntry[P]) sigHash() []byte {
 func (e rootEntry[P]) verifySignature(pubkey P) bool {
 	sig := e.sig[:crypto.RecoveryIDOffset] // remove recovery id
 	enckey := crypto.FromECDSAPub(pubkey)
-	return crypto.VerifySignature(enckey, e.sigHash(), sig)
+	return crypto.VerifySignature[P](enckey, e.sigHash(), sig)
 }
 
 func (e *branchEntry) String() string {
@@ -308,7 +326,7 @@ func (e *linkEntry[P]) String() string {
 }
 
 func newLinkEntry[P crypto.PublicKey](domain string, pubkey P) *linkEntry[P] {
-	key := b32format.EncodeToString(crypto.CompressPubkey(pubkey))
+	key := b32format.EncodeToString(crypto.CompressPubkey[P](pubkey))
 	str := key + "@" + domain
 	return &linkEntry[P]{str, domain, pubkey}
 }

@@ -119,7 +119,7 @@ func (c *Client[T,P]) SyncTree(url string) (*Tree[T,P], error) {
 	if err := ct.syncAll(t.entries); err != nil {
 		return nil, err
 	}
-	t.root = ct.root
+	t.root = *ct.root
 	return t, nil
 }
 

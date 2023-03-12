@@ -26,6 +26,7 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ func TestPythonInterop(t *testing.T) {
 	if err := rlp.DecodeBytes(pyRecord, &r); err != nil {
 		t.Fatalf("can't decode: %v", err)
 	}
-	n, err := New(ValidSchemes, &r)
+	n, err := New[nist.PublicKey](ValidSchemes, &r)
 	if err != nil {
 		t.Fatalf("can't verify record: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestID_logdistEqual(t *testing.T) {
 //
 // test raft port in node detail
 func TestNodeInfoForRaftPort(t *testing.T) {
-	node := NewV4Hostname(
+	node := NewV4Hostname[nist.PublicKey](
 		hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 		"192.168.0.1",
 		30302,
@@ -171,14 +172,14 @@ func TestNodeInfoForRaftPort(t *testing.T) {
 // Quorum - test parsing url with hostname (if host is FQDN)
 func TestNodeParseUrlWithHostnameForQuorum(t *testing.T) {
 	var url = "enode://ac6b1096ca56b9f6d004b779ae3728bf83f8e22453404cc3cef16a3d9b96608bc67c4b30db88e0a5a6c6390213f7acbe1153ff6d23ce57380104288ae19373ef@localhost:21000?discport=0&raftport=50401"
-	n, err := ParseV4(url)
+	n, err := ParseV4[nist.PublicKey](url)
 	if err != nil {
 		t.Errorf("parsing host failed %v", err)
 	}
 	assert.Equal(t, 50401, n.RaftPort())
 
 	url = "enode://ac6b1096ca56b9f6d004b779ae3728bf83f8e22453404cc3cef16a3d9b96608bc67c4b30db88e0a5a6c6390213f7acbe1153ff6d23ce57380104288ae19373ef@localhost1:21000?discport=0&raftport=50401"
-	_, err = ParseV4(url)
+	_, err = ParseV4[nist.PublicKey](url)
 	if err != nil {
 		errMsg := err.Error()
 		hasError := strings.Contains(errMsg, "no such host")
@@ -191,11 +192,11 @@ func TestNodeParseUrlWithHostnameForQuorum(t *testing.T) {
 // test Incomplete
 func TestIncomplete(t *testing.T) {
 	var testCases = []struct {
-		n            *Node
+		n            *Node[nist.PublicKey]
 		isIncomplete bool
 	}{
 		{
-			n: NewV4(
+			n: NewV4[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				net.IP{127, 0, 0, 1},
 				52150,
@@ -204,7 +205,8 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: false,
 		},
 		{
-			n: NewV4(hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			n: NewV4[nist.PublicKey](
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				net.ParseIP("::"),
 				52150,
 				52150,
@@ -212,7 +214,7 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: false,
 		},
 		{
-			n: NewV4(
+			n: NewV4[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
 				52150,
@@ -221,7 +223,7 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: false,
 		},
 		{
-			n: NewV4(
+			n: NewV4[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				nil,
 				52150,
@@ -230,7 +232,7 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: true,
 		},
 		{
-			n: NewV4Hostname(
+			n: NewV4Hostname[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				"hostname",
 				52150,
@@ -240,7 +242,7 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: false,
 		},
 		{
-			n: NewV4Hostname(
+			n: NewV4Hostname[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				"hostname",
 				52150,
@@ -250,7 +252,7 @@ func TestIncomplete(t *testing.T) {
 			isIncomplete: true,
 		},
 		{
-			n: NewV4Hostname(
+			n: NewV4Hostname[nist.PublicKey](
 				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 				"",
 				52150,

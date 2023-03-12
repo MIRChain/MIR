@@ -35,6 +35,7 @@ package enr
 
 import (
 	"bytes"
+	"crypto"
 	"errors"
 	"fmt"
 	"io"
@@ -64,9 +65,9 @@ type IdentityScheme interface {
 }
 
 // SchemeMap is a registry of named identity schemes.
-type SchemeMap map[string]IdentityScheme
+type SchemeMap [T crypto.PrivateKey, P crypto.PublicKey] map[string]IdentityScheme
 
-func (m SchemeMap) Verify(r *Record, sig []byte) error {
+func (m SchemeMap[T,P]) Verify(r *Record, sig []byte) error {
 	s := m[r.IdentityScheme()]
 	if s == nil {
 		return ErrInvalidSig
@@ -74,7 +75,7 @@ func (m SchemeMap) Verify(r *Record, sig []byte) error {
 	return s.Verify(r, sig)
 }
 
-func (m SchemeMap) NodeAddr(r *Record) []byte {
+func (m SchemeMap[T,P]) NodeAddr(r *Record) []byte {
 	s := m[r.IdentityScheme()]
 	if s == nil {
 		return nil

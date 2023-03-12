@@ -17,7 +17,6 @@
 package enode
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -102,8 +101,8 @@ func newV4[P crypto.PublicKey](pubkey P, r enr.Record, tcp, udp int) *Node[P] {
 	if tcp != 0 {
 		r.Set(enr.TCP(tcp))
 	}
-	signV4Compat(&r, pubkey)
-	n, err := New[P](v4CompatID{}, &r)
+	signV4Compat[P](&r, pubkey)
+	n, err := New[P](v4CompatID[P]{}, &r)
 	if err != nil {
 		panic(err)
 	}
@@ -134,7 +133,7 @@ func NewV4Hostname[P crypto.PublicKey] (pubkey P, hostname string, tcp, udp, raf
 		r.Set(enr.RaftPort(raftPort))
 	}
 
-	return newV4(pubkey, r, tcp, udp)
+	return newV4[P](pubkey, r, tcp, udp)
 }
 
 // End-Quorum
@@ -196,11 +195,11 @@ func parseComplete[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 		if u.Hostname() == "" {
 			return nil, errors.New("empty hostname in raft url")
 		}
-		return NewV4Hostname(id, u.Hostname(), int(tcpPort), int(udpPort), int(raftPort)), nil
+		return NewV4Hostname[P](id, u.Hostname(), int(tcpPort), int(udpPort), int(raftPort)), nil
 	}
 	// End-Quorum
 
-	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
+	return NewV4[P](id, ip, int(tcpPort), int(udpPort)), nil
 }
 
 func HexPubkey[P crypto.PublicKey](h string) (P, error) {
@@ -228,12 +227,12 @@ func (n *Node[P]) EnodeID() string {
 	var (
 		scheme enr.ID
 		nodeid string
-		key    ecdsa.PublicKey
+		key    nist.PublicKey
 	)
 	n.Load(&scheme)
 	n.Load((*Secp256k1)(&key))
 	switch {
-	case scheme == "v4" || key != ecdsa.PublicKey{}:
+	case scheme == "v4" || key != nist.PublicKey{}:
 		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(&key)[1:])
 	default:
 		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
@@ -245,12 +244,12 @@ func (n *Node[P]) URLv4() string {
 	var (
 		scheme enr.ID
 		nodeid string
-		key    ecdsa.PublicKey
+		key    nist.PublicKey
 	)
 	n.Load(&scheme)
 	n.Load((*Secp256k1)(&key))
 	switch {
-	case scheme == "v4" || key != ecdsa.PublicKey{}:
+	case scheme == "v4" || key != nist.PublicKey{}:
 		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(&key)[1:])
 	default:
 		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])

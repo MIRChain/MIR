@@ -22,13 +22,14 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
 func TestParseRoot(t *testing.T) {
 	tests := []struct {
 		input string
-		e     rootEntry
+		e     rootEntry[nist.PublicKey]
 		err   error
 	}{
 		{
@@ -41,7 +42,7 @@ func TestParseRoot(t *testing.T) {
 		},
 		{
 			input: "enrtree-root:v1 e=QFT4PBCRX4XQCV3VUYJ6BTCEPU l=JGUFMSAGI7KZYB3P7IZW4S5Y3A seq=3 sig=3FmXuVwpa8Y7OstZTx9PIb1mt8FrW7VpDOFv4AaGCsZ2EIHmhraWhe4NxYhQDlw5MjeFXYMbJjsPeKlHzmJREQE",
-			e: rootEntry{
+			e: rootEntry[nist.PublicKey]{
 				eroot: "QFT4PBCRX4XQCV3VUYJ6BTCEPU",
 				lroot: "JGUFMSAGI7KZYB3P7IZW4S5Y3A",
 				seq:   3,
@@ -50,7 +51,7 @@ func TestParseRoot(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		e, err := parseRoot(test.input)
+		e, err := parseRoot[nist.PublicKey](test.input)
 		if !reflect.DeepEqual(e, test.e) {
 			t.Errorf("test %d: wrong entry %s, want %s", i, spew.Sdump(e), spew.Sdump(test.e))
 		}
@@ -91,7 +92,7 @@ func TestParseEntry(t *testing.T) {
 		// Links
 		{
 			input: "enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@nodes.example.org",
-			e:     &linkEntry{"AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@nodes.example.org", "nodes.example.org", &testkey.PublicKey},
+			e:     &linkEntry[nist.PublicKey]{"AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@nodes.example.org", "nodes.example.org", nist.PublicKey{&testkey.PublicKey}},
 		},
 		{
 			input: "enrtree://nodes.example.org",
@@ -108,7 +109,7 @@ func TestParseEntry(t *testing.T) {
 		// ENRs
 		{
 			input: "enr:-HW4QES8QIeXTYlDzbfr1WEzE-XKY4f8gJFJzjJL-9D7TC9lJb4Z3JPRRz1lP4pL_N_QpT6rGQjAU9Apnc-C1iMP36OAgmlkgnY0iXNlY3AyNTZrMaED5IdwfMxdmR8W37HqSFdQLjDkIwBd4Q_MjxgZifgKSdM",
-			e:     &enrEntry{node: testNode(nodesSeed1)},
+			e:     &enrEntry[nist.PublicKey]{node: testNode(nodesSeed1)},
 		},
 		{
 			input: "enr:-HW4QLZHjM4vZXkbp-5xJoHsKSbE7W39FPC8283X-y8oHcHPTnDDlIlzL5ArvDUlHZVDPgmFASrh7cWgLOLxj4wprRkHgmlkgnY0iXNlY3AyNTZrMaEC3t2jLMhDpCDX5mbSEwDn4L3iUfyXzoO8G28XvjGRkrAg=",
@@ -121,7 +122,7 @@ func TestParseEntry(t *testing.T) {
 		{input: "enrtree-x=", err: errUnknownEntry},
 	}
 	for i, test := range tests {
-		e, err := parseEntry(test.input, enode.ValidSchemes)
+		e, err := parseEntry[nist.PublicKey](test.input, enode.ValidSchemes)
 		if !reflect.DeepEqual(e, test.e) {
 			t.Errorf("test %d: wrong entry %s, want %s", i, spew.Sdump(e), spew.Sdump(test.e))
 		}
@@ -133,7 +134,7 @@ func TestParseEntry(t *testing.T) {
 
 func TestMakeTree(t *testing.T) {
 	nodes := testNodes(nodesSeed2, 50)
-	tree, err := MakeTree(2, nodes, nil)
+	tree, err := MakeTree[nist.PrivateKey ,nist.PublicKey](2, nodes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

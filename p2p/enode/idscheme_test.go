@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ import (
 )
 
 var (
-	privkey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	privkey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	pubkey     = &privkey.PublicKey
 )
 
@@ -41,18 +42,18 @@ func TestEmptyNodeID(t *testing.T) {
 		t.Errorf("wrong address on empty record: got %v, want %v", addr, nil)
 	}
 
-	require.NoError(t, SignV4(&r, privkey))
+	require.NoError(t, SignV4[nist.PrivateKey, nist.PublicKey](&r, privkey))
 	expected := "a448f24c6d18e575453db13171562b71999873db5b286df957af199ec94617f7"
 	assert.Equal(t, expected, hex.EncodeToString(ValidSchemes.NodeAddr(&r)))
 }
 
 // Checks that failure to sign leaves the record unmodified.
 func TestSignError(t *testing.T) {
-	invalidKey := &ecdsa.PrivateKey{D: new(big.Int), PublicKey: *pubkey}
+	invalidKey := nist.PrivateKey{&ecdsa.PrivateKey{D: new(big.Int), PublicKey: *pubkey}}
 
 	var r enr.Record
 	emptyEnc, _ := rlp.EncodeToBytes(&r)
-	if err := SignV4(&r, invalidKey); err == nil {
+	if err := SignV4[nist.PrivateKey ,nist.PublicKey](&r, invalidKey); err == nil {
 		t.Fatal("expected error from SignV4")
 	}
 	newEnc, _ := rlp.EncodeToBytes(&r)
@@ -64,7 +65,7 @@ func TestSignError(t *testing.T) {
 // TestGetSetSecp256k1 tests encoding/decoding and setting/getting of the Secp256k1 key.
 func TestGetSetSecp256k1(t *testing.T) {
 	var r enr.Record
-	if err := SignV4(&r, privkey); err != nil {
+	if err := SignV4[nist.PrivateKey ,nist.PublicKey](&r, privkey); err != nil {
 		t.Fatal(err)
 	}
 

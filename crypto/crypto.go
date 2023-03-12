@@ -18,6 +18,7 @@ package crypto
 
 import (
 	"bufio"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -191,11 +192,24 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 }
 
 // FromECDSA exports a private key into a binary dump.
-func FromECDSA(priv *ecdsa.PrivateKey) []byte {
-	if priv == nil {
-		return nil
+func FromECDSA[T crypto.PrivateKey](priv T) []byte {
+	switch priv:=any(&priv).(type) {
+	case *nist.PrivateKey:
+		if priv == nil {
+			return nil
+		}
+		return math.PaddedBigBytes(priv.D, priv.Params().BitSize/8)
+	case *gost3410.PrivateKey:
+		if priv == nil {
+			return nil
+		}
+		return math.PaddedBigBytes(priv.Key, priv.C.P.BitLen()/8)
+	case *csp.Cert:
+		return priv.Bytes()
+	default:
+		panic("cant infer priv key")
 	}
-	return math.PaddedBigBytes(priv.D, priv.Params().BitSize/8)
+
 }
 
 // UnmarshalPubkey converts bytes to a secp256k1 public key.
@@ -221,7 +235,7 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 		}
 		*p=*k
 	}
-	return pubKey, fmt.Errorf("cant infer pub key type")
+	return pubKey, nil
 }
 
 func FromECDSAPub[P PublicKey](pub P) []byte {
@@ -311,7 +325,7 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 
 // SaveECDSA saves a secp256k1 private key to the given file with
 // restrictive permissions. The key data is saved hex-encoded.
-func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
+func SaveECDSA[T crypto.PrivateKey](file string, key T) error {
 	k := hex.EncodeToString(FromECDSA(key))
 	return ioutil.WriteFile(file, []byte(k), 0600)
 }

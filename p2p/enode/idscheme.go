@@ -17,7 +17,6 @@
 package enode
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"io"
 
@@ -32,28 +31,28 @@ import (
 )
 
 // List of known secure identity schemes.
-var ValidSchemes = enr.SchemeMap{
-	"v4": V4ID{},
+var ValidSchemes  = enr.SchemeMap[nist.PrivateKey, nist.PublicKey]{
+	"v4": V4ID[nist.PublicKey]{},
 }
 
-var ValidSchemesForTesting = enr.SchemeMap{
-	"v4":   V4ID{},
+var ValidSchemesForTesting = enr.SchemeMap[nist.PrivateKey, nist.PublicKey]{
+	"v4":   V4ID[nist.PublicKey]{},
 	"null": NullID{},
 }
 
 // v4ID is the "v4" identity scheme.
-type V4ID struct{}
+type V4ID [P crypto.PublicKey] struct{}
 
 // SignV4 signs a record using the v4 scheme.
-func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
+func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) error {
 	// Copy r to avoid modifying it if signing fails.
 	cpy := *r
 	cpy.Set(enr.ID("v4"))
 	var sig []byte
 	var err error
-	switch privkey := any(key).(type) {
+	switch privkey := any(&key).(type) {
 	case *nist.PrivateKey:
-		cpy.Set(Secp256k1(privkey.PublicKey))
+		cpy.Set(Secp256k1(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
 		sig, err = crypto.Sign(h.Sum(nil), privkey)
@@ -78,13 +77,13 @@ func SignV4[T crypto.PrivateKey] (r *enr.Record, key T) error {
 		}
 	}
 	sig = sig[:len(sig)-1] // remove v
-	if err = cpy.SetSig(V4ID{}, sig); err == nil {
+	if err = cpy.SetSig(V4ID[P]{}, sig); err == nil {
 		*r = cpy
 	}
 	return err
 }
 
-func (V4ID) Verify(r *enr.Record, sig []byte) error {
+func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 	var entry s256raw
 	if err := r.Load(&entry); err != nil {
 		return err
@@ -94,13 +93,13 @@ func (V4ID) Verify(r *enr.Record, sig []byte) error {
 
 	h := sha3.NewLegacyKeccak256()
 	rlp.Encode(h, r.AppendElements(nil))
-	if !crypto.VerifySignature(entry, h.Sum(nil), sig) {
+	if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
 		return enr.ErrInvalidSig
 	}
 	return nil
 }
 
-func (V4ID) NodeAddr(r *enr.Record) []byte {
+func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
 	var pubkey Secp256k1
 	err := r.Load(&pubkey)
 	if err != nil {
@@ -119,7 +118,7 @@ func (v Secp256k1) ENRKey() string { return "secp256k1" }
 
 // EncodeRLP implements rlp.Encoder.
 func (v Secp256k1) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, crypto.CompressPubkey((*ecdsa.PublicKey)(&v)))
+	return rlp.Encode(w, crypto.CompressPubkey((*nist.PublicKey)(&v)))
 }
 
 // DecodeRLP implements rlp.Decoder.
@@ -128,11 +127,11 @@ func (v *Secp256k1) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
-	pk, err := crypto.DecompressPubkey(buf)
+	pk, err := crypto.DecompressPubkey[nist.PublicKey](buf)
 	if err != nil {
 		return err
 	}
-	*v = (Secp256k1)(*pk)
+	*v = (Secp256k1)(pk)
 	return nil
 }
 
@@ -190,11 +189,11 @@ func (s256raw) ENRKey() string { return "secp256k1" }
 
 // v4CompatID is a weaker and insecure version of the "v4" scheme which only checks for the
 // presence of a secp256k1 public key, but doesn't verify the signature.
-type v4CompatID struct {
-	V4ID
+type v4CompatID [P crypto.PublicKey] struct {
+	V4ID[P]
 }
 
-func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
+func (v4CompatID[P]) Verify(r *enr.Record, sig []byte) error {
 	var pubkey Secp256k1
 	return r.Load(&pubkey)
 }
@@ -202,18 +201,18 @@ func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
 func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
 	switch pubkey := any(key).(type) {
 	case *nist.PublicKey:
-		r.Set((*Secp256k1)(pubkey.PublicKey))
-		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+		r.Set((*Secp256k1)(pubkey))
+		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}
 	case *gost3410.PublicKey:
 		r.Set((*Gost3410)(pubkey))
-		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}
 	case *csp.PublicKey:
 		r.Set((*Gost3410CSP)(pubkey))
-		if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
+		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}
 	}

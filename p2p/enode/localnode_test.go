@@ -22,14 +22,15 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/stretchr/testify/assert"
 )
 
-func newLocalNodeForTesting() (*LocalNode, *DB) {
-	db, _ := OpenDB("")
+func newLocalNodeForTesting() (*LocalNode[nist.PrivateKey ,nist.PublicKey], *DB[nist.PublicKey]) {
+	db, _ := OpenDB[nist.PublicKey]("")
 	key, _ := crypto.GenerateKey()
-	return NewLocalNode(db, key), db
+	return NewLocalNode[nist.PrivateKey ,nist.PublicKey](db, nist.PrivateKey{key}), db
 }
 
 func TestLocalNode(t *testing.T) {
@@ -72,7 +73,7 @@ func TestLocalNodeSeqPersist(t *testing.T) {
 	// Create a new instance with a different node key on the same database.
 	// This should reset the sequence number.
 	key, _ := crypto.GenerateKey()
-	ln3 := NewLocalNode(db, key)
+	ln3 := NewLocalNode[nist.PrivateKey ,nist.PublicKey](db, nist.PrivateKey{key})
 	if s := ln3.Node().Seq(); s != 1 {
 		t.Fatalf("wrong seq %d on instance with changed key, want 1", s)
 	}

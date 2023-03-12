@@ -23,11 +23,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
 func TestReadNodes(t *testing.T) {
-	nodes := ReadNodes(new(genIter), 10)
+	nodes := ReadNodes[nist.PublicKey](new(genIter), 10)
 	checkNodes(t, nodes, 10)
 }
 
@@ -35,13 +36,13 @@ func TestReadNodes(t *testing.T) {
 // which returns less than N nodes in an endless cycle.
 func TestReadNodesCycle(t *testing.T) {
 	iter := &callCountIter{
-		Iterator: CycleNodes([]*Node{
+		Iterator: CycleNodes([]*Node[nist.PublicKey]{
 			testNode(0, 0),
 			testNode(1, 0),
 			testNode(2, 0),
 		}),
 	}
-	nodes := ReadNodes(iter, 10)
+	nodes := ReadNodes[nist.PublicKey](iter, 10)
 	checkNodes(t, nodes, 3)
 	if iter.count != 10 {
 		t.Fatalf("%d calls to Next, want %d", iter.count, 100)
@@ -49,12 +50,12 @@ func TestReadNodesCycle(t *testing.T) {
 }
 
 func TestFilterNodes(t *testing.T) {
-	nodes := make([]*Node, 100)
+	nodes := make([]*Node[nist.PublicKey], 100)
 	for i := range nodes {
 		nodes[i] = testNode(uint64(i), uint64(i))
 	}
 
-	it := Filter(IterNodes(nodes), func(n *Node) bool {
+	it := Filter(IterNodes(nodes), func(n *Node[nist.PublicKey]) bool {
 		return n.Seq() >= 50
 	})
 	for i := 50; i < len(nodes); i++ {
@@ -70,7 +71,7 @@ func TestFilterNodes(t *testing.T) {
 	}
 }
 
-func checkNodes(t *testing.T, nodes []*Node, wantLen int) {
+func checkNodes(t *testing.T, nodes []*Node[nist.PublicKey], wantLen int) {
 	if len(nodes) != wantLen {
 		t.Errorf("slice has %d nodes, want %d", len(nodes), wantLen)
 		return
@@ -98,13 +99,13 @@ func TestFairMix(t *testing.T) {
 }
 
 func testMixerFairness(t *testing.T) {
-	mix := NewFairMix(1 * time.Second)
+	mix := NewFairMix[nist.PublicKey](1 * time.Second)
 	mix.AddSource(&genIter{index: 1})
 	mix.AddSource(&genIter{index: 2})
 	mix.AddSource(&genIter{index: 3})
 	defer mix.Close()
 
-	nodes := ReadNodes(mix, 500)
+	nodes := ReadNodes[nist.PublicKey](mix, 500)
 	checkNodes(t, nodes, 500)
 
 	// Verify that the nodes slice contains an approximately equal number of nodes
@@ -120,12 +121,12 @@ func testMixerFairness(t *testing.T) {
 // This test checks that FairMix falls back to an alternative source when
 // the 'fair' choice doesn't return a node within the timeout.
 func TestFairMixNextFromAll(t *testing.T) {
-	mix := NewFairMix(1 * time.Millisecond)
+	mix := NewFairMix[nist.PublicKey](1 * time.Millisecond)
 	mix.AddSource(&genIter{index: 1})
-	mix.AddSource(CycleNodes(nil))
+	mix.AddSource(CycleNodes[nist.PublicKey](nil))
 	defer mix.Close()
 
-	nodes := ReadNodes(mix, 500)
+	nodes := ReadNodes[nist.PublicKey](mix, 500)
 	checkNodes(t, nodes, 500)
 
 	d := idPrefixDistribution(nodes)
@@ -137,9 +138,9 @@ func TestFairMixNextFromAll(t *testing.T) {
 // This test ensures FairMix works for Next with no sources.
 func TestFairMixEmpty(t *testing.T) {
 	var (
-		mix   = NewFairMix(1 * time.Second)
+		mix   = NewFairMix[nist.PublicKey](1 * time.Second)
 		testN = testNode(1, 1)
-		ch    = make(chan *Node)
+		ch    = make(chan *Node[nist.PublicKey])
 	)
 	defer mix.Close()
 
@@ -148,7 +149,7 @@ func TestFairMixEmpty(t *testing.T) {
 		ch <- mix.Node()
 	}()
 
-	mix.AddSource(CycleNodes([]*Node{testN}))
+	mix.AddSource(CycleNodes([]*Node[nist.PublicKey]{testN}))
 	if n := <-ch; n != testN {
 		t.Errorf("got wrong node: %v", n)
 	}
@@ -156,11 +157,11 @@ func TestFairMixEmpty(t *testing.T) {
 
 // This test checks closing a source while Next runs.
 func TestFairMixRemoveSource(t *testing.T) {
-	mix := NewFairMix(1 * time.Second)
+	mix := NewFairMix[nist.PublicKey](1 * time.Second)
 	source := make(blockingIter)
 	mix.AddSource(source)
 
-	sig := make(chan *Node)
+	sig := make(chan *Node[nist.PublicKey])
 	go func() {
 		<-sig
 		mix.Next()
@@ -172,7 +173,7 @@ func TestFairMixRemoveSource(t *testing.T) {
 	source.Close()
 
 	wantNode := testNode(0, 0)
-	mix.AddSource(CycleNodes([]*Node{wantNode}))
+	mix.AddSource(CycleNodes([]*Node[nist.PublicKey]{wantNode}))
 	n := <-sig
 
 	if len(mix.sources) != 1 {
@@ -190,7 +191,7 @@ func (it blockingIter) Next() bool {
 	return false
 }
 
-func (it blockingIter) Node() *Node {
+func (it blockingIter) Node() *Node[nist.PublicKey] {
 	return nil
 }
 
@@ -205,9 +206,9 @@ func TestFairMixClose(t *testing.T) {
 }
 
 func testMixerClose(t *testing.T) {
-	mix := NewFairMix(-1)
-	mix.AddSource(CycleNodes(nil))
-	mix.AddSource(CycleNodes(nil))
+	mix := NewFairMix[nist.PublicKey](-1)
+	mix.AddSource(CycleNodes[nist.PublicKey](nil))
+	mix.AddSource(CycleNodes[nist.PublicKey](nil))
 
 	done := make(chan struct{})
 	go func() {
@@ -230,7 +231,7 @@ func testMixerClose(t *testing.T) {
 	mix.Close() // shouldn't crash
 }
 
-func idPrefixDistribution(nodes []*Node) map[uint32]int {
+func idPrefixDistribution(nodes []*Node[nist.PublicKey]) map[uint32]int {
 	d := make(map[uint32]int)
 	for _, node := range nodes {
 		id := node.ID()
@@ -248,7 +249,7 @@ func approxEqual(x, y, ε int) bool {
 
 // genIter creates fake nodes with numbered IDs based on 'index' and 'gen'
 type genIter struct {
-	node       *Node
+	node       *Node[nist.PublicKey]
 	index, gen uint32
 }
 
@@ -263,7 +264,7 @@ func (s *genIter) Next() bool {
 	return true
 }
 
-func (s *genIter) Node() *Node {
+func (s *genIter) Node() *Node[nist.PublicKey] {
 	return s.node
 }
 
@@ -271,17 +272,17 @@ func (s *genIter) Close() {
 	s.index = ^uint32(0)
 }
 
-func testNode(id, seq uint64) *Node {
+func testNode(id, seq uint64) *Node[nist.PublicKey] {
 	var nodeID ID
 	binary.BigEndian.PutUint64(nodeID[:], id)
 	r := new(enr.Record)
 	r.SetSeq(seq)
-	return SignNull(r, nodeID)
+	return SignNull[nist.PrivateKey, nist.PublicKey](r, nodeID)
 }
 
 // callCountIter counts calls to NextNode.
 type callCountIter struct {
-	Iterator
+	Iterator[nist.PublicKey]
 	count int
 }
 

@@ -26,6 +26,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var keytestID = HexID("51232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439")
@@ -89,7 +91,7 @@ var nodeDBInt64Tests = []struct {
 }
 
 func TestDBInt64(t *testing.T) {
-	db, _ := OpenDB("")
+	db, _ := OpenDB[nist.PublicKey]("")
 	defer db.Close()
 
 	tests := nodeDBInt64Tests
@@ -112,7 +114,7 @@ func TestDBInt64(t *testing.T) {
 }
 
 func TestDBFetchStore(t *testing.T) {
-	node := NewV4(
+	node := NewV4[nist.PublicKey](
 		hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 		net.IP{192, 168, 0, 1},
 		30303,
@@ -121,7 +123,7 @@ func TestDBFetchStore(t *testing.T) {
 	inst := time.Now()
 	num := 314
 
-	db, _ := OpenDB("")
+	db, _ := OpenDB[nist.PublicKey]("")
 	defer db.Close()
 
 	// Check fetch/store operations on a node ping object
@@ -169,13 +171,13 @@ func TestDBFetchStore(t *testing.T) {
 }
 
 var nodeDBSeedQueryNodes = []struct {
-	node *Node
+	node *Node[nist.PublicKey]
 	pong time.Time
 }{
 	// This one should not be in the result set because its last
 	// pong time is too far in the past.
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 			net.IP{127, 0, 0, 3},
 			30303,
@@ -186,7 +188,7 @@ var nodeDBSeedQueryNodes = []struct {
 	// This one shouldn't be in the result set because its
 	// nodeID is the local node's ID.
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("ff93ff820abacd4351b0f14e47b324bc82ff014c226f3f66a53535734a3c150e7e38ca03ef0964ba55acddc768f5e99cd59dea95ddd4defbab1339c92fa319b2"),
 			net.IP{127, 0, 0, 3},
 			30303,
@@ -197,7 +199,7 @@ var nodeDBSeedQueryNodes = []struct {
 
 	// These should be in the result set.
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("c2b5eb3f5dde05f815b63777809ee3e7e0cbb20035a6b00ce327191e6eaa8f26a8d461c9112b7ab94698e7361fa19fd647e603e73239002946d76085b6f928d6"),
 			net.IP{127, 0, 0, 1},
 			30303,
@@ -206,7 +208,7 @@ var nodeDBSeedQueryNodes = []struct {
 		pong: time.Now().Add(-2 * time.Second),
 	},
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("6ca1d400c8ddf8acc94bcb0dd254911ad71a57bed5e0ae5aa205beed59b28c2339908e97990c493499613cff8ecf6c3dc7112a8ead220cdcd00d8847ca3db755"),
 			net.IP{127, 0, 0, 2},
 			30303,
@@ -215,7 +217,7 @@ var nodeDBSeedQueryNodes = []struct {
 		pong: time.Now().Add(-3 * time.Second),
 	},
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("234dc63fe4d131212b38236c4c3411288d7bec61cbf7b120ff12c43dc60c96182882f4291d209db66f8a38e986c9c010ff59231a67f9515c7d1668b86b221a47"),
 			net.IP{127, 0, 0, 3},
 			30303,
@@ -224,7 +226,7 @@ var nodeDBSeedQueryNodes = []struct {
 		pong: time.Now().Add(-1 * time.Second),
 	},
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("c013a50b4d1ebce5c377d8af8cb7114fd933ffc9627f96ad56d90fef5b7253ec736fd07ef9a81dc2955a997e54b7bf50afd0aa9f110595e2bec5bb7ce1657004"),
 			net.IP{127, 0, 0, 3},
 			30303,
@@ -233,7 +235,7 @@ var nodeDBSeedQueryNodes = []struct {
 		pong: time.Now().Add(-2 * time.Second),
 	},
 	{
-		node: NewV4(
+		node: NewV4[nist.PublicKey](
 			hexPubkey("f141087e3e08af1aeec261ff75f48b5b1637f594ea9ad670e50051646b0416daa3b134c28788cbe98af26992a47652889cd8577ccc108ac02c6a664db2dc1283"),
 			net.IP{127, 0, 0, 3},
 			30303,
@@ -260,7 +262,7 @@ func TestDBSeedQuery(t *testing.T) {
 }
 
 func testSeedQuery() error {
-	db, _ := OpenDB("")
+	db, _ := OpenDB[nist.PublicKey]("")
 	defer db.Close()
 
 	// Insert a batch of nodes for querying
@@ -312,7 +314,7 @@ func TestDBPersistency(t *testing.T) {
 	)
 
 	// Create a persistent database and store some values
-	db, err := OpenDB(filepath.Join(root, "database"))
+	db, err := OpenDB[nist.PublicKey](filepath.Join(root, "database"))
 	if err != nil {
 		t.Fatalf("failed to create persistent database: %v", err)
 	}
@@ -322,7 +324,7 @@ func TestDBPersistency(t *testing.T) {
 	db.Close()
 
 	// Reopen the database and check the value
-	db, err = OpenDB(filepath.Join(root, "database"))
+	db, err = OpenDB[nist.PublicKey](filepath.Join(root, "database"))
 	if err != nil {
 		t.Fatalf("failed to open persistent database: %v", err)
 	}
@@ -333,7 +335,7 @@ func TestDBPersistency(t *testing.T) {
 }
 
 var nodeDBExpirationNodes = []struct {
-	node      *Node
+	node      *Node[nist.PublicKey]
 	pong      time.Time
 	storeNode bool
 	exp       bool
@@ -423,7 +425,7 @@ var nodeDBExpirationNodes = []struct {
 }
 
 func TestDBExpiration(t *testing.T) {
-	db, _ := OpenDB("")
+	db, _ := OpenDB[nist.PublicKey]("")
 	defer db.Close()
 
 	// Add all the test nodes and set their last pong time.
@@ -466,7 +468,7 @@ func TestDBExpiration(t *testing.T) {
 // This test checks that expiration works when discovery v5 data is present
 // in the database.
 func TestDBExpireV5(t *testing.T) {
-	db, _ := OpenDB("")
+	db, _ := OpenDB[nist.PublicKey]("")
 	defer db.Close()
 
 	ip := net.IP{127, 0, 0, 1}

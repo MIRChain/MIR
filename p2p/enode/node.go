@@ -26,6 +26,8 @@ import (
 	"strings"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -179,14 +181,21 @@ func (n *Node[P]) TCP() int {
 // Pubkey returns the secp256k1 public key of the node, if present.
 func (n *Node[P]) Pubkey() P {
 	var key P
-	switch key:= any(key).(type){
+	switch p:= any(&key).(type){
 	case *nist.PublicKey:
-		if n.Load((*Secp256k1)(&key)) != nil {
-			return nil
+		if n.Load((*Secp256k1)(p)) != nil {
+			return crypto.ZeroPublicKey[P]()
 		}
-		return &key
+	case *gost3410.PublicKey:
+		if n.Load((*Gost3410)(p)) != nil {
+			return crypto.ZeroPublicKey[P]()
+		}
+	case *csp.PublicKey:
+		if n.Load((*Gost3410CSP)(p)) != nil {
+			return crypto.ZeroPublicKey[P]()
+		}
 	}
-
+	return key
 }
 
 // Record returns the node's record. The return value is a copy and may

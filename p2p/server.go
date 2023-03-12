@@ -395,11 +395,20 @@ func (srv *Server[T, P]) Self() *enode.Node[P] {
 	if ln == nil {
 		switch key := any(srv.PrivateKey).(type) {
 		case *nist.PrivateKey:
-			return enode.NewV4(key.Public(), net.ParseIP("0.0.0.0"), 0, 0)
+			var pub P
+			p:=any(&pub).(*nist.PublicKey)
+			*p = *key.Public()
+			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		case *gost3410.PrivateKey:
-			return enode.NewV4(key.Public(), net.ParseIP("0.0.0.0"), 0, 0)
+			var pub P
+			p:=any(&pub).(*gost3410.PublicKey)
+			*p = *key.Public()
+			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		case *csp.Cert:
-			return enode.NewV4(key.Public(), net.ParseIP("0.0.0.0"), 0, 0)
+			var pub P
+			p:=any(&pub).(*csp.PublicKey)
+			*p = *key.Public()
+			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		}
 	}
 	return ln.Node()
@@ -511,11 +520,20 @@ func (srv *Server[T, P]) setupLocalNode() error {
 	var pubkey []byte
 	switch key := any(srv.PrivateKey).(type) {
 	case *nist.PrivateKey:
-		pubkey = crypto.FromECDSAPub(&key.PublicKey)
+		var pub P
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *key.Public()
+		pubkey = crypto.FromECDSAPub[P](pub)
 	case *gost3410.PrivateKey:
-		pubkey = key.Raw()
+		var pub P
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *key.Public()
+		pubkey = crypto.FromECDSAPub[P](pub)
 	case *csp.Cert:
-		pubkey = key.Info().PublicKeyBytes()[2:66]
+		var pub P
+		p:=any(&pub).(*csp.PublicKey)
+		*p = *key.Public()
+		pubkey = crypto.FromECDSAPub[P](pub)
 	}
 
 	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[1:]}
@@ -972,11 +990,13 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 	// If dialing, figure out the remote public key.
 	var dialPubkey P
 	if dialDest != nil {
-		// dialPubkey = new(ecdsa.PublicKey)
-		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
+		switch p:=any(&dialPubkey).(type){
+		case *nist.PublicKey:
+		if err := dialDest.Load((*enode.Secp256k1)(p)); err != nil {
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
 			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 			return err
+		}
 		}
 	}
 
