@@ -21,6 +21,7 @@ import (
 	"net"
 
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -60,7 +61,7 @@ type (
 	}
 
 	// WHOAREYOU contains the handshake challenge.
-	Whoareyou struct {
+	Whoareyou [P crypto.PublicKey] struct {
 		ChallengeData []byte   // Encoded challenge
 		Nonce         Nonce    // Nonce of request packet
 		IDNonce       [16]byte // Identity proof data
@@ -68,7 +69,7 @@ type (
 
 		// Node is the locally known node record of recipient.
 		// This must be set by the caller of Encode.
-		Node *enode.Node
+		Node *enode.Node[P]
 
 		sent mclock.AbsTime // for handshake GC.
 	}
@@ -183,10 +184,10 @@ func DecodeMessage(ptype byte, body []byte) (Packet, error) {
 	return dec, nil
 }
 
-func (*Whoareyou) Name() string        { return "WHOAREYOU/v5" }
-func (*Whoareyou) Kind() byte          { return WhoareyouPacket }
-func (*Whoareyou) RequestID() []byte   { return nil }
-func (*Whoareyou) SetRequestID([]byte) {}
+func (*Whoareyou[P]) Name() string        { return "WHOAREYOU/v5" }
+func (*Whoareyou[P]) Kind() byte          { return WhoareyouPacket }
+func (*Whoareyou[P]) RequestID() []byte   { return nil }
+func (*Whoareyou[P]) SetRequestID([]byte) {}
 
 func (*Unknown) Name() string        { return "UNKNOWN/v5" }
 func (*Unknown) Kind() byte          { return UnknownPacket }

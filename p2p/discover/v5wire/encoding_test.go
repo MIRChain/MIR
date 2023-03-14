@@ -18,7 +18,6 @@ package v5wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -34,6 +33,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
@@ -44,9 +44,9 @@ import (
 var writeTestVectorsFlag = flag.Bool("write-test-vectors", false, "Overwrite discv5 test vectors in testdata/")
 
 var (
-	testKeyA, _   = crypto.HexToECDSA("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
-	testKeyB, _   = crypto.HexToECDSA("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
-	testEphKey, _ = crypto.HexToECDSA("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
+	testKeyA, _   = crypto.HexToECDSA[nist.PrivateKey]("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
+	testKeyB, _   = crypto.HexToECDSA[nist.PrivateKey]("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
+	testEphKey, _ = crypto.HexToECDSA[nist.PrivateKey]("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
 	testIDnonce   = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 )
 
@@ -78,7 +78,7 @@ func TestHandshake(t *testing.T) {
 	resp := net.nodeB.expectDecode(t, UnknownPacket, packet)
 
 	// A <- B   WHOAREYOU
-	challenge := &Whoareyou{
+	challenge := &Whoareyou[nist.PublicKey]{
 		Nonce:     resp.(*Unknown).Nonce,
 		IDNonce:   testIDnonce,
 		RecordSeq: 0,
@@ -109,7 +109,7 @@ func TestHandshake_timeout(t *testing.T) {
 	resp := net.nodeB.expectDecode(t, UnknownPacket, packet)
 
 	// A <- B   WHOAREYOU
-	challenge := &Whoareyou{
+	challenge := &Whoareyou[nist.PublicKey]{
 		Nonce:     resp.(*Unknown).Nonce,
 		IDNonce:   testIDnonce,
 		RecordSeq: 0,
@@ -138,7 +138,7 @@ func TestHandshake_norecord(t *testing.T) {
 	if nodeA.Seq() == 0 {
 		t.Fatal("need non-zero sequence number")
 	}
-	challenge := &Whoareyou{
+	challenge := &Whoareyou[nist.PublicKey]{
 		Nonce:     resp.(*Unknown).Nonce,
 		IDNonce:   testIDnonce,
 		RecordSeq: nodeA.Seq(),
@@ -174,7 +174,7 @@ func TestHandshake_rekey(t *testing.T) {
 	net.nodeB.expectDecode(t, UnknownPacket, findnode)
 
 	// A <- B   WHOAREYOU
-	challenge := &Whoareyou{Nonce: authTag, IDNonce: testIDnonce}
+	challenge := &Whoareyou[nist.PublicKey]{Nonce: authTag, IDNonce: testIDnonce}
 	whoareyou, _ := net.nodeB.encode(t, net.nodeA, challenge)
 	net.nodeA.expectDecode(t, WhoareyouPacket, whoareyou)
 
@@ -218,7 +218,7 @@ func TestHandshake_rekey2(t *testing.T) {
 	net.nodeB.expectDecode(t, UnknownPacket, findnode)
 
 	// A <- B   WHOAREYOU
-	challenge := &Whoareyou{Nonce: authTag, IDNonce: testIDnonce}
+	challenge := &Whoareyou[nist.PublicKey]{Nonce: authTag, IDNonce: testIDnonce}
 	whoareyou, _ := net.nodeB.encode(t, net.nodeA, challenge)
 	net.nodeA.expectDecode(t, WhoareyouPacket, whoareyou)
 
@@ -241,7 +241,7 @@ func TestHandshake_BadHandshakeAttack(t *testing.T) {
 	resp := net.nodeB.expectDecode(t, UnknownPacket, packet)
 
 	// A <- B   WHOAREYOU
-	challenge := &Whoareyou{
+	challenge := &Whoareyou[nist.PublicKey]{
 		Nonce:     resp.(*Unknown).Nonce,
 		IDNonce:   testIDnonce,
 		RecordSeq: 0,
@@ -250,7 +250,7 @@ func TestHandshake_BadHandshakeAttack(t *testing.T) {
 	net.nodeA.expectDecode(t, WhoareyouPacket, whoareyou)
 
 	// A -> B   FINDNODE
-	incorrect_challenge := &Whoareyou{
+	incorrect_challenge := &Whoareyou[nist.PublicKey]{
 		IDNonce:   [16]byte{5, 6, 7, 8, 9, 6, 11, 12},
 		RecordSeq: challenge.RecordSeq,
 		Node:      challenge.Node,
@@ -285,18 +285,18 @@ func TestDecodeErrorsV5(t *testing.T) {
 // This test checks that all test vectors can be decoded.
 func TestTestVectorsV5(t *testing.T) {
 	var (
-		idA     = enode.PubkeyToIDV4(&testKeyA.PublicKey)
-		idB     = enode.PubkeyToIDV4(&testKeyB.PublicKey)
+		idA     = enode.PubkeyToIDV4(testKeyA.Public())
+		idB     = enode.PubkeyToIDV4(testKeyB.Public())
 		addr    = "127.0.0.1"
 		session = &session{
 			writeKey: hexutil.MustDecode("0x00000000000000000000000000000000"),
 			readKey:  hexutil.MustDecode("0x01010101010101010101010101010101"),
 		}
-		challenge0A, challenge1A, challenge0B Whoareyou
+		challenge0A, challenge1A, challenge0B Whoareyou[nist.PublicKey]
 	)
 
 	// Create challenge packets.
-	c := Whoareyou{
+	c := Whoareyou[nist.PublicKey]{
 		Nonce:   Nonce{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		IDNonce: testIDnonce,
 	}
@@ -311,7 +311,7 @@ func TestTestVectorsV5(t *testing.T) {
 	type testVectorTest struct {
 		name      string               // test vector name
 		packet    Packet               // the packet to be encoded
-		challenge *Whoareyou           // handshake challenge passed to encoder
+		challenge *Whoareyou[nist.PublicKey]           // handshake challenge passed to encoder
 		prep      func(*handshakeTest) // called before encode/decode
 	}
 	tests := []testVectorTest{
@@ -371,7 +371,7 @@ func TestTestVectorsV5(t *testing.T) {
 			net.nodeA.c.sc.maskingIVGen = func(buf []byte) error {
 				return nil // all zero
 			}
-			net.nodeA.c.sc.ephemeralKeyGen = func() (*ecdsa.PrivateKey, error) {
+			net.nodeA.c.sc.ephemeralKeyGen = func() (nist.PrivateKey, error) {
 				return testEphKey, nil
 			}
 
@@ -394,9 +394,9 @@ func TestTestVectorsV5(t *testing.T) {
 }
 
 // testVectorComment creates the commentary for discv5 test vector files.
-func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce Nonce) string {
+func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou[nist.PublicKey], nonce Nonce) string {
 	o := new(strings.Builder)
-	printWhoareyou := func(p *Whoareyou) {
+	printWhoareyou := func(p *Whoareyou[nist.PublicKey]) {
 		fmt.Fprintf(o, "whoareyou.challenge-data = %#x\n", p.ChallengeData)
 		fmt.Fprintf(o, "whoareyou.request-nonce = %#x\n", p.Nonce[:])
 		fmt.Fprintf(o, "whoareyou.id-nonce = %#x\n", p.IDNonce[:])
@@ -406,7 +406,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 	fmt.Fprintf(o, "src-node-id = %#x\n", net.nodeA.id().Bytes())
 	fmt.Fprintf(o, "dest-node-id = %#x\n", net.nodeB.id().Bytes())
 	switch p := p.(type) {
-	case *Whoareyou:
+	case *Whoareyou[nist.PublicKey]:
 		// WHOAREYOU packet.
 		printWhoareyou(p)
 	case *Ping:
@@ -419,7 +419,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 			fmt.Fprint(o, "\nhandshake inputs:\n\n")
 			printWhoareyou(challenge)
 			fmt.Fprintf(o, "ephemeral-key = %#x\n", testEphKey.D.Bytes())
-			fmt.Fprintf(o, "ephemeral-pubkey = %#x\n", crypto.CompressPubkey(&testEphKey.PublicKey))
+			fmt.Fprintf(o, "ephemeral-pubkey = %#x\n", crypto.CompressPubkey[nist.PublicKey](*testEphKey.Public()))
 		}
 	default:
 		panic(fmt.Errorf("unhandled packet type %T", p))
@@ -434,7 +434,7 @@ func BenchmarkV5_DecodeHandshakePingSecp256k1(b *testing.B) {
 
 	var (
 		idA       = net.nodeA.id()
-		challenge = &Whoareyou{Node: net.nodeB.n()}
+		challenge = &Whoareyou[nist.PublicKey]{Node: net.nodeB.n()}
 		message   = &Ping{ReqID: []byte("reqid")}
 	)
 	enc, _, err := net.nodeA.c.Encode(net.nodeB.id(), "", message, challenge)
@@ -492,14 +492,14 @@ type handshakeTest struct {
 }
 
 type handshakeTestNode struct {
-	ln *enode.LocalNode
-	c  *Codec
+	ln *enode.LocalNode[nist.PrivateKey,nist.PublicKey]
+	c  *Codec[nist.PrivateKey,nist.PublicKey]
 }
 
 func newHandshakeTest() *handshakeTest {
 	t := new(handshakeTest)
-	t.nodeA.init(testKeyA, net.IP{127, 0, 0, 1}, &t.clock)
-	t.nodeB.init(testKeyB, net.IP{127, 0, 0, 1}, &t.clock)
+	t.nodeA.init(&testKeyA, net.IP{127, 0, 0, 1}, &t.clock)
+	t.nodeB.init(&testKeyB, net.IP{127, 0, 0, 1}, &t.clock)
 	return t
 }
 
@@ -508,14 +508,14 @@ func (t *handshakeTest) close() {
 	t.nodeB.ln.Database().Close()
 }
 
-func (n *handshakeTestNode) init(key *ecdsa.PrivateKey, ip net.IP, clock mclock.Clock) {
-	db, _ := enode.OpenDB("")
-	n.ln = enode.NewLocalNode(db, key)
+func (n *handshakeTestNode) init(key *nist.PrivateKey, ip net.IP, clock mclock.Clock) {
+	db, _ := enode.OpenDB[nist.PublicKey]("")
+	n.ln = enode.NewLocalNode(db, *key)
 	n.ln.SetStaticIP(ip)
 	if n.ln.Node().Seq() != 1 {
 		panic(fmt.Errorf("unexpected seq %d", n.ln.Node().Seq()))
 	}
-	n.c = NewCodec(n.ln, key, clock)
+	n.c = NewCodec(n.ln, *key, clock)
 }
 
 func (n *handshakeTestNode) encode(t testing.TB, to handshakeTestNode, p Packet) ([]byte, Nonce) {
@@ -523,11 +523,11 @@ func (n *handshakeTestNode) encode(t testing.TB, to handshakeTestNode, p Packet)
 	return n.encodeWithChallenge(t, to, nil, p)
 }
 
-func (n *handshakeTestNode) encodeWithChallenge(t testing.TB, to handshakeTestNode, c *Whoareyou, p Packet) ([]byte, Nonce) {
+func (n *handshakeTestNode) encodeWithChallenge(t testing.TB, to handshakeTestNode, c *Whoareyou[nist.PublicKey], p Packet) ([]byte, Nonce) {
 	t.Helper()
 
 	// Copy challenge and add destination node. This avoids sharing 'c' among the two codecs.
-	var challenge *Whoareyou
+	var challenge *Whoareyou[nist.PublicKey]
 	if c != nil {
 		challengeCopy := *c
 		challenge = &challengeCopy
@@ -568,7 +568,7 @@ func (n *handshakeTestNode) decode(input []byte) (Packet, error) {
 	return p, err
 }
 
-func (n *handshakeTestNode) n() *enode.Node {
+func (n *handshakeTestNode) n() *enode.Node[nist.PublicKey] {
 	return n.ln.Node()
 }
 

@@ -18,14 +18,17 @@ package discover
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
@@ -46,18 +49,49 @@ func encodePubkey [P crypto.PublicKey] (key P) encPubkey {
 	return e
 }
 
-func decodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
-	if len(e) != len(encPubkey{}) {
-		return nil, errors.New("wrong size public key data")
+func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
+	var pub P
+	switch p:= any(&pub).(type){
+	case *nist.PublicKey:
+		if len(e) != len(encPubkey{}) {
+			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
+		}
+		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.Curve.IsOnCurve(p.X, p.Y) {
+			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
+		}
+		*p = nist.PublicKey{k}
+	case *gost3410.PublicKey:
+		if len(e) != len(encPubkey{}) {
+			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
+		}
+		k := &gost3410.PublicKey{C: gost3410.GostCurve, X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.C.IsOnCurve(p.X, p.Y) {
+			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
+		}
+		*p = *k
+	case *csp.PublicKey:
+		if len(e) != len(encPubkey{}) {
+			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
+		}
+		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.Curve.IsOnCurve(p.X, p.Y) {
+			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
+		}
+		*p = *k
+	default:
+		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")
 	}
-	p := &ecdsa.PublicKey{Curve: curve, X: new(big.Int), Y: new(big.Int)}
-	half := len(e) / 2
-	p.X.SetBytes(e[:half])
-	p.Y.SetBytes(e[half:])
-	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, errors.New("invalid curve point")
-	}
-	return p, nil
+	return pub, nil
 }
 
 func (e encPubkey) id() enode.ID {

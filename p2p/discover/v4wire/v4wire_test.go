@@ -25,6 +25,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -117,15 +118,15 @@ var testPackets = []struct {
 
 // This test checks that the decoder accepts packets according to EIP-8.
 func TestForwardCompatibility(t *testing.T) {
-	testkey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	wantNodeKey := EncodePubkey(&testkey.PublicKey)
+	testkey, _ := crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	wantNodeKey := EncodePubkey(testkey.Public())
 
 	for _, test := range testPackets {
 		input, err := hex.DecodeString(test.input)
 		if err != nil {
 			t.Fatalf("invalid hex: %s", test.input)
 		}
-		packet, nodekey, _, err := Decode(input)
+		packet, nodekey, _, err := Decode[nist.PublicKey](input)
 		if err != nil {
 			t.Errorf("did not accept packet %s\n%v", test.input, err)
 			continue

@@ -104,7 +104,7 @@ func TestSign(t *testing.T) {
 	addr := common.HexToAddress(testAddrHex)
 
 	msg := Keccak256([]byte("foo"))
-	sig, err := Sign(msg, &key)
+	sig, err := Sign(msg, key)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
@@ -132,7 +132,7 @@ func TestSign(t *testing.T) {
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	gostSig, err := Sign(gostMsg.Sum(nil), gostKey)
+	gostSig, err := Sign(gostMsg.Sum(nil), *gostKey)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
@@ -177,7 +177,7 @@ func TestSign(t *testing.T) {
 	hash.Reset()
 	hash.Close()
 	t.Logf("hash digest: %x", digest)
-	sig, err = Sign(digest, &crt)
+	sig, err = Sign(digest, crt)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}

@@ -77,7 +77,7 @@ func ParseV4[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid public key (%v)", err)
 		}
-		return NewV4[P](id, nil, 0, 0), nil
+		return NewV4(id, nil, 0, 0), nil
 	}
 	return parseComplete[P](rawurl)
 }
@@ -89,7 +89,7 @@ func NewV4[P crypto.PublicKey] (pubkey P, ip net.IP, tcp, udp int) *Node[P] {
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
 	}
-	return newV4[P](pubkey, r, tcp, udp)
+	return newV4(pubkey, r, tcp, udp)
 }
 
 // broken out from `func NewV4` (above) same in upstream go-ethereum, but taken out
@@ -101,7 +101,7 @@ func newV4[P crypto.PublicKey](pubkey P, r enr.Record, tcp, udp int) *Node[P] {
 	if tcp != 0 {
 		r.Set(enr.TCP(tcp))
 	}
-	signV4Compat[P](&r, pubkey)
+	signV4Compat(&r, pubkey)
 	n, err := New[P](v4CompatID[P]{}, &r)
 	if err != nil {
 		panic(err)
@@ -250,7 +250,7 @@ func (n *Node[P]) URLv4() string {
 	n.Load((*Secp256k1)(&key))
 	switch {
 	case scheme == "v4" || key != nist.PublicKey{}:
-		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(&key)[1:])
+		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(key)[1:])
 	default:
 		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
 	}
@@ -283,7 +283,7 @@ func (n *Node[P]) URLv4() string {
 }
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
-func PubkeyToIDV4[T crypto.PublicKey ] (key T) ID {
+func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
 	switch pubkey := any(key).(type) {
 	case *nist.PublicKey:
 		e := make([]byte, 64)

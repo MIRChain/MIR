@@ -187,7 +187,7 @@ type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	nodedb    *enode.DB[P]
 	localnode *enode.LocalNode[T,P]
 	ntab      *discover.UDPv4[T,P]
-	DiscV5    *discover.UDPv5[T]
+	DiscV5    *discover.UDPv5[T,P]
 	discmix   *enode.FairMix[P]
 	dialsched *dialScheduler[T,P]
 

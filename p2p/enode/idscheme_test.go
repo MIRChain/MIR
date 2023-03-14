@@ -71,5 +71,5 @@ func TestGetSetSecp256k1(t *testing.T) {
 
 	var pk Secp256k1
 	require.NoError(t, r.Load(&pk))
-	assert.EqualValues(t, pubkey, &pk)
+	assert.EqualValues(t, pubkey, pk.PublicKey)
 }

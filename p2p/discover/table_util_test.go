@@ -18,7 +18,6 @@ package discover
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -28,43 +27,44 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
-var nullNode *enode.Node
+var nullNode *enode.Node[nist.PublicKey]
 
 func init() {
 	var r enr.Record
 	r.Set(enr.IP{0, 0, 0, 0})
-	nullNode = enode.SignNull(&r, enode.ID{})
+	nullNode = enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, enode.ID{})
 }
 
-func newTestTable(t transport) (*Table, *enode.DB) {
-	db, _ := enode.OpenDB("")
+func newTestTable(t transport[nist.PublicKey]) (*Table[nist.PublicKey], *enode.DB[nist.PublicKey]) {
+	db, _ := enode.OpenDB[nist.PublicKey]("")
 	tab, _ := newTable(t, db, nil, log.Root())
 	go tab.loop()
 	return tab, db
 }
 
 // nodeAtDistance creates a node for which enode.LogDist(base, n.id) == ld.
-func nodeAtDistance(base enode.ID, ld int, ip net.IP) *node {
+func nodeAtDistance(base enode.ID, ld int, ip net.IP) *node[nist.PublicKey] {
 	var r enr.Record
 	r.Set(enr.IP(ip))
-	return wrapNode(enode.SignNull(&r, idAtDistance(base, ld)))
+	return wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, idAtDistance(base, ld)))
 }
 
 // nodesAtDistance creates n nodes for which enode.LogDist(base, node.ID()) == ld.
-func nodesAtDistance(base enode.ID, ld int, n int) []*enode.Node {
-	results := make([]*enode.Node, n)
+func nodesAtDistance(base enode.ID, ld int, n int) []*enode.Node[nist.PublicKey] {
+	results := make([]*enode.Node[nist.PublicKey], n)
 	for i := range results {
 		results[i] = unwrapNode(nodeAtDistance(base, ld, intIP(i)))
 	}
 	return results
 }
 
-func nodesToRecords(nodes []*enode.Node) []*enr.Record {
+func nodesToRecords(nodes []*enode.Node[nist.PublicKey]) []*enr.Record {
 	records := make([]*enr.Record, len(nodes))
 	for i := range nodes {
 		records[i] = nodes[i].Record()
@@ -97,7 +97,7 @@ func intIP(i int) net.IP {
 }
 
 // fillBucket inserts nodes into the given bucket until it is full.
-func fillBucket(tab *Table, n *node) (last *node) {
+func fillBucket(tab *Table[nist.PublicKey], n *node[nist.PublicKey]) (last *node[nist.PublicKey]) {
 	ld := enode.LogDist(tab.self().ID(), n.ID())
 	b := tab.bucket(n.ID())
 	for len(b.entries) < bucketSize {
@@ -108,7 +108,7 @@ func fillBucket(tab *Table, n *node) (last *node) {
 
 // fillTable adds nodes the table to the end of their corresponding bucket
 // if the bucket is not full. The caller must not hold tab.mutex.
-func fillTable(tab *Table, nodes []*node) {
+func fillTable(tab *Table[nist.PublicKey], nodes []*node[nist.PublicKey]) {
 	for _, n := range nodes {
 		tab.addSeenNode(n)
 	}
@@ -117,38 +117,38 @@ func fillTable(tab *Table, nodes []*node) {
 type pingRecorder struct {
 	mu           sync.Mutex
 	dead, pinged map[enode.ID]bool
-	records      map[enode.ID]*enode.Node
-	n            *enode.Node
+	records      map[enode.ID]*enode.Node[nist.PublicKey]
+	n            *enode.Node[nist.PublicKey]
 }
 
 func newPingRecorder() *pingRecorder {
 	var r enr.Record
 	r.Set(enr.IP{0, 0, 0, 0})
-	n := enode.SignNull(&r, enode.ID{})
+	n := enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, enode.ID{})
 
 	return &pingRecorder{
 		dead:    make(map[enode.ID]bool),
 		pinged:  make(map[enode.ID]bool),
-		records: make(map[enode.ID]*enode.Node),
+		records: make(map[enode.ID]*enode.Node[nist.PublicKey]),
 		n:       n,
 	}
 }
 
 // setRecord updates a node record. Future calls to ping and
 // requestENR will return this record.
-func (t *pingRecorder) updateRecord(n *enode.Node) {
+func (t *pingRecorder) updateRecord(n *enode.Node[nist.PublicKey]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.records[n.ID()] = n
 }
 
 // Stubs to satisfy the transport interface.
-func (t *pingRecorder) Self() *enode.Node           { return nullNode }
-func (t *pingRecorder) lookupSelf() []*enode.Node   { return nil }
-func (t *pingRecorder) lookupRandom() []*enode.Node { return nil }
+func (t *pingRecorder) Self() *enode.Node[nist.PublicKey]           { return nullNode }
+func (t *pingRecorder) lookupSelf() []*enode.Node[nist.PublicKey]   { return nil }
+func (t *pingRecorder) lookupRandom() []*enode.Node[nist.PublicKey] { return nil }
 
 // ping simulates a ping request.
-func (t *pingRecorder) ping(n *enode.Node) (seq uint64, err error) {
+func (t *pingRecorder) ping(n *enode.Node[nist.PublicKey]) (seq uint64, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -163,7 +163,7 @@ func (t *pingRecorder) ping(n *enode.Node) (seq uint64, err error) {
 }
 
 // requestENR simulates an ENR request.
-func (t *pingRecorder) RequestENR(n *enode.Node) (*enode.Node, error) {
+func (t *pingRecorder) RequestENR(n *enode.Node[nist.PublicKey]) (*enode.Node[nist.PublicKey], error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -173,7 +173,7 @@ func (t *pingRecorder) RequestENR(n *enode.Node) (*enode.Node, error) {
 	return t.records[n.ID()], nil
 }
 
-func hasDuplicates(slice []*node) bool {
+func hasDuplicates(slice []*node[nist.PublicKey]) bool {
 	seen := make(map[enode.ID]bool)
 	for i, e := range slice {
 		if e == nil {
@@ -188,7 +188,7 @@ func hasDuplicates(slice []*node) bool {
 }
 
 // checkNodesEqual checks whether the two given node lists contain the same nodes.
-func checkNodesEqual(got, want []*enode.Node) error {
+func checkNodesEqual(got, want []*enode.Node[nist.PublicKey]) error {
 	if len(got) == len(want) {
 		for i := range got {
 			if !nodeEqual(got[i], want[i]) {
@@ -211,33 +211,33 @@ NotEqual:
 	return errors.New(output.String())
 }
 
-func nodeEqual(n1 *enode.Node, n2 *enode.Node) bool {
+func nodeEqual(n1 *enode.Node[nist.PublicKey], n2 *enode.Node[nist.PublicKey]) bool {
 	return n1.ID() == n2.ID() && n1.IP().Equal(n2.IP())
 }
 
-func sortByID(nodes []*enode.Node) {
+func sortByID(nodes []*enode.Node[nist.PublicKey]) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return string(nodes[i].ID().Bytes()) < string(nodes[j].ID().Bytes())
 	})
 }
 
-func sortedByDistanceTo(distbase enode.ID, slice []*node) bool {
+func sortedByDistanceTo(distbase enode.ID, slice []*node[nist.PublicKey]) bool {
 	return sort.SliceIsSorted(slice, func(i, j int) bool {
 		return enode.DistCmp(distbase, slice[i].ID(), slice[j].ID()) < 0
 	})
 }
 
 // hexEncPrivkey decodes h as a private key.
-func hexEncPrivkey(h string) *ecdsa.PrivateKey {
+func hexEncPrivkey(h string) *nist.PrivateKey {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)
 	}
-	key, err := crypto.ToECDSA(b)
+	key, err := crypto.ToECDSA[nist.PrivateKey](b)
 	if err != nil {
 		panic(err)
 	}
-	return key
+	return &key
 }
 
 // hexEncPubkey decodes h as a public key.

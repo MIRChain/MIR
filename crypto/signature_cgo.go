@@ -125,7 +125,7 @@ func SigToPub[P PublicKey](hash, sig []byte) (P, error) {
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
 func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
-	switch prv:=any(key).(type) {
+	switch prv:=any(&key).(type) {
 	case *nist.PrivateKey:
 		if len(digestHash) != DigestLength {
 			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))

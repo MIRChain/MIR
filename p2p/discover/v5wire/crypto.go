@@ -19,14 +19,16 @@ package v5wire
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"hash"
+	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"golang.org/x/crypto/hkdf"
 )
@@ -41,26 +43,33 @@ const (
 type Nonce [gcmNonceSize]byte
 
 // EncodePubkey encodes a public key.
-func EncodePubkey(key *ecdsa.PublicKey) []byte {
-	switch key.Curve {
-	case crypto.S256():
-		return crypto.CompressPubkey(key)
-	default:
-		panic("unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
-	}
+func EncodePubkey[P crypto.PublicKey](key P) []byte {
+	// switch key.Curve {
+	// case crypto.S256():
+	// 	return 
+	// default:
+	// 	panic("unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
+	// }
+	res := crypto.CompressPubkey[P](key)
+	return res
 }
 
 // DecodePubkey decodes a public key in compressed format.
-func DecodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
-	switch curve {
-	case crypto.S256():
-		if len(e) != 33 {
-			return nil, errors.New("wrong size public key data")
-		}
-		return crypto.DecompressPubkey(e)
-	default:
-		return nil, fmt.Errorf("unsupported curve %s in DecodePubkey", curve.Params().Name)
+func DecodePubkey[P crypto.PublicKey](e []byte) (P, error) {
+	// switch curve {
+	// case crypto.S256():
+	// 	if len(e) != 33 {
+	// 		return nil, errors.New("wrong size public key data")
+	// 	}
+	// 	return 
+	// default:
+	// 	
+	// }
+	pub, err := crypto.DecompressPubkey[P](e)
+	if err != nil {
+		return crypto.ZeroPublicKey[P](), fmt.Errorf("error %s in DecodePubkey", err)
 	}
+	return pub, nil
 }
 
 // idNonceHash computes the ID signature hash used in the handshake.
@@ -76,16 +85,21 @@ func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte 
 // makeIDSignature creates the ID nonce signature.
 func makeIDSignature[T crypto.PrivateKey, P crypto.PublicKey](hash hash.Hash, key T, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
 	input := idNonceHash(hash, challenge, ephkey, destID)
-	switch key.Curve {
-	case crypto.S256():
-		idsig, err := crypto.Sign(input, key)
-		if err != nil {
-			return nil, err
-		}
-		return idsig[:len(idsig)-1], nil // remove recovery ID
-	default:
-		return nil, fmt.Errorf("unsupported curve %s", key.Curve.Params().Name)
+	// switch key.Curve {
+	// case crypto.S256():
+	// 	idsig, err := crypto.Sign(input, key)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	return idsig[:len(idsig)-1], nil // remove recovery ID
+	// default:
+	// 	return nil, fmt.Errorf("unsupported curve %s", key.Curve.Params().Name)
+	// }
+	idsig, err := crypto.Sign(input, key)
+	if err != nil {
+		return nil, err
 	}
+	return idsig[:len(idsig)-1], nil // remove recovery ID
 }
 
 // s256raw is an unparsed secp256k1 public key ENR entry.
@@ -102,7 +116,7 @@ func verifyIDSignature[P crypto.PublicKey](hash hash.Hash, sig []byte, n *enode.
 			return errors.New("no secp256k1 public key in record")
 		}
 		input := idNonceHash(hash, challenge, ephkey, destID)
-		if !crypto.VerifySignature(pubkey, input, sig) {
+		if !crypto.VerifySignature[P](pubkey, input, sig) {
 			return errInvalidNonceSig
 		}
 		return nil
@@ -114,14 +128,14 @@ func verifyIDSignature[P crypto.PublicKey](hash hash.Hash, sig []byte, n *enode.
 type hashFn func() hash.Hash
 
 // deriveKeys creates the session keys.
-func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
+func deriveKeys[T crypto.PrivateKey, P crypto.PublicKey](hash hashFn, priv T, pub P, n1, n2 enode.ID, challenge []byte) *session {
 	const text = "discovery v5 key agreement"
 	var info = make([]byte, 0, len(text)+len(n1)+len(n2))
 	info = append(info, text...)
 	info = append(info, n1[:]...)
 	info = append(info, n2[:]...)
 
-	eph := ecdh(priv, pub)
+	eph := ecdh[T,P](priv, pub)
 	if eph == nil {
 		return nil
 	}
@@ -136,10 +150,30 @@ func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n
 }
 
 // ecdh creates a shared secret.
-func ecdh(privkey *ecdsa.PrivateKey, pubkey *ecdsa.PublicKey) []byte {
-	secX, secY := pubkey.ScalarMult(pubkey.X, pubkey.Y, privkey.D.Bytes())
-	if secX == nil {
-		return nil
+func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
+	var secX, secY *big.Int 
+	var err error
+	switch p:=any(&privkey).(type) {
+	case *nist.PrivateKey:
+		pub := any(&pubkey).(*nist.PublicKey) 
+		secX, secY = pub.ScalarMult(pub.X, pub.Y, p.D.Bytes())
+		if secX == nil {
+			return nil
+		}
+	case *gost3410.PrivateKey:
+		pub := any(&pubkey).(*gost3410.PublicKey)
+		secX, secY, err = pub.C.Exp(p.Key, pub.X, pub.Y)
+		if err == nil {
+			panic("cant multiply gost points at curve")
+		}
+		sec := make([]byte, 33)
+		sec[0] = 0x02 | byte(secY.Bit(0))
+		math.ReadBits(secX, sec[1:])
+		return sec
+	case *csp.Cert:
+		// TODO	
+	default:
+		panic("cant infer priv key")
 	}
 	sec := make([]byte, 33)
 	sec[0] = 0x02 | byte(secY.Bit(0))

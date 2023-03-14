@@ -20,7 +20,6 @@ package v4wire
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"math/big"
@@ -29,6 +28,9 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -213,7 +215,7 @@ var (
 var headSpace = make([]byte, headSize)
 
 // Decode reads a discovery v4 packet.
-func Decode(input []byte) (Packet, Pubkey, []byte, error) {
+func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey, []byte, error) {
 	if len(input) < headSize+1 {
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
@@ -222,7 +224,7 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 	if !bytes.Equal(hash, shouldhash) {
 		return nil, Pubkey{}, nil, ErrBadHash
 	}
-	fromKey, err := recoverNodeKey(crypto.Keccak256(input[headSize:]), sig)
+	fromKey, err := recoverNodeKey[P](crypto.Keccak256(input[headSize:]), sig)
 	if err != nil {
 		return nil, fromKey, hash, err
 	}
@@ -270,8 +272,8 @@ func Encode [T crypto.PrivateKey] (priv T, req Packet) (packet, hash []byte, err
 }
 
 // recoverNodeKey computes the public key used to sign the given hash from the signature.
-func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
-	pubkey, err := crypto.Ecrecover(hash, sig)
+func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey, err error) {
+	pubkey, err := crypto.Ecrecover[P](hash, sig)
 	if err != nil {
 		return key, err
 	}
@@ -280,21 +282,61 @@ func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
 }
 
 // EncodePubkey encodes a secp256k1 public key.
-func EncodePubkey(key *ecdsa.PublicKey) Pubkey {
-	var e Pubkey
-	math.ReadBits(key.X, e[:len(e)/2])
-	math.ReadBits(key.Y, e[len(e)/2:])
-	return e
+func EncodePubkey[P crypto.PublicKey](key P) Pubkey {
+	switch p:= any(key).(type){
+	case *nist.PublicKey:
+		var e Pubkey
+		math.ReadBits(p.X, e[:len(e)/2])
+		math.ReadBits(p.Y, e[len(e)/2:])
+		return e
+	case *gost3410.PublicKey:
+		var e Pubkey
+		math.ReadBits(p.X, e[:len(e)/2])
+		math.ReadBits(p.Y, e[len(e)/2:])
+		return e
+	case *csp.PublicKey:
+		var e Pubkey
+		math.ReadBits(p.X, e[:len(e)/2])
+		math.ReadBits(p.Y, e[len(e)/2:])
+		return e
+	default:
+		panic("cant encode pub key")
+	}
 }
 
 // DecodePubkey reads an encoded secp256k1 public key.
-func DecodePubkey(curve elliptic.Curve, e Pubkey) (*ecdsa.PublicKey, error) {
-	p := &ecdsa.PublicKey{Curve: curve, X: new(big.Int), Y: new(big.Int)}
-	half := len(e) / 2
-	p.X.SetBytes(e[:half])
-	p.Y.SetBytes(e[half:])
-	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, ErrBadPoint
+func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
+	var pub P
+	switch p:= any(&pub).(type){
+	case *nist.PublicKey:
+		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.Curve.IsOnCurve(k.X, k.Y) {
+			return crypto.ZeroPublicKey[P](), ErrBadPoint
+		}
+		*p = nist.PublicKey{k}
+	case *gost3410.PublicKey:
+		k := &gost3410.PublicKey{C: gost3410.GostCurve, X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.C.IsOnCurve(k.X, k.Y) {
+			return crypto.ZeroPublicKey[P](), ErrBadPoint
+		}
+		*p = *k
+	case *csp.PublicKey:
+		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !p.Curve.IsOnCurve(k.X, k.Y) {
+			return crypto.ZeroPublicKey[P](), ErrBadPoint
+		}
+		*p = *k
+	default:
+		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")
 	}
-	return p, nil
+	return pub, nil
 }

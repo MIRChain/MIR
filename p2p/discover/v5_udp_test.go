@@ -18,7 +18,6 @@ package discover
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
 	"math/rand"
@@ -28,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v5wire"
@@ -41,12 +41,12 @@ func TestUDPv5_lookupE2E(t *testing.T) {
 	t.Parallel()
 
 	const N = 5
-	var nodes []*UDPv5
+	var nodes []*UDPv5[nist.PrivateKey, nist.PublicKey]
 	for i := 0; i < N; i++ {
-		var cfg Config
+		var cfg Config[nist.PrivateKey, nist.PublicKey]
 		if len(nodes) > 0 {
 			bn := nodes[0].Self()
-			cfg.Bootnodes = []*enode.Node{bn}
+			cfg.Bootnodes = []*enode.Node[nist.PublicKey]{bn}
 		}
 		node := startLocalhostV5(t, cfg)
 		nodes = append(nodes, node)
@@ -56,7 +56,7 @@ func TestUDPv5_lookupE2E(t *testing.T) {
 	target := nodes[rand.Intn(N-2)].Self()
 
 	// It is expected that all nodes can be found.
-	expectedResult := make([]*enode.Node, len(nodes))
+	expectedResult := make([]*enode.Node[nist.PublicKey], len(nodes))
 	for i := range nodes {
 		expectedResult[i] = nodes[i].Self()
 	}
@@ -71,9 +71,9 @@ func TestUDPv5_lookupE2E(t *testing.T) {
 	}
 }
 
-func startLocalhostV5(t *testing.T, cfg Config) *UDPv5 {
-	cfg.PrivateKey = newkey()
-	db, _ := enode.OpenDB("")
+func startLocalhostV5(t *testing.T, cfg Config[nist.PrivateKey, nist.PublicKey]) *UDPv5[nist.PrivateKey, nist.PublicKey] {
+	cfg.PrivateKey = *newkey()
+	db, _ := enode.OpenDB[nist.PublicKey]("")
 	ln := enode.NewLocalNode(db, cfg.PrivateKey)
 
 	// Prefix logs with node ID.
@@ -124,7 +124,7 @@ func TestUDPv5_unknownPacket(t *testing.T) {
 	defer test.close()
 
 	nonce := v5wire.Nonce{1, 2, 3}
-	check := func(p *v5wire.Whoareyou, wantSeq uint64) {
+	check := func(p *v5wire.Whoareyou[nist.PublicKey], wantSeq uint64) {
 		t.Helper()
 		if p.Nonce != nonce {
 			t.Error("wrong nonce in WHOAREYOU:", p.Nonce, nonce)
@@ -139,7 +139,7 @@ func TestUDPv5_unknownPacket(t *testing.T) {
 
 	// Unknown packet from unknown node.
 	test.packetIn(&v5wire.Unknown{Nonce: nonce})
-	test.waitPacketOut(func(p *v5wire.Whoareyou, addr *net.UDPAddr, _ v5wire.Nonce) {
+	test.waitPacketOut(func(p *v5wire.Whoareyou[nist.PublicKey], addr *net.UDPAddr, _ v5wire.Nonce) {
 		check(p, 0)
 	})
 
@@ -148,7 +148,7 @@ func TestUDPv5_unknownPacket(t *testing.T) {
 	test.table.addSeenNode(wrapNode(n))
 
 	test.packetIn(&v5wire.Unknown{Nonce: nonce})
-	test.waitPacketOut(func(p *v5wire.Whoareyou, addr *net.UDPAddr, _ v5wire.Nonce) {
+	test.waitPacketOut(func(p *v5wire.Whoareyou[nist.PublicKey], addr *net.UDPAddr, _ v5wire.Nonce) {
 		check(p, n.Seq())
 	})
 }
@@ -169,7 +169,7 @@ func TestUDPv5_findnodeHandling(t *testing.T) {
 
 	// Requesting with distance zero should return the node's own record.
 	test.packetIn(&v5wire.Findnode{ReqID: []byte{0}, Distances: []uint{0}})
-	test.expectNodes([]byte{0}, 1, []*enode.Node{test.udp.Self()})
+	test.expectNodes([]byte{0}, 1, []*enode.Node[nist.PublicKey]{test.udp.Self()})
 
 	// Requesting with distance > 256 shouldn't crash.
 	test.packetIn(&v5wire.Findnode{ReqID: []byte{1}, Distances: []uint{4234098}})
@@ -190,13 +190,13 @@ func TestUDPv5_findnodeHandling(t *testing.T) {
 	// This request gets all the distance-249 nodes and some more at 248 because
 	// the bucket at 249 is not full.
 	test.packetIn(&v5wire.Findnode{ReqID: []byte{5}, Distances: []uint{249, 248}})
-	var nodes []*enode.Node
+	var nodes []*enode.Node[nist.PublicKey]
 	nodes = append(nodes, nodes249...)
 	nodes = append(nodes, nodes248[:10]...)
 	test.expectNodes([]byte{5}, 5, nodes)
 }
 
-func (test *udpV5Test) expectNodes(wantReqID []byte, wantTotal uint8, wantNodes []*enode.Node) {
+func (test *udpV5Test) expectNodes(wantReqID []byte, wantTotal uint8, wantNodes []*enode.Node[nist.PublicKey]) {
 	nodeSet := make(map[enode.ID]*enr.Record)
 	for _, n := range wantNodes {
 		nodeSet[n.ID()] = n.Record()
@@ -214,7 +214,7 @@ func (test *udpV5Test) expectNodes(wantReqID []byte, wantTotal uint8, wantNodes 
 				test.t.Fatalf("wrong total response count %d, want %d", p.Total, wantTotal)
 			}
 			for _, record := range p.Nodes {
-				n, _ := enode.New(enode.ValidSchemesForTesting, record)
+				n, _ := enode.New[nist.PublicKey](enode.ValidSchemesForTesting, record)
 				want := nodeSet[n.ID()]
 				if want == nil {
 					test.t.Fatalf("unexpected node in response: %v", n)
@@ -289,7 +289,7 @@ func TestUDPv5_findnodeCall(t *testing.T) {
 		remote    = test.getNode(test.remotekey, test.remoteaddr).Node()
 		nodes     = nodesAtDistance(remote.ID(), int(distances[0]), 8)
 		done      = make(chan error, 1)
-		response  []*enode.Node
+		response  []*enode.Node[nist.PublicKey]
 	)
 	go func() {
 		var err error
@@ -345,7 +345,7 @@ func TestUDPv5_callResend(t *testing.T) {
 
 	// Ping answered by WHOAREYOU.
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, nonce v5wire.Nonce) {
-		test.packetIn(&v5wire.Whoareyou{Nonce: nonce})
+		test.packetIn(&v5wire.Whoareyou[nist.PublicKey]{Nonce: nonce})
 	})
 	// Ping should be re-sent.
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, _ v5wire.Nonce) {
@@ -378,11 +378,11 @@ func TestUDPv5_multipleHandshakeRounds(t *testing.T) {
 
 	// Ping answered by WHOAREYOU.
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, nonce v5wire.Nonce) {
-		test.packetIn(&v5wire.Whoareyou{Nonce: nonce})
+		test.packetIn(&v5wire.Whoareyou[nist.PublicKey]{Nonce: nonce})
 	})
 	// Ping answered by WHOAREYOU again.
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, nonce v5wire.Nonce) {
-		test.packetIn(&v5wire.Whoareyou{Nonce: nonce})
+		test.packetIn(&v5wire.Whoareyou[nist.PublicKey]{Nonce: nonce})
 	})
 	if err := <-done; err != errTimeout {
 		t.Fatalf("unexpected ping error: %q", err)
@@ -539,10 +539,10 @@ func TestUDPv5_lookup(t *testing.T) {
 
 	// Seed table with initial node.
 	initialNode := lookupTestnet.node(256, 0)
-	fillTable(test.table, []*node{wrapNode(initialNode)})
+	fillTable(test.table, []*node[nist.PublicKey]{wrapNode(initialNode)})
 
 	// Start the lookup.
-	resultC := make(chan []*enode.Node, 1)
+	resultC := make(chan []*enode.Node[nist.PublicKey], 1)
 	go func() {
 		resultC <- test.udp.Lookup(lookupTestnet.target.id())
 		test.close()
@@ -578,7 +578,7 @@ func TestUDPv5_lookup(t *testing.T) {
 // This test checks the local node can be utilised to set key-values.
 func TestUDPv5_LocalNode(t *testing.T) {
 	t.Parallel()
-	var cfg Config
+	var cfg Config[nist.PrivateKey, nist.PublicKey]
 	node := startLocalhostV5(t, cfg)
 	defer node.Close()
 	localNd := node.LocalNode()
@@ -634,13 +634,13 @@ func TestUDPv5_PingWithIPV4MappedAddress(t *testing.T) {
 type udpV5Test struct {
 	t                   *testing.T
 	pipe                *dgramPipe
-	table               *Table
-	db                  *enode.DB
-	udp                 *UDPv5
-	localkey, remotekey *ecdsa.PrivateKey
+	table               *Table[nist.PublicKey]
+	db                  *enode.DB[nist.PublicKey]
+	udp                 *UDPv5[nist.PrivateKey, nist.PublicKey]
+	localkey, remotekey *nist.PrivateKey
 	remoteaddr          *net.UDPAddr
-	nodesByID           map[enode.ID]*enode.LocalNode
-	nodesByIP           map[string]*enode.LocalNode
+	nodesByID           map[enode.ID]*enode.LocalNode[nist.PrivateKey, nist.PublicKey]
+	nodesByIP           map[string]*enode.LocalNode[nist.PrivateKey, nist.PublicKey]
 }
 
 // testCodec is the packet encoding used by protocol tests. This codec does not perform encryption.
@@ -657,7 +657,7 @@ type testCodecFrame struct {
 	Packet  rlp.RawValue
 }
 
-func (c *testCodec) Encode(toID enode.ID, addr string, p v5wire.Packet, _ *v5wire.Whoareyou) ([]byte, v5wire.Nonce, error) {
+func (c *testCodec) Encode(toID enode.ID, addr string, p v5wire.Packet, _ *v5wire.Whoareyou[nist.PublicKey]) ([]byte, v5wire.Nonce, error) {
 	c.ctr++
 	var authTag v5wire.Nonce
 	binary.BigEndian.PutUint64(authTag[:], c.ctr)
@@ -667,7 +667,7 @@ func (c *testCodec) Encode(toID enode.ID, addr string, p v5wire.Packet, _ *v5wir
 	return frame, authTag, err
 }
 
-func (c *testCodec) Decode(input []byte, addr string) (enode.ID, *enode.Node, v5wire.Packet, error) {
+func (c *testCodec) Decode(input []byte, addr string) (enode.ID, *enode.Node[nist.PublicKey], v5wire.Packet, error) {
 	frame, p, err := c.decodeFrame(input)
 	if err != nil {
 		return enode.ID{}, nil, nil, err
@@ -685,7 +685,7 @@ func (c *testCodec) decodeFrame(input []byte) (frame testCodecFrame, p v5wire.Pa
 		err = rlp.DecodeBytes(frame.Packet, &dec)
 		p = dec
 	case v5wire.WhoareyouPacket:
-		dec := new(v5wire.Whoareyou)
+		dec := new(v5wire.Whoareyou[nist.PublicKey])
 		err = rlp.DecodeBytes(frame.Packet, &dec)
 		p = dec
 	default:
@@ -701,15 +701,15 @@ func newUDPV5Test(t *testing.T) *udpV5Test {
 		localkey:   newkey(),
 		remotekey:  newkey(),
 		remoteaddr: &net.UDPAddr{IP: net.IP{10, 0, 1, 99}, Port: 30303},
-		nodesByID:  make(map[enode.ID]*enode.LocalNode),
-		nodesByIP:  make(map[string]*enode.LocalNode),
+		nodesByID:  make(map[enode.ID]*enode.LocalNode[nist.PrivateKey, nist.PublicKey]),
+		nodesByIP:  make(map[string]*enode.LocalNode[nist.PrivateKey, nist.PublicKey]),
 	}
-	test.db, _ = enode.OpenDB("")
-	ln := enode.NewLocalNode(test.db, test.localkey)
+	test.db, _ = enode.OpenDB[nist.PublicKey]("")
+	ln := enode.NewLocalNode(test.db, *test.localkey)
 	ln.SetStaticIP(net.IP{10, 0, 0, 1})
 	ln.Set(enr.UDP(30303))
-	test.udp, _ = ListenV5(test.pipe, ln, Config{
-		PrivateKey:   test.localkey,
+	test.udp, _ = ListenV5(test.pipe, ln, Config[nist.PrivateKey, nist.PublicKey]{
+		PrivateKey:   *test.localkey,
 		Log:          testlog.Logger(t, log.LvlTrace),
 		ValidSchemes: enode.ValidSchemesForTesting,
 	})
@@ -728,7 +728,7 @@ func (test *udpV5Test) packetIn(packet v5wire.Packet) {
 }
 
 // handles a packet as if it had been sent to the transport by the key/endpoint.
-func (test *udpV5Test) packetInFrom(key *ecdsa.PrivateKey, addr *net.UDPAddr, packet v5wire.Packet) {
+func (test *udpV5Test) packetInFrom(key *nist.PrivateKey, addr *net.UDPAddr, packet v5wire.Packet) {
 	test.t.Helper()
 
 	ln := test.getNode(key, addr)
@@ -743,12 +743,12 @@ func (test *udpV5Test) packetInFrom(key *ecdsa.PrivateKey, addr *net.UDPAddr, pa
 }
 
 // getNode ensures the test knows about a node at the given endpoint.
-func (test *udpV5Test) getNode(key *ecdsa.PrivateKey, addr *net.UDPAddr) *enode.LocalNode {
-	id := encodePubkey(&key.PublicKey).id()
+func (test *udpV5Test) getNode(key *nist.PrivateKey, addr *net.UDPAddr) *enode.LocalNode[nist.PrivateKey, nist.PublicKey] {
+	id := encodePubkey(key.Public()).id()
 	ln := test.nodesByID[id]
 	if ln == nil {
-		db, _ := enode.OpenDB("")
-		ln = enode.NewLocalNode(db, key)
+		db, _ := enode.OpenDB[nist.PublicKey]("")
+		ln = enode.NewLocalNode[nist.PrivateKey, nist.PublicKey](db, *key)
 		ln.SetStaticIP(addr.IP)
 		ln.Set(enr.UDP(addr.Port))
 		test.nodesByID[id] = ln

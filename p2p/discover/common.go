@@ -63,7 +63,7 @@ func (cfg Config[T,P]) withDefaults() Config[T,P] {
 }
 
 // ListenUDP starts listening for discovery packets on the given UDP socket.
-func ListenUDP [T crypto.PrivateKey, P crypto.PublicKey](c UDPConn, ln *enode.LocalNode[T,P], cfg Config[T,P]) (*UDPv4[T], error) {
+func ListenUDP [T crypto.PrivateKey, P crypto.PublicKey](c UDPConn, ln *enode.LocalNode[T,P], cfg Config[T,P]) (*UDPv4[T,P], error) {
 	return ListenV4(c, ln, cfg)
 }
 

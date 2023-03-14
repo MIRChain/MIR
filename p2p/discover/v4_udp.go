@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"container/list"
 	"context"
-	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
 	"fmt"
@@ -30,6 +29,9 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -71,8 +73,8 @@ type UDPv4 [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	netrestrict *netutil.Netlist
 	priv        T
 	localNode   *enode.LocalNode[T, P]
-	db          *enode.DB
-	tab         *Table
+	db          *enode.DB[P]
+	tab         *Table[P]
 	closeOnce   sync.Once
 	wg          sync.WaitGroup
 
@@ -143,7 +145,7 @@ func ListenV4  [T crypto.PrivateKey, P crypto.PublicKey] (c UDPConn, ln *enode.L
 		log:             cfg.Log,
 	}
 
-	tab, err := newTable(t, ln.Database(), cfg.Bootnodes, t.log)
+	tab, err := newTable[P](t, ln.Database(), cfg.Bootnodes, t.log)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +188,28 @@ func (t *UDPv4[T,P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
 		}
 	}
 	// Otherwise perform a network lookup.
-	var key enode.Secp256k1
-	if n.Load(&key) != nil {
-		return n // no secp256k1 key
+	var pub P
+	switch p := any(&pub).(type) {
+	case *nist.PublicKey:
+		var key enode.Secp256k1
+		if n.Load(&key) != nil {
+			return n // no secp256k1 key
+		}
+		*p = (nist.PublicKey)(key)
+	case *gost3410.PublicKey:
+		var key enode.Gost3410
+		if n.Load(&key) != nil {
+			return n 
+		}
+		*p = (gost3410.PublicKey)(key)
+	case *csp.PublicKey:
+		var key enode.Gost3410CSP
+		if n.Load(&key) != nil {
+			return n 
+		}
+		*p = (csp.PublicKey)(key)
 	}
-	result := t.LookupPubkey((*ecdsa.PublicKey)(&key))
+	result := t.LookupPubkey(pub)
 	for _, rn := range result {
 		if rn.ID() == n.ID() {
 			if rn, err := t.RequestENR(rn); err == nil {
@@ -259,7 +278,7 @@ func (t *UDPv4[T,P]) makePing(toaddr *net.UDPAddr) *v4wire.Ping {
 }
 
 // LookupPubkey finds the closest nodes to the given public key.
-func (t *UDPv4[T,P]) LookupPubkey(key *ecdsa.PublicKey) []*enode.Node[P] {
+func (t *UDPv4[T,P]) LookupPubkey(key P) []*enode.Node[P] {
 	if t.tab.len() == 0 {
 		// All nodes were dropped, refresh. The very first query will hit this
 		// case and run the bootstrapping logic.
@@ -269,7 +288,7 @@ func (t *UDPv4[T,P]) LookupPubkey(key *ecdsa.PublicKey) []*enode.Node[P] {
 }
 
 // RandomNodes is an iterator yielding nodes from a random walk of the DHT.
-func (t *UDPv4[T,P]) RandomNodes() enode.Iterator {
+func (t *UDPv4[T,P]) RandomNodes() enode.Iterator[P] {
 	return newLookupIterator(t.closeCtx, t.newRandomLookup)
 }
 
@@ -280,16 +299,34 @@ func (t *UDPv4[T,P]) lookupRandom() []*enode.Node[P] {
 
 // lookupSelf implements transport.
 func (t *UDPv4[T,P]) lookupSelf() []*enode.Node[P] {
-	return t.newLookup(t.closeCtx, encodePubkey[P](&t.priv.PublicKey)).run()
+	var pub P
+	switch privKey := any(&t.priv).(type) {
+	case *nist.PrivateKey:
+		p, ok := any(&pub).(*nist.PublicKey)
+		if ok {
+			*p = *privKey.Public()
+		}
+	case *gost3410.PrivateKey:
+		p, ok := any(&pub).(*gost3410.PublicKey)
+		if ok {
+			*p = *privKey.Public()
+		}
+	case *csp.Cert:
+		p, ok := any(&pub).(*csp.PublicKey)
+		if ok {
+			*p = *privKey.Public()
+		}
+	}
+	return t.newLookup(t.closeCtx, encodePubkey[P](pub)).run()
 }
 
-func (t *UDPv4[T,P]) newRandomLookup(ctx context.Context) *lookup {
+func (t *UDPv4[T,P]) newRandomLookup(ctx context.Context) *lookup[P] {
 	var target encPubkey
 	crand.Read(target[:])
 	return t.newLookup(ctx, target)
 }
 
-func (t *UDPv4[T,P]) newLookup(ctx context.Context, targetKey encPubkey) *lookup {
+func (t *UDPv4[T,P]) newLookup(ctx context.Context, targetKey encPubkey) *lookup[P] {
 	target := enode.ID(crypto.Keccak256Hash(targetKey[:]))
 	ekey := v4wire.Pubkey(targetKey)
 	it := newLookup(ctx, t.tab, target, func(n *node[P]) ([]*node[P], error) {
@@ -300,7 +337,7 @@ func (t *UDPv4[T,P]) newLookup(ctx context.Context, targetKey encPubkey) *lookup
 
 // findnode sends a findnode request to the given node and waits until
 // the node has sent up to k neighbors.
-func (t *UDPv4[T,P]) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubkey) ([]*node, error) {
+func (t *UDPv4[T,P]) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubkey) ([]*node[P], error) {
 	t.ensureBond(toid, toaddr)
 
 	// Add a matcher for 'neighbours' replies to the pending reply queue. The matcher is
@@ -543,7 +580,7 @@ func (t *UDPv4[T,P]) readLoop(unhandled chan<- ReadPacket) {
 }
 
 func (t *UDPv4[T,P]) handlePacket(from *net.UDPAddr, buf []byte) error {
-	rawpacket, fromKey, hash, err := v4wire.Decode(buf)
+	rawpacket, fromKey, hash, err := v4wire.Decode[P](buf)
 	if err != nil {
 		t.log.Debug("Bad discv4 packet", "addr", from, "err", err)
 		return err
@@ -587,7 +624,7 @@ func (t *UDPv4[T,P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node) (*node[P],
 	if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
 		return nil, errors.New("not contained in netrestrict whitelist")
 	}
-	key, err := v4wire.DecodePubkey(crypto.S256(), rn.ID)
+	key, err := v4wire.DecodePubkey[P](rn.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +634,7 @@ func (t *UDPv4[T,P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node) (*node[P],
 }
 
 func nodeToRPC[P crypto.PublicKey](n *node[P]) v4wire.Node {
-	var key ecdsa.PublicKey
+	var key nist.PublicKey
 	var ekey v4wire.Pubkey
 	if err := n.Load((*enode.Secp256k1)(&key)); err == nil {
 		ekey = v4wire.EncodePubkey(&key)
@@ -645,7 +682,7 @@ type packetHandlerV4  [P crypto.PublicKey] struct {
 func (t *UDPv4[T,P]) verifyPing(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey) error {
 	req := h.Packet.(*v4wire.Ping)
 
-	senderKey, err := v4wire.DecodePubkey(crypto.S256(), fromKey)
+	senderKey, err := v4wire.DecodePubkey[P](fromKey)
 	if err != nil {
 		return err
 	}

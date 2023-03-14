@@ -169,7 +169,7 @@ func TestPubkeyRandom(t *testing.T) {
 	const runs = 200
 
 	for i := 0; i < runs; i++ {
-		key, err := GenerateKey()
+		key, err := GenerateKey[nist.PrivateKey]()
 		if err != nil {
 			t.Fatalf("iteration %d: %v", i, err)
 		}

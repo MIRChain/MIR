@@ -28,25 +28,25 @@ import (
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
 type lookup [P crypto.PublicKey] struct {
-	tab         *Table
+	tab         *Table[P]
 	queryfunc   func(*node[P]) ([]*node[P], error)
 	replyCh     chan []*node[P]
 	cancelCh    <-chan struct{}
 	asked, seen map[enode.ID]bool
-	result      nodesByDistance
+	result      nodesByDistance[P]
 	replyBuffer []*node[P]
 	queries     int
 }
 
 type queryFunc [P crypto.PublicKey] func(*node[P]) ([]*node[P], error)
 
-func newLookup[P crypto.PublicKey](ctx context.Context, tab *Table, target enode.ID, q queryFunc[P]) *lookup[P] {
+func newLookup[P crypto.PublicKey](ctx context.Context, tab *Table[P], target enode.ID, q queryFunc[P]) *lookup[P] {
 	it := &lookup[P]{
 		tab:       tab,
 		queryfunc: q,
 		asked:     make(map[enode.ID]bool),
 		seen:      make(map[enode.ID]bool),
-		result:    nodesByDistance{target: target},
+		result:    nodesByDistance[P]{target: target},
 		replyCh:   make(chan []*node[P], alpha),
 		cancelCh:  ctx.Done(),
 		queries:   -1,

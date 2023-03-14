@@ -55,7 +55,7 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 		cpy.Set(Secp256k1(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
-		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		sig, err = crypto.Sign(h.Sum(nil), *privkey)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 		cpy.Set(Gost3410(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
-		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		sig, err = crypto.Sign(h.Sum(nil), *privkey)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 		cpy.Set(Gost3410CSP(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
-		sig, err = crypto.Sign(h.Sum(nil), privkey)
+		sig, err = crypto.Sign(h.Sum(nil), *privkey)
 		if err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func (v Secp256k1) ENRKey() string { return "secp256k1" }
 
 // EncodeRLP implements rlp.Encoder.
 func (v Secp256k1) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, crypto.CompressPubkey((*nist.PublicKey)(&v)))
+	return rlp.Encode(w, crypto.CompressPubkey((nist.PublicKey)(v)))
 }
 
 // DecodeRLP implements rlp.Decoder.
@@ -199,9 +199,11 @@ func (v4CompatID[P]) Verify(r *enr.Record, sig []byte) error {
 }
 
 func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
-	switch pubkey := any(key).(type) {
+	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		r.Set((*Secp256k1)(pubkey))
+		var p Secp256k1
+		r.Load(&p)
 		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}

@@ -67,7 +67,7 @@ type lnEndpoint struct {
 // NewLocalNode creates a local node.
 func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T) *LocalNode[T,P] {
 	var ln *LocalNode[T,P]
-	switch key := any(prvKey).(type) {
+	switch key := any(&prvKey).(type) {
 	case *nist.PrivateKey:
 		ln = &LocalNode[T,P]{
 			id:      PubkeyToIDV4(key.Public()),

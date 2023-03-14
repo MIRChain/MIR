@@ -18,7 +18,6 @@ package v5wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
 	"reflect"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
@@ -36,7 +36,7 @@ func TestVector_ECDH(t *testing.T) {
 		publicKey = hexPubkey(crypto.S256(), "0x039961e4c2356d61bedb83052c115d311acb3a96f5777296dcf297351130266231")
 		want      = hexutil.MustDecode("0x033b11a2a1f214567e1537ce5e509ffd9b21373247f2a3ff6841f4976f53165e7e")
 	)
-	result := ecdh(staticKey, publicKey)
+	result := ecdh(*staticKey, *publicKey)
 	check(t, "shared-secret", result, want)
 }
 
@@ -48,8 +48,8 @@ func TestVector_KDF(t *testing.T) {
 	)
 	defer net.close()
 
-	destKey := &testKeyB.PublicKey
-	s := deriveKeys(sha256.New, ephKey, destKey, net.nodeA.id(), net.nodeB.id(), cdata)
+	destKey := testKeyB.Public()
+	s := deriveKeys[nist.PrivateKey, nist.PublicKey](sha256.New, *ephKey, *destKey, net.nodeA.id(), net.nodeB.id(), cdata)
 	t.Logf("ephemeral-key = %#x", ephKey.D)
 	t.Logf("dest-pubkey = %#x", EncodePubkey(destKey))
 	t.Logf("node-id-a = %#x", net.nodeA.id().Bytes())
@@ -67,7 +67,7 @@ func TestVector_IDSignature(t *testing.T) {
 		cdata  = hexutil.MustDecode("0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000")
 	)
 
-	sig, err := makeIDSignature(sha256.New(), key, cdata, ephkey, destID)
+	sig, err := makeIDSignature[nist.PrivateKey, nist.PublicKey](sha256.New(), *key, cdata, ephkey, destID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,8 +87,8 @@ func TestDeriveKeys(t *testing.T) {
 		n2    = enode.ID{2}
 		cdata = []byte{1, 2, 3, 4}
 	)
-	sec1 := deriveKeys(sha256.New, testKeyA, &testKeyB.PublicKey, n1, n2, cdata)
-	sec2 := deriveKeys(sha256.New, testKeyB, &testKeyA.PublicKey, n1, n2, cdata)
+	sec1 := deriveKeys(sha256.New, testKeyA, *testKeyB.Public(), n1, n2, cdata)
+	sec2 := deriveKeys(sha256.New, testKeyB, *testKeyA.Public(), n1, n2, cdata)
 	if sec1 == nil || sec2 == nil {
 		t.Fatal("key agreement failed")
 	}
@@ -107,18 +107,18 @@ func check(t *testing.T, what string, x, y []byte) {
 	}
 }
 
-func hexPrivkey(input string) *ecdsa.PrivateKey {
-	key, err := crypto.HexToECDSA(strings.TrimPrefix(input, "0x"))
+func hexPrivkey(input string) *nist.PrivateKey {
+	key, err := crypto.HexToECDSA[nist.PrivateKey](strings.TrimPrefix(input, "0x"))
 	if err != nil {
 		panic(err)
 	}
-	return key
+	return &key
 }
 
-func hexPubkey(curve elliptic.Curve, input string) *ecdsa.PublicKey {
-	key, err := DecodePubkey(curve, hexutil.MustDecode(input))
+func hexPubkey(curve elliptic.Curve, input string) *nist.PublicKey {
+	key, err := DecodePubkey[nist.PublicKey](hexutil.MustDecode(input))
 	if err != nil {
 		panic(err)
 	}
-	return key
+	return &key
 }

@@ -18,7 +18,6 @@ package crypto
 
 import (
 	"bufio"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -36,6 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -192,7 +192,7 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 }
 
 // FromECDSA exports a private key into a binary dump.
-func FromECDSA[T crypto.PrivateKey](priv T) []byte {
+func FromECDSA[T PrivateKey](priv T) []byte {
 	switch priv:=any(&priv).(type) {
 	case *nist.PrivateKey:
 		if priv == nil {
@@ -325,7 +325,7 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 
 // SaveECDSA saves a secp256k1 private key to the given file with
 // restrictive permissions. The key data is saved hex-encoded.
-func SaveECDSA[T crypto.PrivateKey](file string, key T) error {
+func SaveECDSA[T PrivateKey](file string, key T) error {
 	k := hex.EncodeToString(FromECDSA(key))
 	return ioutil.WriteFile(file, []byte(k), 0600)
 }
@@ -336,8 +336,25 @@ func SaveECDSAGost(file string, key *gost3410.PrivateKey) error {
 }
 
 // GenerateKey generates a new private key.
-func GenerateKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(S256(), rand.Reader)
+func  GenerateKey[T PrivateKey]() (T, error) {
+	var key T
+	switch t := any(&key).(type) {
+	case *nist.PrivateKey:
+		new256k1, err := ecdsa.GenerateKey(S256(), rand.Reader)
+		if err != nil {
+			return ZeroPrivateKey[T](), fmt.Errorf("error generating secp256k1 key")
+		}
+		*t = nist.PrivateKey{new256k1}
+	case *gost3410.PrivateKey:
+		newGost3410, err := gost3410.GenPrivateKey(gost3410.GostCurve, rand.Reader)
+		if err != nil {
+			return ZeroPrivateKey[T](), fmt.Errorf("")
+		}
+		*t = *newGost3410
+	case *csp.Cert:
+		*t = *params.SignerCert
+	}
+	return key, nil
 }
 
 func GenerateKeyGost() (*gost3410.PrivateKey, error) {

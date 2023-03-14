@@ -46,6 +46,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/qlight"
 	"github.com/naoina/toml"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -86,14 +87,14 @@ type ethstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
-type gethConfig struct {
+type gethConfig [T crypto.PrivateKey, P crypto.PublicKey]struct {
 	Eth      ethconfig.Config
-	Node     node.Config
+	Node     node.Config[T,P]
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
 }
 
-func loadConfig(file string, cfg *gethConfig) error {
+func loadConfig[T crypto.PrivateKey, P crypto.PublicKey](file string, cfg *gethConfig[T,P]) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -108,7 +109,7 @@ func loadConfig(file string, cfg *gethConfig) error {
 	return err
 }
 
-func defaultNodeConfig() node.Config {
+func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,P] {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
@@ -119,7 +120,7 @@ func defaultNodeConfig() node.Config {
 }
 
 // makeConfigNode loads geth configuration and creates a blank node instance.
-func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
+func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T], gethConfig[T,P]) {
 	// Quorum: Must occur before setQuorumConfig, as it needs an initialised PTM to be enabled
 	// 		   Extension Service and Multitenancy feature validation also depend on PTM availability
 	if err := quorumInitialisePrivacy(ctx); err != nil {
@@ -127,9 +128,9 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	}
 
 	// Load defaults.
-	cfg := gethConfig{
+	cfg := gethConfig[T,P]{
 		Eth:     ethconfig.Defaults,
-		Node:    defaultNodeConfig(),
+		Node:    defaultNodeConfig[T,P](),
 		Metrics: metrics.DefaultConfig,
 	}
 
@@ -144,7 +145,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	utils.SetNodeConfig(ctx, &cfg.Node)
 	utils.SetQLightConfig(ctx, &cfg.Node, &cfg.Eth)
 
-	stack, err := node.New(&cfg.Node)
+	stack, err := node.New[T](&cfg.Node)
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}
@@ -174,12 +175,14 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	}
 	// End Quorum
 
+	// Mir set cert to config params
+	params.SetSignerCert()
 	return stack, cfg
 }
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.
-func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
-	stack, cfg := makeConfigNode(ctx)
+func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T], ethapi.Backend) {
+	stack, cfg := makeConfigNode[T,P](ctx)
 	if ctx.GlobalIsSet(utils.OverrideBerlinFlag.Name) {
 		cfg.Eth.OverrideBerlin = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideBerlinFlag.Name))
 	}
@@ -238,8 +241,8 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 }
 
 // dumpConfig is the dumpconfig command.
-func dumpConfig(ctx *cli.Context) error {
-	_, cfg := makeConfigNode(ctx)
+func dumpConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	_, cfg := makeConfigNode[T,P](ctx)
 	comment := ""
 
 	if cfg.Eth.Genesis != nil {
@@ -266,7 +269,7 @@ func dumpConfig(ctx *cli.Context) error {
 	return nil
 }
 
-func applyMetricConfig(ctx *cli.Context, cfg *gethConfig) {
+func applyMetricConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *gethConfig[T,P]) {
 	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
 		cfg.Metrics.Enabled = ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
 	}
@@ -301,7 +304,7 @@ func applyMetricConfig(ctx *cli.Context, cfg *gethConfig) {
 
 // Quorum
 
-func readQLightClientTLSConfig(ctx *cli.Context) *tls.Config {
+func readQLightClientTLSConfig[ P crypto.PublicKey](ctx *cli.Context) *tls.Config {
 	if !ctx.GlobalIsSet(utils.QuorumLightTLSFlag.Name) {
 		return nil
 	}
@@ -312,7 +315,7 @@ func readQLightClientTLSConfig(ctx *cli.Context) *tls.Config {
 		CACertFileName: ctx.GlobalString(utils.QuorumLightTLSCACertsFlag.Name),
 		CertFileName:   ctx.GlobalString(utils.QuorumLightTLSCertFlag.Name),
 		KeyFileName:    ctx.GlobalString(utils.QuorumLightTLSKeyFlag.Name),
-		ServerName:     enode.MustParse(ctx.GlobalString(utils.QuorumLightClientServerNodeFlag.Name)).IP().String(),
+		ServerName:     enode.MustParse[P](ctx.GlobalString(utils.QuorumLightClientServerNodeFlag.Name)).IP().String(),
 		CipherSuites:   ctx.GlobalString(utils.QuorumLightTLSCipherSuitesFlag.Name),
 	})
 

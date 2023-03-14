@@ -17,7 +17,6 @@
 package discover
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
 
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
@@ -57,8 +57,9 @@ func testPingReplace(t *testing.T, newNodeIsResponding, lastInBucketIsResponding
 	<-tab.initDone
 
 	// Fill up the sender's bucket.
-	pingKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
-	pingSender := wrapNode(enode.NewV4(&pingKey.PublicKey, net.IP{127, 0, 0, 1}, 99, 99))
+	pingKey, _ := crypto.HexToECDSA[nist.PrivateKey]("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+	node := enode.NewV4(*pingKey.Public(), net.IP{127, 0, 0, 1}, 99, 99)
+	pingSender := wrapNode(node)
 	last := fillBucket(tab, pingSender)
 
 	// Add the sender as if it just pinged us. Revalidate should replace the last node in
@@ -100,7 +101,7 @@ func TestBucket_bumpNoDuplicates(t *testing.T) {
 		Values: func(args []reflect.Value, rand *rand.Rand) {
 			// generate a random list of nodes. this will be the content of the bucket.
 			n := rand.Intn(bucketSize-1) + 1
-			nodes := make([]*node, n)
+			nodes := make([]*node[nist.PublicKey], n)
 			for i := range nodes {
 				nodes[i] = nodeAtDistance(enode.ID{}, 200, intIP(200))
 			}
@@ -114,12 +115,12 @@ func TestBucket_bumpNoDuplicates(t *testing.T) {
 		},
 	}
 
-	prop := func(nodes []*node, bumps []int) (ok bool) {
+	prop := func(nodes []*node[nist.PublicKey], bumps []int) (ok bool) {
 		tab, db := newTestTable(newPingRecorder())
 		defer db.Close()
 		defer tab.close()
 
-		b := &bucket{entries: make([]*node, len(nodes))}
+		b := &bucket[nist.PublicKey]{entries: make([]*node[nist.PublicKey], len(nodes))}
 		copy(b.entries, nodes)
 		for i, pos := range bumps {
 			tab.bumpInBucket(b, b.entries[pos])
@@ -176,7 +177,7 @@ func TestTable_BucketIPLimit(t *testing.T) {
 
 // checkIPLimitInvariant checks that ip limit sets contain an entry for every
 // node in the table and no extra entries.
-func checkIPLimitInvariant(t *testing.T, tab *Table) {
+func checkIPLimitInvariant(t *testing.T, tab *Table[nist.PublicKey]) {
 	t.Helper()
 
 	tabset := netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit}
@@ -252,10 +253,10 @@ func TestTable_ReadRandomNodesGetAll(t *testing.T) {
 		MaxCount: 200,
 		Rand:     rand.New(rand.NewSource(time.Now().Unix())),
 		Values: func(args []reflect.Value, rand *rand.Rand) {
-			args[0] = reflect.ValueOf(make([]*enode.Node, rand.Intn(1000)))
+			args[0] = reflect.ValueOf(make([]*enode.Node[nist.PublicKey], rand.Intn(1000)))
 		},
 	}
-	test := func(buf []*enode.Node) bool {
+	test := func(buf []*enode.Node[nist.PublicKey]) bool {
 		transport := newPingRecorder()
 		tab, db := newTestTable(transport)
 		defer db.Close()
@@ -264,7 +265,7 @@ func TestTable_ReadRandomNodesGetAll(t *testing.T) {
 
 		for i := 0; i < len(buf); i++ {
 			ld := cfg.Rand.Intn(len(tab.buckets))
-			fillTable(tab, []*node{nodeAtDistance(tab.self().ID(), ld, intIP(ld))})
+			fillTable(tab, []*node[nist.PublicKey]{nodeAtDistance(tab.self().ID(), ld, intIP(ld))})
 		}
 		gotN := tab.ReadRandomNodes(buf)
 		if gotN != tab.len() {
@@ -285,7 +286,7 @@ func TestTable_ReadRandomNodesGetAll(t *testing.T) {
 type closeTest struct {
 	Self   enode.ID
 	Target enode.ID
-	All    []*node
+	All    []*node[nist.PublicKey]
 	N      int
 }
 
@@ -298,7 +299,7 @@ func (*closeTest) Generate(rand *rand.Rand, size int) reflect.Value {
 	for _, id := range gen([]enode.ID{}, rand).([]enode.ID) {
 		r := new(enr.Record)
 		r.Set(enr.IP(genIP(rand)))
-		n := wrapNode(enode.SignNull(r, id))
+		n := wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](r, id))
 		n.livenessChecks = 1
 		t.All = append(t.All, n)
 	}
@@ -318,7 +319,7 @@ func TestTable_addVerifiedNode(t *testing.T) {
 	tab.addSeenNode(n2)
 
 	// Verify bucket content:
-	bcontent := []*node{n1, n2}
+	bcontent := []*node[nist.PublicKey]{n1, n2}
 	if !reflect.DeepEqual(tab.bucket(n1.ID()).entries, bcontent) {
 		t.Fatalf("wrong bucket content: %v", tab.bucket(n1.ID()).entries)
 	}
@@ -326,11 +327,11 @@ func TestTable_addVerifiedNode(t *testing.T) {
 	// Add a changed version of n2.
 	newrec := n2.Record()
 	newrec.Set(enr.IP{99, 99, 99, 99})
-	newn2 := wrapNode(enode.SignNull(newrec, n2.ID()))
+	newn2 := wrapNode(enode.SignNull[nist.PrivateKey, nist.PublicKey](newrec, n2.ID()))
 	tab.addVerifiedNode(newn2)
 
 	// Check that bucket is updated correctly.
-	newBcontent := []*node{newn2, n1}
+	newBcontent := []*node[nist.PublicKey]{newn2, n1}
 	if !reflect.DeepEqual(tab.bucket(n1.ID()).entries, newBcontent) {
 		t.Fatalf("wrong bucket content after update: %v", tab.bucket(n1.ID()).entries)
 	}
@@ -350,7 +351,7 @@ func TestTable_addSeenNode(t *testing.T) {
 	tab.addSeenNode(n2)
 
 	// Verify bucket content:
-	bcontent := []*node{n1, n2}
+	bcontent := []*node[nist.PublicKey]{n1, n2}
 	if !reflect.DeepEqual(tab.bucket(n1.ID()).entries, bcontent) {
 		t.Fatalf("wrong bucket content: %v", tab.bucket(n1.ID()).entries)
 	}
@@ -358,7 +359,7 @@ func TestTable_addSeenNode(t *testing.T) {
 	// Add a changed version of n2.
 	newrec := n2.Record()
 	newrec.Set(enr.IP{99, 99, 99, 99})
-	newn2 := wrapNode(enode.SignNull(newrec, n2.ID()))
+	newn2 := wrapNode(enode.SignNull[nist.PrivateKey, nist.PublicKey](newrec, n2.ID()))
 	tab.addSeenNode(newn2)
 
 	// Check that bucket content is unchanged.
@@ -381,12 +382,12 @@ func TestTable_revalidateSyncRecord(t *testing.T) {
 	var r enr.Record
 	r.Set(enr.IP(net.IP{127, 0, 0, 1}))
 	id := enode.ID{1}
-	n1 := wrapNode(enode.SignNull(&r, id))
+	n1 := wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, id))
 	tab.addSeenNode(n1)
 
 	// Update the node record.
 	r.Set(enr.WithEntry("foo", "bar"))
-	n2 := enode.SignNull(&r, id)
+	n2 := enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, id)
 	transport.updateRecord(n2)
 
 	tab.doRevalidate(make(chan struct{}, 1))
@@ -419,10 +420,10 @@ func quickcfg() *quick.Config {
 	}
 }
 
-func newkey() *ecdsa.PrivateKey {
-	key, err := crypto.GenerateKey()
+func newkey() *nist.PrivateKey {
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}
-	return key
+	return &key
 }
