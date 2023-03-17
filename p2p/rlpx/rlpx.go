@@ -41,14 +41,14 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// Conn is an RLPx network connection. It wraps a low-level network connection. The
-// underlying connection should not be used for other activity when it is wrapped by Conn.
+// Conn[T,P] is an RLPx network Conn[T,P]ection. It wraps a low-level network Conn[T,P]ection. The
+// underlying Conn[T,P]ection should not be used for other activity when it is wrapped by Conn[T,P].
 //
 // Before sending messages, a handshake must be performed by calling the Handshake method.
 // This type is not generally safe for concurrent use, but reading and writing of messages
 // may happen concurrently after the handshake.
-type Conn struct {
-	dialDest  *ecdsa.PublicKey
+type Conn[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	dialDest  P
 	conn      net.Conn
 	handshake *handshakeState
 	snappy    bool
@@ -63,10 +63,10 @@ type handshakeState struct {
 	ingressMAC hash.Hash
 }
 
-// NewConn wraps the given network connection. If dialDest is non-nil, the connection
+// NewConn[T,P] wraps the given network Conn[T,P]ection. If dialDest is non-nil, the Conn[T,P]ection
 // behaves as the initiator during the handshake.
-func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
-	return &Conn{
+func NewConn[T crypto.PrivateKey, P crypto.PublicKey](conn net.Conn, dialDest P) *Conn[T,P] {
+	return &Conn[T,P]{
 		dialDest: dialDest,
 		conn:     conn,
 	}
@@ -74,28 +74,28 @@ func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
 
 // SetSnappy enables or disables snappy compression of messages. This is usually called
 // after the devp2p Hello message exchange when the negotiated version indicates that
-// compression is available on both ends of the connection.
-func (c *Conn) SetSnappy(snappy bool) {
+// compression is available on both ends of the Conn[T,P]ection.
+func (c *Conn[T,P]) SetSnappy(snappy bool) {
 	c.snappy = snappy
 }
 
 // SetReadDeadline sets the deadline for all future read operations.
-func (c *Conn) SetReadDeadline(time time.Time) error {
+func (c *Conn[T,P]) SetReadDeadline(time time.Time) error {
 	return c.conn.SetReadDeadline(time)
 }
 
 // SetWriteDeadline sets the deadline for all future write operations.
-func (c *Conn) SetWriteDeadline(time time.Time) error {
+func (c *Conn[T,P]) SetWriteDeadline(time time.Time) error {
 	return c.conn.SetWriteDeadline(time)
 }
 
 // SetDeadline sets the deadline for all future read and write operations.
-func (c *Conn) SetDeadline(time time.Time) error {
+func (c *Conn[T,P]) SetDeadline(time time.Time) error {
 	return c.conn.SetDeadline(time)
 }
 
-// Read reads a message from the connection.
-func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
+// Read reads a message from the Conn[T,P]ection.
+func (c *Conn[T,P]) Read() (code uint64, data []byte, wireSize int, err error) {
 	if c.handshake == nil {
 		panic("can't ReadMsg before handshake")
 	}
@@ -171,7 +171,7 @@ func (h *handshakeState) readFrame(conn io.Reader) ([]byte, error) {
 //
 // Write returns the written size of the message data. This may be less than or equal to
 // len(data) depending on whether snappy compression is enabled.
-func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
+func (c *Conn[T,P]) Write(code uint64, data []byte) (uint32, error) {
 	if c.handshake == nil {
 		panic("can't WriteMsg before handshake")
 	}
@@ -252,19 +252,19 @@ func updateMAC(mac hash.Hash, block cipher.Block, seed []byte) []byte {
 }
 
 // Handshake performs the handshake. This must be called before any data is written
-// or read from the connection.
-func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
+// or read from the Conn[T,P]ection.
+func (c *Conn[T,P]) Handshake(prv P) (P, error) {
 	var (
 		sec Secrets
 		err error
 	)
-	if c.dialDest != nil {
+	if c.dialDest != crypto.ZeroPublicKey[P]() {
 		sec, err = initiatorEncHandshake(c.conn, prv, c.dialDest)
 	} else {
 		sec, err = receiverEncHandshake(c.conn, prv)
 	}
 	if err != nil {
-		return nil, err
+		return crypto.ZeroPublicKey[P](), err
 	}
 	c.InitWithSecrets(sec)
 	return sec.remote, err
@@ -272,7 +272,7 @@ func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
 
 // InitWithSecrets injects connection secrets as if a handshake had
 // been performed. This cannot be called after the handshake.
-func (c *Conn) InitWithSecrets(sec Secrets) {
+func (c *Conn[T,P]) InitWithSecrets(sec Secrets) {
 	if c.handshake != nil {
 		panic("can't handshake twice")
 	}
@@ -297,7 +297,7 @@ func (c *Conn) InitWithSecrets(sec Secrets) {
 }
 
 // Close closes the underlying network connection.
-func (c *Conn) Close() error {
+func (c *Conn[T,P]) Close() error {
 	return c.conn.Close()
 }
 
@@ -332,10 +332,10 @@ var (
 )
 
 // Secrets represents the connection secrets which are negotiated during the handshake.
-type Secrets struct {
+type Secrets [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	AES, MAC              []byte
 	EgressMAC, IngressMAC hash.Hash
-	remote                *ecdsa.PublicKey
+	remote                P
 }
 
 // encHandshake contains the state of the encryption handshake.
@@ -374,7 +374,7 @@ type authRespV4 struct {
 // it should be called on the listening side of the connection.
 //
 // prv is the local client's private key.
-func receiverEncHandshake(conn io.ReadWriter, prv *ecdsa.PrivateKey) (s Secrets, err error) {
+func receiverEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.ReadWriter, prv T) (s Secrets[T,P], err error) {
 	authMsg := new(authMsgV4)
 	authPacket, err := readHandshakeMsg(authMsg, encAuthMsgLen, prv, conn)
 	if err != nil {
@@ -428,7 +428,7 @@ func (h *encHandshake) handleAuthMsg(msg *authMsgV4, prv *ecdsa.PrivateKey) erro
 		return err
 	}
 	signedMsg := xor(token, h.initNonce)
-	remoteRandomPub, err := crypto.Ecrecover(signedMsg, msg.Signature[:])
+	remoteRandomPub, err := crypto.Ecrecover[P](signedMsg, msg.Signature[:])
 	if err != nil {
 		return err
 	}
@@ -437,7 +437,7 @@ func (h *encHandshake) handleAuthMsg(msg *authMsgV4, prv *ecdsa.PrivateKey) erro
 }
 
 // secrets is called after the handshake is completed.
-// It extracts the connection secrets from the handshake values.
+// It extracts the Conn[T,P]ection secrets from the handshake values.
 func (h *encHandshake) secrets(auth, authResp []byte) (Secrets, error) {
 	ecdheSecret, err := h.randomPrivKey.GenerateShared(h.remoteRandomPub, sskLen, sskLen)
 	if err != nil {
@@ -479,7 +479,7 @@ func (h *encHandshake) staticSharedSecret(prv *ecdsa.PrivateKey) ([]byte, error)
 // it should be called on the dialing side of the connection.
 //
 // prv is the local client's private key.
-func initiatorEncHandshake(conn io.ReadWriter, prv *ecdsa.PrivateKey, remote *ecdsa.PublicKey) (s Secrets, err error) {
+func initiatorEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.ReadWriter, prv T, remote P) (s Secrets[T,P], err error) {
 	h := &encHandshake{initiator: true, remote: ecies.ImportECDSAPublic(remote)}
 	authMsg, err := h.makeAuthMsg(prv)
 	if err != nil {
@@ -602,7 +602,7 @@ type plainDecoder interface {
 	decodePlain([]byte)
 }
 
-func readHandshakeMsg(msg plainDecoder, plainSize int, prv *ecdsa.PrivateKey, r io.Reader) ([]byte, error) {
+func readHandshakeMsg[T crypto.PrivateKey, P crypto.PublicKey](msg plainDecoder, plainSize int, prv T, r io.Reader) ([]byte, error) {
 	buf := make([]byte, plainSize)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return buf, err
@@ -634,7 +634,7 @@ func readHandshakeMsg(msg plainDecoder, plainSize int, prv *ecdsa.PrivateKey, r 
 }
 
 // importPublicKey unmarshals 512 bit public keys.
-func importPublicKey(pubKey []byte) (*ecies.PublicKey, error) {
+func importPublicKey[T crypto.PrivateKey, P crypto.PublicKey](pubKey []byte) (*ecies.PublicKey, error) {
 	var pubKey65 []byte
 	switch len(pubKey) {
 	case 64:
@@ -646,7 +646,7 @@ func importPublicKey(pubKey []byte) (*ecies.PublicKey, error) {
 		return nil, fmt.Errorf("invalid public key length %v (expect 64/65)", len(pubKey))
 	}
 	// TODO: fewer pointless conversions
-	pub, err := crypto.UnmarshalPubkey(pubKey65)
+	pub, err := crypto.UnmarshalPubkey[P](pubKey65)
 	if err != nil {
 		return nil, err
 	}

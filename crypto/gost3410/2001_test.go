@@ -66,41 +66,44 @@ func TestRFCVectors(t *testing.T) {
 	}
 	pub := prv.Public()
 	if bytes.Compare(pub.Raw()[:32], pubX) != 0 {
-		t.FailNow()
+		t.Errorf("Wrong X %x", pub)
 	}
 	if bytes.Compare(pub.Raw()[32:], pubY) != 0 {
-		t.FailNow()
+		t.Errorf("Wrong Y %x", pub)
 	}
 	ourSign, err := prv.SignDigest(digest, rand.Reader)
 	if err != nil {
-		t.FailNow()
+		t.Error("Sig error ", err)
 	}
 	valid, err := pub.VerifyDigest(digest, ourSign)
 	if err != nil || !valid {
-		t.FailNow()
+		t.Error("Verify error ", err)
 	}
-	valid, err = pub.VerifyDigest(digest, signature)
+	pointSize := pub.C.Params().BitSize / 8
+	var reversedSig [64]byte
+	copy(reversedSig[:32],signature[pointSize:2*pointSize])
+	copy(reversedSig[32:64],signature[:pointSize])
+	valid, err = pub.VerifyDigest(digest, reversedSig[:])
 	if err != nil || !valid {
-		t.FailNow()
+		t.Error("Verify error ", err)
 	}
-	pubKey := prv.Public()
-	_r := new(big.Int).SetBytes(signature[:32])
-	_s := new(big.Int).SetBytes(signature[32:64])
-	recovPubX, recovPubY, err := RecoverCompact(*pubKey.C, digest, _r, _s, 0)
-	// pointSize := pubKey.C.PointSize()
-	// raw := append(
-	// 	pad(recovPubY.Bytes(), pointSize),
-	// 	pad(recovPubX.Bytes(), pointSize)...,
-	// )
-	// reverse(raw)
+	_r := new(big.Int).SetBytes(ourSign[:32])
+	_s := new(big.Int).SetBytes(ourSign[32:64])
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 0)
+	t.Log(recovPubX.String())
+	t.Log(recovPubY.String())
+	var recoveredPub [64]byte
+	copy(recoveredPub[:32], recovPubY.Bytes())
+	copy(recoveredPub[32:64], recovPubX.Bytes())
+	reverse(recoveredPub[:])
 	if err != nil {
-		t.FailNow()
+		t.Error("Recover error ", err)
 	}
-	if bytes.Compare(pubKey.X.Bytes(), recovPubX.Bytes()) != 0 {
-		t.FailNow()
+	if bytes.Compare(pubX, recoveredPub[:32]) != 0 {
+		t.Error("Recover X error ", err)
 	}
-	if bytes.Compare(pubKey.Y.Bytes(), recovPubY.Bytes()) != 0 {
-		t.FailNow()
+	if bytes.Compare(pubY, recoveredPub[32:64]) != 0 {
+		t.Error("Recover Y error ", err)
 	}
 }
 

@@ -62,14 +62,8 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	u2.Neg(u2)
 	u2.Mod(u2, curve.Q)
 
-	u1Gx, u1Gy, err := curve.Exp(u1, curve.X, curve.Y)
-	if err != nil {
-		return nil, fmt.Errorf("error at computing u1Gx, u1Gy")
-	}
-	u2Rx, u2Ry, err := curve.Exp(u2, Rx, Ry)
-	if err != nil {
-		return nil, fmt.Errorf("error at computing u2Rx, u2Ry")
-	}
+	u1Gx, u1Gy := curve.ScalarMult(curve.X, curve.Y, u1.Bytes())
+	u2Rx, u2Ry := curve.ScalarMult(Rx, Ry, u2.Bytes())
 	Qx, Qy := curve.Add(u1Gx, u1Gy, u2Rx, u2Ry)
 	raw := append(
 		pad(Qy.Bytes(), pointSize),
@@ -87,10 +81,7 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	if ver {
 		return append(raw, byte(0)), nil
 	}	
-	u2Rx_, u2Ry_, err :=  curve.Exp(Rx, y1, u2)
-	if err != nil {
-		return nil, fmt.Errorf("error at computing u2Rx_, u2Ry_")
-	}
+	u2Rx_, u2Ry_ :=  curve.ScalarMult(y1, u2, Rx.Bytes())
 	Qx, Qy = curve.Add(u1Gx, u1Gy, u2Rx_, u2Ry_)
 	_raw := append(
 		pad(Qy.Bytes(), pointSize),

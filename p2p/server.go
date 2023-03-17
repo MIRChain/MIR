@@ -992,11 +992,23 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 	if dialDest != nil {
 		switch p:=any(&dialPubkey).(type){
 		case *nist.PublicKey:
-		if err := dialDest.Load((*enode.Secp256k1)(p)); err != nil {
-			err = errors.New("dial destination doesn't have a secp256k1 public key")
-			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
-			return err
-		}
+			if err := dialDest.Load((*enode.Secp256k1)(p)); err != nil {
+				err = errors.New("dial destination doesn't have a secp256k1 public key")
+				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+				return err
+			}
+		case *gost3410.PublicKey:
+			if err := dialDest.Load((*enode.Gost3410)(p)); err != nil {
+				err = errors.New("dial destination doesn't have a secp256k1 public key")
+				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+				return err
+			}
+		case *csp.PublicKey:
+			if err := dialDest.Load((*enode.Gost3410CSP)(p)); err != nil {
+				err = errors.New("dial destination doesn't have a secp256k1 public key")
+				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+				return err
+			}
 		}
 	}
 

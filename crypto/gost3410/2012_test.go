@@ -71,16 +71,10 @@ func TestStdVector1(t *testing.T) {
 	pubKey := prv.Public()
 	_r := new(big.Int).SetBytes(r)
 	_s := new(big.Int).SetBytes(s)
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 1)
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// pointSize := pubKey.C.PointSize()
-	// raw := append(
-	// 	pad(recovPubY.Bytes(), pointSize),
-	// 	pad(recovPubX.Bytes(), pointSize)...,
-	// )
-	// reverse(raw)
 	if bytes.Compare(pubKey.X.Bytes(), recovPubX.Bytes()) != 0 {
 		t.FailNow()
 	}
@@ -580,10 +574,7 @@ func TestSESPAKE(t *testing.T) {
 		raw, _ = hex.DecodeString(vector.fPW)
 		reverse(raw)
 		f := bytes2big(raw)
-		x, y, err := vector.curve.Exp(f, qIndX, qIndY)
-		if err != nil {
-			t.FailNow()
-		}
+		x, y := vector.curve.ScalarMult(qIndX, qIndY, f.Bytes())
 		raw, _ = hex.DecodeString(vector.xExpected)
 		if bytes.Compare(x.Bytes(), raw) != 0 {
 			t.FailNow()
@@ -595,7 +586,7 @@ func TestSESPAKE(t *testing.T) {
 
 		raw, _ = hex.DecodeString(vector.alpha)
 		alpha := bytes2big(raw)
-		x, y, err = vector.curve.Exp(alpha, vector.curve.X, vector.curve.Y)
+		x, y = vector.curve.ScalarMult(vector.curve.X, vector.curve.Y, alpha.Bytes())
 		raw, _ = hex.DecodeString(vector.xAlphaExpected)
 		if bytes.Compare(x.Bytes(), raw) != 0 {
 			t.FailNow()
@@ -607,7 +598,7 @@ func TestSESPAKE(t *testing.T) {
 
 		raw, _ = hex.DecodeString(vector.beta)
 		beta := bytes2big(raw)
-		x, y, err = vector.curve.Exp(beta, vector.curve.X, vector.curve.Y)
+		x, y = vector.curve.ScalarMult(vector.curve.X, vector.curve.Y, beta.Bytes())
 		raw, _ = hex.DecodeString(vector.xBetaExpected)
 		if bytes.Compare(x.Bytes(), raw) != 0 {
 			t.FailNow()

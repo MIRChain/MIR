@@ -241,16 +241,19 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 func FromECDSAPub[P PublicKey](pub P) []byte {
 	switch p := any(&pub).(type) {
 	case *nist.PublicKey:
-		if pub == ZeroPublicKey[P]() || pub.GetX() == nil || pub.GetY() == nil {
+		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
 		return elliptic.Marshal(S256(), pub.GetX(), pub.GetY())
 	case *gost3410.PublicKey:
-		if pub == ZeroPublicKey[P]() || pub.GetX() == nil || pub.GetY() == nil {
+		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
 		return p.Raw()
 	case *csp.PublicKey:
+		if pub.GetX() == nil || pub.GetY() == nil {
+			panic("nil nil")
+		}
 		return p.Raw()
 	default:
 		panic("cant infer pubkey type")

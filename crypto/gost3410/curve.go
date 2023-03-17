@@ -16,6 +16,7 @@
 package gost3410
 
 import (
+	"crypto/elliptic"
 	"errors"
 	"math/big"
 )
@@ -98,22 +99,34 @@ func (c *Curve) pos(v *big.Int) {
 	}
 }
 
-func (c *Curve) Add(p1x, p1y, p2x, p2y *big.Int) (*big.Int, *big.Int) {
+func (c *Curve) Params() *elliptic.CurveParams {
+	return &elliptic.CurveParams{
+		P: c.P,
+		N: c.Q,
+		B: c.B,
+		Gx: c.X, 
+		Gy: c.Y,
+		BitSize: c.P.BitLen(),
+		Name: c.Name,
+	}
+}
+
+func (c *Curve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) {
 	var t, tx, ty, X, Y big.Int
-	if p1x.Cmp(p2x) == 0 && p1y.Cmp(p2y) == 0 {
+	if x1.Cmp(x2) == 0 && y1.Cmp(y2) == 0 {
 		// double
-		t.Mul(p1x, p1x)
+		t.Mul(x1, x1)
 		t.Mul(&t, bigInt3)
 		t.Add(&t, c.A)
-		tx.Mul(bigInt2, p1y)
+		tx.Mul(bigInt2, y2)
 		tx.ModInverse(&tx, c.P)
 		t.Mul(&t, &tx)
 		t.Mod(&t, c.P)
 	} else {
-		tx.Sub(p2x, p1x)
+		tx.Sub(x2, x1)
 		tx.Mod(&tx, c.P)
 		c.pos(&tx)
-		ty.Sub(p2y, p1y)
+		ty.Sub(y2, y1)
 		ty.Mod(&ty, c.P)
 		c.pos(&ty)
 		t.ModInverse(&tx, c.P)
@@ -121,13 +134,13 @@ func (c *Curve) Add(p1x, p1y, p2x, p2y *big.Int) (*big.Int, *big.Int) {
 		t.Mod(&t, c.P)
 	}
 	tx.Mul(&t, &t)
-	tx.Sub(&tx, p1x)
-	tx.Sub(&tx, p2x)
+	tx.Sub(&tx, x1)
+	tx.Sub(&tx, x2)
 	tx.Mod(&tx, c.P)
 	c.pos(&tx)
-	ty.Sub(p1x, &tx)
+	ty.Sub(x1, &tx)
 	ty.Mul(&ty, &t)
-	ty.Sub(&ty, p1y)
+	ty.Sub(&ty, y1)
 	ty.Mod(&ty, c.P)
 	c.pos(&ty)
 	X.Set(&tx)
@@ -135,9 +148,14 @@ func (c *Curve) Add(p1x, p1y, p2x, p2y *big.Int) (*big.Int, *big.Int) {
 	return &X, &Y
 }
 
-func (c *Curve) Exp(degree, xS, yS *big.Int) (*big.Int, *big.Int, error) {
+func(c *Curve) Double(x1, y1 *big.Int) (x, y *big.Int) {
+	return c.Add(x1, y1, x1, y1)
+}
+
+func (c *Curve) ScalarMult(xS, yS *big.Int, k []byte) (x, y *big.Int) {
+	degree := new(big.Int).SetBytes(k)
 	if degree.Cmp(zero) == 0 {
-		return nil, nil, errors.New("gogost/gost3410: zero degree value")
+		return nil, nil
 	}
 	dg := big.NewInt(0).Sub(degree, bigInt1)
 	tx := big.NewInt(0).Set(xS)
@@ -151,7 +169,11 @@ func (c *Curve) Exp(degree, xS, yS *big.Int) (*big.Int, *big.Int, error) {
 		dg.Rsh(dg, 1)
 		cx, cy = c.Add(cx, cy, cx, cy)
 	}
-	return tx, ty, nil
+	return tx, ty
+}
+
+func (c *Curve) ScalarBaseMult(k []byte)(x, y *big.Int){
+	return c.ScalarMult(c.X, c.Y, k)
 }
 
 func (our *Curve) Equal(their *Curve) bool {

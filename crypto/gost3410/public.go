@@ -18,12 +18,13 @@ package gost3410
 
 import (
 	"crypto"
+	"crypto/elliptic"
 	"fmt"
 	"math/big"
 )
 
 type PublicKey struct {
-	C *Curve
+	C elliptic.Curve
 	X *big.Int
 	Y *big.Int
 }
@@ -45,7 +46,7 @@ func NewPublicKey(c *Curve, raw []byte) (*PublicKey, error) {
 }
 
 func (pub *PublicKey) Raw() []byte {
-	pointSize := pub.C.PointSize()
+	pointSize := pub.C.Params().BitSize / 8
 	raw := append(
 		pad(pub.Y.Bytes(), pointSize),
 		pad(pub.X.Bytes(), pointSize)...,
@@ -55,58 +56,52 @@ func (pub *PublicKey) Raw() []byte {
 }
 
 func (pub *PublicKey) VerifyDigest(digest, signature []byte) (bool, error) {
-	pointSize := pub.C.PointSize()
+	pointSize := pub.C.Params().BitSize / 8
 	if len(signature) != 2*pointSize {
 		return false, fmt.Errorf("gogost/gost3410: len(signature) != %d", 2*pointSize)
 	}
 	r := bytes2big(signature[:pointSize])
 	s := bytes2big(signature[pointSize:2*pointSize])
 	if r.Cmp(zero) <= 0 ||
-		r.Cmp(pub.C.Q) >= 0 ||
+		r.Cmp(pub.C.Params().N) >= 0 ||
 		s.Cmp(zero) <= 0 ||
-		s.Cmp(pub.C.Q) >= 0 {
+		s.Cmp(pub.C.Params().N) >= 0 {
 		return false, nil
 	}
 	e := bytes2big(digest)
-	e.Mod(e, pub.C.Q)
+	e.Mod(e, pub.C.Params().N)
 	if e.Cmp(zero) == 0 {
 		e = big.NewInt(1)
 	}
 	v := big.NewInt(0)
-	v.ModInverse(e, pub.C.Q)
+	v.ModInverse(e, pub.C.Params().N)
 	z1 := big.NewInt(0)
 	z2 := big.NewInt(0)
 	z1.Mul(s, v)
-	z1.Mod(z1, pub.C.Q)
+	z1.Mod(z1, pub.C.Params().N)
 	z2.Mul(r, v)
-	z2.Mod(z2, pub.C.Q)
-	z2.Sub(pub.C.Q, z2)
-	p1x, p1y, err := pub.C.Exp(z1, pub.C.X, pub.C.Y)
-	if err != nil {
-		return false, err
-	}
-	q1x, q1y, err := pub.C.Exp(z2, pub.X, pub.Y)
-	if err != nil {
-		return false, err
-	}
+	z2.Mod(z2, pub.C.Params().N)
+	z2.Sub(pub.C.Params().N, z2)
+	p1x, p1y := pub.C.ScalarMult(pub.C.Params().Gx, pub.C.Params().Gy, z1.Bytes())
+	q1x, q1y := pub.C.ScalarMult(pub.X, pub.Y, z2.Bytes())
 	lm := big.NewInt(0)
 	lm.Sub(q1x, p1x)
 	if lm.Cmp(zero) < 0 {
-		lm.Add(lm, pub.C.P)
+		lm.Add(lm, pub.C.Params().P)
 	}
-	lm.ModInverse(lm, pub.C.P)
+	lm.ModInverse(lm, pub.C.Params().P)
 	z1.Sub(q1y, p1y)
 	lm.Mul(lm, z1)
-	lm.Mod(lm, pub.C.P)
+	lm.Mod(lm, pub.C.Params().P)
 	lm.Mul(lm, lm)
-	lm.Mod(lm, pub.C.P)
+	lm.Mod(lm, pub.C.Params().P)
 	lm.Sub(lm, p1x)
 	lm.Sub(lm, q1x)
-	lm.Mod(lm, pub.C.P)
+	lm.Mod(lm, pub.C.Params().P)
 	if lm.Cmp(zero) < 0 {
-		lm.Add(lm, pub.C.P)
+		lm.Add(lm, pub.C.Params().P)
 	}
-	lm.Mod(lm, pub.C.Q)
+	lm.Mod(lm, pub.C.Params().N)
 	return lm.Cmp(r) == 0, nil
 }
 
@@ -115,7 +110,7 @@ func (our *PublicKey) Equal(theirKey crypto.PublicKey) bool {
 	if !ok {
 		return false
 	}
-	return our.X.Cmp(their.X) == 0 && our.Y.Cmp(their.Y) == 0 && our.C.Equal(their.C)
+	return our.X.Cmp(their.X) == 0 && our.Y.Cmp(their.Y) == 0 && our.C.Params().Name == their.C.Params().Name
 }
 
 func RecoverCompact(curve Curve, digest []byte, r *big.Int, s *big.Int, i int) (*big.Int, *big.Int, error) {
@@ -156,14 +151,8 @@ func RecoverCompact(curve Curve, digest []byte, r *big.Int, s *big.Int, i int) (
 	u2.Neg(u2)
 	u2.Mod(u2, curve.Q)
 
-	u1Gx, u1Gy, err := curve.Exp(u1, curve.X, curve.Y)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error at computing u1Gx, u1Gy")
-	}
-	u2Rx, u2Ry, err := curve.Exp(u2, Rx, Ry)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error at computing u2Rx, u2Ry")
-	}
+	u1Gx, u1Gy := curve.ScalarMult(curve.X, curve.Y, u1.Bytes())
+	u2Rx, u2Ry := curve.ScalarMult(Rx, Ry, u2.Bytes())
 	Qx, Qy := curve.Add(u1Gx, u1Gy, u2Rx, u2Ry)
 	return Qx, Qy, nil
 

@@ -30,6 +30,7 @@
 package ecies
 
 import (
+	"crypto"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -40,6 +41,9 @@ import (
 	"hash"
 	"io"
 	"math/big"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var (
@@ -64,13 +68,24 @@ func (pub *PublicKey) ExportECDSA() *ecdsa.PublicKey {
 }
 
 // Import an ECDSA public key as an ECIES public key.
-func ImportECDSAPublic(pub *ecdsa.PublicKey) *PublicKey {
-	return &PublicKey{
-		X:      pub.X,
-		Y:      pub.Y,
-		Curve:  pub.Curve,
-		Params: ParamsFromCurve(pub.Curve),
+func ImportECDSAPublic[T crypto.PrivateKey, P crypto.PublicKey](pub P) *PublicKey {
+	switch p:=any(&pub).(type){
+	case *nist.PublicKey:
+		return &PublicKey{
+			X:      p.X,
+			Y:      p.Y,
+			Curve:  p.Curve,
+			Params: ParamsFromCurve(p.Curve),
+		}
+	case *gost3410.PublicKey:
+		return &PublicKey{
+			X:      p.X,
+			Y:      p.Y,
+			Curve:  p.C,
+			Params: ParamsFromCurve(p.C),
+		}
 	}
+
 }
 
 // PrivateKey is a representation of an elliptic curve private key.

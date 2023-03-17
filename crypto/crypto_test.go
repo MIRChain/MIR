@@ -157,7 +157,8 @@ func TestSign(t *testing.T) {
 		t.Errorf("Store error: %s", err)
 	}
 	defer store.Close()
-	crt, err := store.GetBySubjectId("43ad4195a67f95eea752861c96297045bb9ea5a7")
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
 	if err != nil {
 		t.Errorf("Get cert error: %s", err)
 	}
@@ -166,7 +167,7 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = hash.Write([]byte("43ad4195a67f95eea752861c96297045bb9ea5a7"))
+	_, err = hash.Write([]byte("4ac93fc08bc0efd24180b0fa47f7309c257e8c85"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -253,9 +253,6 @@ func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 
 // CompressPubkey encodes a public key to the 33-byte compressed format.
 func CompressPubkey[P PublicKey](pubkey P) []byte {
-	if pubkey == ZeroPublicKey[P]() {
-		panic("trying to compress empty pub kye")
-	}
 	switch pubkey := any(&pubkey).(type) {
 	case *nist.PublicKey:
 		return secp256k1.CompressPubkey(pubkey.X, pubkey.Y)

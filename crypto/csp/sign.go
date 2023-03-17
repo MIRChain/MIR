@@ -158,14 +158,8 @@ func VerifyDigestField(digest, signature, pub []byte) (bool, error) {
 	z2.Mul(r, v)
 	z2.Mod(z2, curve.Q)
 	z2.Sub(curve.Q, z2)
-	p1x, p1y, err := curve.Exp(z1, curve.X, curve.Y)
-	if err != nil {
-		return false, err
-	}
-	q1x, q1y, err := curve.Exp(z2, X, Y)
-	if err != nil {
-		return false, err
-	}
+	p1x, p1y := curve.ScalarMult(curve.X, curve.Y, z1.Bytes())
+	q1x, q1y := curve.ScalarMult(X, Y, z2.Bytes())
 	lm := big.NewInt(0)
 	lm.Sub(q1x, p1x)
 	if lm.Cmp(big.NewInt(0)) < 0 {
