@@ -202,29 +202,27 @@ func TestStdVector2(t *testing.T) {
 	}
 	sign, err := prv.SignDigest(dgst, bytes.NewBuffer(rnd))
 	if err != nil {
-		t.FailNow()
+		t.Fatal("Sign error ", err)
 	}
-	if bytes.Compare(sign, append(s, r...)) != 0 {
-		t.FailNow()
+
+	if bytes.Compare(sign[:64], r) != 0 {
+		t.Fatalf("Sigsture r doesnt match: want %x, have %x", r, sign[:64])
+	}
+	if bytes.Compare(sign[64:128], s) != 0 {
+		t.Fatalf("Sigsture s doesnt match: want %x, have %x", s, sign[64:128])
 	}
 
 	_r := new(big.Int).SetBytes(r)
 	_s := new(big.Int).SetBytes(s)
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 1)
-	// pointSize := pubKey.C.PointSize()
-	// raw := append(
-	// 	pad(recovPubY.Bytes(), pointSize),
-	// 	pad(recovPubX.Bytes(), pointSize)...,
-	// )
-	// reverse(raw)
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 0)
 	if err != nil {
-		t.FailNow()
+		t.Fatal("Recover error ", err)
 	}
-	if bytes.Compare(prv.Public().X.Bytes(), recovPubX.Bytes()) != 0 {
-		t.FailNow()
+	if recovPubX.Cmp(prv.PublicKey.X) != 0 {
+		t.Fatal("Recover X error ", err)
 	}
-	if bytes.Compare(prv.Public().Y.Bytes(), recovPubY.Bytes()) != 0 {
-		t.FailNow()
+	if recovPubY.Cmp(prv.PublicKey.Y) != 0 {
+		t.Fatal("Recover Y error ", err)
 	}
 }
 

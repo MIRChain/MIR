@@ -66,18 +66,18 @@ func TestRFCVectors(t *testing.T) {
 	}
 	pub := prv.Public()
 	if bytes.Compare(pub.Raw()[:32], pubX) != 0 {
-		t.Errorf("Wrong X %x", pub)
+		t.Fatalf("Wrong X %x", pub)
 	}
 	if bytes.Compare(pub.Raw()[32:], pubY) != 0 {
-		t.Errorf("Wrong Y %x", pub)
+		t.Fatalf("Wrong Y %x", pub)
 	}
 	ourSign, err := prv.SignDigest(digest, rand.Reader)
 	if err != nil {
-		t.Error("Sig error ", err)
+		t.Fatal("Sig error ", err)
 	}
 	valid, err := pub.VerifyDigest(digest, ourSign)
 	if err != nil || !valid {
-		t.Error("Verify error ", err)
+		t.Fatal("Verify error ", err)
 	}
 	pointSize := pub.C.Params().BitSize / 8
 	var reversedSig [64]byte
@@ -85,25 +85,29 @@ func TestRFCVectors(t *testing.T) {
 	copy(reversedSig[32:64],signature[:pointSize])
 	valid, err = pub.VerifyDigest(digest, reversedSig[:])
 	if err != nil || !valid {
-		t.Error("Verify error ", err)
+		t.Fatal("Verify error ", err)
 	}
 	_r := new(big.Int).SetBytes(ourSign[:32])
 	_s := new(big.Int).SetBytes(ourSign[32:64])
 	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 0)
-	t.Log(recovPubX.String())
-	t.Log(recovPubY.String())
 	var recoveredPub [64]byte
 	copy(recoveredPub[:32], recovPubY.Bytes())
 	copy(recoveredPub[32:64], recovPubX.Bytes())
 	reverse(recoveredPub[:])
 	if err != nil {
-		t.Error("Recover error ", err)
+		t.Fatal("Recover error ", err)
 	}
 	if bytes.Compare(pubX, recoveredPub[:32]) != 0 {
-		t.Error("Recover X error ", err)
+		t.Fatal("Recover X error ", err)
 	}
 	if bytes.Compare(pubY, recoveredPub[32:64]) != 0 {
-		t.Error("Recover Y error ", err)
+		t.Fatal("Recover Y error ", err)
+	}
+	if recovPubX.Cmp(prv.PublicKey.X) != 0 {
+		t.Fatal("Recover X error ", err)
+	}
+	if recovPubY.Cmp(prv.PublicKey.Y) != 0 {
+		t.Fatal("Recover Y error ", err)
 	}
 }
 

@@ -42,7 +42,7 @@ func NewPrivateKey(c *Curve, raw []byte) (*PrivateKey, error) {
 	if k.Cmp(zero) == 0 {
 		return nil, errors.New("gogost/gost3410: zero private key")
 	}
-	x, y:= c.ScalarMult(c.X, c.Y, k.Mod(k, c.Q).Bytes())
+	x, y:= c.ScalarBaseMult(k.Mod(k, c.Q).Bytes())
 	pk := PublicKey{c, x, y}
 	return &PrivateKey{pk, c, k.Mod(k, c.Q)}, nil
 }
