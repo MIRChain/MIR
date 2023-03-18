@@ -30,7 +30,6 @@
 package ecies
 
 import (
-	"crypto"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -44,6 +43,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -68,7 +68,7 @@ func (pub *PublicKey) ExportECDSA() *ecdsa.PublicKey {
 }
 
 // Import an ECDSA public key as an ECIES public key.
-func ImportECDSAPublic[T crypto.PrivateKey, P crypto.PublicKey](pub P) *PublicKey {
+func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey {
 	switch p:=any(&pub).(type){
 	case *nist.PublicKey:
 		return &PublicKey{
@@ -84,8 +84,9 @@ func ImportECDSAPublic[T crypto.PrivateKey, P crypto.PublicKey](pub P) *PublicKe
 			Curve:  p.C,
 			Params: ParamsFromCurve(p.C),
 		}
+	default:
+		panic("cant infer pub key")
 	}
-
 }
 
 // PrivateKey is a representation of an elliptic curve private key.
@@ -102,28 +103,63 @@ func (prv *PrivateKey) ExportECDSA() *ecdsa.PrivateKey {
 }
 
 // Import an ECDSA private key as an ECIES private key.
-func ImportECDSA(prv *ecdsa.PrivateKey) *PrivateKey {
-	pub := ImportECDSAPublic(&prv.PublicKey)
-	return &PrivateKey{*pub, prv.D}
+func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey {
+	switch t:= any(&prv).(type) {
+	case *nist.PrivateKey:
+		var pub P
+		p := any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+		pubKey := ImportECDSAPublic[P](pub)
+		return &PrivateKey{*pubKey, t.D}
+	case *gost3410.PrivateKey:
+		var pub P
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+		pubKey := ImportECDSAPublic[P](pub)
+		return &PrivateKey{*pubKey, t.Key}
+	default :
+		panic("cant infer priv key for ecies")
+	}
 }
 
 // Generate an elliptic curve public / private keypair. If params is nil,
 // the recommended default parameters for the key will be chosen.
-func GenerateKey(rand io.Reader, curve elliptic.Curve, params *ECIESParams) (prv *PrivateKey, err error) {
-	pb, x, y, err := elliptic.GenerateKey(curve, rand)
-	if err != nil {
-		return
+func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, params *ECIESParams) (*PrivateKey, error) {
+	var privKey T
+	switch any(&privKey).(type) {
+	case *nist.PrivateKey:
+		pb, x, y, err := elliptic.GenerateKey(curve, rand)
+		if err != nil {
+			return nil, err
+		}
+		prv := new(PrivateKey)
+		prv.PublicKey.X = x
+		prv.PublicKey.Y = y
+		prv.PublicKey.Curve = curve
+		prv.D = new(big.Int).SetBytes(pb)
+		if params == nil {
+			params = ParamsFromCurve(curve)
+		}
+		prv.PublicKey.Params = params
+		return prv, nil
+	case *gost3410.PrivateKey:
+		key, err := gost3410.GenPrivateKey(gost3410.GostCurve, rand)
+		if err != nil {
+			return nil, err
+		}
+		prv := new(PrivateKey)
+		prv.PublicKey.X = key.X
+		prv.PublicKey.Y = key.Y
+		prv.PublicKey.Curve = key.C
+		prv.D = key.Key
+		if params == nil {
+			params = ParamsFromCurve(gost3410.GostCurve)
+		}
+		prv.PublicKey.Params = params
+		return prv, nil
+	default :
+		panic("cant infer priv key for ecies")
 	}
-	prv = new(PrivateKey)
-	prv.PublicKey.X = x
-	prv.PublicKey.Y = y
-	prv.PublicKey.Curve = curve
-	prv.D = new(big.Int).SetBytes(pb)
-	if params == nil {
-		params = ParamsFromCurve(curve)
-	}
-	prv.PublicKey.Params = params
-	return
 }
 
 // MaxSharedKeyLength returns the maximum length of the shared key the
@@ -244,13 +280,13 @@ func symDecrypt(params *ECIESParams, key, ct []byte) (m []byte, err error) {
 // s1 and s2 contain shared information that is not part of the resulting
 // ciphertext. s1 is fed into key derivation, s2 is fed into the MAC. If the
 // shared information parameters aren't being used, they should be nil.
-func Encrypt(rand io.Reader, pub *PublicKey, m, s1, s2 []byte) (ct []byte, err error) {
+func Encrypt[T crypto.PrivateKey](rand io.Reader, pub *PublicKey, m, s1, s2 []byte) (ct []byte, err error) {
 	params, err := pubkeyParams(pub)
 	if err != nil {
 		return nil, err
 	}
 
-	R, err := GenerateKey(rand, pub.Curve, params)
+	R, err := GenerateKey[T](rand, pub.Curve, params)
 	if err != nil {
 		return nil, err
 	}
