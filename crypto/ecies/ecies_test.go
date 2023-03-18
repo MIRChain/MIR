@@ -414,7 +414,7 @@ func TestSharedKeyStatic(t *testing.T) {
 	}
 }
 
-func hexKey(prv string) *PrivateKey {
+func hexKey(prv string) *PrivateKey[nist.PrivateKey] {
 	key, err := crypto.HexToECDSA[nist.PrivateKey](prv)
 	if err != nil {
 		panic(err)

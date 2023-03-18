@@ -18,7 +18,6 @@ package rlpx
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -30,6 +29,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/ecies"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/stretchr/testify/assert"
 )
@@ -62,7 +62,7 @@ func TestReadWriteMsg(t *testing.T) {
 	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
 }
 
-func checkMsgReadWrite(t *testing.T, p1, p2 *Conn, msgCode uint64, msgData []byte) {
+func checkMsgReadWrite(t *testing.T, p1, p2 *Conn[nist.PrivateKey, nist.PublicKey], msgCode uint64, msgData []byte) {
 	// Set up the reader.
 	ch := make(chan message, 1)
 	go func() {
@@ -83,42 +83,42 @@ func checkMsgReadWrite(t *testing.T, p1, p2 *Conn, msgCode uint64, msgData []byt
 	assert.Equal(t, msgData, msg.data, "wrong message data returned from ReadMsg")
 }
 
-func createPeers(t *testing.T) (peer1, peer2 *Conn) {
+func createPeers(t *testing.T) (peer1, peer2 *Conn[nist.PrivateKey, nist.PublicKey]) {
 	conn1, conn2 := net.Pipe()
 	key1, key2 := newkey(), newkey()
-	peer1 = NewConn(conn1, &key2.PublicKey) // dialer
-	peer2 = NewConn(conn2, nil)             // listener
+	peer1 = NewConn[nist.PrivateKey, nist.PublicKey](conn1, *key2.Public()) // dialer
+	peer2 = NewConn[nist.PrivateKey, nist.PublicKey](conn2, crypto.ZeroPublicKey[nist.PublicKey]())             // listener
 	doHandshake(t, peer1, peer2, key1, key2)
 	return peer1, peer2
 }
 
-func doHandshake(t *testing.T, peer1, peer2 *Conn, key1, key2 *ecdsa.PrivateKey) {
-	keyChan := make(chan *ecdsa.PublicKey, 1)
+func doHandshake(t *testing.T, peer1, peer2 *Conn[nist.PrivateKey, nist.PublicKey], key1, key2 *nist.PrivateKey) {
+	keyChan := make(chan *nist.PublicKey, 1)
 	go func() {
-		pubKey, err := peer2.Handshake(key2)
+		pubKey, err := peer2.Handshake(*key2)
 		if err != nil {
 			t.Errorf("peer2 could not do handshake: %v", err)
 		}
-		keyChan <- pubKey
+		keyChan <- &pubKey
 	}()
 
-	pubKey2, err := peer1.Handshake(key1)
+	pubKey2, err := peer1.Handshake(*key1)
 	if err != nil {
 		t.Errorf("peer1 could not do handshake: %v", err)
 	}
 	pubKey1 := <-keyChan
 
 	// Confirm the handshake was successful.
-	if !reflect.DeepEqual(pubKey1, &key1.PublicKey) || !reflect.DeepEqual(pubKey2, &key2.PublicKey) {
+	if !reflect.DeepEqual(pubKey1.PublicKey, &key1.PublicKey) || !reflect.DeepEqual(pubKey2.PublicKey, &key2.PublicKey) {
 		t.Fatal("unsuccessful handshake")
 	}
 }
 
 // This test checks the frame data of written messages.
 func TestFrameReadWrite(t *testing.T) {
-	conn := NewConn(nil, nil)
+	conn := NewConn[nist.PrivateKey](nil, crypto.ZeroPublicKey[nist.PublicKey]())
 	hash := fakeHash([]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
-	conn.InitWithSecrets(Secrets{
+	conn.InitWithSecrets(Secrets[nist.PrivateKey, nist.PublicKey]{
 		AES:        crypto.Keccak256(),
 		MAC:        crypto.Keccak256(),
 		IngressMAC: hash,
@@ -289,29 +289,29 @@ var eip8HandshakeRespTests = []handshakeAckTest{
 
 func TestHandshakeForwardCompatibility(t *testing.T) {
 	var (
-		keyA, _       = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-		keyB, _       = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		pubA          = crypto.FromECDSAPub(&keyA.PublicKey)[1:]
-		pubB          = crypto.FromECDSAPub(&keyB.PublicKey)[1:]
-		ephA, _       = crypto.HexToECDSA("869d6ecf5211f1cc60418a13b9d870b22959d0c16f02bec714c960dd2298a32d")
-		ephB, _       = crypto.HexToECDSA("e238eb8e04fee6511ab04c6dd3c89ce097b11f25d584863ac2b6d5b35b1847e4")
-		ephPubA       = crypto.FromECDSAPub(&ephA.PublicKey)[1:]
-		ephPubB       = crypto.FromECDSAPub(&ephB.PublicKey)[1:]
+		keyA, _       = crypto.HexToECDSA[nist.PrivateKey]("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
+		keyB, _       = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		pubA          = crypto.FromECDSAPub[nist.PublicKey](*keyA.Public())[1:]
+		pubB          = crypto.FromECDSAPub[nist.PublicKey](*keyB.Public())[1:]
+		ephA, _       = crypto.HexToECDSA[nist.PrivateKey]("869d6ecf5211f1cc60418a13b9d870b22959d0c16f02bec714c960dd2298a32d")
+		ephB, _       = crypto.HexToECDSA[nist.PrivateKey]("e238eb8e04fee6511ab04c6dd3c89ce097b11f25d584863ac2b6d5b35b1847e4")
+		ephPubA       = crypto.FromECDSAPub[nist.PublicKey](*ephA.Public())[1:]
+		ephPubB       = crypto.FromECDSAPub[nist.PublicKey](*ephB.Public())[1:]
 		nonceA        = unhex("7e968bba13b6c50e2c4cd7f241cc0d64d1ac25c7f5952df231ac6a2bda8ee5d6")
 		nonceB        = unhex("559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd")
 		_, _, _, _    = pubA, pubB, ephPubA, ephPubB
 		authSignature = unhex("299ca6acfd35e3d72d8ba3d1e2b60b5561d5af5218eb5bc182045769eb4226910a301acae3b369fffc4a4899d6b02531e89fd4fe36a2cf0d93607ba470b50f7800")
 		_             = authSignature
 	)
-	makeAuth := func(test handshakeAuthTest) *authMsgV4 {
-		msg := &authMsgV4{Version: test.wantVersion, Rest: test.wantRest, gotPlain: test.isPlain}
+	makeAuth := func(test handshakeAuthTest) *authMsgV4[nist.PrivateKey, nist.PublicKey] {
+		msg := &authMsgV4[nist.PrivateKey, nist.PublicKey]{Version: test.wantVersion, Rest: test.wantRest, gotPlain: test.isPlain}
 		copy(msg.Signature[:], authSignature)
 		copy(msg.InitiatorPubkey[:], pubA)
 		copy(msg.Nonce[:], nonceA)
 		return msg
 	}
-	makeAck := func(test handshakeAckTest) *authRespV4 {
-		msg := &authRespV4{Version: test.wantVersion, Rest: test.wantRest}
+	makeAck := func(test handshakeAckTest) *authRespV4[nist.PrivateKey, nist.PublicKey] {
+		msg := &authRespV4[nist.PrivateKey, nist.PublicKey]{Version: test.wantVersion, Rest: test.wantRest}
 		copy(msg.RandomPubkey[:], ephPubB)
 		copy(msg.Nonce[:], nonceB)
 		return msg
@@ -320,8 +320,8 @@ func TestHandshakeForwardCompatibility(t *testing.T) {
 	// check auth msg parsing
 	for _, test := range eip8HandshakeAuthTests {
 		r := bytes.NewReader(unhex(test.input))
-		msg := new(authMsgV4)
-		ciphertext, err := readHandshakeMsg(msg, encAuthMsgLen, keyB, r)
+		msg := new(authMsgV4[nist.PrivateKey, nist.PublicKey])
+		ciphertext, err := readHandshakeMsg[nist.PrivateKey, nist.PublicKey](msg, encAuthMsgLen, keyB, r)
 		if err != nil {
 			t.Errorf("error for input %x:\n  %v", unhex(test.input), err)
 			continue
@@ -339,8 +339,8 @@ func TestHandshakeForwardCompatibility(t *testing.T) {
 	for _, test := range eip8HandshakeRespTests {
 		input := unhex(test.input)
 		r := bytes.NewReader(input)
-		msg := new(authRespV4)
-		ciphertext, err := readHandshakeMsg(msg, encAuthRespLen, keyA, r)
+		msg := new(authRespV4[nist.PrivateKey, nist.PublicKey])
+		ciphertext, err := readHandshakeMsg[nist.PrivateKey, nist.PublicKey](msg, encAuthRespLen, keyA, r)
 		if err != nil {
 			t.Errorf("error for input %x:\n  %v", input, err)
 			continue
@@ -356,10 +356,10 @@ func TestHandshakeForwardCompatibility(t *testing.T) {
 
 	// check derivation for (Auth₂, Ack₂) on recipient side
 	var (
-		hs = &encHandshake{
+		hs = &encHandshake[nist.PrivateKey, nist.PublicKey]{
 			initiator:     false,
 			respNonce:     nonceB,
-			randomPrivKey: ecies.ImportECDSA(ephB),
+			randomPrivKey: ecies.ImportECDSA[nist.PrivateKey, nist.PublicKey](ephB),
 		}
 		authCiphertext     = unhex(eip8HandshakeAuthTests[1].input)
 		authRespCiphertext = unhex(eip8HandshakeRespTests[1].input)
@@ -397,10 +397,10 @@ func unhex(str string) []byte {
 	return b
 }
 
-func newkey() *ecdsa.PrivateKey {
-	key, err := crypto.GenerateKey()
+func newkey() *nist.PrivateKey {
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}
-	return key
+	return &key
 }

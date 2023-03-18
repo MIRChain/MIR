@@ -90,33 +90,40 @@ func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey {
 }
 
 // PrivateKey is a representation of an elliptic curve private key.
-type PrivateKey struct {
+type PrivateKey [T crypto.PrivateKey] struct {
 	PublicKey
 	D *big.Int
 }
 
 // Export an ECIES private key as an ECDSA private key.
-func (prv *PrivateKey) ExportECDSA() *ecdsa.PrivateKey {
+func (prv *PrivateKey[T]) ExportECDSA() T {
 	pub := &prv.PublicKey
 	pubECDSA := pub.ExportECDSA()
-	return &ecdsa.PrivateKey{PublicKey: *pubECDSA, D: prv.D}
+	var privGeneric T
+	switch t:=any(&privGeneric).(type) {
+	case *nist.PrivateKey:
+		*t =  nist.PrivateKey{&ecdsa.PrivateKey{PublicKey: *pubECDSA, D: prv.D}}
+	case *gost3410.PrivateKey:
+		*t = gost3410.PrivateKey{PublicKey: gost3410.PublicKey{C: pubECDSA.Curve, X: pubECDSA.X, Y: pubECDSA.Y}, C: gost3410.GostCurve, Key: prv.D}
+	}
+	return privGeneric
 }
 
 // Import an ECDSA private key as an ECIES private key.
-func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey {
+func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey[T] {
 	switch t:= any(&prv).(type) {
 	case *nist.PrivateKey:
 		var pub P
 		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 		pubKey := ImportECDSAPublic[P](pub)
-		return &PrivateKey{*pubKey, t.D}
+		return &PrivateKey[T]{*pubKey, t.D}
 	case *gost3410.PrivateKey:
 		var pub P
 		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 		pubKey := ImportECDSAPublic[P](pub)
-		return &PrivateKey{*pubKey, t.Key}
+		return &PrivateKey[T]{*pubKey, t.Key}
 	default :
 		panic("cant infer priv key for ecies")
 	}
@@ -124,7 +131,7 @@ func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey {
 
 // Generate an elliptic curve public / private keypair. If params is nil,
 // the recommended default parameters for the key will be chosen.
-func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, params *ECIESParams) (*PrivateKey, error) {
+func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, params *ECIESParams) (*PrivateKey[T], error) {
 	var privKey T
 	switch any(&privKey).(type) {
 	case *nist.PrivateKey:
@@ -132,7 +139,7 @@ func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, para
 		if err != nil {
 			return nil, err
 		}
-		prv := new(PrivateKey)
+		prv := new(PrivateKey[T])
 		prv.PublicKey.X = x
 		prv.PublicKey.Y = y
 		prv.PublicKey.Curve = curve
@@ -147,7 +154,7 @@ func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, para
 		if err != nil {
 			return nil, err
 		}
-		prv := new(PrivateKey)
+		prv := new(PrivateKey[T])
 		prv.PublicKey.X = key.X
 		prv.PublicKey.Y = key.Y
 		prv.PublicKey.Curve = key.C
@@ -169,7 +176,7 @@ func MaxSharedKeyLength(pub *PublicKey) int {
 }
 
 // ECDH key agreement method used to establish secret keys for encryption.
-func (prv *PrivateKey) GenerateShared(pub *PublicKey, skLen, macLen int) (sk []byte, err error) {
+func (prv *PrivateKey[T]) GenerateShared(pub *PublicKey, skLen, macLen int) (sk []byte, err error) {
 	if prv.PublicKey.Curve != pub.Curve {
 		return nil, ErrInvalidCurve
 	}
@@ -315,7 +322,7 @@ func Encrypt[T crypto.PrivateKey](rand io.Reader, pub *PublicKey, m, s1, s2 []by
 }
 
 // Decrypt decrypts an ECIES ciphertext.
-func (prv *PrivateKey) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
+func (prv *PrivateKey[T]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
 	if len(c) == 0 {
 		return nil, ErrInvalidMessage
 	}

@@ -32,12 +32,15 @@ import (
 	"io"
 	mrand "math/rand"
 	"net"
+	"reflect"
 	"time"
 
+	"github.com/golang/snappy"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/ecies"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/golang/snappy"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -253,15 +256,15 @@ func updateMAC(mac hash.Hash, block cipher.Block, seed []byte) []byte {
 
 // Handshake performs the handshake. This must be called before any data is written
 // or read from the Conn[T,P]ection.
-func (c *Conn[T,P]) Handshake(prv P) (P, error) {
+func (c *Conn[T,P]) Handshake(prv T) (P, error) {
 	var (
-		sec Secrets
+		sec Secrets[T,P]
 		err error
 	)
-	if c.dialDest != crypto.ZeroPublicKey[P]() {
+	if !reflect.ValueOf(&c.dialDest).Elem().IsZero() {
 		sec, err = initiatorEncHandshake(c.conn, prv, c.dialDest)
 	} else {
-		sec, err = receiverEncHandshake(c.conn, prv)
+		sec, err = receiverEncHandshake[T,P](c.conn, prv)
 	}
 	if err != nil {
 		return crypto.ZeroPublicKey[P](), err
@@ -272,7 +275,7 @@ func (c *Conn[T,P]) Handshake(prv P) (P, error) {
 
 // InitWithSecrets injects connection secrets as if a handshake had
 // been performed. This cannot be called after the handshake.
-func (c *Conn[T,P]) InitWithSecrets(sec Secrets) {
+func (c *Conn[T,P]) InitWithSecrets(sec Secrets[T,P]) {
 	if c.handshake != nil {
 		panic("can't handshake twice")
 	}
@@ -339,16 +342,16 @@ type Secrets [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // encHandshake contains the state of the encryption handshake.
-type encHandshake struct {
+type encHandshake [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	initiator            bool
 	remote               *ecies.PublicKey  // remote-pubk
 	initNonce, respNonce []byte            // nonce
-	randomPrivKey        *ecies.PrivateKey // ecdhe-random
+	randomPrivKey        *ecies.PrivateKey[T] // ecdhe-random
 	remoteRandomPub      *ecies.PublicKey  // ecdhe-random-pubk
 }
 
 // RLPx v4 handshake auth (defined in EIP-8).
-type authMsgV4 struct {
+type authMsgV4 [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	gotPlain bool // whether read packet had plain format.
 
 	Signature       [sigLen]byte
@@ -361,7 +364,7 @@ type authMsgV4 struct {
 }
 
 // RLPx v4 handshake response (defined in EIP-8).
-type authRespV4 struct {
+type authRespV4 [T crypto.PrivateKey, P crypto.PublicKey]struct {
 	RandomPubkey [pubLen]byte
 	Nonce        [shaLen]byte
 	Version      uint
@@ -375,12 +378,12 @@ type authRespV4 struct {
 //
 // prv is the local client's private key.
 func receiverEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.ReadWriter, prv T) (s Secrets[T,P], err error) {
-	authMsg := new(authMsgV4)
-	authPacket, err := readHandshakeMsg(authMsg, encAuthMsgLen, prv, conn)
+	authMsg := new(authMsgV4[T,P])
+	authPacket, err := readHandshakeMsg[T,P](authMsg, encAuthMsgLen, prv, conn)
 	if err != nil {
 		return s, err
 	}
-	h := new(encHandshake)
+	h := new(encHandshake[T,P])
 	if err := h.handleAuthMsg(authMsg, prv); err != nil {
 		return s, err
 	}
@@ -404,9 +407,9 @@ func receiverEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.ReadW
 	return h.secrets(authPacket, authRespPacket)
 }
 
-func (h *encHandshake) handleAuthMsg(msg *authMsgV4, prv *ecdsa.PrivateKey) error {
+func (h *encHandshake[T,P]) handleAuthMsg(msg *authMsgV4[T,P], prv T) error {
 	// Import the remote identity.
-	rpub, err := importPublicKey(msg.InitiatorPubkey[:])
+	rpub, err := importPublicKey[T,P](msg.InitiatorPubkey[:])
 	if err != nil {
 		return err
 	}
@@ -416,7 +419,7 @@ func (h *encHandshake) handleAuthMsg(msg *authMsgV4, prv *ecdsa.PrivateKey) erro
 	// Generate random keypair for ECDH.
 	// If a private key is already set, use it instead of generating one (for testing).
 	if h.randomPrivKey == nil {
-		h.randomPrivKey, err = ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
+		h.randomPrivKey, err = ecies.GenerateKey[T](rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			return err
 		}
@@ -432,23 +435,30 @@ func (h *encHandshake) handleAuthMsg(msg *authMsgV4, prv *ecdsa.PrivateKey) erro
 	if err != nil {
 		return err
 	}
-	h.remoteRandomPub, _ = importPublicKey(remoteRandomPub)
+	h.remoteRandomPub, _ = importPublicKey[T,P](remoteRandomPub)
 	return nil
 }
 
 // secrets is called after the handshake is completed.
 // It extracts the Conn[T,P]ection secrets from the handshake values.
-func (h *encHandshake) secrets(auth, authResp []byte) (Secrets, error) {
+func (h *encHandshake[T,P]) secrets(auth, authResp []byte) (Secrets[T,P], error) {
 	ecdheSecret, err := h.randomPrivKey.GenerateShared(h.remoteRandomPub, sskLen, sskLen)
 	if err != nil {
-		return Secrets{}, err
+		return Secrets[T,P]{}, err
 	}
 
 	// derive base secrets from ephemeral key agreement
 	sharedSecret := crypto.Keccak256(ecdheSecret, crypto.Keccak256(h.respNonce, h.initNonce))
 	aesSecret := crypto.Keccak256(ecdheSecret, sharedSecret)
-	s := Secrets{
-		remote: h.remote.ExportECDSA(),
+	var remotePub P
+	switch p:=any(&remotePub).(type){
+	case *nist.PublicKey:
+		*p = nist.PublicKey{&ecdsa.PublicKey{Curve: h.remote.Curve, X: h.remote.X, Y: h.remote.Y}}
+	case *gost3410.PublicKey:
+		*p = gost3410.PublicKey{C:h.remote.Curve, X: h.remote.X, Y: h.remote.Y}
+	}
+	s := Secrets[T,P]{
+		remote: remotePub,
 		AES:    aesSecret,
 		MAC:    crypto.Keccak256(ecdheSecret, aesSecret),
 	}
@@ -471,8 +481,8 @@ func (h *encHandshake) secrets(auth, authResp []byte) (Secrets, error) {
 
 // staticSharedSecret returns the static shared secret, the result
 // of key agreement between the local and remote static node key.
-func (h *encHandshake) staticSharedSecret(prv *ecdsa.PrivateKey) ([]byte, error) {
-	return ecies.ImportECDSA(prv).GenerateShared(h.remote, sskLen, sskLen)
+func (h *encHandshake[T,P]) staticSharedSecret(prv T) ([]byte, error) {
+	return ecies.ImportECDSA[T,P](prv).GenerateShared(h.remote, sskLen, sskLen)
 }
 
 // initiatorEncHandshake negotiates a session token on conn.
@@ -480,7 +490,7 @@ func (h *encHandshake) staticSharedSecret(prv *ecdsa.PrivateKey) ([]byte, error)
 //
 // prv is the local client's private key.
 func initiatorEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.ReadWriter, prv T, remote P) (s Secrets[T,P], err error) {
-	h := &encHandshake{initiator: true, remote: ecies.ImportECDSAPublic(remote)}
+	h := &encHandshake[T,P]{initiator: true, remote: ecies.ImportECDSAPublic(remote)}
 	authMsg, err := h.makeAuthMsg(prv)
 	if err != nil {
 		return s, err
@@ -494,8 +504,8 @@ func initiatorEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.Read
 		return s, err
 	}
 
-	authRespMsg := new(authRespV4)
-	authRespPacket, err := readHandshakeMsg(authRespMsg, encAuthRespLen, prv, conn)
+	authRespMsg := new(authRespV4[T,P])
+	authRespPacket, err := readHandshakeMsg[T,P](authRespMsg, encAuthRespLen, prv, conn)
 	if err != nil {
 		return s, err
 	}
@@ -506,7 +516,7 @@ func initiatorEncHandshake[T crypto.PrivateKey, P crypto.PublicKey](conn io.Read
 }
 
 // makeAuthMsg creates the initiator handshake message.
-func (h *encHandshake) makeAuthMsg(prv *ecdsa.PrivateKey) (*authMsgV4, error) {
+func (h *encHandshake[T,P]) makeAuthMsg(prv T) (*authMsgV4[T,P], error) {
 	// Generate random initiator nonce.
 	h.initNonce = make([]byte, shaLen)
 	_, err := rand.Read(h.initNonce)
@@ -514,7 +524,7 @@ func (h *encHandshake) makeAuthMsg(prv *ecdsa.PrivateKey) (*authMsgV4, error) {
 		return nil, err
 	}
 	// Generate random keypair to for ECDH.
-	h.randomPrivKey, err = ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
+	h.randomPrivKey, err = ecies.GenerateKey[T](rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -530,35 +540,44 @@ func (h *encHandshake) makeAuthMsg(prv *ecdsa.PrivateKey) (*authMsgV4, error) {
 		return nil, err
 	}
 
-	msg := new(authMsgV4)
+	msg := new(authMsgV4[T,P])
 	copy(msg.Signature[:], signature)
-	copy(msg.InitiatorPubkey[:], crypto.FromECDSAPub(&prv.PublicKey)[1:])
+	var pub P
+	switch t:=any(&prv).(type) {
+	case *nist.PrivateKey:
+		p := any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()	
+	}
+	copy(msg.InitiatorPubkey[:], crypto.FromECDSAPub[P](pub)[1:])
 	copy(msg.Nonce[:], h.initNonce)
 	msg.Version = 4
 	return msg, nil
 }
 
-func (h *encHandshake) handleAuthResp(msg *authRespV4) (err error) {
+func (h *encHandshake[T,P]) handleAuthResp(msg *authRespV4[T,P]) (err error) {
 	h.respNonce = msg.Nonce[:]
-	h.remoteRandomPub, err = importPublicKey(msg.RandomPubkey[:])
+	h.remoteRandomPub, err = importPublicKey[T,P](msg.RandomPubkey[:])
 	return err
 }
 
-func (h *encHandshake) makeAuthResp() (msg *authRespV4, err error) {
+func (h *encHandshake[T,P]) makeAuthResp() (msg *authRespV4[T,P], err error) {
 	// Generate random nonce.
 	h.respNonce = make([]byte, shaLen)
 	if _, err = rand.Read(h.respNonce); err != nil {
 		return nil, err
 	}
 
-	msg = new(authRespV4)
+	msg = new(authRespV4[T,P])
 	copy(msg.Nonce[:], h.respNonce)
 	copy(msg.RandomPubkey[:], exportPubkey(&h.randomPrivKey.PublicKey))
 	msg.Version = 4
 	return msg, nil
 }
 
-func (msg *authMsgV4) decodePlain(input []byte) {
+func (msg *authMsgV4[T,P]) decodePlain(input []byte) {
 	n := copy(msg.Signature[:], input)
 	n += shaLen // skip sha3(initiator-ephemeral-pubk)
 	n += copy(msg.InitiatorPubkey[:], input[n:])
@@ -567,14 +586,14 @@ func (msg *authMsgV4) decodePlain(input []byte) {
 	msg.gotPlain = true
 }
 
-func (msg *authRespV4) sealPlain(hs *encHandshake) ([]byte, error) {
+func (msg *authRespV4[T,P]) sealPlain(hs *encHandshake[T,P]) ([]byte, error) {
 	buf := make([]byte, authRespLen)
 	n := copy(buf, msg.RandomPubkey[:])
 	copy(buf[n:], msg.Nonce[:])
-	return ecies.Encrypt(rand.Reader, hs.remote, buf, nil, nil)
+	return ecies.Encrypt[T](rand.Reader, hs.remote, buf, nil, nil)
 }
 
-func (msg *authRespV4) decodePlain(input []byte) {
+func (msg *authRespV4[T,P]) decodePlain(input []byte) {
 	n := copy(msg.RandomPubkey[:], input)
 	copy(msg.Nonce[:], input[n:])
 	msg.Version = 4
@@ -582,7 +601,7 @@ func (msg *authRespV4) decodePlain(input []byte) {
 
 var padSpace = make([]byte, 300)
 
-func sealEIP8(msg interface{}, h *encHandshake) ([]byte, error) {
+func sealEIP8[T crypto.PrivateKey, P crypto.PublicKey](msg interface{}, h *encHandshake[T,P]) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := rlp.Encode(buf, msg); err != nil {
 		return nil, err
@@ -594,7 +613,7 @@ func sealEIP8(msg interface{}, h *encHandshake) ([]byte, error) {
 	prefix := make([]byte, 2)
 	binary.BigEndian.PutUint16(prefix, uint16(buf.Len()+eciesOverhead))
 
-	enc, err := ecies.Encrypt(rand.Reader, h.remote, buf.Bytes(), nil, prefix)
+	enc, err := ecies.Encrypt[T](rand.Reader, h.remote, buf.Bytes(), nil, prefix)
 	return append(prefix, enc...), err
 }
 
@@ -608,7 +627,7 @@ func readHandshakeMsg[T crypto.PrivateKey, P crypto.PublicKey](msg plainDecoder,
 		return buf, err
 	}
 	// Attempt decoding pre-EIP-8 "plain" format.
-	key := ecies.ImportECDSA(prv)
+	key := ecies.ImportECDSA[T,P](prv)
 	if dec, err := key.Decrypt(buf, nil, nil); err == nil {
 		msg.decodePlain(dec)
 		return buf, nil
