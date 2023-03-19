@@ -20,20 +20,21 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Signs with Homestead
 // obtains sender from EIP55Signer
-type QuorumPrivateTxSigner struct{ HomesteadSigner }
+type QuorumPrivateTxSigner [P crypto.PublicKey]struct{ HomesteadSigner[P] }
 
-func (s QuorumPrivateTxSigner) Sender(tx *Transaction) (common.Address, error) {
-	return HomesteadSigner{}.Sender(tx)
+func (s QuorumPrivateTxSigner[P]) Sender(tx *Transaction[P]) (common.Address, error) {
+	return HomesteadSigner[P]{}.Sender(tx)
 }
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
-func (qs QuorumPrivateTxSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
-	r, s, _, err := HomesteadSigner{}.SignatureValues(tx, sig)
+func (qs QuorumPrivateTxSigner[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S, V *big.Int, err error) {
+	r, s, _, err := HomesteadSigner[P]{}.SignatureValues(tx, sig)
 	// update v for private transaction marker: needs to be 37 (0+37) or 38 (1+37) for a private transaction.
 	v := new(big.Int).SetBytes([]byte{sig[64] + 37})
 	return r, s, v, nil
@@ -41,12 +42,12 @@ func (qs QuorumPrivateTxSigner) SignatureValues(tx *Transaction, sig []byte) (R,
 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
-func (s QuorumPrivateTxSigner) Hash(tx *Transaction) common.Hash {
+func (s QuorumPrivateTxSigner[P]) Hash(tx *Transaction[P]) common.Hash {
 	return s.HomesteadSigner.Hash(tx)
 }
 
-func (s QuorumPrivateTxSigner) Equal(s2 Signer) bool {
-	_, ok := s2.(QuorumPrivateTxSigner)
+func (s QuorumPrivateTxSigner[P]) Equal(s2 Signer[P]) bool {
+	_, ok := s2.(QuorumPrivateTxSigner[P])
 	return ok
 }
 

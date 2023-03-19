@@ -110,7 +110,7 @@ func (b *Bloom) UnmarshalText(input []byte) error {
 }
 
 // CreateBloom creates a bloom filter out of the give Receipts (+Logs)
-func CreateBloom(receipts Receipts) Bloom {
+func CreateBloom[P crypto.PublicKey](receipts Receipts[P]) Bloom {
 	buf := make([]byte, 6)
 	var bin Bloom
 	for _, receipt := range receipts {

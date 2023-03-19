@@ -20,6 +20,7 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // LegacyTx is the transaction data of regular Ethereum transactions.
@@ -35,8 +36,8 @@ type LegacyTx struct {
 
 // NewTransaction creates an unsigned legacy transaction.
 // Deprecated: use NewTx instead.
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return NewTx(&LegacyTx{
+func NewTransaction[P crypto.PublicKey](nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction[P] {
+	return NewTx[P](&LegacyTx{
 		Nonce:    nonce,
 		To:       &to,
 		Value:    amount,
@@ -48,8 +49,8 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 
 // NewContractCreation creates an unsigned legacy transaction.
 // Deprecated: use NewTx instead.
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return NewTx(&LegacyTx{
+func NewContractCreation[P crypto.PublicKey](nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction[P] {
+	return NewTx[P](&LegacyTx{
 		Nonce:    nonce,
 		Value:    amount,
 		Gas:      gasLimit,

@@ -90,7 +90,7 @@ func testPeer(protos []Protocol[nist.PrivateKey,nist.PublicKey]) (func(), *conn[
 	var (
 		fd1, fd2   = net.Pipe()
 		key1, key2 = newkey(), newkey()
-		t1         = newTestTransport(key2.Public(), fd1, key2.Public())
+		t1         = newTestTransport(key2.Public(), fd1, &nist.PublicKey{})
 		t2         = newTestTransport(key1.Public(), fd2, key1.Public())
 	)
 

@@ -28,6 +28,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -154,16 +155,16 @@ func (h *Header) EmptyReceipts() bool {
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
-type Body struct {
-	Transactions []*Transaction
+type Body [P crypto.PublicKey]struct {
+	Transactions []*Transaction[P]
 	Uncles       []*Header
 }
 
 // Block represents an entire block in the Ethereum blockchain.
-type Block struct {
+type Block [P crypto.PublicKey] struct {
 	header       *Header
 	uncles       []*Header
-	transactions Transactions
+	transactions Transactions[P]
 
 	// caches
 	hash atomic.Value
@@ -179,14 +180,14 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
-func (b *Block) String() string {
+func (b *Block[P]) String() string {
 	return fmt.Sprintf("{Header: %v}", b.header)
 }
 
 // "external" block encoding. used for eth protocol, etc.
-type extblock struct {
+type extblock [P crypto.PublicKey] struct {
 	Header *Header
-	Txs    []*Transaction
+	Txs    []*Transaction[P]
 	Uncles []*Header
 }
 
@@ -197,22 +198,22 @@ type extblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, hasher TrieHasher) *Block {
-	b := &Block{header: CopyHeader(header), td: new(big.Int)}
+func NewBlock[P crypto.PublicKey](header *Header, txs []*Transaction[P], uncles []*Header, receipts []*Receipt[P], hasher TrieHasher) *Block[P] {
+	b := &Block[P]{header: CopyHeader(header), td: new(big.Int)}
 
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs), hasher)
-		b.transactions = make(Transactions, len(txs))
+		b.header.TxHash = DeriveSha(Transactions[P](txs), hasher)
+		b.transactions = make(Transactions[P], len(txs))
 		copy(b.transactions, txs)
 	}
 
 	if len(receipts) == 0 {
 		b.header.ReceiptHash = EmptyRootHash
 	} else {
-		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
+		b.header.ReceiptHash = DeriveSha(Receipts[P](receipts), hasher)
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
@@ -232,8 +233,8 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
-func NewBlockWithHeader(header *Header) *Block {
-	return &Block{header: CopyHeader(header)}
+func NewBlockWithHeader[P crypto.PublicKey](header *Header) *Block[P] {
+	return &Block[P]{header: CopyHeader(header)}
 }
 
 // CopyHeader creates a deep copy of a block header to prevent side effects from
@@ -254,8 +255,8 @@ func CopyHeader(h *Header) *Header {
 }
 
 // DecodeRLP decodes the Ethereum
-func (b *Block) DecodeRLP(s *rlp.Stream) error {
-	var eb extblock
+func (b *Block[P]) DecodeRLP(s *rlp.Stream) error {
+	var eb extblock[P]
 	_, size, _ := s.Kind()
 	if err := s.Decode(&eb); err != nil {
 		return err
@@ -266,8 +267,8 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 }
 
 // EncodeRLP serializes b into the Ethereum RLP block format.
-func (b *Block) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extblock{
+func (b *Block[P]) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extblock[P]{
 		Header: b.header,
 		Txs:    b.transactions,
 		Uncles: b.uncles,
@@ -276,10 +277,10 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 
 // TODO: copies
 
-func (b *Block) Uncles() []*Header          { return b.uncles }
-func (b *Block) Transactions() Transactions { return b.transactions }
+func (b *Block[P]) Uncles() []*Header          { return b.uncles }
+func (b *Block[P]) Transactions() Transactions[P] { return b.transactions }
 
-func (b *Block) Transaction(hash common.Hash) *Transaction {
+func (b *Block[P]) Transaction(hash common.Hash) *Transaction[P] {
 	for _, transaction := range b.transactions {
 		if transaction.Hash() == hash {
 			return transaction
@@ -288,32 +289,32 @@ func (b *Block) Transaction(hash common.Hash) *Transaction {
 	return nil
 }
 
-func (b *Block) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
-func (b *Block) GasLimit() uint64     { return b.header.GasLimit }
-func (b *Block) GasUsed() uint64      { return b.header.GasUsed }
-func (b *Block) Difficulty() *big.Int { return new(big.Int).Set(b.header.Difficulty) }
-func (b *Block) Time() uint64         { return b.header.Time }
+func (b *Block[P]) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
+func (b *Block[P]) GasLimit() uint64     { return b.header.GasLimit }
+func (b *Block[P]) GasUsed() uint64      { return b.header.GasUsed }
+func (b *Block[P]) Difficulty() *big.Int { return new(big.Int).Set(b.header.Difficulty) }
+func (b *Block[P]) Time() uint64         { return b.header.Time }
 
-func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
-func (b *Block) MixDigest() common.Hash   { return b.header.MixDigest }
-func (b *Block) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *Block) Bloom() Bloom             { return b.header.Bloom }
-func (b *Block) Coinbase() common.Address { return b.header.Coinbase }
-func (b *Block) Root() common.Hash        { return b.header.Root }
-func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
-func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
-func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
-func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
-func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *Block[P]) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *Block[P]) MixDigest() common.Hash   { return b.header.MixDigest }
+func (b *Block[P]) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *Block[P]) Bloom() Bloom             { return b.header.Bloom }
+func (b *Block[P]) Coinbase() common.Address { return b.header.Coinbase }
+func (b *Block[P]) Root() common.Hash        { return b.header.Root }
+func (b *Block[P]) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *Block[P]) TxHash() common.Hash      { return b.header.TxHash }
+func (b *Block[P]) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *Block[P]) UncleHash() common.Hash   { return b.header.UncleHash }
+func (b *Block[P]) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 
-func (b *Block) Header() *Header { return CopyHeader(b.header) }
+func (b *Block[P]) Header() *Header { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
+func (b *Block[P]) Body() *Body[P] { return &Body[P]{b.transactions, b.uncles} }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
-func (b *Block) Size() common.StorageSize {
+func (b *Block[P]) Size() common.StorageSize {
 	if size := b.size.Load(); size != nil {
 		return size.(common.StorageSize)
 	}
@@ -325,7 +326,7 @@ func (b *Block) Size() common.StorageSize {
 
 // SanityCheck can be used to prevent that unbounded fields are
 // stuffed with junk data to add processing overhead
-func (b *Block) SanityCheck() error {
+func (b *Block[P]) SanityCheck() error {
 	return b.header.SanityCheck()
 }
 
@@ -345,10 +346,10 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 
 // WithSeal returns a new block with the data from b but the header replaced with
 // the sealed one.
-func (b *Block) WithSeal(header *Header) *Block {
+func (b *Block[P]) WithSeal(header *Header) *Block[P] {
 	cpy := *header
 
-	return &Block{
+	return &Block[P]{
 		header:       &cpy,
 		transactions: b.transactions,
 		uncles:       b.uncles,
@@ -356,10 +357,10 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction and uncle contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
-	block := &Block{
+func (b *Block[P]) WithBody(transactions []*Transaction[P], uncles []*Header) *Block[P] {
+	block := &Block[P]{
 		header:       CopyHeader(b.header),
-		transactions: make([]*Transaction, len(transactions)),
+		transactions: make([]*Transaction[P], len(transactions)),
 		uncles:       make([]*Header, len(uncles)),
 	}
 	copy(block.transactions, transactions)
@@ -371,7 +372,7 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 
 // Hash returns the keccak256 hash of b's header.
 // The hash is computed on the first call and cached thereafter.
-func (b *Block) Hash() common.Hash {
+func (b *Block[P]) Hash() common.Hash {
 	if hash := b.hash.Load(); hash != nil {
 		return hash.(common.Hash)
 	}
@@ -380,4 +381,4 @@ func (b *Block) Hash() common.Hash {
 	return v
 }
 
-type Blocks []*Block
+type Blocks[P crypto.PublicKey] []*Block[P]

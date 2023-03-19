@@ -48,7 +48,7 @@ const (
 )
 
 // Transaction is an Ethereum transaction.
-type Transaction struct {
+type Transaction [P crypto.PublicKey] struct {
 	inner TxData    // Consensus contents of a transaction
 	time  time.Time // Time first seen locally (spam avoidance)
 
@@ -61,8 +61,8 @@ type Transaction struct {
 }
 
 // NewTx creates a new transaction.
-func NewTx(inner TxData) *Transaction {
-	tx := new(Transaction)
+func NewTx[P crypto.PublicKey](inner TxData) *Transaction[P] {
+	tx := new(Transaction[P])
 	tx.setDecoded(inner.copy(), 0)
 	return tx
 }
@@ -88,7 +88,7 @@ type TxData interface {
 }
 
 // EncodeRLP implements rlp.Encoder
-func (tx *Transaction) EncodeRLP(w io.Writer) error {
+func (tx *Transaction[P]) EncodeRLP(w io.Writer) error {
 	if tx.Type() == LegacyTxType {
 		return rlp.Encode(w, tx.inner)
 	}
@@ -103,7 +103,7 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 }
 
 // encodeTyped writes the canonical encoding of a typed transaction to w.
-func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
+func (tx *Transaction[P]) encodeTyped(w *bytes.Buffer) error {
 	w.WriteByte(tx.Type())
 	return rlp.Encode(w, tx.inner)
 }
@@ -111,7 +111,7 @@ func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
 // MarshalBinary returns the canonical encoding of the transaction.
 // For legacy transactions, it returns the RLP encoding. For EIP-2718 typed
 // transactions, it returns the type and payload.
-func (tx *Transaction) MarshalBinary() ([]byte, error) {
+func (tx *Transaction[P]) MarshalBinary() ([]byte, error) {
 	if tx.Type() == LegacyTxType {
 		return rlp.EncodeToBytes(tx.inner)
 	}
@@ -121,7 +121,7 @@ func (tx *Transaction) MarshalBinary() ([]byte, error) {
 }
 
 // DecodeRLP implements rlp.Decoder
-func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
+func (tx *Transaction[P]) DecodeRLP(s *rlp.Stream) error {
 	kind, size, err := s.Kind()
 	switch {
 	case err != nil:
@@ -152,7 +152,7 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 
 // UnmarshalBinary decodes the canonical encoding of transactions.
 // It supports legacy RLP transactions and EIP2718 typed transactions.
-func (tx *Transaction) UnmarshalBinary(b []byte) error {
+func (tx *Transaction[P]) UnmarshalBinary(b []byte) error {
 	if len(b) > 0 && b[0] > 0x7f {
 		// It's a legacy transaction.
 		var data LegacyTx
@@ -173,7 +173,7 @@ func (tx *Transaction) UnmarshalBinary(b []byte) error {
 }
 
 // decodeTyped decodes a typed transaction from the canonical format.
-func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
+func (tx *Transaction[P]) decodeTyped(b []byte) (TxData, error) {
 	if len(b) == 0 {
 		return nil, errEmptyTypedTx
 	}
@@ -188,7 +188,7 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 }
 
 // setDecoded sets the inner transaction and size after decoding.
-func (tx *Transaction) setDecoded(inner TxData, size int) {
+func (tx *Transaction[P]) setDecoded(inner TxData, size int) {
 	tx.inner = inner
 	tx.time = time.Now()
 	if size > 0 {
@@ -232,7 +232,7 @@ func isProtectedV(V *big.Int) bool {
 }
 
 // Protected says whether the transaction is replay-protected.
-func (tx *Transaction) Protected() bool {
+func (tx *Transaction[P]) Protected() bool {
 	switch tx := tx.inner.(type) {
 	case *LegacyTx:
 		return tx.V != nil && isProtectedV(tx.V)
@@ -242,38 +242,38 @@ func (tx *Transaction) Protected() bool {
 }
 
 // Type returns the transaction type.
-func (tx *Transaction) Type() uint8 {
+func (tx *Transaction[P]) Type() uint8 {
 	return tx.inner.txType()
 }
 
 // ChainId returns the EIP155 chain ID of the transaction. The return value will always be
 // non-nil. For legacy transactions which are not replay-protected, the return value is
 // zero.
-func (tx *Transaction) ChainId() *big.Int {
+func (tx *Transaction[P]) ChainId() *big.Int {
 	return tx.inner.chainID()
 }
 
 // Data returns the input data of the transaction.
-func (tx *Transaction) Data() []byte { return tx.inner.data() }
+func (tx *Transaction[P]) Data() []byte { return tx.inner.data() }
 
 // AccessList returns the access list of the transaction.
-func (tx *Transaction) AccessList() AccessList { return tx.inner.accessList() }
+func (tx *Transaction[P]) AccessList() AccessList { return tx.inner.accessList() }
 
 // Gas returns the gas limit of the transaction.
-func (tx *Transaction) Gas() uint64 { return tx.inner.gas() }
+func (tx *Transaction[P]) Gas() uint64 { return tx.inner.gas() }
 
 // GasPrice returns the gas price of the transaction.
-func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.inner.gasPrice()) }
+func (tx *Transaction[P]) GasPrice() *big.Int { return new(big.Int).Set(tx.inner.gasPrice()) }
 
 // Value returns the ether amount of the transaction.
-func (tx *Transaction) Value() *big.Int { return new(big.Int).Set(tx.inner.value()) }
+func (tx *Transaction[P]) Value() *big.Int { return new(big.Int).Set(tx.inner.value()) }
 
 // Nonce returns the sender account nonce of the transaction.
-func (tx *Transaction) Nonce() uint64 { return tx.inner.nonce() }
+func (tx *Transaction[P]) Nonce() uint64 { return tx.inner.nonce() }
 
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.
-func (tx *Transaction) To() *common.Address {
+func (tx *Transaction[P]) To() *common.Address {
 	// Copy the pointed-to address.
 	ito := tx.inner.to()
 	if ito == nil {
@@ -284,7 +284,7 @@ func (tx *Transaction) To() *common.Address {
 }
 
 // Cost returns gas * gasPrice + value.
-func (tx *Transaction) Cost() *big.Int {
+func (tx *Transaction[P]) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
 	total.Add(total, tx.Value())
 	return total
@@ -292,22 +292,22 @@ func (tx *Transaction) Cost() *big.Int {
 
 // RawSignatureValues returns the V, R, S signature values of the transaction.
 // The return values should not be modified by the caller.
-func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
+func (tx *Transaction[P]) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.inner.rawSignatureValues()
 }
 
 // GasPriceCmp compares the gas prices of two transactions.
-func (tx *Transaction) GasPriceCmp(other *Transaction) int {
+func (tx *Transaction[P]) GasPriceCmp(other *Transaction[P]) int {
 	return tx.inner.gasPrice().Cmp(other.inner.gasPrice())
 }
 
 // GasPriceIntCmp compares the gas price of the transaction against the given price.
-func (tx *Transaction) GasPriceIntCmp(other *big.Int) int {
+func (tx *Transaction[P]) GasPriceIntCmp(other *big.Int) int {
 	return tx.inner.gasPrice().Cmp(other)
 }
 
 // Hash returns the transaction hash.
-func (tx *Transaction) Hash() common.Hash {
+func (tx *Transaction[P]) Hash() common.Hash {
 	if hash := tx.hash.Load(); hash != nil {
 		return hash.(common.Hash)
 	}
@@ -324,7 +324,7 @@ func (tx *Transaction) Hash() common.Hash {
 
 // Size returns the true RLP encoded storage size of the transaction, either by
 // encoding and returning it, or returning a previously cached value.
-func (tx *Transaction) Size() common.StorageSize {
+func (tx *Transaction[P]) Size() common.StorageSize {
 	if size := tx.size.Load(); size != nil {
 		return size.(common.StorageSize)
 	}
@@ -336,26 +336,26 @@ func (tx *Transaction) Size() common.StorageSize {
 
 // WithSignature returns a new transaction with the given signature.
 // This signature needs to be in the [R || S || V] format where V is 0 or 1.
-func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, error) {
+func (tx *Transaction[P]) WithSignature(signer Signer[P], sig []byte) (*Transaction[P], error) {
 	r, s, v, err := signer.SignatureValues(tx, sig)
 	if err != nil {
 		return nil, err
 	}
 	cpy := tx.inner.copy()
 	cpy.setSignatureValues(signer.ChainID(), v, r, s)
-	return &Transaction{inner: cpy, time: tx.time}, nil
+	return &Transaction[P]{inner: cpy, time: tx.time}, nil
 }
 
 // Transactions implements DerivableList for transactions.
-type Transactions []*Transaction
+type Transactions[P crypto.PublicKey] []*Transaction[P]
 
 // Len returns the length of s.
-func (s Transactions) Len() int { return len(s) }
+func (s Transactions[P]) Len() int { return len(s) }
 
 // EncodeIndex encodes the i'th transaction to w. Note that this does not check for errors
 // because we assume that *Transaction will only ever contain valid txs that were either
 // constructed by decoding or via public API in this package.
-func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
+func (s Transactions[P]) EncodeIndex(i int, w *bytes.Buffer) {
 	tx := s[i]
 	if tx.Type() == LegacyTxType {
 		rlp.Encode(w, tx.inner)
@@ -365,8 +365,8 @@ func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
 }
 
 // TxDifference returns a new set which is the difference between a and b.
-func TxDifference(a, b Transactions) Transactions {
-	keep := make(Transactions, 0, len(a))
+func TxDifference[P crypto.PublicKey](a, b Transactions[P]) Transactions[P] {
+	keep := make(Transactions[P], 0, len(a))
 
 	remove := make(map[common.Hash]struct{})
 	for _, tx := range b {
@@ -385,18 +385,18 @@ func TxDifference(a, b Transactions) Transactions {
 // TxByNonce implements the sort interface to allow sorting a list of transactions
 // by their nonces. This is usually only useful for sorting transactions from a
 // single account, otherwise a nonce comparison doesn't make much sense.
-type TxByNonce Transactions
+type TxByNonce[P crypto.PublicKey] Transactions[P]
 
-func (s TxByNonce) Len() int           { return len(s) }
-func (s TxByNonce) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
-func (s TxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s TxByNonce[P]) Len() int           { return len(s) }
+func (s TxByNonce[P]) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
+func (s TxByNonce[P]) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // TxByPriceAndTime implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
-type TxByPriceAndTime Transactions
+type TxByPriceAndTime[P crypto.PublicKey] Transactions[P]
 
-func (s TxByPriceAndTime) Len() int { return len(s) }
-func (s TxByPriceAndTime) Less(i, j int) bool {
+func (s TxByPriceAndTime[P]) Len() int { return len(s) }
+func (s TxByPriceAndTime[P]) Less(i, j int) bool {
 	// If the prices are equal, use the time the transaction was first seen for
 	// deterministic sorting
 	cmp := s[i].GasPrice().Cmp(s[j].GasPrice())
@@ -405,13 +405,13 @@ func (s TxByPriceAndTime) Less(i, j int) bool {
 	}
 	return cmp > 0
 }
-func (s TxByPriceAndTime) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s TxByPriceAndTime[P]) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (s *TxByPriceAndTime) Push(x interface{}) {
-	*s = append(*s, x.(*Transaction))
+func (s *TxByPriceAndTime[P]) Push(x interface{}) {
+	*s = append(*s, x.(*Transaction[P]))
 }
 
-func (s *TxByPriceAndTime) Pop() interface{} {
+func (s *TxByPriceAndTime[P]) Pop() interface{} {
 	old := *s
 	n := len(old)
 	x := old[n-1]
@@ -422,10 +422,10 @@ func (s *TxByPriceAndTime) Pop() interface{} {
 // TransactionsByPriceAndNonce represents a set of transactions that can return
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
-type TransactionsByPriceAndNonce struct {
-	txs    map[common.Address]Transactions // Per account nonce-sorted list of transactions
-	heads  TxByPriceAndTime                // Next transaction for each unique account (price heap)
-	signer Signer                          // Signer for the set of transactions
+type TransactionsByPriceAndNonce [P crypto.PublicKey] struct {
+	txs    map[common.Address]Transactions[P] // Per account nonce-sorted list of transactions
+	heads  TxByPriceAndTime[P]               // Next transaction for each unique account (price heap)
+	signer Signer[P]                      // Signer for the set of transactions
 }
 
 // NewTransactionsByPriceAndNonce creates a transaction set that can retrieve
@@ -433,12 +433,12 @@ type TransactionsByPriceAndNonce struct {
 //
 // Note, the input map is reowned so the caller should not interact any more with
 // if after providing it to the constructor.
-func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions) *TransactionsByPriceAndNonce {
+func NewTransactionsByPriceAndNonce[P crypto.PublicKey](signer Signer[P], txs map[common.Address]Transactions[P]) *TransactionsByPriceAndNonce[P] {
 	// Initialize a price and received time based heap with the head transactions
-	heads := make(TxByPriceAndTime, 0, len(txs))
+	heads := make(TxByPriceAndTime[P], 0, len(txs))
 	for from, accTxs := range txs {
 		// Ensure the sender address is from the signer
-		acc, err := Sender(signer, accTxs[0])
+		acc, err := Sender[P](signer, accTxs[0])
 		if err != nil {
 			log.Error("Failed to retrieve the sender address", "err", err)
 		}
@@ -452,7 +452,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 	heap.Init(&heads)
 
 	// Assemble and return the transaction set
-	return &TransactionsByPriceAndNonce{
+	return &TransactionsByPriceAndNonce[P]{
 		txs:    txs,
 		heads:  heads,
 		signer: signer,
@@ -460,7 +460,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 }
 
 // Peek returns the next transaction by price.
-func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
+func (t *TransactionsByPriceAndNonce[P]) Peek() *Transaction[P] {
 	if len(t.heads) == 0 {
 		return nil
 	}
@@ -468,8 +468,8 @@ func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
 }
 
 // Shift replaces the current best head with the next one from the same account.
-func (t *TransactionsByPriceAndNonce) Shift() {
-	acc, _ := Sender(t.signer, t.heads[0])
+func (t *TransactionsByPriceAndNonce[P]) Shift() {
+	acc, _ := Sender[P](t.signer, t.heads[0])
 	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
 		t.heads[0], t.txs[acc] = txs[0], txs[1:]
 		heap.Fix(&t.heads, 0)
@@ -481,7 +481,7 @@ func (t *TransactionsByPriceAndNonce) Shift() {
 // Pop removes the best transaction, *not* replacing it with the next one from
 // the same account. This should be used when a transaction cannot be executed
 // and hence all subsequent ones should be discarded from the same account.
-func (t *TransactionsByPriceAndNonce) Pop() {
+func (t *TransactionsByPriceAndNonce[P]) Pop() {
 	heap.Pop(&t.heads)
 }
 
@@ -518,7 +518,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 }
 
 // AsMessage returns the transaction as a core.Message.
-func (tx *Transaction) AsMessage(s Signer) (Message, error) {
+func (tx *Transaction[P]) AsMessage(s Signer[P]) (Message, error) {
 	msg := Message{
 		nonce:      tx.Nonce(),
 		gasLimit:   tx.Gas(),
@@ -533,7 +533,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	}
 
 	var err error
-	msg.from, err = Sender(s, tx)
+	msg.from, err = Sender[P](s, tx)
 	return msg, err
 }
 
@@ -555,29 +555,29 @@ func NewTxPrivacyMetadata(privacyFlag engine.PrivacyFlagType) *PrivacyMetadata {
 	}
 }
 
-func (tx *Transaction) SetTxPrivacyMetadata(pm *PrivacyMetadata) {
+func (tx *Transaction[P]) SetTxPrivacyMetadata(pm *PrivacyMetadata) {
 	tx.privacyMetadata = pm
 }
 
 // PrivacyMetadata returns the privacy metadata of the transaction. (Quorum)
-func (tx *Transaction) PrivacyMetadata() *PrivacyMetadata {
+func (tx *Transaction[P]) PrivacyMetadata() *PrivacyMetadata {
 	return tx.privacyMetadata
 }
 
 // From returns the sender address of the transaction. (Quorum)
-func (tx *Transaction) From() common.Address {
-	if from, err := Sender(NewEIP2930Signer(tx.ChainId()), tx); err == nil {
+func (tx *Transaction[P]) From() common.Address {
+	if from, err := Sender[P](NewEIP2930Signer[P](tx.ChainId()), tx); err == nil {
 		return from
 	}
 	return common.Address{}
 }
 
 // String returns the string representation of the transaction. (Quorum)
-func (tx *Transaction) String() string {
+func (tx *Transaction[P]) String() string {
 	var from, to string
 	v, r, s := tx.RawSignatureValues()
 	if v != nil {
-		if f, err := Sender(NewEIP2930Signer(tx.ChainId()), tx); err != nil {
+		if f, err := Sender[P](NewEIP2930Signer[P](tx.ChainId()), tx); err != nil {
 			from = "[invalid sender: invalid sig]"
 		} else {
 			from = fmt.Sprintf("%x", f[:])
@@ -646,7 +646,7 @@ func (m Message) WithEmptyPrivateData(b bool) Message {
 	return m
 }
 
-func (tx *Transaction) IsPrivate() bool {
+func (tx *Transaction[P]) IsPrivate() bool {
 	v, _, _ := tx.RawSignatureValues()
 	if v == nil {
 		return false
@@ -662,7 +662,7 @@ func (tx *Transaction) IsPrivate() bool {
  * the transaction is intended to be private, and so that the correct signer can be selected. The signer will correctly
  * set the valid v value (37 or 38): This helps minimize changes vs upstream go-ethereum code.
  */
-func (tx *Transaction) SetPrivate() {
+func (tx *Transaction[P]) SetPrivate() {
 	v, _, _ := tx.RawSignatureValues()
 	if tx.IsPrivate() {
 		return
@@ -674,7 +674,7 @@ func (tx *Transaction) SetPrivate() {
 	}
 }
 
-func (tx *Transaction) IsPrivacyMarker() bool {
+func (tx *Transaction[P]) IsPrivacyMarker() bool {
 	return tx.To() != nil && *tx.To() == common.QuorumPrivacyPrecompileContractAddress()
 }
 

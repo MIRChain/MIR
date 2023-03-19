@@ -260,7 +260,7 @@ func TestServerAtCap(t *testing.T) {
 
 	newconn := func(id enode.ID) *conn[nist.PrivateKey, nist.PublicKey] {
 		fd, _ := net.Pipe()
-		tx := newTestTransport(trustedNode.Public(), fd, nil)
+		tx := newTestTransport(trustedNode.Public(), fd, &nist.PublicKey{})
 		node := enode.SignNull[nist.PrivateKey, nist.PublicKey](new(enr.Record), id)
 		return &conn[nist.PrivateKey, nist.PublicKey]{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
 	}

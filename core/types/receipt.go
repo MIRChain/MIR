@@ -50,8 +50,8 @@ const (
 )
 
 // Receipt represents the results of a transaction.
-type Receipt struct {
-	QuorumReceiptExtraData
+type Receipt [P crypto.PublicKey] struct {
+	QuorumReceiptExtraData[P]
 	// Consensus fields: These fields are defined by the Yellow Paper
 	Type              uint8  `json:"type,omitempty"`
 	PostState         []byte `json:"root"`
@@ -93,7 +93,7 @@ Procedure for adding new fields to QuorumReceiptExtraData:
 
 7. Update the QuorumReceiptExtraData.DecodeRLP - update the `switch version` statement and invoke the decode method for the newly added version
 */
-type QuorumReceiptExtraData struct {
+type QuorumReceiptExtraData [P crypto.PublicKey] struct {
 	// PSReceipts supports the execution of a private transaction on multiple private states
 	// in which receipts are produced per PSI. It is also used by privacy marker transactions, where PSReceipts contains
 	// only the receipt for the internal private transaction.
@@ -102,7 +102,7 @@ type QuorumReceiptExtraData struct {
 	// will be the privacy marker transaction receipt.
 	//
 	// This nested structure would not have more than 2 levels.
-	PSReceipts map[PrivateStateIdentifier]*Receipt `json:"-"`
+	PSReceipts map[PrivateStateIdentifier]*Receipt[P] `json:"-"`
 	// support saving the revert reason into the receipt itself for later consultation.
 	RevertReason []byte `json:"revertReason,omitempty"`
 }
@@ -157,8 +157,8 @@ type v3StoredReceiptRLP struct {
 
 // NewReceipt creates a barebone transaction receipt, copying the init fields.
 // Deprecated: create receipts using a struct literal instead.
-func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
-	r := &Receipt{
+func NewReceipt[P crypto.PublicKey](root []byte, failed bool, cumulativeGasUsed uint64) *Receipt[P] {
+	r := &Receipt[P]{
 		Type:              LegacyTxType,
 		PostState:         common.CopyBytes(root),
 		CumulativeGasUsed: cumulativeGasUsed,
@@ -173,7 +173,7 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
-func (r *Receipt) EncodeRLP(w io.Writer) error {
+func (r *Receipt[P]) EncodeRLP(w io.Writer) error {
 	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
 	if r.Type == LegacyTxType {
 		return rlp.Encode(w, data)
@@ -194,7 +194,7 @@ func (r *Receipt) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and loads the consensus fields of a receipt
 // from an RLP stream.
-func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
+func (r *Receipt[P]) DecodeRLP(s *rlp.Stream) error {
 	kind, _, err := s.Kind()
 	switch {
 	case err != nil:
@@ -230,12 +230,12 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 	}
 }
 
-func (r *Receipt) setFromRLP(data receiptRLP) error {
+func (r *Receipt[P]) setFromRLP(data receiptRLP) error {
 	r.CumulativeGasUsed, r.Bloom, r.Logs = data.CumulativeGasUsed, data.Bloom, data.Logs
 	return r.setStatus(data.PostStateOrStatus)
 }
 
-func (r *Receipt) setStatus(postStateOrStatus []byte) error {
+func (r *Receipt[P]) setStatus(postStateOrStatus []byte) error {
 	switch {
 	case bytes.Equal(postStateOrStatus, receiptStatusSuccessfulRLP):
 		r.Status = ReceiptStatusSuccessful
@@ -249,7 +249,7 @@ func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 	return nil
 }
 
-func (r *Receipt) statusEncoding() []byte {
+func (r *Receipt[P]) statusEncoding() []byte {
 	if len(r.PostState) == 0 {
 		if r.Status == ReceiptStatusFailed {
 			return receiptStatusFailedRLP
@@ -261,7 +261,7 @@ func (r *Receipt) statusEncoding() []byte {
 
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
-func (r *Receipt) Size() common.StorageSize {
+func (r *Receipt[P]) Size() common.StorageSize {
 	size := common.StorageSize(unsafe.Sizeof(*r)) + common.StorageSize(len(r.PostState))
 	size += common.StorageSize(len(r.Logs)) * common.StorageSize(unsafe.Sizeof(Log{}))
 	for _, log := range r.Logs {
@@ -272,13 +272,13 @@ func (r *Receipt) Size() common.StorageSize {
 
 // ReceiptForStorage is a wrapper around a Receipt that flattens and parses the
 // entire content of a receipt, as opposed to only the consensus fields originally.
-type ReceiptForStorage Receipt
+type ReceiptForStorage[P crypto.PublicKey] Receipt[P]
 
 // EncodeRLP implements rlp.Encoder, and flattens all content fields of a receipt
 // into an RLP stream.
-func (r *ReceiptForStorage) EncodeRLP(w io.Writer) error {
+func (r *ReceiptForStorage[P]) EncodeRLP(w io.Writer) error {
 	enc := &storedReceiptRLP{
-		PostStateOrStatus: (*Receipt)(r).statusEncoding(),
+		PostStateOrStatus: (*Receipt[P])(r).statusEncoding(),
 		CumulativeGasUsed: r.CumulativeGasUsed,
 		Logs:              make([]*LogForStorage, len(r.Logs)),
 	}
@@ -290,7 +290,7 @@ func (r *ReceiptForStorage) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and loads both consensus and implementation
 // fields of a receipt from an RLP stream.
-func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
+func (r *ReceiptForStorage[P]) DecodeRLP(s *rlp.Stream) error {
 	// Retrieve the entire receipt blob as we need to try multiple decoders
 	blob, err := s.Raw()
 	if err != nil {
@@ -299,7 +299,7 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 	// Try decoding from the newest format for future proofness, then the older one
 	// for old nodes that just upgraded. V4 was an intermediate unreleased format so
 	// we do need to decode it, but it's not common (try last).
-	if err := decodeStoredReceiptRLP(r, blob); err == nil {
+	if err := decodeStoredReceiptRLP[P](r, blob); err == nil {
 		return nil
 	}
 	// TODO remove once we know the early adopters of MPS have upgraded to the latest version by doing a full resync
@@ -313,12 +313,12 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 	return decodeV4StoredReceiptRLP(r, blob)
 }
 
-func decodeStoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
+func decodeStoredReceiptRLP[P crypto.PublicKey](r *ReceiptForStorage[P], blob []byte) error {
 	var stored storedReceiptRLP
 	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
-	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
+	if err := (*Receipt[P])(r).setStatus(stored.PostStateOrStatus); err != nil {
 		return err
 	}
 	r.CumulativeGasUsed = stored.CumulativeGasUsed
@@ -326,17 +326,17 @@ func decodeStoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 	for i, log := range stored.Logs {
 		r.Logs[i] = (*Log)(log)
 	}
-	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
+	r.Bloom = CreateBloom(Receipts[P]{(*Receipt[P])(r)})
 
 	return nil
 }
 
-func decodeV4StoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
+func decodeV4StoredReceiptRLP[P crypto.PublicKey](r *ReceiptForStorage[P], blob []byte) error {
 	var stored v4StoredReceiptRLP
 	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
-	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
+	if err := (*Receipt[P])(r).setStatus(stored.PostStateOrStatus); err != nil {
 		return err
 	}
 	r.CumulativeGasUsed = stored.CumulativeGasUsed
@@ -347,17 +347,17 @@ func decodeV4StoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 	for i, log := range stored.Logs {
 		r.Logs[i] = (*Log)(log)
 	}
-	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
+	r.Bloom = CreateBloom(Receipts[P]{(*Receipt[P])(r)})
 
 	return nil
 }
 
-func decodeV3StoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
+func decodeV3StoredReceiptRLP[P crypto.PublicKey](r *ReceiptForStorage[P], blob []byte) error {
 	var stored v3StoredReceiptRLP
 	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
-	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
+	if err := (*Receipt[P])(r).setStatus(stored.PostStateOrStatus); err != nil {
 		return err
 	}
 	r.CumulativeGasUsed = stored.CumulativeGasUsed
@@ -373,13 +373,13 @@ func decodeV3StoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 }
 
 // Receipts implements DerivableList for receipts.
-type Receipts []*Receipt
+type Receipts[P crypto.PublicKey] []*Receipt[P]
 
 // Len returns the number of receipts in this list.
-func (rs Receipts) Len() int { return len(rs) }
+func (rs Receipts[P]) Len() int { return len(rs) }
 
 // EncodeIndex encodes the i'th receipt to w.
-func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
+func (rs Receipts[P]) EncodeIndex(i int, w *bytes.Buffer) {
 	r := rs[i]
 	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
 	switch r.Type {
@@ -397,14 +397,14 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 
 // Quorum
 // CopyReceipts makes a deep copy of the given receipts.
-func CopyReceipts(receipts []*Receipt) []*Receipt {
-	result := make([]*Receipt, len(receipts))
+func CopyReceipts[P crypto.PublicKey](receipts []*Receipt[P]) []*Receipt[P] {
+	result := make([]*Receipt[P], len(receipts))
 	for i, receiptOrig := range receipts {
 		receiptCopy := *receiptOrig
 		result[i] = &receiptCopy
 
 		if receiptOrig.PSReceipts != nil {
-			receiptCopy.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
+			receiptCopy.PSReceipts = make(map[PrivateStateIdentifier]*Receipt[P])
 			for psi, psReceiptOrig := range receiptOrig.PSReceipts {
 				psReceiptCpy := *psReceiptOrig
 				result[i].PSReceipts[psi] = &psReceiptCpy
@@ -421,13 +421,13 @@ func CopyReceipts(receipts []*Receipt) []*Receipt {
 // - Provide additional support for Multiple Private State and Privacy Marker Transactions,
 //   where the private receipts are held under the relevant receipt.PSReceipts
 // - Original DeriveFields func is now deriveFieldsOrig
-func (r Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions) error {
+func (r Receipts[P]) DeriveFields(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions[P]) error {
 	// Will work on a copy of Receipts so we don't modify the original receipts until the end
-	receiptsCopy := CopyReceipts(r)
+	receiptsCopy := CopyReceipts[P](r)
 
 	// flatten all the MPS receipts, so that we have a flat array for deriveFieldsOrig()
-	allReceipts := make(map[PrivateStateIdentifier][]*Receipt) // Holds all public and private receipts, for each PSI
-	allPublic := make([]*Receipt, 0)                           // All public receipts, & private receipts if MPS disabled
+	allReceipts := make(map[PrivateStateIdentifier][]*Receipt[P]) // Holds all public and private receipts, for each PSI
+	allPublic := make([]*Receipt[P], 0)                           // All public receipts, & private receipts if MPS disabled
 	for i := 0; i < len(receiptsCopy); i++ {
 		receipt := receiptsCopy[i]
 		tx := txs[i]
@@ -448,7 +448,7 @@ func (r Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, num
 		for psi, privateReceipt := range receipt.PSReceipts {
 			// if this PSI doesn't yet exist in allReceipts then add it
 			if _, ok := allReceipts[psi]; !ok {
-				allReceipts[psi] = append(make([]*Receipt, 0), allPublic...)
+				allReceipts[psi] = append(make([]*Receipt[P], 0), allPublic...)
 			}
 			allReceipts[psi] = append(allReceipts[psi], privateReceipt)
 		}
@@ -465,23 +465,23 @@ func (r Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, num
 
 	// now we have all the receipts, so derive all their fields
 	for _, receipts := range allReceipts {
-		casted := Receipts(receipts)
+		casted := Receipts[P](receipts)
 		if err := casted.deriveFieldsOrig(config, hash, number, txs); err != nil {
 			return err
 		}
 	}
-	if err := Receipts(allPublic).deriveFieldsOrig(config, hash, number, txs); err != nil {
+	if err := Receipts[P](allPublic).deriveFieldsOrig(config, hash, number, txs); err != nil {
 		return err
 	}
 
 	// fields now derived, put back into correct order
-	tmp := make([]*Receipt, len(receiptsCopy))
+	tmp := make([]*Receipt[P], len(receiptsCopy))
 	for i := 0; i < len(receiptsCopy); i++ {
 		tmp[i] = allPublic[i]
 		oldPsis := tmp[i].PSReceipts
 		tmp[i].PSReceipts = nil
 		if oldPsis != nil {
-			tmp[i].PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
+			tmp[i].PSReceipts = make(map[PrivateStateIdentifier]*Receipt[P])
 		}
 		for psi := range oldPsis {
 			psiReceipt := allReceipts[psi][i]
@@ -502,8 +502,8 @@ func (r Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, num
 }
 
 // deriveFieldsOrig is the original DeriveFields from upstream
-func (r Receipts) deriveFieldsOrig(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions) error {
-	signer := MakeSigner(config, new(big.Int).SetUint64(number))
+func (r Receipts[P]) deriveFieldsOrig(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions[P]) error {
+	signer := MakeSigner[P](config, new(big.Int).SetUint64(number))
 
 	logIndex := uint(0)
 	if len(txs) != len(r) {
@@ -522,7 +522,7 @@ func (r Receipts) deriveFieldsOrig(config *params.ChainConfig, hash common.Hash,
 		// The contract address can be derived from the transaction itself
 		if txs[i].To() == nil {
 			// Deriving the signer is expensive, only do if it's actually needed
-			from, _ := Sender(signer, txs[i])
+			from, _ := Sender[P](signer, txs[i])
 			r[i].ContractAddress = crypto.CreateAddress(from, txs[i].Nonce())
 		}
 		// The used gas can be calculated based on previous r
@@ -546,7 +546,7 @@ func (r Receipts) deriveFieldsOrig(config *params.ChainConfig, hash common.Hash,
 
 // Quorum
 
-func (r *Receipt) FillReceiptExtraDataFromStorage(data *QuorumReceiptExtraData) {
+func (r *Receipt[P]) FillReceiptExtraDataFromStorage(data *QuorumReceiptExtraData[P]) {
 	if data == nil {
 		return
 	}
@@ -583,8 +583,8 @@ type storedReceiptExtraDataV1 struct {
 
 // Flatten takes a list of private receipts, which will be the "private" PSI receipt,
 // and flatten all the MPS receipts into a single list, which the bloom can work with
-func (r Receipts) Flatten() []*Receipt {
-	var flattenedReceipts []*Receipt
+func (r Receipts[P]) Flatten() []*Receipt[P] {
+	var flattenedReceipts []*Receipt[P]
 	for _, privReceipt := range r {
 		flattenedReceipts = append(flattenedReceipts, privReceipt)
 		for _, psReceipt := range privReceipt.PSReceipts {
@@ -594,7 +594,7 @@ func (r Receipts) Flatten() []*Receipt {
 	return flattenedReceipts
 }
 
-func convertPrivateReceiptsForEncoding(psReceipts map[PrivateStateIdentifier]*Receipt) []storedPSIToReceiptMapEntryV1 {
+func convertPrivateReceiptsForEncoding[P crypto.PublicKey](psReceipts map[PrivateStateIdentifier]*Receipt[P]) []storedPSIToReceiptMapEntryV1 {
 	if psReceipts == nil {
 		return nil
 	}
@@ -618,14 +618,14 @@ func convertPrivateReceiptsForEncoding(psReceipts map[PrivateStateIdentifier]*Re
 	return result
 }
 
-func convertPrivateReceiptsForDecoding(storedPSReceipts []storedPSIToReceiptMapEntryV1) (map[PrivateStateIdentifier]*Receipt, error) {
+func convertPrivateReceiptsForDecoding[P crypto.PublicKey](storedPSReceipts []storedPSIToReceiptMapEntryV1) (map[PrivateStateIdentifier]*Receipt[P], error) {
 	if len(storedPSReceipts) <= 0 {
 		return nil, nil
 	}
 
-	result := make(map[PrivateStateIdentifier]*Receipt)
+	result := make(map[PrivateStateIdentifier]*Receipt[P])
 	for _, entry := range storedPSReceipts {
-		rec := &Receipt{}
+		rec := &Receipt[P]{}
 		if err := rec.setStatus(entry.Value.PostStateOrStatus); err != nil {
 			return nil, err
 		}
@@ -635,7 +635,7 @@ func convertPrivateReceiptsForDecoding(storedPSReceipts []storedPSIToReceiptMapE
 			rec.Logs[i] = (*Log)(log)
 			rec.Logs[i].PSI = entry.Key
 		}
-		rec.Bloom = CreateBloom(Receipts{rec})
+		rec.Bloom = CreateBloom(Receipts[P]{rec})
 		rec.RevertReason = entry.Value.RevertReason
 		rec.TxHash = entry.Value.TxHash
 		rec.ContractAddress = entry.Value.ContractAddress
@@ -652,12 +652,12 @@ func convertLogsForEncoding(logs []*Log) []*LogForStorage {
 	return result
 }
 
-func decodeStoredQuorumReceiptExtraDataV1(r *QuorumReceiptExtraData, blob []byte) error {
+func decodeStoredQuorumReceiptExtraDataV1[P crypto.PublicKey](r *QuorumReceiptExtraData[P], blob []byte) error {
 	var stored storedQuorumReceiptExtraDataV1RLP
 	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
-	psReceipts, err := convertPrivateReceiptsForDecoding(stored.PSReceipts)
+	psReceipts, err := convertPrivateReceiptsForDecoding[P](stored.PSReceipts)
 	if err != nil {
 		return err
 	}
@@ -666,7 +666,7 @@ func decodeStoredQuorumReceiptExtraDataV1(r *QuorumReceiptExtraData, blob []byte
 	return nil
 }
 
-func (r *QuorumReceiptExtraData) DecodeRLP(s *rlp.Stream) error {
+func (r *QuorumReceiptExtraData[P]) DecodeRLP(s *rlp.Stream) error {
 	blob, err := s.Raw()
 	if err != nil {
 		return err
@@ -687,13 +687,13 @@ func (r *QuorumReceiptExtraData) DecodeRLP(s *rlp.Stream) error {
 	}
 	switch version {
 	case 1:
-		return decodeStoredQuorumReceiptExtraDataV1(r, blob)
+		return decodeStoredQuorumReceiptExtraDataV1[P](r, blob)
 	default:
 		return fmt.Errorf("unknown version %d", version)
 	}
 }
 
-func (r *QuorumReceiptExtraData) EncodeRLP(w io.Writer) error {
+func (r *QuorumReceiptExtraData[P]) EncodeRLP(w io.Writer) error {
 	enc := &storedQuorumReceiptExtraDataV1RLP{
 		Version:      1,
 		PSReceipts:   convertPrivateReceiptsForEncoding(r.PSReceipts),
@@ -702,7 +702,7 @@ func (r *QuorumReceiptExtraData) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, enc)
 }
 
-func (r *QuorumReceiptExtraData) IsEmpty() bool {
+func (r *QuorumReceiptExtraData[P]) IsEmpty() bool {
 	return (r.PSReceipts == nil || len(r.PSReceipts) == 0) && r.RevertReason == nil
 }
 
@@ -731,22 +731,22 @@ func convertLogsForDecoding(storedLogs []*LogForStorage) []*Log {
 	return result
 }
 
-func decodeStoredMPSReceiptRLP(r *ReceiptForStorage, blob []byte) error {
+func decodeStoredMPSReceiptRLP[P crypto.PublicKey](r *ReceiptForStorage[P], blob []byte) error {
 	var stored storedMPSReceiptRLP
 	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
-	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
+	if err := (*Receipt[P])(r).setStatus(stored.PostStateOrStatus); err != nil {
 		return err
 	}
 	r.CumulativeGasUsed = stored.CumulativeGasUsed
 	r.Logs = convertLogsForDecoding(stored.Logs)
-	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
+	r.Bloom = CreateBloom(Receipts[P]{(*Receipt[P])(r)})
 
 	if len(stored.PSReceipts) > 0 {
-		r.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
+		r.PSReceipts = make(map[PrivateStateIdentifier]*Receipt[P])
 		for _, entry := range stored.PSReceipts {
-			rec := &Receipt{}
+			rec := &Receipt[P]{}
 			if err := rec.setStatus(entry.Value.PostStateOrStatus); err != nil {
 				return err
 			}
@@ -756,20 +756,20 @@ func decodeStoredMPSReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 				rec.Logs[i] = (*Log)(log)
 				rec.Logs[i].PSI = entry.Key
 			}
-			rec.Bloom = CreateBloom(Receipts{rec})
+			rec.Bloom = CreateBloom(Receipts[P]{rec})
 			r.PSReceipts[entry.Key] = rec
 		}
 	}
 	return nil
 }
 
-type ReceiptForStorageMPSV1 Receipt
+type ReceiptForStorageMPSV1[P crypto.PublicKey] Receipt[P]
 
 // the original encoding for ReceiptForStorage at the time of the MPS release
-func (r *ReceiptForStorageMPSV1) EncodeRLP(w io.Writer) error {
+func (r *ReceiptForStorageMPSV1[P]) EncodeRLP(w io.Writer) error {
 	if r.PSReceipts == nil {
 		enc := &storedReceiptRLP{
-			PostStateOrStatus: (*Receipt)(r).statusEncoding(),
+			PostStateOrStatus: (*Receipt[P])(r).statusEncoding(),
 			CumulativeGasUsed: r.CumulativeGasUsed,
 			Logs:              make([]*LogForStorage, len(r.Logs)),
 		}
@@ -779,7 +779,7 @@ func (r *ReceiptForStorageMPSV1) EncodeRLP(w io.Writer) error {
 		return rlp.Encode(w, enc)
 	}
 	enc := &storedMPSReceiptRLP{
-		PostStateOrStatus: (*Receipt)(r).statusEncoding(),
+		PostStateOrStatus: (*Receipt[P])(r).statusEncoding(),
 		CumulativeGasUsed: r.CumulativeGasUsed,
 		Logs:              make([]*LogForStorage, len(r.Logs)),
 		PSReceipts:        make([]storedPSIToReceiptMapEntry, len(r.PSReceipts)),

@@ -313,7 +313,7 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])
-		if !p.Curve.IsOnCurve(k.X, k.Y) {
+		if !k.Curve.IsOnCurve(k.X, k.Y) {
 			return crypto.ZeroPublicKey[P](), ErrBadPoint
 		}
 		*p = nist.PublicKey{k}
@@ -322,7 +322,7 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])
-		if !p.C.IsOnCurve(k.X, k.Y) {
+		if !k.C.IsOnCurve(k.X, k.Y) {
 			return crypto.ZeroPublicKey[P](), ErrBadPoint
 		}
 		*p = *k
@@ -331,7 +331,7 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])
-		if !p.Curve.IsOnCurve(k.X, k.Y) {
+		if !k.Curve.IsOnCurve(k.X, k.Y) {
 			return crypto.ZeroPublicKey[P](), ErrBadPoint
 		}
 		*p = *k

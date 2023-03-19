@@ -44,8 +44,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// Conn[T,P] is an RLPx network Conn[T,P]ection. It wraps a low-level network Conn[T,P]ection. The
-// underlying Conn[T,P]ection should not be used for other activity when it is wrapped by Conn[T,P].
+// Conn[T,P] is an RLPx network Connection. It wraps a low-level network Connection. The
+// underlying Connection should not be used for other activity when it is wrapped by Conn[T,P].
 //
 // Before sending messages, a handshake must be performed by calling the Handshake method.
 // This type is not generally safe for concurrent use, but reading and writing of messages
@@ -66,7 +66,7 @@ type handshakeState struct {
 	ingressMAC hash.Hash
 }
 
-// NewConn[T,P] wraps the given network Conn[T,P]ection. If dialDest is non-nil, the Conn[T,P]ection
+// NewConn[T,P] wraps the given network Connection. If dialDest is non-nil, the Connection
 // behaves as the initiator during the handshake.
 func NewConn[T crypto.PrivateKey, P crypto.PublicKey](conn net.Conn, dialDest P) *Conn[T,P] {
 	return &Conn[T,P]{
@@ -77,7 +77,7 @@ func NewConn[T crypto.PrivateKey, P crypto.PublicKey](conn net.Conn, dialDest P)
 
 // SetSnappy enables or disables snappy compression of messages. This is usually called
 // after the devp2p Hello message exchange when the negotiated version indicates that
-// compression is available on both ends of the Conn[T,P]ection.
+// compression is available on both ends of the Connection.
 func (c *Conn[T,P]) SetSnappy(snappy bool) {
 	c.snappy = snappy
 }
@@ -97,7 +97,7 @@ func (c *Conn[T,P]) SetDeadline(time time.Time) error {
 	return c.conn.SetDeadline(time)
 }
 
-// Read reads a message from the Conn[T,P]ection.
+// Read reads a message from the Connection.
 func (c *Conn[T,P]) Read() (code uint64, data []byte, wireSize int, err error) {
 	if c.handshake == nil {
 		panic("can't ReadMsg before handshake")
@@ -255,7 +255,7 @@ func updateMAC(mac hash.Hash, block cipher.Block, seed []byte) []byte {
 }
 
 // Handshake performs the handshake. This must be called before any data is written
-// or read from the Conn[T,P]ection.
+// or read from the Connection.
 func (c *Conn[T,P]) Handshake(prv T) (P, error) {
 	var (
 		sec Secrets[T,P]
@@ -440,7 +440,7 @@ func (h *encHandshake[T,P]) handleAuthMsg(msg *authMsgV4[T,P], prv T) error {
 }
 
 // secrets is called after the handshake is completed.
-// It extracts the Conn[T,P]ection secrets from the handshake values.
+// It extracts the Connection secrets from the handshake values.
 func (h *encHandshake[T,P]) secrets(auth, authResp []byte) (Secrets[T,P], error) {
 	ecdheSecret, err := h.randomPrivKey.GenerateShared(h.remoteRandomPub, sskLen, sskLen)
 	if err != nil {
