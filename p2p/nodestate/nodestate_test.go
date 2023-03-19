@@ -25,6 +25,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -54,10 +55,10 @@ func testSetup(flagPersist []bool, fieldType []reflect.Type) (*Setup, []Flags, [
 	return setup, flags, fields
 }
 
-func testNode(b byte) *enode.Node {
+func testNode(b byte) *enode.Node[nist.PublicKey] {
 	r := &enr.Record{}
 	r.SetSig(dummyIdentity{b}, []byte{42})
-	n, _ := enode.New(dummyIdentity{b}, r)
+	n, _ := enode.New[nist.PublicKey](dummyIdentity{b}, r)
 	return n
 }
 
@@ -65,14 +66,14 @@ func TestCallback(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, _ := testSetup([]bool{false, false, false}, nil)
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey, nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	set0 := make(chan struct{}, 1)
 	set1 := make(chan struct{}, 1)
 	set2 := make(chan struct{}, 1)
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) { set0 <- struct{}{} })
-	ns.SubscribeState(flags[1], func(n *enode.Node, oldState, newState Flags) { set1 <- struct{}{} })
-	ns.SubscribeState(flags[2], func(n *enode.Node, oldState, newState Flags) { set2 <- struct{}{} })
+	ns.SubscribeState(flags[0], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) { set0 <- struct{}{} })
+	ns.SubscribeState(flags[1], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) { set1 <- struct{}{} })
+	ns.SubscribeState(flags[2], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) { set2 <- struct{}{} })
 
 	ns.Start()
 
@@ -95,10 +96,10 @@ func TestPersistentFlags(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, _ := testSetup([]bool{true, true, true, false}, nil)
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey, nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
-	saveNode := make(chan *nodeInfo, 5)
-	ns.saveNodeHook = func(node *nodeInfo) {
+	saveNode := make(chan *nodeInfo[nist.PublicKey], 5)
+	ns.saveNodeHook = func(node *nodeInfo[nist.PublicKey]) {
 		saveNode <- node
 	}
 
@@ -135,10 +136,10 @@ func TestSetField(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, fields := testSetup([]bool{true}, []reflect.Type{reflect.TypeOf("")})
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey, nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
-	saveNode := make(chan *nodeInfo, 1)
-	ns.saveNodeHook = func(node *nodeInfo) {
+	saveNode := make(chan *nodeInfo[nist.PublicKey], 1)
+	ns.saveNodeHook = func(node *nodeInfo[nist.PublicKey]) {
 		saveNode <- node
 	}
 
@@ -178,11 +179,11 @@ func TestSetState(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, _ := testSetup([]bool{false, false, false}, nil)
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey, nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	type change struct{ old, new Flags }
 	set := make(chan change, 1)
-	ns.SubscribeState(flags[0].Or(flags[1]), func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0].Or(flags[1]), func(n *enode.Node[nist.PublicKey], oldState, newState Flags) {
 		set <- change{
 			old: oldState,
 			new: newState,
@@ -265,7 +266,7 @@ func TestPersistentFields(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, fields := testSetup([]bool{true}, []reflect.Type{reflect.TypeOf(uint64(0)), reflect.TypeOf("")})
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	ns.Start()
 	ns.SetState(testNode(1), flags[0], Flags{}, 0)
@@ -273,7 +274,7 @@ func TestPersistentFields(t *testing.T) {
 	ns.SetField(testNode(1), fields[1], "hello world")
 	ns.Stop()
 
-	ns2 := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns2 := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	ns2.Start()
 	field0 := ns2.GetField(testNode(1), fields[0])
@@ -286,7 +287,7 @@ func TestPersistentFields(t *testing.T) {
 	}
 
 	s.Version++
-	ns3 := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns3 := NewNodeStateMachine[nist.PrivateKey, nist.PublicKey](mdb, []byte("-ns"), clock, s)
 	ns3.Start()
 	if ns3.GetField(testNode(1), fields[0]) != nil {
 		t.Fatalf("Old field version should have been discarded")
@@ -297,13 +298,13 @@ func TestFieldSub(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, fields := testSetup([]bool{true}, []reflect.Type{reflect.TypeOf(uint64(0))})
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	var (
 		lastState                  Flags
 		lastOldValue, lastNewValue interface{}
 	)
-	ns.SubscribeField(fields[0], func(n *enode.Node, state Flags, oldValue, newValue interface{}) {
+	ns.SubscribeField(fields[0], func(n *enode.Node[nist.PublicKey], state Flags, oldValue, newValue interface{}) {
 		lastState, lastOldValue, lastNewValue = state, oldValue, newValue
 	})
 	check := func(state Flags, oldValue, newValue interface{}) {
@@ -318,8 +319,8 @@ func TestFieldSub(t *testing.T) {
 	ns.Stop()
 	check(s.OfflineFlag(), uint64(100), nil)
 
-	ns2 := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
-	ns2.SubscribeField(fields[0], func(n *enode.Node, state Flags, oldValue, newValue interface{}) {
+	ns2 := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
+	ns2.SubscribeField(fields[0], func(n *enode.Node[nist.PublicKey], state Flags, oldValue, newValue interface{}) {
 		lastState, lastOldValue, lastNewValue = state, oldValue, newValue
 	})
 	ns2.Start()
@@ -334,11 +335,11 @@ func TestDuplicatedFlags(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, _ := testSetup([]bool{true}, nil)
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
 	type change struct{ old, new Flags }
 	set := make(chan change, 1)
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) {
 		set <- change{oldState, newState}
 	})
 
@@ -379,21 +380,21 @@ func TestCallbackOrder(t *testing.T) {
 	mdb, clock := rawdb.NewMemoryDatabase(), &mclock.Simulated{}
 
 	s, flags, _ := testSetup([]bool{false, false, false, false}, nil)
-	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
+	ns := NewNodeStateMachine[nist.PrivateKey,nist.PublicKey](mdb, []byte("-ns"), clock, s)
 
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) {
 		if newState.Equals(flags[0]) {
 			ns.SetStateSub(n, flags[1], Flags{}, 0)
 			ns.SetStateSub(n, flags[2], Flags{}, 0)
 		}
 	})
-	ns.SubscribeState(flags[1], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[1], func(n *enode.Node[nist.PublicKey], oldState, newState Flags) {
 		if newState.Equals(flags[1]) {
 			ns.SetStateSub(n, flags[3], Flags{}, 0)
 		}
 	})
 	lastState := Flags{}
-	ns.SubscribeState(MergeFlags(flags[1], flags[2], flags[3]), func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(MergeFlags(flags[1], flags[2], flags[3]), func(n *enode.Node[nist.PublicKey], oldState, newState Flags) {
 		if !oldState.Equals(lastState) {
 			t.Fatalf("Wrong callback order")
 		}

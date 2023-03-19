@@ -11,39 +11,48 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-type FileBasedPermissioning struct {
+type FileBasedPermissioning [P crypto.PublicKey] struct {
 	PermissionFile string
 	DisallowedFile string
 }
 
-var defaultFileBasedPermissioning = FileBasedPermissioning{
-	PermissionFile: params.PERMISSIONED_CONFIG,
-	DisallowedFile: params.DISALLOWED_CONFIG,
-}
+// var defaultFileBasedPermissioning = FileBasedPermissioning{
+// 	PermissionFile: params.PERMISSIONED_CONFIG,
+// 	DisallowedFile: params.DISALLOWED_CONFIG,
+// }
 
-func NewFileBasedPermissoningWithPrefix(prefix string) FileBasedPermissioning {
-	return FileBasedPermissioning{
+func NewFileBasedPermissoningWithPrefix[P crypto.PublicKey](prefix string) FileBasedPermissioning[P] {
+	return FileBasedPermissioning[P]{
 		PermissionFile: prefix + "-" + params.PERMISSIONED_CONFIG,
 		DisallowedFile: prefix + "-" + params.DISALLOWED_CONFIG,
 	}
 }
 
-func IsNodePermissioned(nodename string, currentNode string, datadir string, direction string) bool {
+func IsNodePermissioned[P crypto.PublicKey](nodename string, currentNode string, datadir string, direction string) bool {
+	defaultFileBasedPermissioning := FileBasedPermissioning[P]{
+		PermissionFile: params.PERMISSIONED_CONFIG,
+		DisallowedFile: params.DISALLOWED_CONFIG,
+		}
 	return defaultFileBasedPermissioning.IsNodePermissioned(nodename, currentNode, datadir, direction)
 }
 
-func isNodeDisallowed(nodeName, dataDir string) bool {
+func isNodeDisallowed[P crypto.PublicKey](nodeName, dataDir string) bool {
+	defaultFileBasedPermissioning := FileBasedPermissioning[P]{
+		PermissionFile: params.PERMISSIONED_CONFIG,
+		DisallowedFile: params.DISALLOWED_CONFIG,
+		}
 	return defaultFileBasedPermissioning.isNodeDisallowed(nodeName, dataDir)
 }
 
-func (fbp *FileBasedPermissioning) IsNodePermissionedEnode(node *enode.Node, nodename string, currentNode string, datadir string, direction string) bool {
+func (fbp *FileBasedPermissioning[P]) IsNodePermissionedEnode(node *enode.Node[P], nodename string, currentNode string, datadir string, direction string) bool {
 	return fbp.IsNodePermissioned(nodename, currentNode, datadir, direction)
 }
 
 // check if a given node is permissioned to connect to the change
-func (fbp *FileBasedPermissioning) IsNodePermissioned(nodename string, currentNode string, datadir string, direction string) bool {
+func (fbp *FileBasedPermissioning[P]) IsNodePermissioned(nodename string, currentNode string, datadir string, direction string) bool {
 	var permissionedList []string
 	nodes := fbp.ParsePermissionedNodes(datadir)
 	for _, v := range nodes {
@@ -65,7 +74,7 @@ func (fbp *FileBasedPermissioning) IsNodePermissioned(nodename string, currentNo
 //this is a shameless copy from the config.go. It is a duplication of the code
 //for the timebeing to allow reload of the permissioned nodes while the server is running
 
-func (fbp *FileBasedPermissioning) ParsePermissionedNodes(DataDir string) []*enode.Node {
+func (fbp *FileBasedPermissioning[P]) ParsePermissionedNodes(DataDir string) []*enode.Node[P] {
 
 	log.Debug("parsePermissionedNodes", "DataDir", DataDir, "file", fbp.PermissionFile)
 
@@ -87,13 +96,13 @@ func (fbp *FileBasedPermissioning) ParsePermissionedNodes(DataDir string) []*eno
 		return nil
 	}
 	// Interpret the list as a discovery node array
-	var nodes []*enode.Node
+	var nodes []*enode.Node[P]
 	for _, url := range nodelist {
 		if url == "" {
 			log.Error("parsePermissionedNodes: Node URL blank")
 			continue
 		}
-		node, err := enode.ParseV4(url)
+		node, err := enode.ParseV4[P](url)
 		if err != nil {
 			log.Error("parsePermissionedNodes: Node URL", "url", url, "err", err)
 			continue
@@ -104,7 +113,7 @@ func (fbp *FileBasedPermissioning) ParsePermissionedNodes(DataDir string) []*eno
 }
 
 // This function checks if the node is disallowed
-func (fbp *FileBasedPermissioning) isNodeDisallowed(nodeName, dataDir string) bool {
+func (fbp *FileBasedPermissioning[P]) isNodeDisallowed(nodeName, dataDir string) bool {
 	log.Debug("isNodeDisallowed", "DataDir", dataDir, "file", fbp.DisallowedFile)
 
 	path := filepath.Join(dataDir, fbp.DisallowedFile)
@@ -126,7 +135,7 @@ func (fbp *FileBasedPermissioning) isNodeDisallowed(nodeName, dataDir string) bo
 	}
 
 	for _, v := range nodelist {
-		n, _ := enode.ParseV4(v)
+		n, _ := enode.ParseV4[P](v)
 		if nodeName == n.ID().String() {
 			return true
 		}

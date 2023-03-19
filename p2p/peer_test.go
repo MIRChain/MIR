@@ -28,15 +28,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
-var discard = Protocol{
+var discard = Protocol[nist.PrivateKey,nist.PublicKey]{
 	Name:   "discard",
 	Length: 1,
-	Run: func(p *Peer, rw MsgReadWriter) error {
+	Run: func(p *Peer[nist.PrivateKey, nist.PublicKey], rw MsgReadWriter) error {
 		for {
 			msg, err := rw.ReadMsg()
 			if err != nil {
@@ -58,7 +59,7 @@ func uintID(i uint16) enode.ID {
 }
 
 // newNode creates a node record with the given address.
-func newNode(id enode.ID, addr string) *enode.Node {
+func newNode(id enode.ID, addr string) *enode.Node[nist.PublicKey] {
 	var r enr.Record
 	if addr != "" {
 		// Set the port if present.
@@ -82,19 +83,19 @@ func newNode(id enode.ID, addr string) *enode.Node {
 		}
 		r.Set(enr.IP(ip))
 	}
-	return enode.SignNull(&r, id)
+	return enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, id)
 }
 
-func testPeer(protos []Protocol) (func(), *conn, *Peer, <-chan error) {
+func testPeer(protos []Protocol[nist.PrivateKey,nist.PublicKey]) (func(), *conn[nist.PrivateKey, nist.PublicKey], *Peer[nist.PrivateKey, nist.PublicKey], <-chan error) {
 	var (
 		fd1, fd2   = net.Pipe()
 		key1, key2 = newkey(), newkey()
-		t1         = newTestTransport(&key2.PublicKey, fd1, nil)
-		t2         = newTestTransport(&key1.PublicKey, fd2, &key1.PublicKey)
+		t1         = newTestTransport(key2.Public(), fd1, key2.Public())
+		t2         = newTestTransport(key1.Public(), fd2, key1.Public())
 	)
 
-	c1 := &conn{fd: fd1, node: newNode(uintID(1), ""), transport: t1}
-	c2 := &conn{fd: fd2, node: newNode(uintID(2), ""), transport: t2}
+	c1 := &conn[nist.PrivateKey, nist.PublicKey]{fd: fd1, node: newNode(uintID(1), ""), transport: t1}
+	c2 := &conn[nist.PrivateKey, nist.PublicKey]{fd: fd2, node: newNode(uintID(2), ""), transport: t2}
 	for _, p := range protos {
 		c1.caps = append(c1.caps, p.cap())
 		c2.caps = append(c2.caps, p.cap())
@@ -112,10 +113,10 @@ func testPeer(protos []Protocol) (func(), *conn, *Peer, <-chan error) {
 }
 
 func TestPeerProtoReadMsg(t *testing.T) {
-	proto := Protocol{
+	proto := Protocol[nist.PrivateKey,nist.PublicKey]{
 		Name:   "a",
 		Length: 5,
-		Run: func(peer *Peer, rw MsgReadWriter) error {
+		Run: func(peer *Peer[nist.PrivateKey, nist.PublicKey], rw MsgReadWriter) error {
 			if err := ExpectMsg(rw, 2, []uint{1}); err != nil {
 				t.Error(err)
 			}
@@ -129,7 +130,7 @@ func TestPeerProtoReadMsg(t *testing.T) {
 		},
 	}
 
-	closer, rw, _, errc := testPeer([]Protocol{proto})
+	closer, rw, _, errc := testPeer([]Protocol[nist.PrivateKey,nist.PublicKey]{proto})
 	defer closer()
 
 	Send(rw, baseProtocolLength+2, []uint{1})
@@ -147,10 +148,10 @@ func TestPeerProtoReadMsg(t *testing.T) {
 }
 
 func TestPeerProtoEncodeMsg(t *testing.T) {
-	proto := Protocol{
+	proto := Protocol[nist.PrivateKey,nist.PublicKey]{
 		Name:   "a",
 		Length: 2,
-		Run: func(peer *Peer, rw MsgReadWriter) error {
+		Run: func(peer *Peer[nist.PrivateKey, nist.PublicKey], rw MsgReadWriter) error {
 			if err := SendItems(rw, 2); err == nil {
 				t.Error("expected error for out-of-range msg code, got nil")
 			}
@@ -160,7 +161,7 @@ func TestPeerProtoEncodeMsg(t *testing.T) {
 			return nil
 		},
 	}
-	closer, rw, _, _ := testPeer([]Protocol{proto})
+	closer, rw, _, _ := testPeer([]Protocol[nist.PrivateKey,nist.PublicKey]{proto})
 	defer closer()
 
 	if err := ExpectMsg(rw, 17, []string{"foo", "bar"}); err != nil {
@@ -206,15 +207,15 @@ func TestPeerDisconnectRace(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		protoclose := make(chan error)
 		protodisc := make(chan DiscReason)
-		closer, rw, p, disc := testPeer([]Protocol{
+		closer, rw, p, disc := testPeer([]Protocol[nist.PrivateKey,nist.PublicKey]{
 			{
 				Name:   "closereq",
-				Run:    func(p *Peer, rw MsgReadWriter) error { return <-protoclose },
+				Run:    func(p *Peer[nist.PrivateKey, nist.PublicKey], rw MsgReadWriter) error { return <-protoclose },
 				Length: 1,
 			},
 			{
 				Name:   "disconnect",
-				Run:    func(p *Peer, rw MsgReadWriter) error { p.Disconnect(<-protodisc); return nil },
+				Run:    func(p *Peer[nist.PrivateKey, nist.PublicKey], rw MsgReadWriter) error { p.Disconnect(<-protodisc); return nil },
 				Length: 1,
 			},
 		})
@@ -252,7 +253,7 @@ func TestNewPeer(t *testing.T) {
 	name := "nodename"
 	caps := []Cap{{"foo", 2}, {"bar", 3}}
 	id := randomID()
-	p := NewPeer(id, name, caps)
+	p := NewPeer[nist.PrivateKey, nist.PublicKey](id, name, caps)
 	if p.ID() != id {
 		t.Errorf("ID mismatch: got %v, expected %v", p.ID(), id)
 	}
@@ -269,12 +270,12 @@ func TestNewPeer(t *testing.T) {
 func TestMatchProtocols(t *testing.T) {
 	tests := []struct {
 		Remote []Cap
-		Local  []Protocol
-		Match  map[string]protoRW
+		Local  []Protocol[nist.PrivateKey,nist.PublicKey]
+		Match  map[string]protoRW[nist.PrivateKey,nist.PublicKey]
 	}{
 		{
 			// No remote capabilities
-			Local: []Protocol{{Name: "a"}},
+			Local: []Protocol[nist.PrivateKey,nist.PublicKey]{{Name: "a"}},
 		},
 		{
 			// No local protocols
@@ -283,48 +284,48 @@ func TestMatchProtocols(t *testing.T) {
 		{
 			// No mutual protocols
 			Remote: []Cap{{Name: "a"}},
-			Local:  []Protocol{{Name: "b"}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Name: "b"}},
 		},
 		{
 			// Some matches, some differences
 			Remote: []Cap{{Name: "local"}, {Name: "match1"}, {Name: "match2"}},
-			Local:  []Protocol{{Name: "match1"}, {Name: "match2"}, {Name: "remote"}},
-			Match:  map[string]protoRW{"match1": {Protocol: Protocol{Name: "match1"}}, "match2": {Protocol: Protocol{Name: "match2"}}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Name: "match1"}, {Name: "match2"}, {Name: "remote"}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"match1": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "match1"}}, "match2": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "match2"}}},
 		},
 		{
 			// Various alphabetical ordering
 			Remote: []Cap{{Name: "aa"}, {Name: "ab"}, {Name: "bb"}, {Name: "ba"}},
-			Local:  []Protocol{{Name: "ba"}, {Name: "bb"}, {Name: "ab"}, {Name: "aa"}},
-			Match:  map[string]protoRW{"aa": {Protocol: Protocol{Name: "aa"}}, "ab": {Protocol: Protocol{Name: "ab"}}, "ba": {Protocol: Protocol{Name: "ba"}}, "bb": {Protocol: Protocol{Name: "bb"}}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Name: "ba"}, {Name: "bb"}, {Name: "ab"}, {Name: "aa"}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"aa": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "aa"}}, "ab": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "ab"}}, "ba": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "ba"}}, "bb": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "bb"}}},
 		},
 		{
 			// No mutual versions
 			Remote: []Cap{{Version: 1}},
-			Local:  []Protocol{{Version: 2}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Version: 2}},
 		},
 		{
 			// Multiple versions, single common
 			Remote: []Cap{{Version: 1}, {Version: 2}},
-			Local:  []Protocol{{Version: 2}, {Version: 3}},
-			Match:  map[string]protoRW{"": {Protocol: Protocol{Version: 2}}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Version: 2}, {Version: 3}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Version: 2}}},
 		},
 		{
 			// Multiple versions, multiple common
 			Remote: []Cap{{Version: 1}, {Version: 2}, {Version: 3}, {Version: 4}},
-			Local:  []Protocol{{Version: 2}, {Version: 3}},
-			Match:  map[string]protoRW{"": {Protocol: Protocol{Version: 3}}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Version: 2}, {Version: 3}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Version: 3}}},
 		},
 		{
 			// Various version orderings
 			Remote: []Cap{{Version: 4}, {Version: 1}, {Version: 3}, {Version: 2}},
-			Local:  []Protocol{{Version: 2}, {Version: 3}, {Version: 1}},
-			Match:  map[string]protoRW{"": {Protocol: Protocol{Version: 3}}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Version: 2}, {Version: 3}, {Version: 1}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Version: 3}}},
 		},
 		{
 			// Versions overriding sub-protocol lengths
 			Remote: []Cap{{Version: 1}, {Version: 2}, {Version: 3}, {Name: "a"}},
-			Local:  []Protocol{{Version: 1, Length: 1}, {Version: 2, Length: 2}, {Version: 3, Length: 3}, {Name: "a"}},
-			Match:  map[string]protoRW{"": {Protocol: Protocol{Version: 3}}, "a": {Protocol: Protocol{Name: "a"}, offset: 3}},
+			Local:  []Protocol[nist.PrivateKey,nist.PublicKey]{{Version: 1, Length: 1}, {Version: 2, Length: 2}, {Version: 3, Length: 3}, {Name: "a"}},
+			Match:  map[string]protoRW[nist.PrivateKey,nist.PublicKey]{"": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Version: 3}}, "a": {Protocol: Protocol[nist.PrivateKey,nist.PublicKey]{Name: "a"}, offset: 3}},
 		},
 	}
 

@@ -161,7 +161,7 @@ func (cfg dialConfig[P]) withDefaults() dialConfig[P] {
 	return cfg
 }
 
-func newDialScheduler[T crypto.PrivateKey, P crypto.PublicKey](config dialConfig[P], it enode.Iterator, setupFunc dialSetupFunc[P]) *dialScheduler[T,P] {
+func newDialScheduler[T crypto.PrivateKey, P crypto.PublicKey](config dialConfig[P], it enode.Iterator[P], setupFunc dialSetupFunc[P]) *dialScheduler[T,P] {
 	d := &dialScheduler[T,P]{
 		dialConfig:  config.withDefaults(),
 		setupFunc:   setupFunc,
@@ -222,7 +222,7 @@ func (d *dialScheduler[T,P]) peerRemoved(c *conn[T,P]) {
 }
 
 // loop is the main loop of the dialer.
-func (d *dialScheduler[T,P]) loop(it enode.Iterator) {
+func (d *dialScheduler[T,P]) loop(it enode.Iterator[P]) {
 	var (
 		nodesCh    chan *enode.Node[P]
 		historyExp = make(chan struct{}, 1)
@@ -317,7 +317,7 @@ loop:
 
 // readNodes runs in its own goroutine and delivers nodes from
 // the input iterator to the nodesIn channel.
-func (d *dialScheduler[T,P]) readNodes(it enode.Iterator) {
+func (d *dialScheduler[T,P]) readNodes(it enode.Iterator[P]) {
 	defer d.wg.Done()
 
 	for it.Next() {

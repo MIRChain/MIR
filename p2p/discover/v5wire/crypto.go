@@ -152,7 +152,6 @@ func deriveKeys[T crypto.PrivateKey, P crypto.PublicKey](hash hashFn, priv T, pu
 // ecdh creates a shared secret.
 func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
 	var secX, secY *big.Int 
-	var err error
 	switch p:=any(&privkey).(type) {
 	case *nist.PrivateKey:
 		pub := any(&pubkey).(*nist.PublicKey) 
@@ -162,10 +161,7 @@ func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
 		}
 	case *gost3410.PrivateKey:
 		pub := any(&pubkey).(*gost3410.PublicKey)
-		secX, secY, err = pub.C.Exp(p.Key, pub.X, pub.Y)
-		if err == nil {
-			panic("cant multiply gost points at curve")
-		}
+		secX, secY = pub.C.ScalarMult(pub.X, pub.Y, p.Key.Bytes())
 		sec := make([]byte, 33)
 		sec[0] = 0x02 | byte(secY.Bit(0))
 		math.ReadBits(secX, sec[1:])

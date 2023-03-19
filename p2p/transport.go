@@ -18,7 +18,6 @@ package p2p
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"net"
@@ -122,7 +121,7 @@ func (t *rlpxTransport[T,P]) close(err error) {
 	t.conn.Close()
 }
 
-func (t *rlpxTransport[T,P]) doEncHandshake(prv P) (P, error) {
+func (t *rlpxTransport[T,P]) doEncHandshake(prv T) (P, error) {
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
 	return t.conn.Handshake(prv)
 }

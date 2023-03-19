@@ -10,6 +10,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 type TransactionType uint8
@@ -579,12 +580,12 @@ func CheckIfAdminAccount(acctId common.Address) bool {
 }
 
 // validates if the account can transact from the current node
-func ValidateNodeForTxn(hexnodeId string, from common.Address) bool {
+func ValidateNodeForTxn[P crypto.PublicKey](hexnodeId string, from common.Address) bool {
 	if !PermissionsEnabled() || hexnodeId == "" {
 		return true
 	}
 
-	passedEnodeId, err := enode.ParseV4(hexnodeId)
+	passedEnodeId, err := enode.ParseV4[P](hexnodeId)
 	if err != nil {
 		return false
 	}
@@ -606,7 +607,7 @@ func ValidateNodeForTxn(hexnodeId string, from common.Address) bool {
 			return false
 		}
 		if orgRec.UltimateParent == acOrgRec.UltimateParent {
-			recEnodeId, _ := enode.ParseV4(n.Url)
+			recEnodeId, _ := enode.ParseV4[P](n.Url)
 			if recEnodeId.ID() == passedEnodeId.ID() && n.Status == NodeApproved {
 				return true
 			}

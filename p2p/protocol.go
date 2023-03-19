@@ -25,7 +25,7 @@ import (
 )
 
 // Protocol represents a P2P subprotocol implementation.
-type Protocol [P crypto.PublicKey] struct {
+type Protocol [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Name should contain the official protocol name,
 	// often a three-letter word.
 	Name string
@@ -44,7 +44,7 @@ type Protocol [P crypto.PublicKey] struct {
 	// The peer connection is closed when Start returns. It should return
 	// any protocol-level error (such as an I/O error) that is
 	// encountered.
-	Run func(peer *Peer, rw MsgReadWriter) error
+	Run func(peer *Peer[T,P], rw MsgReadWriter) error
 
 	// NodeInfo is an optional helper method to retrieve protocol specific metadata
 	// about the host node.
@@ -64,7 +64,7 @@ type Protocol [P crypto.PublicKey] struct {
 	Attributes []enr.Entry
 }
 
-func (p Protocol[P]) cap() Cap {
+func (p Protocol[T,P]) cap() Cap {
 	return Cap{p.Name, p.Version}
 }
 

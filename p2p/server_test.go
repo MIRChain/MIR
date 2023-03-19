@@ -17,7 +17,6 @@
 package p2p
 
 import (
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"io"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -41,14 +41,14 @@ import (
 )
 
 type testTransport struct {
-	*rlpxTransport
-	rpub     *ecdsa.PublicKey
+	*rlpxTransport[nist.PrivateKey, nist.PublicKey]
+	rpub     *nist.PublicKey
 	closeErr error
 }
 
-func newTestTransport(rpub *ecdsa.PublicKey, fd net.Conn, dialDest *ecdsa.PublicKey) transport {
-	wrapped := newRLPX(fd, dialDest).(*rlpxTransport)
-	wrapped.conn.InitWithSecrets(rlpx.Secrets{
+func newTestTransport(rpub *nist.PublicKey, fd net.Conn, dialDest *nist.PublicKey) transport[nist.PrivateKey, nist.PublicKey] {
+	wrapped := newRLPX[nist.PrivateKey](fd, *dialDest).(*rlpxTransport[nist.PrivateKey, nist.PublicKey])
+	wrapped.conn.InitWithSecrets(rlpx.Secrets[nist.PrivateKey, nist.PublicKey]{
 		AES:        make([]byte, 16),
 		MAC:        make([]byte, 16),
 		EgressMAC:  sha256.New(),
@@ -57,12 +57,12 @@ func newTestTransport(rpub *ecdsa.PublicKey, fd net.Conn, dialDest *ecdsa.Public
 	return &testTransport{rpub: rpub, rlpxTransport: wrapped}
 }
 
-func (c *testTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
-	return c.rpub, nil
+func (c *testTransport) doEncHandshake(prv nist.PrivateKey) (nist.PublicKey, error) {
+	return *c.rpub, nil
 }
 
 func (c *testTransport) doProtoHandshake(our *protoHandshake) (*protoHandshake, error) {
-	pubkey := crypto.FromECDSAPub(c.rpub)[1:]
+	pubkey := crypto.FromECDSAPub(*c.rpub)[1:]
 	return &protoHandshake{ID: pubkey, Name: "test"}, nil
 }
 
@@ -71,20 +71,20 @@ func (c *testTransport) close(err error) {
 	c.closeErr = err
 }
 
-func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *Server {
-	config := Config{
+func startTestServer(t *testing.T, remoteKey *nist.PublicKey, pf func(*Peer[nist.PrivateKey, nist.PublicKey])) *Server[nist.PrivateKey, nist.PublicKey] {
+	config := Config[nist.PrivateKey, nist.PublicKey]{
 		Name:        "test",
 		MaxPeers:    10,
 		ListenAddr:  "127.0.0.1:0",
 		NoDiscovery: true,
-		PrivateKey:  newkey(),
+		PrivateKey:  *newkey(),
 		Logger:      testlog.Logger(t, log.LvlTrace),
 	}
-	server := &Server{
+	server := &Server[nist.PrivateKey, nist.PublicKey]{
 		Config:      config,
 		newPeerHook: pf,
-		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport {
-			return newTestTransport(remoteKey, fd, dialDest)
+		newTransport: func(fd net.Conn, dialDest nist.PublicKey) transport[nist.PrivateKey, nist.PublicKey] {
+			return newTestTransport(remoteKey, fd, &dialDest)
 		},
 	}
 	if err := server.Start(); err != nil {
@@ -95,9 +95,9 @@ func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *
 
 func TestServerListen(t *testing.T) {
 	// start the test server
-	connected := make(chan *Peer)
-	remid := &newkey().PublicKey
-	srv := startTestServer(t, remid, func(p *Peer) {
+	connected := make(chan *Peer[nist.PrivateKey, nist.PublicKey])
+	remid := newkey().Public()
+	srv := startTestServer(t, remid, func(p *Peer[nist.PrivateKey, nist.PublicKey]) {
 		if p.ID() != enode.PubkeyToIDV4(remid) {
 			t.Error("peer func called with wrong node id")
 		}
@@ -120,8 +120,8 @@ func TestServerListen(t *testing.T) {
 				peer.LocalAddr(), conn.RemoteAddr())
 		}
 		peers := srv.Peers()
-		if !reflect.DeepEqual(peers, []*Peer{peer}) {
-			t.Errorf("Peers mismatch: got %v, want %v", peers, []*Peer{peer})
+		if !reflect.DeepEqual(peers, []*Peer[nist.PrivateKey, nist.PublicKey]{peer}) {
+			t.Errorf("Peers mismatch: got %v, want %v", peers, []*Peer[nist.PrivateKey, nist.PublicKey]{peer})
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("server did not accept within one second")
@@ -145,15 +145,15 @@ func TestServerDial(t *testing.T) {
 	}()
 
 	// start the server
-	connected := make(chan *Peer)
-	remid := &newkey().PublicKey
-	srv := startTestServer(t, remid, func(p *Peer) { connected <- p })
+	connected := make(chan *Peer[nist.PrivateKey, nist.PublicKey])
+	remid := newkey().Public()
+	srv := startTestServer(t, remid, func(p *Peer[nist.PrivateKey, nist.PublicKey]) { connected <- p })
 	defer close(connected)
 	defer srv.Stop()
 
 	// tell the server to connect
 	tcpAddr := listener.Addr().(*net.TCPAddr)
-	node := enode.NewV4(remid, tcpAddr.IP, tcpAddr.Port, 0)
+	node := enode.NewV4(*remid, tcpAddr.IP, tcpAddr.Port, 0)
 	srv.AddPeer(node)
 
 	select {
@@ -173,8 +173,8 @@ func TestServerDial(t *testing.T) {
 					peer.RemoteAddr(), conn.LocalAddr())
 			}
 			peers := srv.Peers()
-			if !reflect.DeepEqual(peers, []*Peer{peer}) {
-				t.Errorf("Peers mismatch: got %v, want %v", peers, []*Peer{peer})
+			if !reflect.DeepEqual(peers, []*Peer[nist.PrivateKey, nist.PublicKey]{peer}) {
+				t.Errorf("Peers mismatch: got %v, want %v", peers, []*Peer[nist.PrivateKey, nist.PublicKey]{peer})
 			}
 
 			// Test AddTrustedPeer/RemoveTrustedPeer and changing Trusted flags
@@ -210,14 +210,14 @@ func TestServerDial(t *testing.T) {
 
 // This test checks that RemovePeer disconnects the peer if it is connected.
 func TestServerRemovePeerDisconnect(t *testing.T) {
-	srv1 := &Server{Config: Config{
-		PrivateKey:  newkey(),
+	srv1 := &Server[nist.PrivateKey, nist.PublicKey]{Config: Config[nist.PrivateKey, nist.PublicKey]{
+		PrivateKey:  *newkey(),
 		MaxPeers:    1,
 		NoDiscovery: true,
 		Logger:      testlog.Logger(t, log.LvlTrace).New("server", "1"),
 	}}
-	srv2 := &Server{Config: Config{
-		PrivateKey:  newkey(),
+	srv2 := &Server[nist.PrivateKey, nist.PublicKey]{Config: Config[nist.PrivateKey, nist.PublicKey]{
+		PrivateKey:  *newkey(),
 		MaxPeers:    1,
 		NoDiscovery: true,
 		NoDial:      true,
@@ -242,14 +242,14 @@ func TestServerRemovePeerDisconnect(t *testing.T) {
 // when the server is at capacity. Trusted connections should still be accepted.
 func TestServerAtCap(t *testing.T) {
 	trustedNode := newkey()
-	trustedID := enode.PubkeyToIDV4(&trustedNode.PublicKey)
-	srv := &Server{
-		Config: Config{
-			PrivateKey:   newkey(),
+	trustedID := enode.PubkeyToIDV4(trustedNode.Public())
+	srv := &Server[nist.PrivateKey, nist.PublicKey]{
+		Config: Config[nist.PrivateKey, nist.PublicKey]{
+			PrivateKey:   *newkey(),
 			MaxPeers:     10,
 			NoDial:       true,
 			NoDiscovery:  true,
-			TrustedNodes: []*enode.Node{newNode(trustedID, "")},
+			TrustedNodes: []*enode.Node[nist.PublicKey]{newNode(trustedID, "")},
 			Logger:       testlog.Logger(t, log.LvlTrace),
 		},
 	}
@@ -258,11 +258,11 @@ func TestServerAtCap(t *testing.T) {
 	}
 	defer srv.Stop()
 
-	newconn := func(id enode.ID) *conn {
+	newconn := func(id enode.ID) *conn[nist.PrivateKey, nist.PublicKey] {
 		fd, _ := net.Pipe()
-		tx := newTestTransport(&trustedNode.PublicKey, fd, nil)
-		node := enode.SignNull(new(enr.Record), id)
-		return &conn{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
+		tx := newTestTransport(trustedNode.Public(), fd, nil)
+		node := enode.SignNull[nist.PrivateKey, nist.PublicKey](new(enr.Record), id)
+		return &conn[nist.PrivateKey, nist.PublicKey]{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
 	}
 
 	// Inject a few connections to fill up the peer set.
@@ -306,29 +306,29 @@ func TestServerAtCap(t *testing.T) {
 }
 
 func TestServerPeerLimits(t *testing.T) {
-	srvkey := newkey()
-	clientkey := newkey()
-	clientnode := enode.NewV4(&clientkey.PublicKey, nil, 0, 0)
+	srvkey := *newkey()
+	clientkey := *newkey()
+	clientnode := enode.NewV4(*clientkey.Public(), nil, 0, 0)
 
 	var tp = &setupTransport{
-		pubkey: &clientkey.PublicKey,
+		pubkey: *clientkey.Public(),
 		phs: protoHandshake{
-			ID: crypto.FromECDSAPub(&clientkey.PublicKey)[1:],
+			ID: crypto.FromECDSAPub(*clientkey.Public())[1:],
 			// Force "DiscUselessPeer" due to unmatching caps
 			// Caps: []Cap{discard.cap()},
 		},
 	}
 
-	srv := &Server{
-		Config: Config{
+	srv := &Server[nist.PrivateKey, nist.PublicKey]{
+		Config: Config[nist.PrivateKey, nist.PublicKey]{
 			PrivateKey:  srvkey,
 			MaxPeers:    0,
 			NoDial:      true,
 			NoDiscovery: true,
-			Protocols:   []Protocol{discard},
+			Protocols:   []Protocol[nist.PrivateKey, nist.PublicKey]{discard},
 			Logger:      testlog.Logger(t, log.LvlTrace),
 		},
-		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport { return tp },
+		newTransport: func(fd net.Conn, dialDest nist.PublicKey) transport[nist.PrivateKey, nist.PublicKey] { return tp },
 	}
 	if err := srv.Start(); err != nil {
 		t.Fatalf("couldn't start server: %v", err)
@@ -372,53 +372,53 @@ func TestServerPeerLimits(t *testing.T) {
 
 func TestServerSetupConn(t *testing.T) {
 	var (
-		clientkey, srvkey = newkey(), newkey()
-		clientpub         = &clientkey.PublicKey
-		srvpub            = &srvkey.PublicKey
+		clientkey, srvkey = *newkey(), *newkey()
+		clientpub         = clientkey.Public()
+		srvpub            = srvkey.Public()
 	)
 	tests := []struct {
 		dontstart bool
 		tt        *setupTransport
 		flags     connFlag
-		dialDest  *enode.Node
+		dialDest  *enode.Node[nist.PublicKey]
 
 		wantCloseErr error
 		wantCalls    string
 	}{
 		{
 			dontstart:    true,
-			tt:           &setupTransport{pubkey: clientpub},
+			tt:           &setupTransport{pubkey: *clientpub},
 			wantCalls:    "close,",
 			wantCloseErr: errServerStopped,
 		},
 		{
-			tt:           &setupTransport{pubkey: clientpub, encHandshakeErr: errors.New("read error")},
+			tt:           &setupTransport{pubkey: *clientpub, encHandshakeErr: errors.New("read error")},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,close,",
 			wantCloseErr: errors.New("read error"),
 		},
 		{
-			tt:           &setupTransport{pubkey: clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
-			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
+			tt:           &setupTransport{pubkey: *clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
+			dialDest:     enode.NewV4(*clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUnexpectedIdentity,
 		},
 		{
-			tt:           &setupTransport{pubkey: clientpub, protoHandshakeErr: errors.New("foo")},
-			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
+			tt:           &setupTransport{pubkey: *clientpub, protoHandshakeErr: errors.New("foo")},
+			dialDest:     enode.NewV4(*clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: errors.New("foo"),
 		},
 		{
-			tt:           &setupTransport{pubkey: srvpub, phs: protoHandshake{ID: crypto.FromECDSAPub(srvpub)[1:]}},
+			tt:           &setupTransport{pubkey: *srvpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*srvpub)[1:]}},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,close,",
 			wantCloseErr: DiscSelf,
 		},
 		{
-			tt:           &setupTransport{pubkey: clientpub, phs: protoHandshake{ID: crypto.FromECDSAPub(clientpub)[1:]}},
+			tt:           &setupTransport{pubkey: *clientpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*clientpub)[1:]}},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUselessPeer,
@@ -427,17 +427,17 @@ func TestServerSetupConn(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(test.wantCalls, func(t *testing.T) {
-			cfg := Config{
+			cfg := Config[nist.PrivateKey,nist.PublicKey]{
 				PrivateKey:  srvkey,
 				MaxPeers:    10,
 				NoDial:      true,
 				NoDiscovery: true,
-				Protocols:   []Protocol{discard},
+				Protocols:   []Protocol[nist.PrivateKey,nist.PublicKey]{discard},
 				Logger:      testlog.Logger(t, log.LvlTrace),
 			}
-			srv := &Server{
+			srv := &Server[nist.PrivateKey,nist.PublicKey]{
 				Config:       cfg,
-				newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport { return test.tt },
+				newTransport: func(fd net.Conn, dialDest nist.PublicKey) transport[nist.PrivateKey,nist.PublicKey] { return test.tt },
 				log:          cfg.Logger,
 			}
 			if !test.dontstart {
@@ -460,19 +460,19 @@ func TestServerSetupConn(t *testing.T) {
 
 func TestServerSetupConn_whenNotInRaftCluster(t *testing.T) {
 	var (
-		clientkey, srvkey = newkey(), newkey()
-		clientpub         = &clientkey.PublicKey
+		clientkey, srvkey = *newkey(), *newkey()
+		clientpub         = clientkey.Public()
 	)
 
-	clientNode := enode.NewV4(clientpub, nil, 0, 0)
-	srv := &Server{
-		Config: Config{
+	clientNode := enode.NewV4[nist.PublicKey](*clientpub, nil, 0, 0)
+	srv := &Server[nist.PrivateKey,nist.PublicKey]{
+		Config: Config[nist.PrivateKey,nist.PublicKey]{
 			PrivateKey:  srvkey,
 			NoDiscovery: true,
 		},
-		newTransport: func(fd net.Conn, key *ecdsa.PublicKey) transport { return newTestTransport(clientpub, fd, key) },
+		newTransport: func(fd net.Conn, key nist.PublicKey) transport[nist.PrivateKey,nist.PublicKey] { return newTestTransport(clientpub, fd, &key) },
 		log:          log.New(),
-		checkPeerInRaft: func(node *enode.Node) bool {
+		checkPeerInRaft: func(node *enode.Node[nist.PublicKey]) bool {
 			return false
 		},
 	}
@@ -499,18 +499,18 @@ func TestServerSetupConn_whenNotPermissioned(t *testing.T) {
 		t.Fatal(err)
 	}
 	var (
-		clientkey, srvkey = newkey(), newkey()
-		clientpub         = &clientkey.PublicKey
+		clientkey, srvkey = *newkey(), *newkey()
+		clientpub         = *clientkey.Public()
 	)
-	clientNode := enode.NewV4(clientpub, nil, 0, 0)
-	srv := &Server{
-		Config: Config{
+	clientNode := enode.NewV4[nist.PublicKey](clientpub, nil, 0, 0)
+	srv := &Server[nist.PrivateKey,nist.PublicKey]{
+		Config: Config[nist.PrivateKey,nist.PublicKey]{
 			PrivateKey:           srvkey,
 			NoDiscovery:          true,
 			DataDir:              tmpDir,
 			EnableNodePermission: true,
 		},
-		newTransport: func(fd net.Conn, key *ecdsa.PublicKey) transport { return newTestTransport(clientpub, fd, key) },
+		newTransport: func(fd net.Conn, key nist.PublicKey) transport[nist.PrivateKey,nist.PublicKey] { return newTestTransport(&clientpub, fd, &key) },
 		log:          log.New(),
 	}
 	if err := srv.Start(); err != nil {
@@ -527,7 +527,7 @@ func TestServerSetupConn_whenNotPermissioned(t *testing.T) {
 }
 
 type setupTransport struct {
-	pubkey            *ecdsa.PublicKey
+	pubkey            nist.PublicKey
 	encHandshakeErr   error
 	phs               protoHandshake
 	protoHandshakeErr error
@@ -536,7 +536,7 @@ type setupTransport struct {
 	closeErr error
 }
 
-func (c *setupTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
+func (c *setupTransport) doEncHandshake(prv nist.PrivateKey) (nist.PublicKey, error) {
 	c.calls += "doEncHandshake,"
 	return c.pubkey, c.encHandshakeErr
 }
@@ -561,12 +561,12 @@ func (c *setupTransport) ReadMsg() (Msg, error) {
 	panic("ReadMsg called on setupTransport")
 }
 
-func newkey() *ecdsa.PrivateKey {
-	key, err := crypto.GenerateKey()
+func newkey() *nist.PrivateKey {
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}
-	return key
+	return &key
 }
 
 func randomID() (id enode.ID) {
@@ -580,19 +580,19 @@ func randomID() (id enode.ID) {
 func TestServerInboundThrottle(t *testing.T) {
 	const timeout = 5 * time.Second
 	newTransportCalled := make(chan struct{})
-	srv := &Server{
-		Config: Config{
-			PrivateKey:  newkey(),
+	srv := &Server[nist.PrivateKey,nist.PublicKey]{
+		Config: Config[nist.PrivateKey,nist.PublicKey]{
+			PrivateKey:  *newkey(),
 			ListenAddr:  "127.0.0.1:0",
 			MaxPeers:    10,
 			NoDial:      true,
 			NoDiscovery: true,
-			Protocols:   []Protocol{discard},
+			Protocols:   []Protocol[nist.PrivateKey,nist.PublicKey]{discard},
 			Logger:      testlog.Logger(t, log.LvlTrace),
 		},
-		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport {
+		newTransport: func(fd net.Conn, dialDest nist.PublicKey) transport[nist.PrivateKey,nist.PublicKey] {
 			newTransportCalled <- struct{}{}
-			return newRLPX(fd, dialDest)
+			return newRLPX[nist.PrivateKey,nist.PublicKey](fd, dialDest)
 		},
 		listenFunc: func(network, laddr string) (net.Listener, error) {
 			fakeAddr := &net.TCPAddr{IP: net.IP{95, 33, 21, 2}, Port: 4444}
@@ -673,7 +673,7 @@ func (c *fakeAddrConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func syncAddPeer(srv *Server, node *enode.Node) bool {
+func syncAddPeer(srv *Server[nist.PrivateKey,nist.PublicKey], node *enode.Node[nist.PublicKey]) bool {
 	var (
 		ch      = make(chan *PeerEvent)
 		sub     = srv.SubscribeEvents(ch)
