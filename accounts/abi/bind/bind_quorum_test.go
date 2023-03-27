@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
@@ -34,7 +34,7 @@ func TestBoundContract_Transact_ContractCreation_PrivateTransaction(t *testing.T
 
 	senderNonce := 1
 
-	opts := &TransactOpts{
+	opts := &TransactOpts[P]{
 		Nonce:      big.NewInt(int64(senderNonce)),
 		PrivateFor: []string{"tm1"},
 
@@ -65,7 +65,7 @@ func TestBoundContract_Transact_ContractCreation_PrivacyPrecompile(t *testing.T)
 
 	senderNonce := 1
 
-	opts := &TransactOpts{
+	opts := &TransactOpts[P]{
 		Nonce:                    big.NewInt(int64(senderNonce)),
 		PrivateFor:               []string{"tm1"},
 		IsUsingPrivacyPrecompile: true,
@@ -116,7 +116,7 @@ func TestBoundContract_Transact_Transaction_PrivateTransaction(t *testing.T) {
 
 	senderNonce := 1
 
-	opts := &TransactOpts{
+	opts := &TransactOpts[P]{
 		Nonce:      big.NewInt(int64(senderNonce)),
 		PrivateFor: []string{"tm1"},
 
@@ -148,7 +148,7 @@ func TestBoundContract_Transact_Transaction_PrivacyPrecompile(t *testing.T) {
 
 	senderNonce := 1
 
-	opts := &TransactOpts{
+	opts := &TransactOpts[P]{
 		Nonce:                    big.NewInt(int64(senderNonce)),
 		PrivateFor:               []string{"tm1"},
 		IsUsingPrivacyPrecompile: true,
@@ -191,7 +191,7 @@ func TestBoundContract_Transact_Transaction_PrivacyPrecompile(t *testing.T) {
 	require.Equal(t, []string{"tm1"}, pvtTxArgs.PrivateFor)
 }
 
-func passthroughSigner(_ common.Address, tx *types.Transaction) (*types.Transaction, error) {
+func passthroughSigner(_ common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
 	return tx, nil
 }
 
@@ -204,13 +204,13 @@ func (s *mockTransactor) PreparePrivateTransaction(_ []byte, _ string) (common.E
 	return tmPrivatePayloadHash, nil
 }
 
-func (s *mockTransactor) DistributeTransaction(_ context.Context, tx *types.Transaction, args PrivateTxArgs) (string, error) {
+func (s *mockTransactor) DistributeTransaction(_ context.Context, tx *types.Transaction[P], args PrivateTxArgs) (string, error) {
 	s.capturedInternalPrivateTransaction = tx
 	s.capturedInternalPrivateTransactionArgs = args
 	return tmPrivateTxHash.Hex(), nil
 }
 
-func (s *mockTransactor) SendTransaction(_ context.Context, _ *types.Transaction, _ PrivateTxArgs) error {
+func (s *mockTransactor) SendTransaction(_ context.Context, _ *types.Transaction[P], _ PrivateTxArgs) error {
 	return nil
 }
 

@@ -72,7 +72,7 @@ func (dpsr *DefaultPrivateStateRepository) Reset() error {
 }
 
 // CommitAndWrite commits the private state and writes to disk
-func (dpsr *DefaultPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block) error {
+func (dpsr *DefaultPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	privateRoot, err := dpsr.stateDB.Commit(isEIP158)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (dpsr *DefaultPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *
 }
 
 // Commit commits the private state only
-func (dpsr *DefaultPrivateStateRepository) Commit(isEIP158 bool, block *types.Block) error {
+func (dpsr *DefaultPrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
 	var err error
 	dpsr.root, err = dpsr.stateDB.Commit(isEIP158)
 	return err

@@ -31,7 +31,7 @@ import (
 
 // Config is a basic type specifying certain configuration flags for running
 // the EVM.
-type Config struct {
+type Config [P crypto.PublicKey] struct {
 	ChainConfig *params.ChainConfig
 	Difficulty  *big.Int
 	Origin      common.Address
@@ -42,14 +42,14 @@ type Config struct {
 	GasPrice    *big.Int
 	Value       *big.Int
 	Debug       bool
-	EVMConfig   vm.Config
+	EVMConfig   vm.Config[P]
 
 	State     *state.StateDB
 	GetHashFn func(n uint64) common.Hash
 }
 
 // sets defaults on the config
-func setDefaults(cfg *Config) {
+func setDefaults[P crypto.PublicKey](cfg *Config[P]) {
 	if cfg.ChainConfig == nil {
 		cfg.ChainConfig = &params.ChainConfig{
 			ChainID:             big.NewInt(1),
@@ -100,9 +100,9 @@ func setDefaults(cfg *Config) {
 //
 // Execute sets up an in-memory, temporary, environment for the execution of
 // the given code. It makes sure that it's restored to its original state afterwards.
-func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
+func Execute[P crypto.PublicKey](code, input []byte, cfg *Config[P]) ([]byte, *state.StateDB, error) {
 	if cfg == nil {
-		cfg = new(Config)
+		cfg = new(Config[P])
 	}
 	setDefaults(cfg)
 
@@ -111,7 +111,7 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 	}
 	var (
 		address = common.BytesToAddress([]byte("contract"))
-		vmenv   = NewEnv(cfg)
+		vmenv   = NewEnv[P](cfg)
 		sender  = vm.AccountRef(cfg.Origin)
 	)
 	if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber); rules.IsBerlin {
@@ -133,9 +133,9 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 }
 
 // Create executes the code using the EVM create method
-func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
+func Create[P crypto.PublicKey](input []byte, cfg *Config[P]) ([]byte, common.Address, uint64, error) {
 	if cfg == nil {
-		cfg = new(Config)
+		cfg = new(Config[P])
 	}
 	setDefaults(cfg)
 
@@ -143,7 +143,7 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	}
 	var (
-		vmenv  = NewEnv(cfg)
+		vmenv  = NewEnv[P](cfg)
 		sender = vm.AccountRef(cfg.Origin)
 	)
 	if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber); rules.IsBerlin {
@@ -164,10 +164,10 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 //
 // Call, unlike Execute, requires a config and also requires the State field to
 // be set.
-func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, error) {
+func Call[P crypto.PublicKey](address common.Address, input []byte, cfg *Config[P]) ([]byte, uint64, error) {
 	setDefaults(cfg)
 
-	vmenv := NewEnv(cfg)
+	vmenv := NewEnv[P](cfg)
 
 	sender := cfg.State.GetOrNewStateObject(cfg.Origin)
 	statedb := cfg.State

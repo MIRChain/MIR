@@ -17,11 +17,11 @@
 package node
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,8 +35,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -258,7 +256,7 @@ func (c *Config[T, P]) QNodeDB() string {
 }
 
 // DefaultIPCEndpoint returns the IPC path used by default.
-func DefaultIPCEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](clientIdentifier string) string {
+func DefaultIPCEndpoint[T crypto.PrivateKey, P crypto.PublicKey](clientIdentifier string) string {
 	if clientIdentifier == "" {
 		clientIdentifier = strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
 		if clientIdentifier == "" {
@@ -279,7 +277,7 @@ func (c *Config[T, P]) HTTPEndpoint() string {
 }
 
 // DefaultHTTPEndpoint returns the HTTP endpoint used by default.
-func DefaultHTTPEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ]() string {
+func DefaultHTTPEndpoint[T crypto.PrivateKey, P crypto.PublicKey]() string {
 	config := &Config[T, P]{HTTPHost: DefaultHTTPHost, HTTPPort: DefaultHTTPPort}
 	return config.HTTPEndpoint()
 }
@@ -294,7 +292,7 @@ func (c *Config[T,P]) WSEndpoint() string {
 }
 
 // DefaultWSEndpoint returns the websocket endpoint used by default.
-func DefaultWSEndpoint[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ]() string {
+func DefaultWSEndpoint[T crypto.PrivateKey, P crypto.PublicKey]() string {
 	config := &Config[T,P]{WSHost: DefaultWSHost, WSPort: DefaultWSPort}
 	return config.WSEndpoint()
 }
@@ -380,41 +378,36 @@ func (c *Config[T,P]) instanceDir() string {
 // data folder. If no key can be found, a new one is generated.
 func (c *Config[T,P]) NodeKey() T {
 	// Use any specifically configured key.
-	if c.P2P.PrivateKey != crypto.ZeroPrivateKey[T]() {
+	if !reflect.ValueOf(&c.P2P.PrivateKey).Elem().IsZero(){
 		return c.P2P.PrivateKey
 	}
-	switch any(c.P2P.PrivateKey).(type) {
-	case *nist.PrivateKey:
-		// Generate ephemeral key if no datadir is being used.
-		if c.DataDir == "" {
-			key, err := crypto.GenerateKey()
-			if err != nil {
-				log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
-			}
-			return nist.PrivateKey{key}
-		}
-		keyfile := c.ResolvePath(datadirPrivateKey)
-		if key, err := crypto.LoadECDSA(keyfile); err == nil {
-			return key
-		}
-		// No persistent key found, generate and store a new one.
-		key, err := crypto.GenerateKey()
+	// Generate ephemeral key if no datadir is being used.
+	if c.DataDir == "" {
+		key, err := crypto.GenerateKey[T]()
 		if err != nil {
-			log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
-		}
-		instanceDir := filepath.Join(c.DataDir, c.name())
-		if err := os.MkdirAll(instanceDir, 0700); err != nil {
-			log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-			return key
-		}
-		keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-		if err := crypto.SaveECDSA(keyfile, key); err != nil {
-			log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 		return key
-	default:
-		return crypto.ZeroPrivateKey[T]()
 	}
+	keyfile := c.ResolvePath(datadirPrivateKey)
+	if key, err := crypto.LoadECDSA[T](keyfile); err == nil {
+		return key
+	}
+	// No persistent key found, generate and store a new one.
+	key, err := crypto.GenerateKey[T]()
+	if err != nil {
+		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
+	}
+	instanceDir := filepath.Join(c.DataDir, c.name())
+	if err := os.MkdirAll(instanceDir, 0700); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+		return key
+	}
+	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
+	if err := crypto.SaveECDSA(keyfile, key); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+	}
+	return key
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.

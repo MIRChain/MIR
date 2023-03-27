@@ -97,7 +97,7 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 	}
 	// Extend the newly created chain
 	var (
-		blockChainB  []*types.Block
+		blockChainB  []*types.Block[P]
 		headerChainB []*types.Header
 	)
 	if full {
@@ -856,13 +856,13 @@ func TestChainTxReorgs(t *testing.T) {
 	// Create two transactions that will be dropped by the forked chain:
 	//  - pastDrop: transaction dropped retroactively from a past block
 	//  - freshDrop: transaction dropped exactly at the block where the reorg is detected
-	var pastDrop, freshDrop *types.Transaction
+	var pastDrop, freshDrop *types.Transaction[P]
 
 	// Create three transactions that will be added in the forked chain:
 	//  - pastAdd:   transaction added before the reorganization is detected
 	//  - freshAdd:  transaction added at the exact block the reorg is detected
 	//  - futureAdd: transaction added after the reorg has already finished
-	var pastAdd, freshAdd, futureAdd *types.Transaction
+	var pastAdd, freshAdd, futureAdd *types.Transaction[P]
 
 	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {
 		switch i {
@@ -1227,7 +1227,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	pend.Add(len(chain))
 
 	for i := range chain {
-		go func(block *types.Block) {
+		go func(block *types.Block[P]) {
 			defer pend.Done()
 
 			// try to retrieve a block by its canonical hash and see if the block data can be retrieved.
@@ -1280,9 +1280,9 @@ func TestEIP155Transition(t *testing.T) {
 
 	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
 		var (
-			tx      *types.Transaction
+			tx      *types.Transaction[P]
 			err     error
-			basicTx = func(signer types.Signer) (*types.Transaction, error) {
+			basicTx = func(signer types.Signer) (*types.Transaction[P], error) {
 				return types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
 			}
 		)
@@ -1343,9 +1343,9 @@ func TestEIP155Transition(t *testing.T) {
 	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP150Block: big.NewInt(0), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)}
 	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
 		var (
-			tx      *types.Transaction
+			tx      *types.Transaction[P]
 			err     error
-			basicTx = func(signer types.Signer) (*types.Transaction, error) {
+			basicTx = func(signer types.Signer) (*types.Transaction[P], error) {
 				return types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
 			}
 		)
@@ -1386,7 +1386,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 
 	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, block *BlockGen) {
 		var (
-			tx     *types.Transaction
+			tx     *types.Transaction[P]
 			err    error
 			signer = types.LatestSigner(gspec.Config)
 		)
@@ -1442,7 +1442,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.Block, len(blocks))
+	forks := make([]*types.Block[P], len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
@@ -1487,7 +1487,7 @@ func TestTrieForkGC(t *testing.T) {
 	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.Block, len(blocks))
+	forks := make([]*types.Block[P], len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
@@ -1792,7 +1792,7 @@ func testSideImport(t *testing.T, numCanonBlocksInSidechain, blocksBetweenCommon
 		b.SetCoinbase(common.Address{2})
 	})
 	// Prepend the parent(s)
-	var sidechain []*types.Block
+	var sidechain []*types.Block[P]
 	for i := numCanonBlocksInSidechain; i > 0; i-- {
 		sidechain = append(sidechain, blocks[parentIndex+1-i])
 	}
@@ -1864,11 +1864,11 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 	}
 
 	var (
-		inserter func(blocks []*types.Block, receipts []types.Receipts) error
-		asserter func(t *testing.T, block *types.Block)
+		inserter func(blocks []*types.Block[P], receipts []types.Receipts) error
+		asserter func(t *testing.T, block *types.Block[P])
 	)
 	if typ == "headers" {
-		inserter = func(blocks []*types.Block, receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
 			headers := make([]*types.Header, 0, len(blocks))
 			for _, block := range blocks {
 				headers = append(headers, block.Header())
@@ -1876,13 +1876,13 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 			_, err := chain.InsertHeaderChain(headers, 1)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block) {
+		asserter = func(t *testing.T, block *types.Block[P]) {
 			if chain.CurrentHeader().Hash() != block.Hash() {
 				t.Fatalf("current head header mismatch, have %v, want %v", chain.CurrentHeader().Hash().Hex(), block.Hash().Hex())
 			}
 		}
 	} else if typ == "receipts" {
-		inserter = func(blocks []*types.Block, receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
 			headers := make([]*types.Header, 0, len(blocks))
 			for _, block := range blocks {
 				headers = append(headers, block.Header())
@@ -1894,17 +1894,17 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 			_, err = chain.InsertReceiptChain(blocks, receipts, 0)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block) {
+		asserter = func(t *testing.T, block *types.Block[P]) {
 			if chain.CurrentFastBlock().Hash() != block.Hash() {
 				t.Fatalf("current head fast block mismatch, have %v, want %v", chain.CurrentFastBlock().Hash().Hex(), block.Hash().Hex())
 			}
 		}
 	} else {
-		inserter = func(blocks []*types.Block, receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
 			_, err := chain.InsertChain(blocks)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block) {
+		asserter = func(t *testing.T, block *types.Block[P]) {
 			if chain.CurrentBlock().Hash() != block.Hash() {
 				t.Fatalf("current head block mismatch, have %v, want %v", chain.CurrentBlock().Hash().Hex(), block.Hash().Hex())
 			}
@@ -1954,7 +1954,7 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 
 // getLongAndShortChains returns two chains,
 // A is longer, B is heavier
-func getLongAndShortChains() (*BlockChain, []*types.Block, []*types.Block, error) {
+func getLongAndShortChains() (*BlockChain, []*types.Block[P], []*types.Block[P], error) {
 	// Generate a canonical chain to act as the main dataset
 	engine := ethash.NewFaker()
 	db := rawdb.NewMemoryDatabase()
@@ -2819,7 +2819,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		values:   map[int]int{1: 1, 2: 2},
 	}
 	var expectations []*expectation
-	var newDestruct = func(e *expectation) *types.Transaction {
+	var newDestruct = func(e *expectation) *types.Transaction[P] {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, aa,
 			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
 		nonce++
@@ -2830,7 +2830,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		t.Logf("block %d; adding destruct\n", e.blocknum)
 		return tx
 	}
-	var newResurrect = func(e *expectation) *types.Transaction {
+	var newResurrect = func(e *expectation) *types.Transaction[P] {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, bb,
 			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
 		nonce++
@@ -2882,7 +2882,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	}
 	for i, block := range blocks {
 		blockNum := i + 1
-		if n, err := chain.InsertChain([]*types.Block{block}); err != nil {
+		if n, err := chain.InsertChain([]*types.Block[P]{block}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", n, err)
 		}
 		statedb, _, _ := chain.State()
@@ -3018,7 +3018,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	// First block tries to create, but fails
 	{
 		block := blocks[0]
-		if _, err := chain.InsertChain([]*types.Block{blocks[0]}); err != nil {
+		if _, err := chain.InsertChain([]*types.Block[P]{blocks[0]}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", block.NumberU64(), err)
 		}
 		statedb, _, _ = chain.State()
@@ -3028,7 +3028,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	}
 	// Import the rest of the blocks
 	for _, block := range blocks[1:] {
-		if _, err := chain.InsertChain([]*types.Block{block}); err != nil {
+		if _, err := chain.InsertChain([]*types.Block[P]{block}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", block.NumberU64(), err)
 		}
 	}

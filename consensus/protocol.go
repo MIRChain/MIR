@@ -4,6 +4,7 @@ package consensus
 import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Constants to match up protocol versions and messages
@@ -61,9 +62,9 @@ type Protocol struct {
 }
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
-type Broadcaster interface {
+type Broadcaster [P crypto.PublicKey] interface {
 	// Enqueue add a block into fetcher queue
-	Enqueue(id string, block *types.Block)
+	Enqueue(id string, block *types.Block[P])
 	// FindPeers retrives peers by addresses
 	FindPeers(map[common.Address]bool) map[common.Address]Peer
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/karalabe/usb"
 )
 
@@ -44,16 +45,16 @@ const refreshCycle = time.Second
 const refreshThrottling = 500 * time.Millisecond
 
 // Hub is a accounts.Backend that can find and handle generic USB hardware wallets.
-type Hub struct {
+type Hub [P crypto.PublicKey] struct {
 	scheme     string                  // Protocol scheme prefixing account and wallet URLs.
 	vendorID   uint16                  // USB vendor identifier used for device discovery
 	productIDs []uint16                // USB product identifiers used for device discovery
 	usageID    uint16                  // USB usage page identifier used for macOS device discovery
 	endpointID int                     // USB endpoint identifier used for non-macOS device discovery
-	makeDriver func(log.Logger) driver // Factory method to construct a vendor specific driver
+	makeDriver func(log.Logger) driver[P] // Factory method to construct a vendor specific driver
 
 	refreshed   time.Time               // Time instance when the list of wallets was last refreshed
-	wallets     []accounts.Wallet       // List of USB wallet devices currently tracking
+	wallets     []accounts.Wallet[P]    // List of USB wallet devices currently tracking
 	updateFeed  event.Feed              // Event feed to notify wallet additions/removals
 	updateScope event.SubscriptionScope // Subscription scope tracking current live listeners
 	updating    bool                    // Whether the event notification loop is running
@@ -69,8 +70,8 @@ type Hub struct {
 }
 
 // NewLedgerHub creates a new hardware wallet manager for Ledger devices.
-func NewLedgerHub() (*Hub, error) {
-	return newHub(LedgerScheme, 0x2c97, []uint16{
+func NewLedgerHub[P crypto.PublicKey]() (*Hub[P], error) {
+	return newHub[P](LedgerScheme, 0x2c97, []uint16{
 		// Original product IDs
 		0x0000, /* Ledger Blue */
 		0x0001, /* Ledger Nano S */
@@ -83,26 +84,26 @@ func NewLedgerHub() (*Hub, error) {
 		0x0011, /* HID + WebUSB Ledger Blue */
 		0x1011, /* HID + WebUSB Ledger Nano S */
 		0x4011, /* HID + WebUSB Ledger Nano X */
-	}, 0xffa0, 0, newLedgerDriver)
+	}, 0xffa0, 0, newLedgerDriver[P])
 }
 
 // NewTrezorHubWithHID creates a new hardware wallet manager for Trezor devices.
-func NewTrezorHubWithHID() (*Hub, error) {
-	return newHub(TrezorScheme, 0x534c, []uint16{0x0001 /* Trezor HID */}, 0xff00, 0, newTrezorDriver)
+func NewTrezorHubWithHID[P crypto.PublicKey]() (*Hub[P], error) {
+	return newHub[P](TrezorScheme, 0x534c, []uint16{0x0001 /* Trezor HID */}, 0xff00, 0, newTrezorDriver[P])
 }
 
 // NewTrezorHubWithWebUSB creates a new hardware wallet manager for Trezor devices with
 // firmware version > 1.8.0
-func NewTrezorHubWithWebUSB() (*Hub, error) {
-	return newHub(TrezorScheme, 0x1209, []uint16{0x53c1 /* Trezor WebUSB */}, 0xffff /* No usage id on webusb, don't match unset (0) */, 0, newTrezorDriver)
+func NewTrezorHubWithWebUSB[P crypto.PublicKey]() (*Hub[P], error) {
+	return newHub[P](TrezorScheme, 0x1209, []uint16{0x53c1 /* Trezor WebUSB */}, 0xffff /* No usage id on webusb, don't match unset (0) */, 0, newTrezorDriver[P])
 }
 
 // newHub creates a new hardware wallet manager for generic USB devices.
-func newHub(scheme string, vendorID uint16, productIDs []uint16, usageID uint16, endpointID int, makeDriver func(log.Logger) driver) (*Hub, error) {
+func newHub[P crypto.PublicKey](scheme string, vendorID uint16, productIDs []uint16, usageID uint16, endpointID int, makeDriver func(log.Logger) driver[P]) (*Hub[P], error) {
 	if !usb.Supported() {
 		return nil, errors.New("unsupported platform")
 	}
-	hub := &Hub{
+	hub := &Hub[P]{
 		scheme:     scheme,
 		vendorID:   vendorID,
 		productIDs: productIDs,
@@ -117,21 +118,21 @@ func newHub(scheme string, vendorID uint16, productIDs []uint16, usageID uint16,
 
 // Wallets implements accounts.Backend, returning all the currently tracked USB
 // devices that appear to be hardware wallets.
-func (hub *Hub) Wallets() []accounts.Wallet {
+func (hub *Hub[P]) Wallets() []accounts.Wallet[P] {
 	// Make sure the list of wallets is up to date
 	hub.refreshWallets()
 
 	hub.stateLock.RLock()
 	defer hub.stateLock.RUnlock()
 
-	cpy := make([]accounts.Wallet, len(hub.wallets))
+	cpy := make([]accounts.Wallet[P], len(hub.wallets))
 	copy(cpy, hub.wallets)
 	return cpy
 }
 
 // refreshWallets scans the USB devices attached to the machine and updates the
 // list of wallets based on the found devices.
-func (hub *Hub) refreshWallets() {
+func (hub *Hub[P]) refreshWallets() {
 	// Don't scan the USB like crazy it the user fetches wallets in a loop
 	hub.stateLock.RLock()
 	elapsed := time.Since(hub.refreshed)
@@ -190,8 +191,8 @@ func (hub *Hub) refreshWallets() {
 	hub.stateLock.Lock()
 
 	var (
-		wallets = make([]accounts.Wallet, 0, len(devices))
-		events  []accounts.WalletEvent
+		wallets = make([]accounts.Wallet[P], 0, len(devices))
+		events  []accounts.WalletEvent[P]
 	)
 
 	for _, device := range devices {
@@ -205,15 +206,15 @@ func (hub *Hub) refreshWallets() {
 				break
 			}
 			// Drop the stale and failed devices
-			events = append(events, accounts.WalletEvent{Wallet: hub.wallets[0], Kind: accounts.WalletDropped})
+			events = append(events, accounts.WalletEvent[P]{Wallet: hub.wallets[0], Kind: accounts.WalletDropped})
 			hub.wallets = hub.wallets[1:]
 		}
 		// If there are no more wallets or the device is before the next, wrap new wallet
 		if len(hub.wallets) == 0 || hub.wallets[0].URL().Cmp(url) > 0 {
 			logger := log.New("url", url)
-			wallet := &wallet{hub: hub, driver: hub.makeDriver(logger), url: &url, info: device, log: logger}
+			wallet := &wallet[P]{hub: hub, driver: hub.makeDriver(logger), url: &url, info: device, log: logger}
 
-			events = append(events, accounts.WalletEvent{Wallet: wallet, Kind: accounts.WalletArrived})
+			events = append(events, accounts.WalletEvent[P]{Wallet: wallet, Kind: accounts.WalletArrived})
 			wallets = append(wallets, wallet)
 			continue
 		}
@@ -226,7 +227,7 @@ func (hub *Hub) refreshWallets() {
 	}
 	// Drop any leftover wallets and set the new batch
 	for _, wallet := range hub.wallets {
-		events = append(events, accounts.WalletEvent{Wallet: wallet, Kind: accounts.WalletDropped})
+		events = append(events, accounts.WalletEvent[P]{Wallet: wallet, Kind: accounts.WalletDropped})
 	}
 	hub.refreshed = time.Now()
 	hub.wallets = wallets
@@ -240,7 +241,7 @@ func (hub *Hub) refreshWallets() {
 
 // Subscribe implements accounts.Backend, creating an async subscription to
 // receive notifications on the addition or removal of USB wallets.
-func (hub *Hub) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription {
+func (hub *Hub[P]) Subscribe(sink chan<- accounts.WalletEvent[P]) event.Subscription {
 	// We need the mutex to reliably start/stop the update loop
 	hub.stateLock.Lock()
 	defer hub.stateLock.Unlock()
@@ -258,7 +259,7 @@ func (hub *Hub) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription {
 
 // updater is responsible for maintaining an up-to-date list of wallets managed
 // by the USB hub, and for firing wallet addition/removal events.
-func (hub *Hub) updater() {
+func (hub *Hub[P]) updater() {
 	for {
 		// TODO: Wait for a USB hotplug event (not supported yet) or a refresh timeout
 		// <-hub.changes

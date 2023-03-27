@@ -21,10 +21,11 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/vm/runtime"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func ExampleExecute() {
-	ret, _, err := runtime.Execute(common.Hex2Bytes("6060604052600a8060106000396000f360606040526008565b00"), nil, nil)
+	ret, _, err := runtime.Execute[nist.PublicKey](common.Hex2Bytes("6060604052600a8060106000396000f360606040526008565b00"), nil, nil)
 	if err != nil {
 		fmt.Println(err)
 	}

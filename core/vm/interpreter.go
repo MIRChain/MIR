@@ -24,17 +24,18 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // Config are the configuration options for the Interpreter
-type Config struct {
+type Config [P crypto.PublicKey] struct {
 	Debug                   bool   // Enables debugging
-	Tracer                  Tracer // Opcode logger
+	Tracer                  Tracer[P] // Opcode logger
 	NoRecursion             bool   // Disables call, callcode, delegate call and create
 	EnablePreimageRecording bool   // Enables recording of SHA3/keccak preimages
 
-	JumpTable [256]*operation // EVM instruction table, automatically populated if unset
+	JumpTable [256]*operation[P] // EVM instruction table, automatically populated if unset
 
 	EWASMInterpreter string // External EWASM interpreter options
 	EVMInterpreter   string // External EVM interpreter options
@@ -83,9 +84,9 @@ type keccakState interface {
 }
 
 // EVMInterpreter represents an EVM interpreter
-type EVMInterpreter struct {
-	evm *EVM
-	cfg Config
+type EVMInterpreter [P crypto.PublicKey] struct {
+	evm *EVM[P]
+	cfg Config[P]
 
 	hasher    keccakState // Keccak256 hasher instance shared across opcodes
 	hasherBuf common.Hash // Keccak256 hasher result array shared aross opcodes
@@ -95,29 +96,29 @@ type EVMInterpreter struct {
 }
 
 // NewEVMInterpreter returns a new instance of the Interpreter.
-func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
+func NewEVMInterpreter[P crypto.PublicKey](evm *EVM[P], cfg Config[P]) *EVMInterpreter[P] {
 	// We use the STOP instruction whether to see
 	// the jump table was initialised. If it was not
 	// we'll set the default jump table.
 	if cfg.JumpTable[STOP] == nil {
-		var jt JumpTable
+		var jt JumpTable[P]
 		switch {
 		case evm.chainRules.IsBerlin:
-			jt = berlinInstructionSet
+			jt = newBerlinInstructionSet[P]()
 		case evm.chainRules.IsIstanbul:
-			jt = istanbulInstructionSet
+			jt = newIstanbulInstructionSet[P]()
 		case evm.chainRules.IsConstantinople:
-			jt = constantinopleInstructionSet
+			jt = newConstantinopleInstructionSet[P]()
 		case evm.chainRules.IsByzantium:
-			jt = byzantiumInstructionSet
+			jt = newByzantiumInstructionSet[P]()
 		case evm.chainRules.IsEIP158:
-			jt = spuriousDragonInstructionSet
+			jt = newSpuriousDragonInstructionSet[P]()
 		case evm.chainRules.IsEIP150:
-			jt = tangerineWhistleInstructionSet
+			jt = newTangerineWhistleInstructionSet[P]()
 		case evm.chainRules.IsHomestead:
-			jt = homesteadInstructionSet
+			jt = newHomesteadInstructionSet[P]()
 		default:
-			jt = frontierInstructionSet
+			jt = newFrontierInstructionSet[P]()
 		}
 		for i, eip := range cfg.ExtraEips {
 			if err := EnableEIP(eip, &jt); err != nil {
@@ -129,7 +130,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 		cfg.JumpTable = jt
 	}
 
-	return &EVMInterpreter{
+	return &EVMInterpreter[P]{
 		evm: evm,
 		cfg: cfg,
 	}
@@ -141,7 +142,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 // It's important to note that any errors returned by the interpreter should be
 // considered a revert-and-consume-all-gas operation except for
 // ErrExecutionReverted which means revert-and-keep-gas-left.
-func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
+func (in *EVMInterpreter[P]) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
 
 	// Increment the call depth which is restricted to 1024
 	in.evm.depth++
@@ -311,6 +312,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 
 // CanRun tells if the contract, passed as an argument, can be
 // run by the current interpreter.
-func (in *EVMInterpreter) CanRun(code []byte) bool {
+func (in *EVMInterpreter[P]) CanRun(code []byte) bool {
 	return true
 }

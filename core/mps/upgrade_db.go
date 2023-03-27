@@ -15,7 +15,7 @@ import (
 // chainReader contains methods to access local blockchain
 type chainReader interface {
 	consensus.ChainReader
-	CurrentBlock() *types.Block
+	CurrentBlock() *types.Block[P]
 	GetReceiptsByHash(hash common.Hash) types.Receipts
 }
 

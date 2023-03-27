@@ -93,7 +93,7 @@ func (args SendTxArgs) String() string {
 	return err.Error()
 }
 
-func (args *SendTxArgs) toTransaction() (tx *types.Transaction) {
+func (args *SendTxArgs) toTransaction() (tx *types.Transaction[P]) {
 	var input []byte
 	if args.Data != nil {
 		input = *args.Data

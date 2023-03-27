@@ -17,7 +17,6 @@
 package bind
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -43,7 +42,7 @@ var ErrNotAuthorized = errors.New("not authorized to sign this account")
 // an encrypted json key stream and the associated passphrase.
 //
 // Deprecated: Use NewTransactorWithChainID instead.
-func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
+func NewTransactor[T crypto.PrivateKey,P crypto.PublicKey](keyin io.Reader, passphrase string) (*TransactOpts[P], error) {
 	log.Warn("WARNING: NewTransactor has been deprecated in favour of NewTransactorWithChainID")
 	json, err := ioutil.ReadAll(keyin)
 	if err != nil {
@@ -53,26 +52,26 @@ func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewKeyedTransactor(key.PrivateKey), nil
+	return NewKeyedTransactor[T,P](key.PrivateKey), nil
 }
 
 // NewKeyStoreTransactor is a utility method to easily create a transaction signer from
 // an decrypted key from a keystore.
 //
 // Deprecated: Use NewKeyStoreTransactorWithChainID instead.
-func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account) (*TransactOpts, error) {
+func NewKeyStoreTransactor[P crypto.PublicKey](keystore *keystore.KeyStore, account accounts.Account) (*TransactOpts[P], error) {
 	log.Warn("WARNING: NewKeyStoreTransactor has been deprecated in favour of NewTransactorWithChainID")
-	var homesteadSigner types.Signer = types.HomesteadSigner{}
-	return &TransactOpts{
+	var homesteadSigner types.Signer[P] = types.HomesteadSigner[P]{}
+	return &TransactOpts[P]{
 		From: account.Address,
-		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}
 			// Quorum
 			signer := homesteadSigner
 			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[P]{}
 			}
 			// / Quorum
 			signature, err := keystore.SignHash(account, signer.Hash(tx).Bytes())
@@ -88,20 +87,20 @@ func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account
 // from a single private key.
 //
 // Deprecated: Use NewKeyedTransactorWithChainID instead.
-func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
+func NewKeyedTransactor[T crypto.PrivateKey,P crypto.PublicKey](key T) *TransactOpts[P] {
 	log.Warn("WARNING: NewKeyedTransactor has been deprecated in favour of NewKeyedTransactorWithChainID")
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey)
-	var homesteadSigner types.Signer = types.HomesteadSigner{}
-	return &TransactOpts{
+	var homesteadSigner types.Signer[P] = types.HomesteadSigner[P]{}
+	return &TransactOpts[P]{
 		From: keyAddr,
-		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
 			// Quorum
 			signer := homesteadSigner
 			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[P]{}
 			}
 			// / Quorum
 			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
@@ -115,7 +114,7 @@ func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
 
 // NewTransactorWithChainID is a utility method to easily create a transaction signer from
 // an encrypted json key stream and the associated passphrase.
-func NewTransactorWithChainID(keyin io.Reader, passphrase string, chainID *big.Int) (*TransactOpts, error) {
+func NewTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](keyin io.Reader, passphrase string, chainID *big.Int) (*TransactOpts[P], error) {
 	json, err := ioutil.ReadAll(keyin)
 	if err != nil {
 		return nil, err
@@ -124,27 +123,27 @@ func NewTransactorWithChainID(keyin io.Reader, passphrase string, chainID *big.I
 	if err != nil {
 		return nil, err
 	}
-	return NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
+	return NewKeyedTransactorWithChainID[T,P](key.PrivateKey, chainID)
 }
 
 // NewKeyStoreTransactorWithChainID is a utility method to easily create a transaction signer from
 // an decrypted key from a keystore.
-func NewKeyStoreTransactorWithChainID(keystore *keystore.KeyStore, account accounts.Account, chainID *big.Int) (*TransactOpts, error) {
+func NewKeyStoreTransactorWithChainID[P crypto.PublicKey](keystore *keystore.KeyStore, account accounts.Account, chainID *big.Int) (*TransactOpts[P], error) {
 	if chainID == nil {
 		return nil, ErrNoChainID
 	}
-	latestSigner := types.LatestSignerForChainID(chainID)
+	latestSigner := types.LatestSignerForChainID[P](chainID)
 	log.Info("NewKeyStoreTransactorWithChainID", "latestSigner", reflect.TypeOf(latestSigner))
-	return &TransactOpts{
+	return &TransactOpts[P]{
 		From: account.Address,
-		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}
 			// Quorum
 			signer := latestSigner
 			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[P]{}
 			}
 			// / Quorum
 			signature, err := keystore.SignHash(account, signer.Hash(tx).Bytes())
@@ -158,22 +157,22 @@ func NewKeyStoreTransactorWithChainID(keystore *keystore.KeyStore, account accou
 
 // NewKeyedTransactorWithChainID is a utility method to easily create a transaction signer
 // from a single private key.
-func NewKeyedTransactorWithChainID(key *ecdsa.PrivateKey, chainID *big.Int) (*TransactOpts, error) {
+func NewKeyedTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](key T, chainID *big.Int) (*TransactOpts[P], error) {
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey)
 	if chainID == nil {
 		return nil, ErrNoChainID
 	}
-	latestSigner := types.LatestSignerForChainID(chainID)
-	return &TransactOpts{
+	latestSigner := types.LatestSignerForChainID[P](chainID)
+	return &TransactOpts[P]{
 		From: keyAddr,
-		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
 			// Quorum
 			signer := latestSigner
 			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[P]{}
 			}
 			// / Quorum
 			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
@@ -187,10 +186,10 @@ func NewKeyedTransactorWithChainID(key *ecdsa.PrivateKey, chainID *big.Int) (*Tr
 
 // NewClefTransactor is a utility method to easily create a transaction signer
 // with a clef backend.
-func NewClefTransactor(clef *external.ExternalSigner, account accounts.Account) *TransactOpts {
-	return &TransactOpts{
+func NewClefTransactor[P crypto.PublicKey](clef *external.ExternalSigner, account accounts.Account) *TransactOpts[P] {
+	return &TransactOpts[P]{
 		From: account.Address,
-		Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, transaction *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}
@@ -204,10 +203,10 @@ func NewClefTransactor(clef *external.ExternalSigner, account accounts.Account) 
 //
 // NewWalletTransactor is a utility method to easily create a transaction signer
 // from a wallet account
-func NewWalletTransactor(w accounts.Wallet, account accounts.Account, chainId *big.Int) *TransactOpts {
-	return &TransactOpts{
+func NewWalletTransactor[P crypto.PublicKey](w accounts.Wallet[P], account accounts.Account, chainId *big.Int) *TransactOpts[P] {
+	return &TransactOpts[P]{
 		From: account.Address,
-		Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, transaction *types.Transaction[P]) (*types.Transaction[P], error) {
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}

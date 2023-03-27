@@ -31,16 +31,16 @@ import (
 )
 
 // apis returns the collection of built-in RPC APIs.
-func (n *Node) apis() []rpc.API {
+func (n *Node[T,P]) apis() []rpc.API {
 	return []rpc.API{
 		{
 			Namespace: "admin",
 			Version:   "1.0",
-			Service:   &privateAdminAPI{n},
+			Service:   &privateAdminAPI[T,P]{n},
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
-			Service:   &publicAdminAPI{n},
+			Service:   &publicAdminAPI[T,P]{n},
 			Public:    true,
 		}, {
 			Namespace: "debug",
@@ -49,7 +49,7 @@ func (n *Node) apis() []rpc.API {
 		}, {
 			Namespace: "web3",
 			Version:   "1.0",
-			Service:   &publicWeb3API{n},
+			Service:   &publicWeb3API[T,P]{n},
 			Public:    true,
 		},
 	}
@@ -57,20 +57,20 @@ func (n *Node) apis() []rpc.API {
 
 // privateAdminAPI is the collection of administrative API methods exposed only
 // over a secure RPC channel.
-type privateAdminAPI struct {
-	node *Node // Node interfaced by this API
+type privateAdminAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	node *Node[T,P] // Node interfaced by this API
 }
 
 // AddPeer requests connecting to a remote node, and also maintaining the new
 // connection at all times, even reconnecting if it is lost.
-func (api *privateAdminAPI) AddPeer(url string) (bool, error) {
+func (api *privateAdminAPI[T,P]) AddPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
 	server := api.node.Server()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
 	// Try to add the url as a static peer and return
-	node, err := enode.Parse(enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enode.ValidSchemes, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -79,14 +79,14 @@ func (api *privateAdminAPI) AddPeer(url string) (bool, error) {
 }
 
 // RemovePeer disconnects from a remote node if the connection exists
-func (api *privateAdminAPI) RemovePeer(url string) (bool, error) {
+func (api *privateAdminAPI[T,P]) RemovePeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
 	server := api.node.Server()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
 	// Try to remove the url as a static peer and return
-	node, err := enode.Parse(enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enode.ValidSchemes, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -95,13 +95,13 @@ func (api *privateAdminAPI) RemovePeer(url string) (bool, error) {
 }
 
 // AddTrustedPeer allows a remote node to always connect, even if slots are full
-func (api *privateAdminAPI) AddTrustedPeer(url string) (bool, error) {
+func (api *privateAdminAPI[T,P]) AddTrustedPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
 	server := api.node.Server()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
-	node, err := enode.Parse(enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enode.ValidSchemes, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -111,13 +111,13 @@ func (api *privateAdminAPI) AddTrustedPeer(url string) (bool, error) {
 
 // RemoveTrustedPeer removes a remote node from the trusted peer set, but it
 // does not disconnect it automatically.
-func (api *privateAdminAPI) RemoveTrustedPeer(url string) (bool, error) {
+func (api *privateAdminAPI[T,P]) RemoveTrustedPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
 	server := api.node.Server()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
-	node, err := enode.Parse(enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enode.ValidSchemes, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -127,7 +127,7 @@ func (api *privateAdminAPI) RemoveTrustedPeer(url string) (bool, error) {
 
 // PeerEvents creates an RPC subscription which receives peer events from the
 // node's p2p.Server
-func (api *privateAdminAPI) PeerEvents(ctx context.Context) (*rpc.Subscription, error) {
+func (api *privateAdminAPI[T,P]) PeerEvents(ctx context.Context) (*rpc.Subscription, error) {
 	// Make sure the server is running, fail otherwise
 	server := api.node.Server()
 	if server == nil {
@@ -164,7 +164,7 @@ func (api *privateAdminAPI) PeerEvents(ctx context.Context) (*rpc.Subscription, 
 }
 
 // StartHTTP starts the HTTP RPC API server.
-func (api *privateAdminAPI) StartHTTP(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
+func (api *privateAdminAPI[T,P]) StartHTTP(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
 	api.node.lock.Lock()
 	defer api.node.lock.Unlock()
 
@@ -224,26 +224,26 @@ func (api *privateAdminAPI) StartHTTP(host *string, port *int, cors *string, api
 
 // StartRPC starts the HTTP RPC API server.
 // This method is deprecated. Use StartHTTP instead.
-func (api *privateAdminAPI) StartRPC(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
+func (api *privateAdminAPI[T,P]) StartRPC(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
 	log.Warn("Deprecation warning", "method", "admin.StartRPC", "use-instead", "admin.StartHTTP")
 	return api.StartHTTP(host, port, cors, apis, vhosts)
 }
 
 // StopHTTP shuts down the HTTP server.
-func (api *privateAdminAPI) StopHTTP() (bool, error) {
+func (api *privateAdminAPI[T,P]) StopHTTP() (bool, error) {
 	api.node.http.stop()
 	return true, nil
 }
 
 // StopRPC shuts down the HTTP server.
 // This method is deprecated. Use StopHTTP instead.
-func (api *privateAdminAPI) StopRPC() (bool, error) {
+func (api *privateAdminAPI[T,P]) StopRPC() (bool, error) {
 	log.Warn("Deprecation warning", "method", "admin.StopRPC", "use-instead", "admin.StopHTTP")
 	return api.StopHTTP()
 }
 
 // StartWS starts the websocket RPC API server.
-func (api *privateAdminAPI) StartWS(host *string, port *int, allowedOrigins *string, apis *string) (bool, error) {
+func (api *privateAdminAPI[T,P]) StartWS(host *string, port *int, allowedOrigins *string, apis *string) (bool, error) {
 	api.node.lock.Lock()
 	defer api.node.lock.Unlock()
 
@@ -299,7 +299,7 @@ func (api *privateAdminAPI) StartWS(host *string, port *int, allowedOrigins *str
 }
 
 // StopWS terminates all WebSocket servers.
-func (api *privateAdminAPI) StopWS() (bool, error) {
+func (api *privateAdminAPI[T,P]) StopWS() (bool, error) {
 	api.node.http.stopWS()
 	api.node.ws.stop()
 	return true, nil
@@ -307,8 +307,8 @@ func (api *privateAdminAPI) StopWS() (bool, error) {
 
 // publicAdminAPI is the collection of administrative API methods exposed over
 // both secure and unsecure RPC channels.
-type publicAdminAPI struct {
-	node *Node // Node interfaced by this API
+type publicAdminAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	node *Node[T,P] // Node interfaced by this API
 }
 
 // Quorum: an extended nodeInfo to include plugin details for current node
@@ -319,7 +319,7 @@ type QuorumNodeInfo struct {
 
 // Peers retrieves all the information we know about each individual peer at the
 // protocol granularity.
-func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
+func (api *publicAdminAPI[T,P]) Peers() ([]*p2p.PeerInfo, error) {
 	server := api.node.Server()
 	if server == nil {
 		return nil, ErrNodeStopped
@@ -327,7 +327,7 @@ func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
 	return server.PeersInfo(), nil
 }
 
-func (api *publicAdminAPI) Qpeers() ([]*p2p.PeerInfo, error) {
+func (api *publicAdminAPI[T,P]) Qpeers() ([]*p2p.PeerInfo, error) {
 	server := api.node.qserver
 	if server == nil {
 		return nil, nil
@@ -337,7 +337,7 @@ func (api *publicAdminAPI) Qpeers() ([]*p2p.PeerInfo, error) {
 
 // NodeInfo retrieves all the information we know about the host node at the
 // protocol granularity.
-func (api *publicAdminAPI) NodeInfo() (*QuorumNodeInfo, error) {
+func (api *publicAdminAPI[T,P]) NodeInfo() (*QuorumNodeInfo, error) {
 	server := api.node.Server()
 	if server == nil {
 		return nil, ErrNodeStopped
@@ -348,7 +348,7 @@ func (api *publicAdminAPI) NodeInfo() (*QuorumNodeInfo, error) {
 	}, nil
 }
 
-func (api *publicAdminAPI) QnodeInfo() (*QuorumNodeInfo, error) {
+func (api *publicAdminAPI[T,P]) QnodeInfo() (*QuorumNodeInfo, error) {
 	server := api.node.QServer()
 	if server == nil {
 		return nil, nil
@@ -359,22 +359,22 @@ func (api *publicAdminAPI) QnodeInfo() (*QuorumNodeInfo, error) {
 }
 
 // Datadir retrieves the current data directory the node is using.
-func (api *publicAdminAPI) Datadir() string {
+func (api *publicAdminAPI[T,P]) Datadir() string {
 	return api.node.DataDir()
 }
 
 // publicWeb3API offers helper utils
-type publicWeb3API struct {
-	stack *Node
+type publicWeb3API [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	stack *Node[T,P]
 }
 
 // ClientVersion returns the node name
-func (s *publicWeb3API) ClientVersion() string {
+func (s *publicWeb3API[T,P]) ClientVersion() string {
 	return s.stack.Server().Name
 }
 
 // Sha3 applies the ethereum sha3 implementation on the input.
 // It assumes the input is hex encoded.
-func (s *publicWeb3API) Sha3(input hexutil.Bytes) hexutil.Bytes {
+func (s *publicWeb3API[T,P]) Sha3(input hexutil.Bytes) hexutil.Bytes {
 	return crypto.Keccak256(input)
 }

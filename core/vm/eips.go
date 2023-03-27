@@ -20,22 +20,28 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/holiman/uint256"
+	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-var activators = map[int]func(*JumpTable){
-	2929: enable2929,
-	2200: enable2200,
-	1884: enable1884,
-	1344: enable1344,
-}
+// var activators = map[int]func(*JumpTable[nist.PublicKey]){
+// 	2929: enable2929[nist.PublicKey],
+// 	2200: enable2200[nist.PublicKey],
+// 	1884: enable1884[nist.PublicKey],
+// 	1344: enable1344[nist.PublicKey],
+// }
 
 // EnableEIP enables the given EIP on the config.
 // This operation writes in-place, and callers need to ensure that the globally
 // defined jump tables are not polluted.
-func EnableEIP(eipNum int, jt *JumpTable) error {
-	enablerFn, ok := activators[eipNum]
+func EnableEIP[P crypto.PublicKey](eipNum int, jt *JumpTable[P]) error {
+	enablerFn, ok := map[int]func(*JumpTable[P]){
+		2929: enable2929[P],
+		2200: enable2200[P],
+		1884: enable1884[P],
+		1344: enable1344[P],
+	}[eipNum]
 	if !ok {
 		return fmt.Errorf("undefined eip %d", eipNum)
 	}
@@ -43,13 +49,23 @@ func EnableEIP(eipNum int, jt *JumpTable) error {
 	return nil
 }
 
-func ValidEip(eipNum int) bool {
-	_, ok := activators[eipNum]
+func ValidEip[P crypto.PublicKey](eipNum int) bool {
+	_, ok := map[int]func(*JumpTable[P]){
+		2929: enable2929[P],
+		2200: enable2200[P],
+		1884: enable1884[P],
+		1344: enable1344[P],
+	}[eipNum]
 	return ok
 }
-func ActivateableEips() []string {
+func ActivateableEips[P crypto.PublicKey]() []string {
 	var nums []string
-	for k := range activators {
+	for k := range map[int]func(*JumpTable[P]){
+		2929: enable2929[P],
+		2200: enable2200[P],
+		1884: enable1884[P],
+		1344: enable1344[P],
+	} {
 		nums = append(nums, fmt.Sprintf("%d", k))
 	}
 	sort.Strings(nums)
@@ -61,22 +77,22 @@ func ActivateableEips() []string {
 // - Increase cost of EXTCODEHASH to 700
 // - Increase cost of SLOAD to 800
 // - Define SELFBALANCE, with cost GasFastStep (5)
-func enable1884(jt *JumpTable) {
+func enable1884[P crypto.PublicKey](jt *JumpTable[P]) {
 	// Gas cost changes
 	jt[SLOAD].constantGas = params.SloadGasEIP1884
 	jt[BALANCE].constantGas = params.BalanceGasEIP1884
 	jt[EXTCODEHASH].constantGas = params.ExtcodeHashGasEIP1884
 
 	// New opcode
-	jt[SELFBALANCE] = &operation{
-		execute:     opSelfBalance,
+	jt[SELFBALANCE] = &operation[P]{
+		execute:     opSelfBalance[P],
 		constantGas: GasFastStep,
 		minStack:    minStack(0, 1),
 		maxStack:    maxStack(0, 1),
 	}
 }
 
-func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+func opSelfBalance[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
 	balance, _ := uint256.FromBig(interpreter.evm.StateDB.GetBalance(scope.Contract.Address()))
 	scope.Stack.push(balance)
 	return nil, nil
@@ -84,10 +100,10 @@ func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext)
 
 // enable1344 applies EIP-1344 (ChainID Opcode)
 // - Adds an opcode that returns the current chain’s EIP-155 unique identifier
-func enable1344(jt *JumpTable) {
+func enable1344[P crypto.PublicKey](jt *JumpTable[P]) {
 	// New opcode
-	jt[CHAINID] = &operation{
-		execute:     opChainID,
+	jt[CHAINID] = &operation[P]{
+		execute:     opChainID[P],
 		constantGas: GasQuickStep,
 		minStack:    minStack(0, 1),
 		maxStack:    maxStack(0, 1),
@@ -95,52 +111,52 @@ func enable1344(jt *JumpTable) {
 }
 
 // opChainID implements CHAINID opcode
-func opChainID(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+func opChainID[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
 	chainId, _ := uint256.FromBig(interpreter.evm.chainConfig.ChainID)
 	scope.Stack.push(chainId)
 	return nil, nil
 }
 
 // enable2200 applies EIP-2200 (Rebalance net-metered SSTORE)
-func enable2200(jt *JumpTable) {
+func enable2200[P crypto.PublicKey](jt *JumpTable[P]) {
 	jt[SLOAD].constantGas = params.SloadGasEIP2200
-	jt[SSTORE].dynamicGas = gasSStoreEIP2200
+	jt[SSTORE].dynamicGas = gasSStoreEIP2200[P]
 }
 
 // enable2929 enables "EIP-2929: Gas cost increases for state access opcodes"
 // https://eips.ethereum.org/EIPS/eip-2929
-func enable2929(jt *JumpTable) {
-	jt[SSTORE].dynamicGas = gasSStoreEIP2929
+func enable2929[P crypto.PublicKey](jt *JumpTable[P]) {
+	jt[SSTORE].dynamicGas = gasSStoreEIP2929[P]
 
 	jt[SLOAD].constantGas = 0
-	jt[SLOAD].dynamicGas = gasSLoadEIP2929
+	jt[SLOAD].dynamicGas = gasSLoadEIP2929[P]
 
 	jt[EXTCODECOPY].constantGas = WarmStorageReadCostEIP2929
-	jt[EXTCODECOPY].dynamicGas = gasExtCodeCopyEIP2929
+	jt[EXTCODECOPY].dynamicGas = gasExtCodeCopyEIP2929[P]
 
 	jt[EXTCODESIZE].constantGas = WarmStorageReadCostEIP2929
-	jt[EXTCODESIZE].dynamicGas = gasEip2929AccountCheck
+	jt[EXTCODESIZE].dynamicGas = gasEip2929AccountCheck[P]
 
 	jt[EXTCODEHASH].constantGas = WarmStorageReadCostEIP2929
-	jt[EXTCODEHASH].dynamicGas = gasEip2929AccountCheck
+	jt[EXTCODEHASH].dynamicGas = gasEip2929AccountCheck[P]
 
 	jt[BALANCE].constantGas = WarmStorageReadCostEIP2929
-	jt[BALANCE].dynamicGas = gasEip2929AccountCheck
+	jt[BALANCE].dynamicGas = gasEip2929AccountCheck[P]
 
 	jt[CALL].constantGas = WarmStorageReadCostEIP2929
-	jt[CALL].dynamicGas = gasCallEIP2929
+	jt[CALL].dynamicGas = makeCallVariantGasCallEIP2929(gasCall[P])
 
 	jt[CALLCODE].constantGas = WarmStorageReadCostEIP2929
-	jt[CALLCODE].dynamicGas = gasCallCodeEIP2929
+	jt[CALLCODE].dynamicGas = makeCallVariantGasCallEIP2929(gasCallCode[P])
 
 	jt[STATICCALL].constantGas = WarmStorageReadCostEIP2929
-	jt[STATICCALL].dynamicGas = gasStaticCallEIP2929
+	jt[STATICCALL].dynamicGas = makeCallVariantGasCallEIP2929(gasStaticCall[P])
 
 	jt[DELEGATECALL].constantGas = WarmStorageReadCostEIP2929
-	jt[DELEGATECALL].dynamicGas = gasDelegateCallEIP2929
+	jt[DELEGATECALL].dynamicGas = makeCallVariantGasCallEIP2929(gasDelegateCall[P])
 
 	// This was previously part of the dynamic cost, but we're using it as a constantGas
 	// factor here
 	jt[SELFDESTRUCT].constantGas = params.SelfdestructGasEIP150
-	jt[SELFDESTRUCT].dynamicGas = gasSelfdestructEIP2929
+	jt[SELFDESTRUCT].dynamicGas = gasSelfdestructEIP2929[P]
 }

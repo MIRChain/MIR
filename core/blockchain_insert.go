@@ -22,11 +22,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // insertStats tracks and reports on block insertion.
-type insertStats struct {
+type insertStats [P crypto.PublicKey] struct {
 	queued, processed, ignored int
 	usedGas                    uint64
 	lastIndex                  int
@@ -39,7 +40,7 @@ const statsReportLimit = 8 * time.Second
 
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
-func (st *insertStats) report(chain []*types.Block, index int, dirty common.StorageSize) {
+func (st *insertStats[P]) report(chain []*types.Block[P], index int, dirty common.StorageSize) {
 	// Fetch the timings for the batch
 	var (
 		now     = mclock.Now()
@@ -74,25 +75,25 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 		log.Info("Imported new chain segment", context...)
 
 		// Bump the stats reported to the next section
-		*st = insertStats{startTime: now, lastIndex: index + 1}
+		*st = insertStats[P]{startTime: now, lastIndex: index + 1}
 	}
 }
 
 // insertIterator is a helper to assist during chain import.
-type insertIterator struct {
-	chain types.Blocks // Chain of blocks being iterated over
+type insertIterator [P crypto.PublicKey] struct {
+	chain types.Blocks[P] // Chain of blocks being iterated over
 
 	results <-chan error // Verification result sink from the consensus engine
 	errors  []error      // Header verification errors for the blocks
 
 	index     int       // Current offset of the iterator
-	validator Validator // Validator to run if verification succeeds
+	validator Validator[P] // Validator to run if verification succeeds
 }
 
 // newInsertIterator creates a new iterator based on the given blocks, which are
 // assumed to be a contiguous chain.
-func newInsertIterator(chain types.Blocks, results <-chan error, validator Validator) *insertIterator {
-	return &insertIterator{
+func newInsertIterator[P crypto.PublicKey](chain types.Blocks[P], results <-chan error, validator Validator[P]) *insertIterator[P] {
+	return &insertIterator[P]{
 		chain:     chain,
 		results:   results,
 		errors:    make([]error, 0, len(chain)),
@@ -103,7 +104,7 @@ func newInsertIterator(chain types.Blocks, results <-chan error, validator Valid
 
 // next returns the next block in the iterator, along with any potential validation
 // error for that block. When the end is reached, it will return (nil, nil).
-func (it *insertIterator) next() (*types.Block, error) {
+func (it *insertIterator[P]) next() (*types.Block[P], error) {
 	// If we reached the end of the chain, abort
 	if it.index+1 >= len(it.chain) {
 		it.index = len(it.chain)
@@ -126,7 +127,7 @@ func (it *insertIterator) next() (*types.Block, error) {
 //
 // Both header and body validation errors (nil too) is cached into the iterator
 // to avoid duplicating work on the following next() call.
-func (it *insertIterator) peek() (*types.Block, error) {
+func (it *insertIterator[P]) peek() (*types.Block[P], error) {
 	// If we reached the end of the chain, abort
 	if it.index+1 >= len(it.chain) {
 		return nil, nil
@@ -143,7 +144,7 @@ func (it *insertIterator) peek() (*types.Block, error) {
 }
 
 // previous returns the previous header that was being processed, or nil.
-func (it *insertIterator) previous() *types.Header {
+func (it *insertIterator[P]) previous() *types.Header {
 	if it.index < 1 {
 		return nil
 	}
@@ -151,16 +152,16 @@ func (it *insertIterator) previous() *types.Header {
 }
 
 // first returns the first block in the it.
-func (it *insertIterator) first() *types.Block {
+func (it *insertIterator[P]) first() *types.Block[P] {
 	return it.chain[0]
 }
 
 // remaining returns the number of remaining blocks.
-func (it *insertIterator) remaining() int {
+func (it *insertIterator[P]) remaining() int {
 	return len(it.chain) - it.index
 }
 
 // processed returns the number of processed blocks.
-func (it *insertIterator) processed() int {
+func (it *insertIterator[P]) processed() int {
 	return it.index + 1
 }

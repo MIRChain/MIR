@@ -16,6 +16,8 @@
 
 package accounts
 
+import "github.com/pavelkrolevets/MIR-pro/crypto"
+
 // AccountsByURL implements sort.Interface for []Account based on the URL field.
 type AccountsByURL []Account
 
@@ -24,8 +26,8 @@ func (a AccountsByURL) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a AccountsByURL) Less(i, j int) bool { return a[i].URL.Cmp(a[j].URL) < 0 }
 
 // WalletsByURL implements sort.Interface for []Wallet based on the URL field.
-type WalletsByURL []Wallet
+type WalletsByURL [P crypto.PublicKey] []Wallet[P]
 
-func (w WalletsByURL) Len() int           { return len(w) }
-func (w WalletsByURL) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
-func (w WalletsByURL) Less(i, j int) bool { return w[i].URL().Cmp(w[j].URL()) < 0 }
+func (w WalletsByURL[P]) Len() int           { return len(w) }
+func (w WalletsByURL[P]) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+func (w WalletsByURL[P]) Less(i, j int) bool { return w[i].URL().Cmp(w[j].URL()) < 0 }

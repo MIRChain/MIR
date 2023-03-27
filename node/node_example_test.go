@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/node"
 )
 
@@ -36,7 +37,7 @@ func (s *SampleLifecycle) Stop() error  { fmt.Println("Service stopping..."); re
 
 func ExampleLifecycle() {
 	// Create a network node to run protocols with the default values.
-	stack, err := node.New(&node.Config{})
+	stack, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		log.Fatalf("Failed to create network node: %v", err)
 	}

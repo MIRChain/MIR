@@ -254,7 +254,7 @@ func (m *MockPrivateStateRepository) EXPECT() *MockPrivateStateRepositoryMockRec
 }
 
 // Commit mocks base method.
-func (m *MockPrivateStateRepository) Commit(isEIP158 bool, block *types.Block) error {
+func (m *MockPrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", isEIP158, block)
 	ret0, _ := ret[0].(error)
@@ -268,7 +268,7 @@ func (mr *MockPrivateStateRepositoryMockRecorder) Commit(isEIP158, block interfa
 }
 
 // CommitAndWrite mocks base method.
-func (m *MockPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block) error {
+func (m *MockPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitAndWrite", isEIP158, block)
 	ret0, _ := ret[0].(error)

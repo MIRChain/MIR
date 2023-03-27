@@ -36,35 +36,35 @@ type ContractBackend struct {
 }
 
 type RoleService interface {
-	AddNewRole(_args TxArgs) (*types.Transaction, error)
-	RemoveRole(_args TxArgs) (*types.Transaction, error)
+	AddNewRole(_args TxArgs) (*types.Transaction[P], error)
+	RemoveRole(_args TxArgs) (*types.Transaction[P], error)
 }
 
 // Org services
 type OrgService interface {
-	AddOrg(_args TxArgs) (*types.Transaction, error)
-	AddSubOrg(_args TxArgs) (*types.Transaction, error)
-	ApproveOrg(_args TxArgs) (*types.Transaction, error)
-	UpdateOrgStatus(_args TxArgs) (*types.Transaction, error)
-	ApproveOrgStatus(_args TxArgs) (*types.Transaction, error)
+	AddOrg(_args TxArgs) (*types.Transaction[P], error)
+	AddSubOrg(_args TxArgs) (*types.Transaction[P], error)
+	ApproveOrg(_args TxArgs) (*types.Transaction[P], error)
+	UpdateOrgStatus(_args TxArgs) (*types.Transaction[P], error)
+	ApproveOrgStatus(_args TxArgs) (*types.Transaction[P], error)
 }
 
 // Node services
 type NodeService interface {
-	AddNode(_args TxArgs) (*types.Transaction, error)
-	UpdateNodeStatus(_args TxArgs) (*types.Transaction, error)
-	StartBlacklistedNodeRecovery(_args TxArgs) (*types.Transaction, error)
-	ApproveBlacklistedNodeRecovery(_args TxArgs) (*types.Transaction, error)
+	AddNode(_args TxArgs) (*types.Transaction[P], error)
+	UpdateNodeStatus(_args TxArgs) (*types.Transaction[P], error)
+	StartBlacklistedNodeRecovery(_args TxArgs) (*types.Transaction[P], error)
+	ApproveBlacklistedNodeRecovery(_args TxArgs) (*types.Transaction[P], error)
 }
 
 // Account services
 type AccountService interface {
-	AssignAccountRole(_args TxArgs) (*types.Transaction, error)
-	AssignAdminRole(_args TxArgs) (*types.Transaction, error)
-	ApproveAdminRole(_args TxArgs) (*types.Transaction, error)
-	UpdateAccountStatus(_args TxArgs) (*types.Transaction, error)
-	StartBlacklistedAccountRecovery(_args TxArgs) (*types.Transaction, error)
-	ApproveBlacklistedAccountRecovery(_args TxArgs) (*types.Transaction, error)
+	AssignAccountRole(_args TxArgs) (*types.Transaction[P], error)
+	AssignAdminRole(_args TxArgs) (*types.Transaction[P], error)
+	ApproveAdminRole(_args TxArgs) (*types.Transaction[P], error)
+	UpdateAccountStatus(_args TxArgs) (*types.Transaction[P], error)
+	StartBlacklistedAccountRecovery(_args TxArgs) (*types.Transaction[P], error)
+	ApproveBlacklistedAccountRecovery(_args TxArgs) (*types.Transaction[P], error)
 }
 
 // Control services
@@ -81,13 +81,13 @@ type AuditService interface {
 
 type InitService interface {
 	BindContracts() error
-	Init(_breadth *big.Int, _depth *big.Int) (*types.Transaction, error)
-	UpdateNetworkBootStatus() (*types.Transaction, error)
-	SetPolicy(_nwAdminOrg string, _nwAdminRole string, _oAdminRole string) (*types.Transaction, error)
+	Init(_breadth *big.Int, _depth *big.Int) (*types.Transaction[P], error)
+	UpdateNetworkBootStatus() (*types.Transaction[P], error)
+	SetPolicy(_nwAdminOrg string, _nwAdminRole string, _oAdminRole string) (*types.Transaction[P], error)
 	GetNetworkBootStatus() (bool, error)
 
-	AddAdminAccount(_acct common.Address) (*types.Transaction, error)
-	AddAdminNode(url string) (*types.Transaction, error)
+	AddAdminAccount(_acct common.Address) (*types.Transaction[P], error)
+	AddAdminNode(url string) (*types.Transaction[P], error)
 	GetAccountDetailsFromIndex(_aIndex *big.Int) (common.Address, string, string, *big.Int, bool, error)
 	GetNumberOfAccounts() (*big.Int, error)
 	GetAccountDetails(_account common.Address) (common.Address, string, string, *big.Int, bool, error)

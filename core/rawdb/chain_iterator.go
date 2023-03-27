@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // InitDatabaseFromFreezer reinitializes an empty database from a previous batch
@@ -87,7 +88,7 @@ type blockTxHashes struct {
 // number(s) given, and yields the hashes on a channel. If there is a signal
 // received from interrupt channel, the iteration will be aborted and result
 // channel will be closed.
-func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool, interrupt chan struct{}) chan *blockTxHashes {
+func iterateTransactions[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, reverse bool, interrupt chan struct{}) chan *blockTxHashes {
 	// One thread sequentially reads data from db
 	type numberRlp struct {
 		number uint64
@@ -136,7 +137,7 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 			}
 		}()
 		for data := range rlpCh {
-			var body types.Body
+			var body types.Body[P]
 			if err := rlp.DecodeBytes(data.rlp, &body); err != nil {
 				log.Warn("Failed to decode block body", "block", data.number, "error", err)
 				return
@@ -172,13 +173,13 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+func indexTransactions[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
 	// short circuit for invalid range
 	if from >= to {
 		return
 	}
 	var (
-		hashesCh = iterateTransactions(db, from, to, true, interrupt)
+		hashesCh = iterateTransactions[P](db, from, to, true, interrupt)
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
@@ -250,26 +251,26 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func IndexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
-	indexTransactions(db, from, to, interrupt, nil)
+func IndexTransactions[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
+	indexTransactions[P](db, from, to, interrupt, nil)
 }
 
 // indexTransactionsForTesting is the internal debug version with an additional hook.
-func indexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	indexTransactions(db, from, to, interrupt, hook)
+func indexTransactionsForTesting[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+	indexTransactions[P](db, from, to, interrupt, hook)
 }
 
 // unindexTransactions removes txlookup indices of the specified block range.
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+func unindexTransactions[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
 	// short circuit for invalid range
 	if from >= to {
 		return
 	}
 	var (
-		hashesCh = iterateTransactions(db, from, to, false, interrupt)
+		hashesCh = iterateTransactions[P](db, from, to, false, interrupt)
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
@@ -337,11 +338,11 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func UnindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
-	unindexTransactions(db, from, to, interrupt, nil)
+func UnindexTransactions[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
+	unindexTransactions[P](db, from, to, interrupt, nil)
 }
 
 // unindexTransactionsForTesting is the internal debug version with an additional hook.
-func unindexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	unindexTransactions(db, from, to, interrupt, hook)
+func unindexTransactionsForTesting[P crypto.PublicKey](db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+	unindexTransactions[P](db, from, to, interrupt, hook)
 }

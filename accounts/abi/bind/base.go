@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core"
@@ -33,7 +33,7 @@ import (
 
 // SignerFn is a signer function callback when a contract requires a method to
 // sign the transaction before submission.
-type SignerFn func(common.Address, *types.Transaction) (*types.Transaction, error)
+type SignerFn[P crypto.PublicKey] func(common.Address, *types.Transaction[P]) (*types.Transaction[P], error)
 
 // Quorum
 //
@@ -52,10 +52,10 @@ type CallOpts struct {
 
 // TransactOpts is the collection of authorization data required to create a
 // valid Ethereum transaction.
-type TransactOpts struct {
+type TransactOpts [P crypto.PublicKey] struct {
 	From   common.Address // Ethereum account to send the transaction from
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
-	Signer SignerFn       // Method to use for signing the transaction (mandatory)
+	Signer SignerFn[P]       // Method to use for signing the transaction (mandatory)
 
 	Value    *big.Int // Funds to transfer along the transaction (nil = 0 = no funds)
 	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
@@ -90,7 +90,7 @@ type WatchOpts struct {
 // BoundContract is the base wrapper object that reflects a contract on the
 // Ethereum network. It contains a collection of methods that are used by the
 // higher level contract bindings to operate.
-type BoundContract struct {
+type BoundContract [P crypto.PublicKey] struct {
 	address    common.Address     // Deployment address of the contract on the Ethereum blockchain
 	abi        abi.ABI            // Reflect based ABI to access the correct Ethereum methods
 	caller     ContractCaller     // Read interface to interact with the blockchain
@@ -100,8 +100,8 @@ type BoundContract struct {
 
 // NewBoundContract creates a low level contract interface through which calls
 // and transactions may be made through.
-func NewBoundContract(address common.Address, abi abi.ABI, caller ContractCaller, transactor ContractTransactor, filterer ContractFilterer) *BoundContract {
-	return &BoundContract{
+func NewBoundContract[P crypto.PublicKey](address common.Address, abi abi.ABI, caller ContractCaller, transactor ContractTransactor, filterer ContractFilterer) *BoundContract[P] {
+	return &BoundContract[P]{
 		address:    address,
 		abi:        abi,
 		caller:     caller,
@@ -112,9 +112,9 @@ func NewBoundContract(address common.Address, abi abi.ABI, caller ContractCaller
 
 // DeployContract deploys a contract onto the Ethereum blockchain and binds the
 // deployment address with a Go wrapper.
-func DeployContract(opts *TransactOpts, abi abi.ABI, bytecode []byte, backend ContractBackend, params ...interface{}) (common.Address, *types.Transaction, *BoundContract, error) {
+func DeployContract[P crypto.PublicKey](opts *TransactOpts[P], abi abi.ABI, bytecode []byte, backend ContractBackend, params ...interface{}) (common.Address, *types.Transaction[P], *BoundContract[P], error) {
 	// Otherwise try to deploy the contract
-	c := NewBoundContract(common.Address{}, abi, backend, backend, backend)
+	c := NewBoundContract[P](common.Address{}, abi, backend, backend, backend)
 
 	input, err := c.abi.Pack("", params...)
 	if err != nil {
@@ -132,7 +132,7 @@ func DeployContract(opts *TransactOpts, abi abi.ABI, bytecode []byte, backend Co
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (c *BoundContract) Call(opts *CallOpts, results *[]interface{}, method string, params ...interface{}) error {
+func (c *BoundContract[P]) Call(opts *CallOpts, results *[]interface{}, method string, params ...interface{}) error {
 	// Don't crash on a lazy user
 	if opts == nil {
 		opts = new(CallOpts)
@@ -190,7 +190,7 @@ func (c *BoundContract) Call(opts *CallOpts, results *[]interface{}, method stri
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (c *BoundContract) Transact(opts *TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+func (c *BoundContract[P]) Transact(opts *TransactOpts[P], method string, params ...interface{}) (*types.Transaction[P], error) {
 	// Otherwise pack up the parameters and invoke the contract
 	input, err := c.abi.Pack(method, params...)
 	if err != nil {
@@ -203,7 +203,7 @@ func (c *BoundContract) Transact(opts *TransactOpts, method string, params ...in
 
 // RawTransact initiates a transaction with the given raw calldata as the input.
 // It's usually used to initiate transactions for invoking **Fallback** function.
-func (c *BoundContract) RawTransact(opts *TransactOpts, calldata []byte) (*types.Transaction, error) {
+func (c *BoundContract[P]) RawTransact(opts *TransactOpts[P], calldata []byte) (*types.Transaction[P], error) {
 	// todo(rjl493456442) check the method is payable or not,
 	// reject invalid transaction at the first place
 	return c.transact(opts, &c.address, calldata)
@@ -211,7 +211,7 @@ func (c *BoundContract) RawTransact(opts *TransactOpts, calldata []byte) (*types
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (c *BoundContract) Transfer(opts *TransactOpts) (*types.Transaction, error) {
+func (c *BoundContract[P]) Transfer(opts *TransactOpts[P]) (*types.Transaction[P], error) {
 	// todo(rjl493456442) check the payable fallback or receive is defined
 	// or not, reject invalid transaction at the first place
 	return c.transact(opts, &c.address, nil)
@@ -219,7 +219,7 @@ func (c *BoundContract) Transfer(opts *TransactOpts) (*types.Transaction, error)
 
 // transact executes an actual transaction invocation, first deriving any missing
 // authorization fields, and then scheduling the transaction for execution.
-func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, input []byte) (*types.Transaction, error) {
+func (c *BoundContract[P]) transact(opts *TransactOpts[P], contract *common.Address, input []byte) (*types.Transaction[P], error) {
 	var err error
 
 	// Ensure a valid value field and resolve the account nonce
@@ -262,11 +262,11 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		}
 	}
 	// Create the transaction, sign it and schedule it for execution
-	var rawTx *types.Transaction
+	var rawTx *types.Transaction[P]
 	if contract == nil {
-		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, input)
+		rawTx = types.NewContractCreation[P](nonce, value, gasLimit, gasPrice, input)
 	} else {
-		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice, input)
+		rawTx = types.NewTransaction[P](nonce, c.address, value, gasLimit, gasPrice, input)
 	}
 
 	// Quorum
@@ -306,7 +306,7 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 
 // FilterLogs filters contract logs for past blocks, returning the necessary
 // channels to construct a strongly typed bound iterator on top of them.
-func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error) {
+func (c *BoundContract[P]) FilterLogs(opts *FilterOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error) {
 	// Don't crash on a lazy user
 	if opts == nil {
 		opts = new(FilterOpts)
@@ -355,7 +355,7 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 
 // WatchLogs filters subscribes to contract logs for future blocks, returning a
 // subscription object that can be used to tear down the watcher.
-func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error) {
+func (c *BoundContract[P]) WatchLogs(opts *WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error) {
 	// Don't crash on a lazy user
 	if opts == nil {
 		opts = new(WatchOpts)
@@ -385,7 +385,7 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 }
 
 // UnpackLog unpacks a retrieved log into the provided output structure.
-func (c *BoundContract) UnpackLog(out interface{}, event string, log types.Log) error {
+func (c *BoundContract[P]) UnpackLog(out interface{}, event string, log types.Log) error {
 	if len(log.Data) > 0 {
 		if err := c.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
 			return err
@@ -401,7 +401,7 @@ func (c *BoundContract) UnpackLog(out interface{}, event string, log types.Log) 
 }
 
 // UnpackLogIntoMap unpacks a retrieved log into the provided map.
-func (c *BoundContract) UnpackLogIntoMap(out map[string]interface{}, event string, log types.Log) error {
+func (c *BoundContract[P]) UnpackLogIntoMap(out map[string]interface{}, event string, log types.Log) error {
 	if len(log.Data) > 0 {
 		if err := c.abi.UnpackIntoMap(out, event, log.Data); err != nil {
 			return err
@@ -418,19 +418,19 @@ func (c *BoundContract) UnpackLogIntoMap(out map[string]interface{}, event strin
 
 // Quorum
 // createPrivateTransaction replaces the payload of private transaction to the hash from Tessera/Constellation
-func (c *BoundContract) createPrivateTransaction(tx *types.Transaction, payload []byte) *types.Transaction {
-	var privateTx *types.Transaction
+func (c *BoundContract[P]) createPrivateTransaction(tx *types.Transaction[P], payload []byte) *types.Transaction[P] {
+	var privateTx *types.Transaction[P]
 	if tx.To() == nil {
-		privateTx = types.NewContractCreation(tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), payload)
+		privateTx = types.NewContractCreation[P](tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), payload)
 	} else {
-		privateTx = types.NewTransaction(tx.Nonce(), c.address, tx.Value(), tx.Gas(), tx.GasPrice(), payload)
+		privateTx = types.NewTransaction[P](tx.Nonce(), c.address, tx.Value(), tx.Gas(), tx.GasPrice(), payload)
 	}
 	privateTx.SetPrivate()
 	return privateTx
 }
 
 // (Quorum) createMarkerTx creates a new public privacy marker transaction for the given private tx, distributing tx to the specified privateFor recipients
-func (c *BoundContract) createMarkerTx(opts *TransactOpts, tx *types.Transaction, args PrivateTxArgs) (*types.Transaction, error) {
+func (c *BoundContract[P]) createMarkerTx(opts *TransactOpts[P], tx *types.Transaction[P], args PrivateTxArgs) (*types.Transaction[P], error) {
 	// Choose signer to sign transaction
 	if opts.Signer == nil {
 		return nil, errors.New("no signer to authorize the transaction with")
@@ -451,7 +451,7 @@ func (c *BoundContract) createMarkerTx(opts *TransactOpts, tx *types.Transaction
 		return nil, err
 	}
 
-	return types.NewTransaction(signedTx.Nonce(), common.QuorumPrivacyPrecompileContractAddress(), tx.Value(), intrinsicGas, tx.GasPrice(), common.FromHex(hash)), nil
+	return types.NewTransaction[P](signedTx.Nonce(), common.QuorumPrivacyPrecompileContractAddress(), tx.Value(), intrinsicGas, tx.GasPrice(), common.FromHex(hash)), nil
 }
 
 // ensureContext is a helper method to ensure a context is not nil, even if the

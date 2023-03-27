@@ -918,7 +918,7 @@ func createPublicContract(cfg *config, assert *testifyassert.Assertions, c *cont
 }
 
 func newTypicalPrivateMessage(cfg *config) PrivateMessage {
-	var tx *types.Transaction
+	var tx *types.Transaction[P]
 	if cfg.to == nil {
 		tx = types.NewContractCreation(cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
@@ -941,7 +941,7 @@ func newTypicalPrivateMessage(cfg *config) PrivateMessage {
 }
 
 func newTypicalPublicMessage(cfg *config) Message {
-	var tx *types.Transaction
+	var tx *types.Transaction[P]
 	if cfg.to == nil {
 		tx = types.NewContractCreation(cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
@@ -984,7 +984,7 @@ type config struct {
 	privacyFlag  engine.PrivacyFlagType
 	acMerkleRoot common.Hash
 
-	currentTx *types.Transaction
+	currentTx *types.Transaction[P]
 
 	publicState, privateState *state.StateDB
 }
@@ -1068,15 +1068,15 @@ func mustParse(def string) abi.ABI {
 type stubSigner struct {
 }
 
-func (ss *stubSigner) Sender(tx *types.Transaction) (common.Address, error) {
+func (ss *stubSigner) Sender(tx *types.Transaction[P]) (common.Address, error) {
 	return signingAddress, nil
 }
 
-func (ss *stubSigner) SignatureValues(tx *types.Transaction, sig []byte) (r, s, v *big.Int, err error) {
+func (ss *stubSigner) SignatureValues(tx *types.Transaction[P], sig []byte) (r, s, v *big.Int, err error) {
 	panic("implement me")
 }
 
-func (ss *stubSigner) Hash(tx *types.Transaction) common.Hash {
+func (ss *stubSigner) Hash(tx *types.Transaction[P]) common.Hash {
 	panic("implement me")
 }
 

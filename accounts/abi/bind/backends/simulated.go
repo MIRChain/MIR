@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -226,7 +226,7 @@ func (b *SimulatedBackend) TransactionReceipt(ctx context.Context, txHash common
 // blockchain. The isPending return value indicates whether the transaction has been
 // mined yet. Note that the transaction may not be part of the canonical chain even if
 // it's not pending.
-func (b *SimulatedBackend) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error) {
+func (b *SimulatedBackend) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction[P], bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -330,7 +330,7 @@ func (b *SimulatedBackend) TransactionCount(ctx context.Context, blockHash commo
 }
 
 // TransactionInBlock returns the transaction for a specific block at a specific index.
-func (b *SimulatedBackend) TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction, error) {
+func (b *SimulatedBackend) TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction[P], error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -573,7 +573,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call ethereum.CallM
 
 // SendTransaction updates the pending block to include the given transaction.
 // It panics if the transaction is invalid.
-func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transaction, args bind.PrivateTxArgs) error {
+func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transaction[P], args bind.PrivateTxArgs) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -608,7 +608,7 @@ func (b *SimulatedBackend) PreparePrivateTransaction(data []byte, privateFrom st
 	return common.EncryptedPayloadHash{}, nil
 }
 
-func (b *SimulatedBackend) DistributeTransaction(ctx context.Context, tx *types.Transaction, args bind.PrivateTxArgs) (string, error) {
+func (b *SimulatedBackend) DistributeTransaction(ctx context.Context, tx *types.Transaction[P], args bind.PrivateTxArgs) (string, error) {
 	return tx.Hash().String(), nil
 }
 

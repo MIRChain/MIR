@@ -20,6 +20,7 @@
 package node
 
 import (
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
@@ -48,7 +49,7 @@ type InstrumentedService struct {
 	startHook func()
 	stopHook  func()
 
-	protocols []p2p.Protocol
+	protocols []p2p.Protocol[nist.PrivateKey, nist.PublicKey]
 }
 
 func (s *InstrumentedService) Start() error {
@@ -67,7 +68,7 @@ func (s *InstrumentedService) Stop() error {
 
 type FullService struct{}
 
-func NewFullService(stack *Node) (*FullService, error) {
+func NewFullService(stack *Node[nist.PrivateKey, nist.PublicKey]) (*FullService, error) {
 	fs := new(FullService)
 
 	stack.RegisterProtocols(fs.Protocols())
@@ -80,8 +81,8 @@ func (f *FullService) Start() error { return nil }
 
 func (f *FullService) Stop() error { return nil }
 
-func (f *FullService) Protocols() []p2p.Protocol {
-	return []p2p.Protocol{
+func (f *FullService) Protocols() []p2p.Protocol[nist.PrivateKey, nist.PublicKey] {
+	return []p2p.Protocol[nist.PrivateKey, nist.PublicKey]{
 		{
 			Name:    "test1",
 			Version: uint(1),

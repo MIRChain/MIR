@@ -37,11 +37,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 func TestDefaults(t *testing.T) {
-	cfg := new(Config)
+	cfg := new(Config[nist.PublicKey])
 	setDefaults(cfg)
 
 	if cfg.Difficulty == nil {
@@ -75,7 +76,7 @@ func TestEVM(t *testing.T) {
 		}
 	}()
 
-	Execute([]byte{
+	Execute[nist.PublicKey]([]byte{
 		byte(vm.DIFFICULTY),
 		byte(vm.TIMESTAMP),
 		byte(vm.GASLIMIT),
@@ -87,7 +88,7 @@ func TestEVM(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	ret, _, err := Execute([]byte{
+	ret, _, err := Execute[nist.PublicKey]([]byte{
 		byte(vm.PUSH1), 10,
 		byte(vm.PUSH1), 0,
 		byte(vm.MSTORE),
@@ -117,7 +118,7 @@ func TestCall(t *testing.T) {
 		byte(vm.RETURN),
 	})
 
-	ret, _, err := Call(address, nil, &Config{State: state})
+	ret, _, err := Call[nist.PublicKey](address, nil, &Config[nist.PublicKey]{State: state})
 	if err != nil {
 		t.Fatal("didn't expect error", err)
 	}
@@ -154,9 +155,9 @@ func BenchmarkCall(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 400; j++ {
-			Execute(code, cpurchase, nil)
-			Execute(code, creceived, nil)
-			Execute(code, refund, nil)
+			Execute[nist.PublicKey](code, cpurchase, nil)
+			Execute[nist.PublicKey](code, creceived, nil)
+			Execute[nist.PublicKey](code, refund, nil)
 		}
 	}
 }
@@ -169,7 +170,7 @@ func benchmarkEVM_Create(bench *testing.B, code string) {
 
 	statedb.CreateAccount(sender)
 	statedb.SetCode(receiver, common.FromHex(code))
-	runtimeConfig := Config{
+	runtimeConfig := Config[nist.PublicKey]{
 		Origin:      sender,
 		State:       statedb,
 		GasLimit:    10000000,
@@ -188,12 +189,12 @@ func benchmarkEVM_Create(bench *testing.B, code string) {
 			EIP155Block:         new(big.Int),
 			EIP158Block:         new(big.Int),
 		},
-		EVMConfig: vm.Config{},
+		EVMConfig: vm.Config[nist.PublicKey]{},
 	}
 	// Warm up the intpools and stuff
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
-		Call(receiver, []byte{}, &runtimeConfig)
+		Call[nist.PublicKey](receiver, []byte{}, &runtimeConfig)
 	}
 	bench.StopTimer()
 }
@@ -234,7 +235,7 @@ type dummyChain struct {
 }
 
 // Engine retrieves the chain's consensus engine.
-func (d *dummyChain) Engine() consensus.Engine {
+func (d *dummyChain) Engine() consensus.Engine[nist.PublicKey] {
 	return nil
 }
 
@@ -314,8 +315,8 @@ func TestBlockhash(t *testing.T) {
 	// The method call to 'test()'
 	input := common.Hex2Bytes("f8a8fd6d")
 	chain := &dummyChain{}
-	ret, _, err := Execute(data, input, &Config{
-		GetHashFn:   core.GetHashFn(header, chain),
+	ret, _, err := Execute[nist.PublicKey](data, input, &Config[nist.PublicKey]{
+		GetHashFn:   core.GetHashFn[nist.PublicKey](header, chain),
 		BlockNumber: new(big.Int).Set(header.Number),
 	})
 	if err != nil {
@@ -343,19 +344,19 @@ func TestBlockhash(t *testing.T) {
 }
 
 type stepCounter struct {
-	inner *vm.JSONLogger
+	inner *vm.JSONLogger[nist.PublicKey]
 	steps int
 }
 
-func (s *stepCounter) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (s *stepCounter) CaptureStart(env *vm.EVM[nist.PublicKey], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
-func (s *stepCounter) CaptureFault(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
+func (s *stepCounter) CaptureFault(env *vm.EVM[nist.PublicKey], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
 }
 
 func (s *stepCounter) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
 
-func (s *stepCounter) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (s *stepCounter) CaptureState(env *vm.EVM[nist.PublicKey], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
 	s.steps++
 	// Enable this for more output
 	//s.inner.CaptureState(env, pc, op, gas, cost, memory, stack, rStack, contract, depth, err)
@@ -364,13 +365,13 @@ func (s *stepCounter) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, co
 // benchmarkNonModifyingCode benchmarks code, but if the code modifies the
 // state, this should not be used, since it does not reset the state between runs.
 func benchmarkNonModifyingCode(gas uint64, code []byte, name string, b *testing.B) {
-	cfg := new(Config)
+	cfg := new(Config[nist.PublicKey])
 	setDefaults(cfg)
 	cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	cfg.GasLimit = gas
 	var (
 		destination = common.BytesToAddress([]byte("contract"))
-		vmenv       = NewEnv(cfg)
+		vmenv       = NewEnv[nist.PublicKey](cfg)
 		sender      = vm.AccountRef(cfg.Origin)
 	)
 	cfg.State.CreateAccount(destination)
@@ -501,8 +502,8 @@ func BenchmarkSimpleLoop(b *testing.B) {
 	}
 
 	//tracer := vm.NewJSONLogger(nil, os.Stdout)
-	//Execute(loopingCode, nil, &Config{
-	//	EVMConfig: vm.Config{
+	//Execute(loopingCode, nil, &Config[nist.PublicKey]{
+	//	EVMConfig: vm.Config[nist.PublicKey]{
 	//		Debug:  true,
 	//		Tracer: tracer,
 	//	}})
@@ -540,10 +541,10 @@ func TestEip2929Cases(t *testing.T) {
 		fmt.Printf("%v\n\nBytecode: \n```\n0x%x\n```\nOperations: \n```\n%v\n```\n\n",
 			comment,
 			code, ops)
-		Execute(code, nil, &Config{
-			EVMConfig: vm.Config{
+		Execute[nist.PublicKey](code, nil, &Config[nist.PublicKey]{
+			EVMConfig: vm.Config[nist.PublicKey]{
 				Debug:     true,
-				Tracer:    vm.NewMarkdownLogger(nil, os.Stdout),
+				Tracer:    vm.NewMarkdownLogger[nist.PublicKey](nil, os.Stdout),
 				ExtraEips: []int{2929},
 			},
 		})
@@ -693,9 +694,9 @@ func TestColdAccountAccessCost(t *testing.T) {
 			want: 7600,
 		},
 	} {
-		tracer := vm.NewStructLogger(nil)
-		Execute(tc.code, nil, &Config{
-			EVMConfig: vm.Config{
+		tracer := vm.NewStructLogger[nist.PublicKey](nil)
+		Execute[nist.PublicKey](tc.code, nil, &Config[nist.PublicKey]{
+			EVMConfig: vm.Config[nist.PublicKey]{
 				Debug:  true,
 				Tracer: tracer,
 			},

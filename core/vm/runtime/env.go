@@ -19,9 +19,10 @@ package runtime
 import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-func NewEnv(cfg *Config) *vm.EVM {
+func NewEnv[P crypto.PublicKey](cfg *Config[P]) *vm.EVM[P] {
 	txContext := vm.TxContext{
 		Origin:   cfg.Origin,
 		GasPrice: cfg.GasPrice,
@@ -37,5 +38,5 @@ func NewEnv(cfg *Config) *vm.EVM {
 		GasLimit:    cfg.GasLimit,
 	}
 
-	return vm.NewEVM(blockContext, txContext, cfg.State, cfg.State, cfg.ChainConfig, cfg.EVMConfig)
+	return vm.NewEVM[P](blockContext, txContext, cfg.State, cfg.State, cfg.ChainConfig, cfg.EVMConfig)
 }

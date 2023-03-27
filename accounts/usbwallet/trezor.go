@@ -27,13 +27,14 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/usbwallet/trezor"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/golang/protobuf/proto"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ErrTrezorPINNeeded is returned if opening the trezor requires a PIN code. In
@@ -50,7 +51,7 @@ var ErrTrezorPassphraseNeeded = errors.New("trezor: passphrase needed")
 var errTrezorReplyInvalidHeader = errors.New("trezor: invalid reply header")
 
 // trezorDriver implements the communication with a Trezor hardware wallet.
-type trezorDriver struct {
+type trezorDriver [P crypto.PublicKey] struct {
 	device         io.ReadWriter // USB device connection to communicate through
 	version        [3]uint32     // Current version of the Trezor firmware
 	label          string        // Current textual label of the Trezor device
@@ -61,15 +62,15 @@ type trezorDriver struct {
 }
 
 // newTrezorDriver creates a new instance of a Trezor USB protocol driver.
-func newTrezorDriver(logger log.Logger) driver {
-	return &trezorDriver{
+func newTrezorDriver[P crypto.PublicKey](logger log.Logger) driver[P] {
+	return &trezorDriver[P]{
 		log: logger,
 	}
 }
 
 // Status implements accounts.Wallet, always whether the Trezor is opened, closed
 // or whether the Ethereum app was not started on it.
-func (w *trezorDriver) Status() (string, error) {
+func (w *trezorDriver[P]) Status() (string, error) {
 	if w.failure != nil {
 		return fmt.Sprintf("Failed: %v", w.failure), w.failure
 	}
@@ -93,7 +94,7 @@ func (w *trezorDriver) Status() (string, error) {
 //    number of the user (shuffled according to the pinpad displayed).
 //  * If needed the device will ask for passphrase which will require calling
 //    open again with the actual passphrase (3rd phase)
-func (w *trezorDriver) Open(device io.ReadWriter, passphrase string) error {
+func (w *trezorDriver[P]) Open(device io.ReadWriter, passphrase string) error {
 	w.device, w.failure = device, nil
 
 	// If phase 1 is requested, init the connection and wait for user callback
@@ -155,14 +156,14 @@ func (w *trezorDriver) Open(device io.ReadWriter, passphrase string) error {
 
 // Close implements usbwallet.driver, cleaning up and metadata maintained within
 // the Trezor driver.
-func (w *trezorDriver) Close() error {
+func (w *trezorDriver[P]) Close() error {
 	w.version, w.label, w.pinwait = [3]uint32{}, "", false
 	return nil
 }
 
 // Heartbeat implements usbwallet.driver, performing a sanity check against the
 // Trezor to see if it's still online.
-func (w *trezorDriver) Heartbeat() error {
+func (w *trezorDriver[P]) Heartbeat() error {
 	if _, err := w.trezorExchange(&trezor.Ping{}, new(trezor.Success)); err != nil {
 		w.failure = err
 		return err
@@ -172,26 +173,26 @@ func (w *trezorDriver) Heartbeat() error {
 
 // Derive implements usbwallet.driver, sending a derivation request to the Trezor
 // and returning the Ethereum address located on that derivation path.
-func (w *trezorDriver) Derive(path accounts.DerivationPath) (common.Address, error) {
+func (w *trezorDriver[P]) Derive(path accounts.DerivationPath) (common.Address, error) {
 	return w.trezorDerive(path)
 }
 
 // SignTx implements usbwallet.driver, sending the transaction to the Trezor and
 // waiting for the user to confirm or deny the transaction.
-func (w *trezorDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *trezorDriver[P]) SignTx(path accounts.DerivationPath, tx *types.Transaction[P], chainID *big.Int) (common.Address, *types.Transaction[P], error) {
 	if w.device == nil {
 		return common.Address{}, nil, accounts.ErrWalletClosed
 	}
 	return w.trezorSign(path, tx, chainID)
 }
 
-func (w *trezorDriver) SignTypedMessage(path accounts.DerivationPath, domainHash []byte, messageHash []byte) ([]byte, error) {
+func (w *trezorDriver[P]) SignTypedMessage(path accounts.DerivationPath, domainHash []byte, messageHash []byte) ([]byte, error) {
 	return nil, accounts.ErrNotSupported
 }
 
 // trezorDerive sends a derivation request to the Trezor device and returns the
 // Ethereum address located on that path.
-func (w *trezorDriver) trezorDerive(derivationPath []uint32) (common.Address, error) {
+func (w *trezorDriver[P]) trezorDerive(derivationPath []uint32) (common.Address, error) {
 	address := new(trezor.EthereumAddress)
 	if _, err := w.trezorExchange(&trezor.EthereumGetAddress{AddressN: derivationPath}, address); err != nil {
 		return common.Address{}, err
@@ -207,7 +208,7 @@ func (w *trezorDriver) trezorDerive(derivationPath []uint32) (common.Address, er
 
 // trezorSign sends the transaction to the Trezor wallet, and waits for the user
 // to confirm or deny the transaction.
-func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *trezorDriver[P]) trezorSign(derivationPath []uint32, tx *types.Transaction[P], chainID *big.Int) (common.Address, *types.Transaction[P], error) {
 	// Create the transaction initiation message
 	data := tx.Data()
 	length := uint32(len(data))
@@ -255,12 +256,12 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 	signature := append(append(response.GetSignatureR(), response.GetSignatureS()...), byte(response.GetSignatureV()))
 
 	// Create the correct signer and signature transform based on the chain ID
-	var signer types.Signer
+	var signer types.Signer[P]
 	if chainID == nil {
-		signer = new(types.HomesteadSigner)
+		signer = new(types.HomesteadSigner[P])
 	} else {
 		// Trezor backend does not support typed transactions yet.
-		signer = types.NewEIP155Signer(chainID)
+		signer = types.NewEIP155Signer[P](chainID)
 		signature[64] -= byte(chainID.Uint64()*2 + 35)
 	}
 
@@ -279,7 +280,7 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 // trezorExchange performs a data exchange with the Trezor wallet, sending it a
 // message and retrieving the response. If multiple responses are possible, the
 // method will also return the index of the destination object used.
-func (w *trezorDriver) trezorExchange(req proto.Message, results ...proto.Message) (int, error) {
+func (w *trezorDriver[P]) trezorExchange(req proto.Message, results ...proto.Message) (int, error) {
 	// Construct the original message payload to chunk up
 	data, err := proto.Marshal(req)
 	if err != nil {

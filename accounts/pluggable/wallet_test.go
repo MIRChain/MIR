@@ -5,12 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable/internal/testutils/mock_plugin"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -260,7 +260,7 @@ func TestWallet_SignTx(t *testing.T) {
 			name:      "Private tx",
 			isPrivate: true,
 			chainID:   nil,
-			signer:    types.QuorumPrivateTxSigner{},
+			signer:    types.QuorumPrivateTxSigner[P]{},
 		},
 	}
 
@@ -348,7 +348,7 @@ func TestWallet_SignTxWithPassphrase(t *testing.T) {
 			name:      "Private tx",
 			isPrivate: true,
 			chainID:   nil,
-			signer:    types.QuorumPrivateTxSigner{},
+			signer:    types.QuorumPrivateTxSigner[P]{},
 		},
 	}
 

@@ -56,7 +56,7 @@ func (c *core) handleRequest(request *Request) error {
 
 		delay := time.Duration(0)
 
-		block, ok := request.Proposal.(*types.Block)
+		block, ok := request.Proposal.(*types.Block[P])
 		if ok && len(block.Transactions()) == 0 { // if empty block
 			config := c.config.GetConfig(c.current.Sequence())
 			if config.EmptyBlockPeriod > config.BlockPeriod {

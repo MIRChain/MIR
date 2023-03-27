@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/multitenancy"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 /*
@@ -49,7 +50,7 @@ The state transitioning model does all the necessary work to work out a valid ne
 5) Run Script section
 6) Derive new state root
 */
-type StateTransition struct {
+type StateTransition [P crypto.PublicKey] struct {
 	gp         *GasPool
 	msg        Message
 	gas        uint64
@@ -58,7 +59,7 @@ type StateTransition struct {
 	value      *big.Int
 	data       []byte
 	state      vm.StateDB
-	evm        *vm.EVM
+	evm        *vm.EVM[P]
 }
 
 // Message represents a message sent to a contract.
@@ -160,8 +161,8 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
-	return &StateTransition{
+func NewStateTransition[P crypto.PublicKey](evm *vm.EVM[P], msg Message, gp *GasPool) *StateTransition[P] {
+	return &StateTransition[P]{
 		gp:       gp,
 		evm:      evm,
 		msg:      msg,
@@ -179,19 +180,19 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
+func ApplyMessage[P crypto.PublicKey](evm *vm.EVM[P], msg Message, gp *GasPool) (*ExecutionResult, error) {
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
 // to returns the recipient of the message.
-func (st *StateTransition) to() common.Address {
+func (st *StateTransition[P]) to() common.Address {
 	if st.msg == nil || st.msg.To() == nil /* contract creation */ {
 		return common.Address{}
 	}
 	return *st.msg.To()
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition[P]) buyGas() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if have, want := st.state.GetBalance(st.msg.From()), mgval; have.Cmp(want) < 0 {
 		return fmt.Errorf("%w: address %v have %v want %v", ErrInsufficientFunds, st.msg.From().Hex(), have, want)
@@ -206,7 +207,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition[P]) preCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
 		stNonce := st.state.GetNonce(st.msg.From())
@@ -245,7 +246,7 @@ func (st *StateTransition) preCheck() error {
 // 4. With multitenancy support, we enforce the party set in the contract index must contain all
 //    parties from the transaction. This is to detect unauthorized access from a legit proxy contract
 //    to an unauthorized contract.
-func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
+func (st *StateTransition[P]) TransitionDb() (*ExecutionResult, error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -277,7 +278,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		isPrivate = true
 		pmh.snapshot = snapshot
 		pmh.eph = common.BytesToEncryptedPayloadHash(st.data)
-		_, _, data, pmh.receivedPrivacyMetadata, err = private.P.Receive(pmh.eph)
+		_, _, data, pmh.receivedPrivacyMetadata, err = private.Ptm.Receive(pmh.eph)
 		// Increment the public account nonce if:
 		// 1. Tx is private and *not* a participant of the group and either call or create
 		// 2. Tx is private we are part of the group and is a call
@@ -422,7 +423,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}, nil
 }
 
-func (st *StateTransition) refundGas() {
+func (st *StateTransition[P]) refundGas() {
 	// Quorum
 	if msg, ok := st.msg.(PrivateMessage); ok && msg.IsInnerPrivate() {
 		// Quorum
@@ -448,27 +449,27 @@ func (st *StateTransition) refundGas() {
 }
 
 // gasUsed returns the amount of gas used up by the state transition.
-func (st *StateTransition) gasUsed() uint64 {
+func (st *StateTransition[P]) gasUsed() uint64 {
 	return st.initialGas - st.gas
 }
 
 // Quorum - Privacy Enhancements - implement the pmcStateTransitionAPI interface
-func (st *StateTransition) SetTxPrivacyMetadata(pm *types.PrivacyMetadata) {
+func (st *StateTransition[P]) SetTxPrivacyMetadata(pm *types.PrivacyMetadata) {
 	st.evm.SetTxPrivacyMetadata(pm)
 }
-func (st *StateTransition) IsPrivacyEnhancementsEnabled() bool {
+func (st *StateTransition[P]) IsPrivacyEnhancementsEnabled() bool {
 	return st.evm.ChainConfig().IsPrivacyEnhancementsEnabled(st.evm.Context.BlockNumber)
 }
-func (st *StateTransition) RevertToSnapshot(snapshot int) {
+func (st *StateTransition[P]) RevertToSnapshot(snapshot int) {
 	st.evm.StateDB.RevertToSnapshot(snapshot)
 }
-func (st *StateTransition) GetStatePrivacyMetadata(addr common.Address) (*state.PrivacyMetadata, error) {
+func (st *StateTransition[P]) GetStatePrivacyMetadata(addr common.Address) (*state.PrivacyMetadata, error) {
 	return st.evm.StateDB.GetPrivacyMetadata(addr)
 }
-func (st *StateTransition) CalculateMerkleRoot() (common.Hash, error) {
+func (st *StateTransition[P]) CalculateMerkleRoot() (common.Hash, error) {
 	return st.evm.CalculateMerkleRoot()
 }
-func (st *StateTransition) AffectedContracts() []common.Address {
+func (st *StateTransition[P]) AffectedContracts() []common.Address {
 	return st.evm.AffectedContracts()
 }
 

@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	big "math/big"
 	reflect "reflect"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // MockAccountExtraDataStateGetter is a mock of AccountExtraDataStateGetter interface
@@ -929,30 +930,30 @@ func (mr *MockStateDBMockRecorder) ForEachStorage(arg0, arg1 interface{}) *gomoc
 }
 
 // MockCallContext is a mock of CallContext interface
-type MockCallContext struct {
+type MockCallContext [P crypto.PublicKey] struct {
 	ctrl     *gomock.Controller
-	recorder *MockCallContextMockRecorder
+	recorder *MockCallContextMockRecorder[P]
 }
 
 // MockCallContextMockRecorder is the mock recorder for MockCallContext
-type MockCallContextMockRecorder struct {
-	mock *MockCallContext
+type MockCallContextMockRecorder [P crypto.PublicKey] struct {
+	mock *MockCallContext[P]
 }
 
 // NewMockCallContext creates a new mock instance
-func NewMockCallContext(ctrl *gomock.Controller) *MockCallContext {
-	mock := &MockCallContext{ctrl: ctrl}
-	mock.recorder = &MockCallContextMockRecorder{mock}
+func NewMockCallContext[P crypto.PublicKey](ctrl *gomock.Controller) *MockCallContext[P] {
+	mock := &MockCallContext[P]{ctrl: ctrl}
+	mock.recorder = &MockCallContextMockRecorder[P]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockCallContext) EXPECT() *MockCallContextMockRecorder {
+func (m *MockCallContext[P]) EXPECT() *MockCallContextMockRecorder[P] {
 	return m.recorder
 }
 
 // Call mocks base method
-func (m *MockCallContext) Call(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error) {
+func (m *MockCallContext[P]) Call(env *EVM[P], me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", env, me, addr, data, gas, value)
 	ret0, _ := ret[0].([]byte)
@@ -961,13 +962,13 @@ func (m *MockCallContext) Call(env *EVM, me ContractRef, addr common.Address, da
 }
 
 // Call indicates an expected call of Call
-func (mr *MockCallContextMockRecorder) Call(env, me, addr, data, gas, value interface{}) *gomock.Call {
+func (mr *MockCallContextMockRecorder[P]) Call(env, me, addr, data, gas, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockCallContext)(nil).Call), env, me, addr, data, gas, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockCallContext[P])(nil).Call), env, me, addr, data, gas, value)
 }
 
 // CallCode mocks base method
-func (m *MockCallContext) CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error) {
+func (m *MockCallContext[P]) CallCode(env *EVM[P], me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CallCode", env, me, addr, data, gas, value)
 	ret0, _ := ret[0].([]byte)
@@ -976,13 +977,13 @@ func (m *MockCallContext) CallCode(env *EVM, me ContractRef, addr common.Address
 }
 
 // CallCode indicates an expected call of CallCode
-func (mr *MockCallContextMockRecorder) CallCode(env, me, addr, data, gas, value interface{}) *gomock.Call {
+func (mr *MockCallContextMockRecorder[P]) CallCode(env, me, addr, data, gas, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallCode", reflect.TypeOf((*MockCallContext)(nil).CallCode), env, me, addr, data, gas, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallCode", reflect.TypeOf((*MockCallContext[P])(nil).CallCode), env, me, addr, data, gas, value)
 }
 
 // DelegateCall mocks base method
-func (m *MockCallContext) DelegateCall(env *EVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error) {
+func (m *MockCallContext[P]) DelegateCall(env *EVM[P], me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DelegateCall", env, me, addr, data, gas)
 	ret0, _ := ret[0].([]byte)
@@ -991,13 +992,13 @@ func (m *MockCallContext) DelegateCall(env *EVM, me ContractRef, addr common.Add
 }
 
 // DelegateCall indicates an expected call of DelegateCall
-func (mr *MockCallContextMockRecorder) DelegateCall(env, me, addr, data, gas interface{}) *gomock.Call {
+func (mr *MockCallContextMockRecorder[P]) DelegateCall(env, me, addr, data, gas interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegateCall", reflect.TypeOf((*MockCallContext)(nil).DelegateCall), env, me, addr, data, gas)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegateCall", reflect.TypeOf((*MockCallContext[P])(nil).DelegateCall), env, me, addr, data, gas)
 }
 
 // Create mocks base method
-func (m *MockCallContext) Create(env *EVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error) {
+func (m *MockCallContext[P]) Create(env *EVM[P], me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", env, me, data, gas, value)
 	ret0, _ := ret[0].([]byte)
@@ -1007,7 +1008,7 @@ func (m *MockCallContext) Create(env *EVM, me ContractRef, data []byte, gas, val
 }
 
 // Create indicates an expected call of Create
-func (mr *MockCallContextMockRecorder) Create(env, me, data, gas, value interface{}) *gomock.Call {
+func (mr *MockCallContextMockRecorder[P]) Create(env, me, data, gas, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockCallContext)(nil).Create), env, me, data, gas, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockCallContext[P])(nil).Create), env, me, data, gas, value)
 }

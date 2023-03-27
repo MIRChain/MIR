@@ -36,7 +36,7 @@ func (c *core) broadcastCommit() {
 	sub := c.current.Subject()
 
 	var header *types.Header
-	if block, ok := c.current.Proposal().(*types.Block); ok {
+	if block, ok := c.current.Proposal().(*types.Block[P]); ok {
 		header = block.Header()
 	}
 	// Create Commit Seal

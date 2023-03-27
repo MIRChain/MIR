@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
@@ -17,7 +18,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,7 +74,7 @@ var (
 	}
 )
 
-func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumChainConfig *QuorumChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *BlockChain) {
+func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumChainConfig *QuorumChainConfig) ([]*types.Block[P], map[common.Hash]*types.Block[P], *BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 
@@ -85,7 +85,7 @@ func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumCha
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner{}
-		var tx *types.Transaction
+		var tx *types.Transaction[P]
 		var err error
 		if i == 0 {
 			tx, err = types.SignTx(types.NewContractCreation(block.TxNonce(testAddress), big.NewInt(0), testGas, nil, deployContract.Bytes()), signer, testKey)
@@ -128,7 +128,7 @@ func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumCha
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block, n+1)
+	blockm := make(map[common.Hash]*types.Block[P], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()

@@ -24,32 +24,33 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-type JSONLogger struct {
+type JSONLogger [P crypto.PublicKey] struct {
 	encoder *json.Encoder
 	cfg     *LogConfig
 }
 
-var _ Tracer = &JSONLogger{}
+// var _ Tracer = &JSONLogger{}
 
 // NewJSONLogger creates a new EVM tracer that prints execution steps as JSON objects
 // into the provided stream.
-func NewJSONLogger(cfg *LogConfig, writer io.Writer) *JSONLogger {
-	l := &JSONLogger{json.NewEncoder(writer), cfg}
+func NewJSONLogger[P crypto.PublicKey](cfg *LogConfig, writer io.Writer) *JSONLogger[P] {
+	l := &JSONLogger[P]{json.NewEncoder(writer), cfg}
 	if l.cfg == nil {
 		l.cfg = &LogConfig{}
 	}
 	return l
 }
 
-func (l *JSONLogger) CaptureStart(env *EVM, from, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (l *JSONLogger[P]) CaptureStart(env *EVM[P], from, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
-func (l *JSONLogger) CaptureFault(*EVM, uint64, OpCode, uint64, uint64, *ScopeContext, int, error) {}
+func (l *JSONLogger[P]) CaptureFault(*EVM[P], uint64, OpCode, uint64, uint64, *ScopeContext, int, error) {}
 
 // CaptureState outputs state information on the logger.
-func (l *JSONLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (l *JSONLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
 	memory := scope.Memory
 	stack := scope.Stack
 
@@ -82,7 +83,7 @@ func (l *JSONLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint
 }
 
 // CaptureEnd is triggered at end of execution.
-func (l *JSONLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
+func (l *JSONLogger[P]) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
 	type endLog struct {
 		Output  string              `json:"output"`
 		GasUsed math.HexOrDecimal64 `json:"gasUsed"`

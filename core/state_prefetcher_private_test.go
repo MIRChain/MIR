@@ -9,6 +9,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
@@ -19,7 +20,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	privateEngine "github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -246,7 +246,7 @@ type mockTxData struct {
 // Utility functions
 
 // createThrowawayStates create the StateDBs to be used for the prefetcher to warm up the cached but are thrown away after
-func createThrowawayStates(minedBlock *types.Block, chain *BlockChain) (*state.StateDB, mps.PrivateStateRepository) {
+func createThrowawayStates(minedBlock *types.Block[P], chain *BlockChain) (*state.StateDB, mps.PrivateStateRepository) {
 	throwaway, _ := state.New(minedBlock.Root(), chain.stateCache, chain.snaps)
 	privateRepo, _ := chain.PrivateStateManager().StateRepository(minedBlock.Root())
 	throwawayRepo := privateRepo.Copy()
@@ -290,8 +290,8 @@ func createMPSPrivateTransactionManagerMock(mockCtrl *gomock.Controller) *privat
 }
 
 // createInnerTransactionHandlerMock create a function that will create the necessary mock to handle the Private Transaction `Receive()` of the private transaction inside a PMT Tx
-func createInnerTransactionHandlerMock(mockptm *private.MockPrivateTransactionManager) func(outerTx *types.Transaction, mockTxData *mockTxData) {
-	return func(outerTx *types.Transaction, mockTxData *mockTxData) {
+func createInnerTransactionHandlerMock(mockptm *private.MockPrivateTransactionManager) func(outerTx *types.Transaction[P], mockTxData *mockTxData) {
+	return func(outerTx *types.Transaction[P], mockTxData *mockTxData) {
 		enclaveHash := common.BytesToEncryptedPayloadHash(outerTx.Data())
 		mockptm.EXPECT().Receive(enclaveHash).DoAndReturn(func(hash common.EncryptedPayloadHash) (string, []string, []byte, *privateEngine.ExtraMetadata, error) {
 			innerTx := types.NewTransaction(1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, encryptedPayloadHashForSetFunction.Bytes())
@@ -348,7 +348,7 @@ func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxDa
 	return chain, gspec
 }
 
-func createBlocks(chain *BlockChain, gspec *Genesis, mockTxDataArr []*mockTxData, decorateSetTransaction func(*types.Transaction, *mockTxData)) (*types.Block, *types.Block) {
+func createBlocks(chain *BlockChain, gspec *Genesis, mockTxDataArr []*mockTxData, decorateSetTransaction func(*types.Transaction[P], *mockTxData)) (*types.Block[P], *types.Block[P]) {
 	var (
 		engine      = ethash.NewFaker()
 		temporaryDb = rawdb.NewMemoryDatabase()
@@ -385,7 +385,7 @@ func createBlocks(chain *BlockChain, gspec *Genesis, mockTxDataArr []*mockTxData
 		var signer types.Signer = types.HomesteadSigner{}
 		for _, mockTxData := range mockTxDataArr {
 			var data []byte
-			var setTransaction *types.Transaction
+			var setTransaction *types.Transaction[P]
 
 			switch mockTxData.txType {
 			case Public:

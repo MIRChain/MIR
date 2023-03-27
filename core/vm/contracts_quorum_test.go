@@ -6,12 +6,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/mock_private"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,7 @@ func TestPrivacyMarker_Run_UnsupportedTransaction_DoesNothing(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		currentTx *types.Transaction
+		currentTx *types.Transaction[P]
 	}{
 		{
 			name:      "is-nil",
@@ -119,10 +119,10 @@ func TestPrivacyMarker_Run_NonZeroEVMDepth_DoesNothing(t *testing.T) {
 
 func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 	var (
-		publicTx                      *types.Transaction
+		publicTx                      *types.Transaction[P]
 		publicTxByt                   []byte
-		unsignedPrivateTx             *types.Transaction
-		incorrectlySignedPrivateTx    *types.Transaction
+		unsignedPrivateTx             *types.Transaction[P]
+		incorrectlySignedPrivateTx    *types.Transaction[P]
 		incorrectlySignedPrivateTxByt []byte
 		setupErr                      error
 	)
@@ -235,8 +235,8 @@ func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 
 func TestPrivacyMarker_Run_SupportedTransaction_ExecutionFails_NonceUnchanged(t *testing.T) {
 	var (
-		unsignedPrivateTx  *types.Transaction
-		signedPrivateTx    *types.Transaction
+		unsignedPrivateTx  *types.Transaction[P]
+		signedPrivateTx    *types.Transaction[P]
 		signedPrivateTxByt []byte
 		setupErr           error
 	)
@@ -347,8 +347,8 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 	defer ctrl.Finish()
 
 	var (
-		unsignedPrivateTx  *types.Transaction
-		signedPrivateTx    *types.Transaction
+		unsignedPrivateTx  *types.Transaction[P]
+		signedPrivateTx    *types.Transaction[P]
 		signedPrivateTxByt []byte
 		setupErr           error
 	)
@@ -440,17 +440,17 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 }
 
 type innerApplier interface {
-	InnerApply(innerTx *types.Transaction) error
+	InnerApply(innerTx *types.Transaction[P]) error
 	wasCalled() bool
-	innerTx() *types.Transaction
+	innerTx() *types.Transaction[P]
 }
 
 type stubInnerApplier struct {
 	called bool
-	tx     *types.Transaction
+	tx     *types.Transaction[P]
 }
 
-func (m *stubInnerApplier) InnerApply(innerTx *types.Transaction) error {
+func (m *stubInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
 	m.called = true
 	m.tx = innerTx
 	return nil
@@ -460,16 +460,16 @@ func (m *stubInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *stubInnerApplier) innerTx() *types.Transaction {
+func (m *stubInnerApplier) innerTx() *types.Transaction[P] {
 	return m.tx
 }
 
 type failingInnerApplier struct {
 	called bool
-	tx     *types.Transaction
+	tx     *types.Transaction[P]
 }
 
-func (m *failingInnerApplier) InnerApply(innerTx *types.Transaction) error {
+func (m *failingInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
 	m.called = true
 	m.tx = innerTx
 	return errors.New("some error")
@@ -479,17 +479,17 @@ func (m *failingInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *failingInnerApplier) innerTx() *types.Transaction {
+func (m *failingInnerApplier) innerTx() *types.Transaction[P] {
 	return m.tx
 }
 
 type nonceIncrementingInnerApplier struct {
 	called             bool
-	tx                 *types.Transaction
+	tx                 *types.Transaction[P]
 	incrementNonceFunc func()
 }
 
-func (m *nonceIncrementingInnerApplier) InnerApply(innerTx *types.Transaction) error {
+func (m *nonceIncrementingInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
 	m.called = true
 	m.tx = innerTx
 
@@ -502,6 +502,6 @@ func (m *nonceIncrementingInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *nonceIncrementingInnerApplier) innerTx() *types.Transaction {
+func (m *nonceIncrementingInnerApplier) innerTx() *types.Transaction[P] {
 	return m.tx
 }

@@ -20,10 +20,10 @@ import (
 func newPrivateStateManager(db ethdb.Database, privateCacheProvider privatecache.Provider, isMPS bool) (mps.PrivateStateManager, error) {
 	if isMPS {
 		// validation
-		if !private.P.HasFeature(engine.MultiplePrivateStates) {
+		if !private.Ptm.HasFeature(engine.MultiplePrivateStates) {
 			return nil, fmt.Errorf("cannot instantiate MultiplePrivateStateManager while the transaction manager does not support multiple private states")
 		}
-		groups, err := private.P.Groups()
+		groups, err := private.Ptm.Groups()
 		if err != nil {
 			return nil, err
 		}

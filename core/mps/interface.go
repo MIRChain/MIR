@@ -37,8 +37,8 @@ type PrivateStateMetadataResolver interface {
 type PrivateStateRepository interface {
 	PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error)
 	StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error)
-	CommitAndWrite(isEIP158 bool, block *types.Block) error
-	Commit(isEIP158 bool, block *types.Block) error
+	CommitAndWrite(isEIP158 bool, block *types.Block[P]) error
+	Commit(isEIP158 bool, block *types.Block[P]) error
 	Copy() PrivateStateRepository
 	Reset() error
 	DefaultState() (*state.StateDB, error)

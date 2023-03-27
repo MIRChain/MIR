@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
@@ -78,7 +78,7 @@ func (w *wallet) SignTextWithPassphrase(account accounts.Account, passphrase str
 	return w.pluginService.UnlockAndSign(context.Background(), account, accounts.TextHash(text), passphrase)
 }
 
-func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	toSign, signer := prepareTxForSign(tx, chainID)
 
 	sig, err := w.pluginService.Sign(context.Background(), account, toSign.Bytes())
@@ -89,7 +89,7 @@ func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID
 	return tx.WithSignature(signer, sig)
 }
 
-func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	toSign, signer := prepareTxForSign(tx, chainID)
 
 	sig, err := w.pluginService.UnlockAndSign(context.Background(), account, toSign.Bytes(), passphrase)
@@ -117,11 +117,11 @@ func (w *wallet) importRawKey(rawKey string, newAccountConfig interface{}) (acco
 }
 
 // prepareTxForSign determines which Signer to use for the given tx and chainID, and returns the Signer's hash of the tx and the Signer itself
-func prepareTxForSign(tx *types.Transaction, chainID *big.Int) (common.Hash, types.Signer) {
+func prepareTxForSign(tx *types.Transaction[P], chainID *big.Int) (common.Hash, types.Signer) {
 	var s types.Signer
 
 	if tx.IsPrivate() {
-		s = types.QuorumPrivateTxSigner{}
+		s = types.QuorumPrivateTxSigner[P]{}
 	} else {
 		s = types.LatestSignerForChainID(chainID)
 	}

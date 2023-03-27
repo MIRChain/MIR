@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
@@ -37,13 +38,13 @@ import (
 )
 
 var (
-	testNodeKey, _ = crypto.GenerateKey()
+	testNodeKey, _ = crypto.GenerateKey[nist.PrivateKey]()
 )
 
-func testNodeConfig() *Config {
-	return &Config{
+func testNodeConfig() *Config[nist.PrivateKey, nist.PublicKey] {
+	return &Config[nist.PrivateKey, nist.PublicKey]{
 		Name: "test node",
-		P2P:  p2p.Config{PrivateKey: testNodeKey},
+		P2P:  p2p.Config[nist.PrivateKey, nist.PublicKey]{PrivateKey: testNodeKey},
 	}
 }
 
@@ -95,7 +96,7 @@ func TestNodeUsedDataDir(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	// Create a new node based on the data directory
-	original, err := New(&Config{DataDir: dir})
+	original, err := New(&Config[nist.PrivateKey, nist.PublicKey]{DataDir: dir})
 	if err != nil {
 		t.Fatalf("failed to create original protocol stack: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestNodeUsedDataDir(t *testing.T) {
 	}
 
 	// Create a second node based on the same data directory and ensure failure
-	_, err = New(&Config{DataDir: dir})
+	_, err = New(&Config[nist.PrivateKey, nist.PublicKey]{DataDir: dir})
 	if err != ErrDatadirUsed {
 		t.Fatalf("duplicate datadir failure mismatch: have %v, want %v", err, ErrDatadirUsed)
 	}
@@ -385,7 +386,7 @@ func TestLifecycleTerminationGuarantee(t *testing.T) {
 		delete(stopped, id)
 	}
 
-	stack.server = &p2p.Server{}
+	stack.server = &p2p.Server[nist.PrivateKey, nist.PublicKey]{}
 	stack.server.PrivateKey = testNodeKey
 }
 
@@ -536,7 +537,7 @@ func TestNodeRPCPrefix(t *testing.T) {
 		test := test
 		name := fmt.Sprintf("http=%s ws=%s", test.httpPrefix, test.wsPrefix)
 		t.Run(name, func(t *testing.T) {
-			cfg := &Config{
+			cfg := &Config[nist.PrivateKey, nist.PublicKey]{
 				HTTPHost:       "127.0.0.1",
 				HTTPPathPrefix: test.httpPrefix,
 				WSHost:         "127.0.0.1",
@@ -555,7 +556,7 @@ func TestNodeRPCPrefix(t *testing.T) {
 	}
 }
 
-func (test rpcPrefixTest) check(t *testing.T, node *Node) {
+func (test rpcPrefixTest) check(t *testing.T, node *Node[nist.PrivateKey, nist.PublicKey]) {
 	t.Helper()
 	httpBase := "http://" + node.http.listenAddr()
 	wsBase := "ws://" + node.http.listenAddr()
@@ -591,8 +592,8 @@ func (test rpcPrefixTest) check(t *testing.T, node *Node) {
 	}
 }
 
-func createNode(t *testing.T, httpPort, wsPort int) *Node {
-	conf := &Config{
+func createNode(t *testing.T, httpPort, wsPort int) *Node[nist.PrivateKey, nist.PublicKey] {
+	conf := &Config[nist.PrivateKey, nist.PublicKey]{
 		HTTPHost: "127.0.0.1",
 		HTTPPort: httpPort,
 		WSHost:   "127.0.0.1",
@@ -606,7 +607,7 @@ func createNode(t *testing.T, httpPort, wsPort int) *Node {
 	return node
 }
 
-func startHTTP(t *testing.T, httpPort, wsPort int) *Node {
+func startHTTP(t *testing.T, httpPort, wsPort int) *Node[nist.PrivateKey, nist.PublicKey] {
 	node := createNode(t, httpPort, wsPort)
 	err := node.Start()
 	if err != nil {
@@ -626,7 +627,7 @@ func doHTTPRequest(t *testing.T, req *http.Request) *http.Response {
 	return resp
 }
 
-func containsProtocol(stackProtocols []p2p.Protocol, protocol p2p.Protocol) bool {
+func containsProtocol(stackProtocols []p2p.Protocol[nist.PrivateKey, nist.PublicKey], protocol p2p.Protocol[nist.PrivateKey, nist.PublicKey]) bool {
 	for _, a := range stackProtocols {
 		if reflect.DeepEqual(a, protocol) {
 			return true

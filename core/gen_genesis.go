@@ -15,7 +15,7 @@ import (
 
 var _ = (*genesisSpecMarshaling)(nil)
 
-func (g Genesis) MarshalJSON() ([]byte, error) {
+func (g Genesis[P]) MarshalJSON() ([]byte, error) {
 	type Genesis struct {
 		Config     *params.ChainConfig                         `json:"config"`
 		Nonce      math.HexOrDecimal64                         `json:"nonce"`
@@ -51,7 +51,7 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&enc)
 }
 
-func (g *Genesis) UnmarshalJSON(input []byte) error {
+func (g *Genesis[P]) UnmarshalJSON(input []byte) error {
 	type Genesis struct {
 		Config     *params.ChainConfig                         `json:"config"`
 		Nonce      *math.HexOrDecimal64                        `json:"nonce"`

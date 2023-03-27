@@ -24,6 +24,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.
@@ -51,13 +52,13 @@ type Subscription interface {
 // should be preferred over full blocks whenever possible.
 //
 // The returned error is NotFound if the requested item does not exist.
-type ChainReader interface {
-	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+type ChainReader [P crypto.PublicKey] interface {
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block[P], error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	TransactionCount(ctx context.Context, blockHash common.Hash) (uint, error)
-	TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction, error)
+	TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction[P], error)
 
 	// This method subscribes to notifications about changes of the head block of
 	// the canonical chain.
@@ -73,16 +74,16 @@ type ChainReader interface {
 // reorganisations.
 //
 // The returned error is NotFound if the requested item does not exist.
-type TransactionReader interface {
+type TransactionReader [P crypto.PublicKey] interface {
 	// TransactionByHash checks the pool of pending transactions in addition to the
 	// blockchain. The isPending return value indicates whether the transaction has been
 	// mined yet. Note that the transaction may not be part of the canonical chain even if
 	// it's not pending.
-	TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, isPending bool, err error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction[P], isPending bool, err error)
 	// TransactionReceipt returns the receipt of a mined transaction. Note that the
 	// transaction may not be included in the current canonical chain even if a receipt
 	// exists.
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt[P], error)
 }
 
 // ChainStateReader wraps access to the state trie of the canonical blockchain. Note that
@@ -171,8 +172,8 @@ type LogFilterer interface {
 // The transaction must be signed and have a valid nonce to be included. Consumers of the
 // API can use package accounts to maintain local private keys and need can retrieve the
 // next available nonce using PendingNonceAt.
-type TransactionSender interface {
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
+type TransactionSender [P crypto.PublicKey] interface {
+	SendTransaction(ctx context.Context, tx *types.Transaction[P]) error
 }
 
 // GasPricer wraps the gas price oracle, which monitors the blockchain to determine the
@@ -209,6 +210,6 @@ type GasEstimator interface {
 
 // A PendingStateEventer provides access to real time notifications about changes to the
 // pending state.
-type PendingStateEventer interface {
-	SubscribePendingTransactions(ctx context.Context, ch chan<- *types.Transaction) (Subscription, error)
+type PendingStateEventer [P crypto.PublicKey] interface {
+	SubscribePendingTransactions(ctx context.Context, ch chan<- *types.Transaction[P]) (Subscription, error)
 }

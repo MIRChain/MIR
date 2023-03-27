@@ -1,7 +1,6 @@
 package core
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -11,6 +10,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -18,7 +19,7 @@ import (
 // callHelper makes it easier to do proper calls and use the state transition object.
 // It also manages the nonces of the caller and keeps private and public state, which
 // can be freely modified outside of the helper.
-type callHelper struct {
+type callHelper [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db ethdb.Database
 
 	nonces map[common.Address]uint64
@@ -29,15 +30,24 @@ type callHelper struct {
 }
 
 // TxNonce returns the pending nonce
-func (cg *callHelper) TxNonce(addr common.Address) uint64 {
+func (cg *callHelper[T,P]) TxNonce(addr common.Address) uint64 {
 	return cg.nonces[addr]
 }
 
 // MakeCall makes does a call to the recipient using the given input. It can switch between private and public
 // by setting the private boolean flag. It returns an error if the call failed.
-func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Address, input []byte) error {
+func (cg *callHelper[T,P]) MakeCall(private bool, key T, to common.Address, input []byte) error {
+	var pub P
+	switch t:=any(&key).(type){
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
 	var (
-		from = crypto.PubkeyToAddress(key.PublicKey)
+		from = crypto.PubkeyToAddress[P](pub)
 		err  error
 	)
 
@@ -47,12 +57,12 @@ func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Ad
 	cg.header.Difficulty = new(big.Int).SetUint64(1000488)
 	cg.header.GasLimit = 4700000
 
-	signer := types.MakeSigner(params.QuorumTestChainConfig, cg.header.Number)
+	signer := types.MakeSigner[P](params.QuorumTestChainConfig, cg.header.Number)
 	if private {
-		signer = types.QuorumPrivateTxSigner{}
+		signer = types.QuorumPrivateTxSigner[P]{}
 	}
 
-	tx, err := types.SignTx(types.NewTransaction(cg.TxNonce(from), to, new(big.Int), 1000000, new(big.Int), input), signer, key)
+	tx, err := types.SignTx(types.NewTransaction[P](cg.TxNonce(from), to, new(big.Int), 1000000, new(big.Int), input), signer, key)
 
 	if err != nil {
 		return err
@@ -68,17 +78,17 @@ func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Ad
 		privateState = publicState
 	}
 	// TODO(joel): can we just pass nil instead of bc?
-	bc, _ := NewBlockChain(cg.db, nil, params.QuorumTestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	bc, _ := NewBlockChain[P](cg.db, nil, params.QuorumTestChainConfig, ethash.NewFaker(), vm.Config[P]{}, nil, nil, nil)
 	txContext := NewEVMTxContext(msg)
-	evmContext := NewEVMBlockContext(&cg.header, bc, &from)
-	vmenv := vm.NewEVM(evmContext, txContext, publicState, privateState, params.QuorumTestChainConfig, vm.Config{})
+	evmContext := NewEVMBlockContext[P](&cg.header, bc, &from)
+	vmenv := vm.NewEVM(evmContext, txContext, publicState, privateState, params.QuorumTestChainConfig, vm.Config[P]{})
 	sender := vm.AccountRef(msg.From())
 	vmenv.Call(sender, to, msg.Data(), 100000000, new(big.Int))
 	return err
 }
 
 // MakeCallHelper returns a new callHelper
-func MakeCallHelper() *callHelper {
+func MakeCallHelper[T crypto.PrivateKey, P crypto.PublicKey]() *callHelper[T,P] {
 	memdb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(memdb)
 
@@ -90,7 +100,7 @@ func MakeCallHelper() *callHelper {
 	if err != nil {
 		panic(err)
 	}
-	cg := &callHelper{
+	cg := &callHelper[T,P]{
 		db:           memdb,
 		nonces:       make(map[common.Address]uint64),
 		gp:           new(GasPool).AddGas(5000000),

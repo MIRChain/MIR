@@ -49,7 +49,7 @@ type txJSON struct {
 }
 
 // MarshalJSON marshals as JSON with a hash.
-func (t *Transaction) MarshalJSON() ([]byte, error) {
+func (t *Transaction[P]) MarshalJSON() ([]byte, error) {
 	var enc txJSON
 	// These are set for all tx types.
 	enc.Hash = t.Hash()
@@ -84,7 +84,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals from JSON.
-func (t *Transaction) UnmarshalJSON(input []byte) error {
+func (t *Transaction[P]) UnmarshalJSON(input []byte) error {
 	var dec txJSON
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err

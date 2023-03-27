@@ -21,7 +21,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 )
@@ -81,12 +81,12 @@ type ContractTransactor interface {
 	// for setting a reasonable default.
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error)
 	// SendTransaction injects the transaction into the pending pool for execution.
-	SendTransaction(ctx context.Context, tx *types.Transaction, args PrivateTxArgs) error
+	SendTransaction(ctx context.Context, tx *types.Transaction[P], args PrivateTxArgs) error
 	// PreparePrivateTransaction send the private transaction to Tessera/Constellation's /storeraw API using HTTP
 	PreparePrivateTransaction(data []byte, privateFrom string) (common.EncryptedPayloadHash, error)
 	// DistributeTransaction distributes the private transaction payload to its private recipients, and sends the
 	// private transaction to the nodes PTM, returning a PTM hash for the Privacy Marker Transaction
-	DistributeTransaction(ctx context.Context, tx *types.Transaction, args PrivateTxArgs) (string, error)
+	DistributeTransaction(ctx context.Context, tx *types.Transaction[P], args PrivateTxArgs) (string, error)
 }
 
 // ContractFilterer defines the methods needed to access log events using one-off

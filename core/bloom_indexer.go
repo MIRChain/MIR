@@ -26,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -46,14 +47,14 @@ type BloomIndexer struct {
 
 // NewBloomIndexer returns a chain indexer that generates bloom bits data for the
 // canonical chain for fast logs filtering.
-func NewBloomIndexer(db ethdb.Database, size, confirms uint64) *ChainIndexer {
+func NewBloomIndexer[P crypto.PublicKey](db ethdb.Database, size, confirms uint64) *ChainIndexer[P] {
 	backend := &BloomIndexer{
 		db:   db,
 		size: size,
 	}
 	table := rawdb.NewTable(db, string(rawdb.BloomBitsIndexPrefix))
 
-	return NewChainIndexer(db, table, backend, size, confirms, bloomThrottling, "bloombits")
+	return NewChainIndexer[P](db, table, backend, size, confirms, bloomThrottling, "bloombits")
 }
 
 // Reset implements core.ChainIndexerBackend, starting a new bloombits index

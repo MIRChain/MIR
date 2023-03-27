@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -103,10 +104,10 @@ func (s *StructLog) ErrorString() string {
 // current VM state.
 // Note that reference types are actual VM data structures; make copies
 // if you need to retain them beyond the current call.
-type Tracer interface {
-	CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
-	CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error)
-	CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error)
+type Tracer [P crypto.PublicKey] interface {
+	CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
+	CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error)
+	CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error)
 	CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error)
 }
 
@@ -115,7 +116,7 @@ type Tracer interface {
 // StructLogger can capture state based on the given Log configuration and also keeps
 // a track record of modified storage which is used in reporting snapshots of the
 // contract their storage.
-type StructLogger struct {
+type StructLogger [P crypto.PublicKey] struct {
 	cfg LogConfig
 
 	storage map[common.Address]Storage
@@ -124,11 +125,11 @@ type StructLogger struct {
 	err     error
 }
 
-var _ Tracer = &StructLogger{}
+// var _ Tracer = &StructLogger{}
 
 // NewStructLogger returns a new logger
-func NewStructLogger(cfg *LogConfig) *StructLogger {
-	logger := &StructLogger{
+func NewStructLogger[P crypto.PublicKey](cfg *LogConfig) *StructLogger[P] {
+	logger := &StructLogger[P]{
 		storage: make(map[common.Address]Storage),
 	}
 	if cfg != nil {
@@ -138,13 +139,13 @@ func NewStructLogger(cfg *LogConfig) *StructLogger {
 }
 
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
-func (l *StructLogger) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (l *StructLogger[P]) CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
 // CaptureState logs a new structured log message and pushes it out to the environment
 //
 // CaptureState also tracks SLOAD/SSTORE ops to track storage change.
-func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (l *StructLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
 	memory := scope.Memory
 	stack := scope.Stack
 	contract := scope.Contract
@@ -204,11 +205,11 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 
 // CaptureFault implements the Tracer interface to trace an execution fault
 // while running an opcode.
-func (l *StructLogger) CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (l *StructLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
-func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
+func (l *StructLogger[P]) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
 	l.output = output
 	l.err = err
 	if l.cfg.Debug {
@@ -220,13 +221,13 @@ func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration
 }
 
 // StructLogs returns the captured log entries.
-func (l *StructLogger) StructLogs() []StructLog { return l.logs }
+func (l *StructLogger[P]) StructLogs() []StructLog { return l.logs }
 
 // Error returns the VM error captured by the trace.
-func (l *StructLogger) Error() error { return l.err }
+func (l *StructLogger[P]) Error() error { return l.err }
 
 // Output returns the VM return value captured by the trace.
-func (l *StructLogger) Output() []byte { return l.output }
+func (l *StructLogger[P]) Output() []byte { return l.output }
 
 // WriteTrace writes a formatted trace to the given writer
 func WriteTrace(writer io.Writer, logs []StructLog) {
@@ -275,22 +276,22 @@ func WriteLogs(writer io.Writer, logs []*types.Log) {
 	}
 }
 
-type mdLogger struct {
+type mdLogger [P crypto.PublicKey] struct {
 	out io.Writer
 	cfg *LogConfig
 }
 
 // NewMarkdownLogger creates a logger which outputs information in a format adapted
 // for human readability, and is also a valid markdown table
-func NewMarkdownLogger(cfg *LogConfig, writer io.Writer) *mdLogger {
-	l := &mdLogger{writer, cfg}
+func NewMarkdownLogger[P crypto.PublicKey](cfg *LogConfig, writer io.Writer) *mdLogger[P] {
+	l := &mdLogger[P]{writer, cfg}
 	if l.cfg == nil {
 		l.cfg = &LogConfig{}
 	}
 	return l
 }
 
-func (t *mdLogger) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (t *mdLogger[P]) CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	if !create {
 		fmt.Fprintf(t.out, "From: `%v`\nTo: `%v`\nData: `0x%x`\nGas: `%d`\nValue `%v` wei\n",
 			from.String(), to.String(),
@@ -308,7 +309,7 @@ func (t *mdLogger) CaptureStart(env *EVM, from common.Address, to common.Address
 }
 
 // CaptureState also tracks SLOAD/SSTORE ops to track storage change.
-func (t *mdLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (t *mdLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
 	stack := scope.Stack
 	fmt.Fprintf(t.out, "| %4d  | %10v  |  %3d |", pc, op, cost)
 
@@ -328,11 +329,11 @@ func (t *mdLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64
 	}
 }
 
-func (t *mdLogger) CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (t *mdLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
 	fmt.Fprintf(t.out, "\nError: at pc=%d, op=%v: %v\n", pc, op, err)
 }
 
-func (t *mdLogger) CaptureEnd(output []byte, gasUsed uint64, tm time.Duration, err error) {
+func (t *mdLogger[P]) CaptureEnd(output []byte, gasUsed uint64, tm time.Duration, err error) {
 	fmt.Fprintf(t.out, "\nOutput: `0x%x`\nConsumed gas: `%d`\nError: `%v`\n",
 		output, gasUsed, err)
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ChainHeaderReader defines a small collection of methods needed to access the local
@@ -50,15 +51,15 @@ type ChainHeaderReader interface {
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
-type ChainReader interface {
+type ChainReader [P crypto.PublicKey] interface {
 	ChainHeaderReader
 
 	// GetBlock retrieves a block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.Block
+	GetBlock(hash common.Hash, number uint64) *types.Block[P]
 }
 
 // Engine is an algorithm agnostic consensus engine.
-type Engine interface {
+type Engine [P crypto.PublicKey] interface {
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -77,7 +78,7 @@ type Engine interface {
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
-	VerifyUncles(chain ChainReader, block *types.Block) error
+	VerifyUncles(chain ChainReader[P], block *types.Block[P]) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -88,7 +89,7 @@ type Engine interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	Finalize(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P],
 		uncles []*types.Header)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -96,15 +97,15 @@ type Engine interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
+	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P],
+		uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error)
 
 	// Seal generates a new sealing request for the given input block and pushes
 	// the result into the given channel.
 	//
 	// Note, the method returns immediately and will send the result async. More
 	// than one result may also be returned depending on the consensus algorithm.
-	Seal(chain ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error
+	Seal(chain ChainHeaderReader, block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error
 
 	// SealHash returns the hash of a block prior to it being sealed.
 	SealHash(header *types.Header) common.Hash
@@ -124,7 +125,7 @@ type Engine interface {
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
-type Handler interface {
+type Handler [P crypto.PublicKey] interface {
 	// NewChainHead handles a new head block comes
 	NewChainHead() error
 
@@ -132,23 +133,23 @@ type Handler interface {
 	HandleMsg(address common.Address, data p2p.Msg) (bool, error)
 
 	// SetBroadcaster sets the broadcaster to send message to peers
-	SetBroadcaster(Broadcaster)
+	SetBroadcaster(Broadcaster[P])
 }
 
 // PoW is a consensus engine based on proof-of-work.
-type PoW interface {
-	Engine
+type PoW [P crypto.PublicKey] interface {
+	Engine[P]
 
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
 	Hashrate() float64
 }
 
 // Istanbul is a consensus engine to avoid byzantine failure
-type Istanbul interface {
-	Engine
+type Istanbul [P crypto.PublicKey] interface {
+	Engine[P]
 
 	// Start starts the engine
-	Start(chain ChainHeaderReader, currentBlock func() *types.Block, hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error
+	Start(chain ChainHeaderReader, currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error
 
 	// Stop stops the engine
 	Stop() error

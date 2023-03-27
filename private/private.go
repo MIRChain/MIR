@@ -17,12 +17,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
 	"github.com/pavelkrolevets/MIR-pro/private/engine/tessera"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
 	// global variable to be accessed by other packages
 	// singleton gateway to interact with private transaction manager
-	P                PrivateTransactionManager
+	Ptm                PrivateTransactionManager
 	isPrivacyEnabled = false
 )
 
@@ -73,10 +74,10 @@ func FromEnvironmentOrNil(name string) (http2.Config, error) {
 func InitialiseConnection(cfg http2.Config, isLightClient bool) error {
 	var err error
 	if isLightClient {
-		P, err = NewQLightTxManager()
+		Ptm, err = NewQLightTxManager()
 		return err
 	}
-	P, err = NewPrivateTxManager(cfg)
+	Ptm, err = NewPrivateTxManager(cfg)
 	return err
 }
 
@@ -143,11 +144,11 @@ func selectPrivateTxManager(client *engine.Client) (PrivateTransactionManager, e
 }
 
 // Retrieve the private transaction that is associated with a privacy marker transaction
-func FetchPrivateTransaction(data []byte) (*types.Transaction, []string, *engine.ExtraMetadata, error) {
-	return FetchPrivateTransactionWithPTM(data, P)
+func FetchPrivateTransaction[P crypto.PublicKey](data []byte) (*types.Transaction[P], []string, *engine.ExtraMetadata, error) {
+	return FetchPrivateTransactionWithPTM[P](data, Ptm)
 }
 
-func FetchPrivateTransactionWithPTM(data []byte, ptm PrivateTransactionManager) (*types.Transaction, []string, *engine.ExtraMetadata, error) {
+func FetchPrivateTransactionWithPTM[P crypto.PublicKey](data []byte, ptm PrivateTransactionManager) (*types.Transaction[P], []string, *engine.ExtraMetadata, error) {
 	txHash := common.BytesToEncryptedPayloadHash(data)
 
 	_, managedParties, txData, metadata, err := ptm.Receive(txHash)
@@ -158,7 +159,7 @@ func FetchPrivateTransactionWithPTM(data []byte, ptm PrivateTransactionManager) 
 		return nil, nil, nil, nil
 	}
 
-	var tx types.Transaction
+	var tx types.Transaction[P]
 	err = json.NewDecoder(bytes.NewReader(txData)).Decode(&tx)
 	if err != nil {
 		log.Trace("failed to deserialize private transaction", "err", err)

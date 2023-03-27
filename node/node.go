@@ -41,7 +41,7 @@ import (
 )
 
 // Node is a container on which services can be registered.
-type Node [T crypto.PrivateKey ]struct {
+type Node [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	eventmux      *event.TypeMux
 	config        *Config[T,P]
 	accman        *accounts.Manager
@@ -49,8 +49,8 @@ type Node [T crypto.PrivateKey ]struct {
 	ephemKeystore string            // if non-empty, the key directory that will be removed by Stop
 	dirLock       fileutil.Releaser // prevents concurrent use of instance directory
 	stop          chan struct{}     // Channel to wait for termination notifications
-	server        *p2p.Server[T]       // Currently running P2P networking layer
-	qserver       *p2p.Server[T]       // Currently running P2P networking layer for QLight
+	server        *p2p.Server[T,P]       // Currently running P2P networking layer
+	qserver       *p2p.Server[T,P]       // Currently running P2P networking layer for QLight
 	startStopLock sync.Mutex        // Start/Stop are protected by an additional lock
 	state         int               // Tracks state of node lifecycle
 
@@ -62,7 +62,7 @@ type Node [T crypto.PrivateKey ]struct {
 	ipc           *ipcServer  // Stores information about the ipc http server
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
 
-	databases map[*closeTrackingDB[T]]struct{} // All open databases
+	databases map[*closeTrackingDB[T,P]]struct{} // All open databases
 
 	// Quorum
 	pluginManager *plugin.PluginManager // Manage all plugins for this node. If plugin is not enabled, an EmptyPluginManager is set.
@@ -76,7 +76,7 @@ const (
 )
 
 // New creates a new P2P node, ready for protocol registration.
-func New[T crypto.PrivateKey ] (conf *Config[T,P]) (*Node[T], error) {
+func New[T crypto.PrivateKey, P crypto.PublicKey ] (conf *Config[T,P]) (*Node[T,P], error) {
 	// Copy config and resolve the datadir so future changes to the current
 	// working directory don't affect the node.
 	confCopy := *conf
@@ -104,18 +104,18 @@ func New[T crypto.PrivateKey ] (conf *Config[T,P]) (*Node[T], error) {
 		return nil, errors.New(`Config.Name cannot end in ".ipc"`)
 	}
 
-	node := &Node[T]{
+	node := &Node[T,P]{
 		config:        conf,
 		inprocHandler: rpc.NewProtectedServer(nil, conf.EnableMultitenancy),
 		eventmux:      new(event.TypeMux),
 		log:           conf.Logger,
 		stop:          make(chan struct{}),
-		server:        &p2p.Server[T]{Config: conf.P2P},
-		databases:     make(map[*closeTrackingDB[T]]struct{}),
+		server:        &p2p.Server[T,P]{Config: conf.P2P},
+		databases:     make(map[*closeTrackingDB[T,P]]struct{}),
 		pluginManager: plugin.NewEmptyPluginManager(),
 	}
 	if conf.QP2P != nil {
-		node.qserver = &p2p.Server[T]{Config: *conf.QP2P}
+		node.qserver = &p2p.Server[T,P]{Config: *conf.QP2P}
 	}
 
 	// Register built-in APIs.
@@ -186,7 +186,7 @@ func New[T crypto.PrivateKey ] (conf *Config[T,P]) (*Node[T], error) {
 
 // Start starts all registered lifecycles, RPC services and p2p networking.
 // Node can only be started once.
-func (n *Node[T]) Start() error {
+func (n *Node[T,P]) Start() error {
 	n.startStopLock.Lock()
 	defer n.startStopLock.Unlock()
 
@@ -238,7 +238,7 @@ func (n *Node[T]) Start() error {
 
 // Close stops the Node and releases resources acquired in
 // Node constructor New.
-func (n *Node[T]) Close() error {
+func (n *Node[T,P]) Close() error {
 	n.startStopLock.Lock()
 	defer n.startStopLock.Unlock()
 
@@ -264,7 +264,7 @@ func (n *Node[T]) Close() error {
 }
 
 // doClose releases resources acquired by New(), collecting errors.
-func (n *Node[T]) doClose(errs []error) error {
+func (n *Node[T,P]) doClose(errs []error) error {
 	// Close databases. This needs the lock because it needs to
 	// synchronize with OpenDatabase*.
 	n.lock.Lock()
@@ -299,7 +299,7 @@ func (n *Node[T]) doClose(errs []error) error {
 }
 
 // openEndpoints starts all network and RPC endpoints.
-func (n *Node[T]) openEndpoints() error {
+func (n *Node[T,P]) openEndpoints() error {
 	// start networking endpoints
 	n.log.Info("Starting peer-to-peer node", "instance", n.server.Name)
 	if err := n.server.Start(); err != nil {
@@ -333,7 +333,7 @@ func containsLifecycle(lfs []Lifecycle, l Lifecycle) bool {
 
 // stopServices terminates running services, RPC and p2p networking.
 // It is the inverse of Start.
-func (n *Node[T]) stopServices(running []Lifecycle) error {
+func (n *Node[T,P]) stopServices(running []Lifecycle) error {
 	n.stopRPC()
 
 	// Stop running lifecycles in reverse order.
@@ -361,7 +361,7 @@ func (n *Node[T]) stopServices(running []Lifecycle) error {
 	return nil
 }
 
-func (n *Node[T]) openDataDir() error {
+func (n *Node[T,P]) openDataDir() error {
 	if n.config.DataDir == "" {
 		return nil // ephemeral
 	}
@@ -380,7 +380,7 @@ func (n *Node[T]) openDataDir() error {
 	return nil
 }
 
-func (n *Node[T]) closeDataDir() {
+func (n *Node[T,P]) closeDataDir() {
 	// Release instance directory lock.
 	if n.dirLock != nil {
 		if err := n.dirLock.Release(); err != nil {
@@ -395,7 +395,7 @@ func (n *Node[T]) closeDataDir() {
 // assumptions about the state of the node.
 // Quorum
 // 1. Inject mutlitenancy flag into rpc server when appropriate
-func (n *Node[T]) startRPC() error {
+func (n *Node[T,P]) startRPC() error {
 	if err := n.startInProc(); err != nil {
 		return err
 	}
@@ -451,14 +451,14 @@ func (n *Node[T]) startRPC() error {
 	return n.ws.start(tls)
 }
 
-func (n *Node[T]) wsServerForPort(port int) *httpServer {
+func (n *Node[T,P]) wsServerForPort(port int) *httpServer {
 	if n.config.HTTPHost == "" || n.http.port == port {
 		return n.http
 	}
 	return n.ws
 }
 
-func (n *Node[T]) stopRPC() {
+func (n *Node[T,P]) stopRPC() {
 	n.http.stop()
 	n.ws.stop()
 	n.ipc.stop()
@@ -468,7 +468,7 @@ func (n *Node[T]) stopRPC() {
 // startInProc registers all RPC APIs on the inproc server.
 // Quorum
 // 1. Inject mutlitenancy flag into rpc server
-func (n *Node[T]) startInProc() error {
+func (n *Node[T,P]) startInProc() error {
 	for _, api := range n.rpcAPIs {
 		if err := n.inprocHandler.RegisterName(api.Namespace, api.Service); err != nil {
 			return err
@@ -478,17 +478,17 @@ func (n *Node[T]) startInProc() error {
 }
 
 // stopInProc terminates the in-process RPC endpoint.
-func (n *Node[T]) stopInProc() {
+func (n *Node[T,P]) stopInProc() {
 	n.inprocHandler.Stop()
 }
 
 // Wait blocks until the node is closed.
-func (n *Node[T]) Wait() {
+func (n *Node[T,P]) Wait() {
 	<-n.stop
 }
 
 // RegisterLifecycle registers the given Lifecycle on the node.
-func (n *Node[T]) RegisterLifecycle(lifecycle Lifecycle) {
+func (n *Node[T,P]) RegisterLifecycle(lifecycle Lifecycle) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -502,7 +502,7 @@ func (n *Node[T]) RegisterLifecycle(lifecycle Lifecycle) {
 }
 
 // RegisterProtocols adds backend's protocols to the node's p2p server.
-func (n *Node[T]) RegisterProtocols(protocols []p2p.Protocol) {
+func (n *Node[T,P]) RegisterProtocols(protocols []p2p.Protocol[T,P]) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -512,7 +512,7 @@ func (n *Node[T]) RegisterProtocols(protocols []p2p.Protocol) {
 	n.server.Protocols = append(n.server.Protocols, protocols...)
 }
 
-func (n *Node[T]) RegisterQProtocols(protocols []p2p.Protocol) {
+func (n *Node[T,P]) RegisterQProtocols(protocols []p2p.Protocol[T,P]) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -523,7 +523,7 @@ func (n *Node[T]) RegisterQProtocols(protocols []p2p.Protocol) {
 }
 
 // RegisterAPIs registers the APIs a service provides on the node.
-func (n *Node[T]) RegisterAPIs(apis []rpc.API) {
+func (n *Node[T,P]) RegisterAPIs(apis []rpc.API) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -537,7 +537,7 @@ func (n *Node[T]) RegisterAPIs(apis []rpc.API) {
 //
 // The name of the handler is shown in a log message when the HTTP server starts
 // and should be a descriptive term for the service provided by the handler.
-func (n *Node[T]) RegisterHandler(name, path string, handler http.Handler) {
+func (n *Node[T,P]) RegisterHandler(name, path string, handler http.Handler) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -550,12 +550,12 @@ func (n *Node[T]) RegisterHandler(name, path string, handler http.Handler) {
 }
 
 // Attach creates an RPC client attached to an in-process API handler.
-func (n *Node[T]) Attach() (*rpc.Client, error) {
+func (n *Node[T,P]) Attach() (*rpc.Client, error) {
 	return rpc.DialInProc(n.inprocHandler), nil
 }
 
 // AttachWithPSI creates a PSI-specific RPC client attached to an in-process API handler.
-func (n *Node[T]) AttachWithPSI(psi types.PrivateStateIdentifier) (*rpc.Client, error) {
+func (n *Node[T,P]) AttachWithPSI(psi types.PrivateStateIdentifier) (*rpc.Client, error) {
 	client, err := n.Attach()
 	if err != nil {
 		return nil, err
@@ -564,7 +564,7 @@ func (n *Node[T]) AttachWithPSI(psi types.PrivateStateIdentifier) (*rpc.Client, 
 }
 
 // RPCHandler returns the in-process RPC request handler.
-func (n *Node[T]) RPCHandler() (*rpc.Server, error) {
+func (n *Node[T,P]) RPCHandler() (*rpc.Server, error) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -575,21 +575,21 @@ func (n *Node[T]) RPCHandler() (*rpc.Server, error) {
 }
 
 // Config returns the configuration of node.
-func (n *Node[T]) Config() *Config[T,P] {
+func (n *Node[T,P]) Config() *Config[T,P] {
 	return n.config
 }
 
 // Server retrieves the currently running P2P network layer. This method is meant
 // only to inspect fields of the currently running server. Callers should not
 // start or stop the returned server.
-func (n *Node[T]) Server() *p2p.Server[T] {
+func (n *Node[T,P]) Server() *p2p.Server[T,P] {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
 	return n.server
 }
 
-func (n *Node[T]) QServer() *p2p.Server[T] {
+func (n *Node[T,P]) QServer() *p2p.Server[T,P] {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -598,33 +598,33 @@ func (n *Node[T]) QServer() *p2p.Server[T] {
 
 // DataDir retrieves the current datadir used by the protocol stack.
 // Deprecated: No files should be stored in this directory, use InstanceDir instead.
-func (n *Node[T]) DataDir() string {
+func (n *Node[T,P]) DataDir() string {
 	return n.config.DataDir
 }
 
 // InstanceDir retrieves the instance directory used by the protocol stack.
-func (n *Node[T]) InstanceDir() string {
+func (n *Node[T,P]) InstanceDir() string {
 	return n.config.instanceDir()
 }
 
 // AccountManager retrieves the account manager used by the protocol stack.
-func (n *Node[T]) AccountManager() *accounts.Manager {
+func (n *Node[T,P]) AccountManager() *accounts.Manager {
 	return n.accman
 }
 
 // IPCEndpoint retrieves the current IPC endpoint used by the protocol stack.
-func (n *Node[T]) IPCEndpoint() string {
+func (n *Node[T,P]) IPCEndpoint() string {
 	return n.ipc.endpoint
 }
 
 // HTTPEndpoint returns the URL of the HTTP server. Note that this URL does not
 // contain the JSON-RPC path prefix set by HTTPPathPrefix.
-func (n *Node[T]) HTTPEndpoint() string {
+func (n *Node[T,P]) HTTPEndpoint() string {
 	return "http://" + n.http.listenAddr()
 }
 
 // WSEndpoint returns the current JSON-RPC over WebSocket endpoint.
-func (n *Node[T]) WSEndpoint() string {
+func (n *Node[T,P]) WSEndpoint() string {
 	if n.http.wsAllowed() {
 		return "ws://" + n.http.listenAddr() + n.http.wsConfig.prefix
 	}
@@ -633,14 +633,14 @@ func (n *Node[T]) WSEndpoint() string {
 
 // EventMux retrieves the event multiplexer used by all the network services in
 // the current protocol stack.
-func (n *Node[T]) EventMux() *event.TypeMux {
+func (n *Node[T,P]) EventMux() *event.TypeMux {
 	return n.eventmux
 }
 
 // OpenDatabase opens an existing database with the given name (or creates one if no
 // previous can be found) from within the node's instance directory. If the node is
 // ephemeral, a memory database is returned.
-func (n *Node[T]) OpenDatabase(name string, cache, handles int, namespace string, readonly bool) (ethdb.Database, error) {
+func (n *Node[T,P]) OpenDatabase(name string, cache, handles int, namespace string, readonly bool) (ethdb.Database, error) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	if n.state == closedState {
@@ -666,7 +666,7 @@ func (n *Node[T]) OpenDatabase(name string, cache, handles int, namespace string
 // also attaching a chain freezer to it that moves ancient chain data from the
 // database to immutable append-only files. If the node is an ephemeral one, a
 // memory database is returned.
-func (n *Node[T]) OpenDatabaseWithFreezer(name string, cache, handles int, freezer, namespace string, readonly bool) (ethdb.Database, error) {
+func (n *Node[T,P]) OpenDatabaseWithFreezer(name string, cache, handles int, freezer, namespace string, readonly bool) (ethdb.Database, error) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	if n.state == closedState {
@@ -695,19 +695,19 @@ func (n *Node[T]) OpenDatabaseWithFreezer(name string, cache, handles int, freez
 }
 
 // ResolvePath returns the absolute path of a resource in the instance directory.
-func (n *Node[T]) ResolvePath(x string) string {
+func (n *Node[T,P]) ResolvePath(x string) string {
 	return n.config.ResolvePath(x)
 }
 
 // closeTrackingDB wraps the Close method of a database. When the database is closed by the
 // service, the wrapper removes it from the node's database map. This ensures that Node
 // won't auto-close the database if it is closed by the service that opened it.
-type closeTrackingDB [T crypto.PrivateKey ] struct {
+type closeTrackingDB [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	ethdb.Database
-	n *Node[T]
+	n *Node[T,P]
 }
 
-func (db *closeTrackingDB[T]) Close() error {
+func (db *closeTrackingDB[T,P]) Close() error {
 	db.n.lock.Lock()
 	delete(db.n.databases, db)
 	db.n.lock.Unlock()
@@ -715,14 +715,14 @@ func (db *closeTrackingDB[T]) Close() error {
 }
 
 // wrapDatabase ensures the database will be auto-closed when Node is closed.
-func (n *Node[T]) wrapDatabase(db ethdb.Database) ethdb.Database {
-	wrapper := &closeTrackingDB[T]{db, n}
+func (n *Node[T,P]) wrapDatabase(db ethdb.Database) ethdb.Database {
+	wrapper := &closeTrackingDB[T,P]{db, n}
 	n.databases[wrapper] = struct{}{}
 	return wrapper
 }
 
 // closeDatabases closes all open databases.
-func (n *Node[T]) closeDatabases() (errors []error) {
+func (n *Node[T,P]) closeDatabases() (errors []error) {
 	for db := range n.databases {
 		delete(n.databases, db)
 		if err := db.Database.Close(); err != nil {
@@ -733,7 +733,7 @@ func (n *Node[T]) closeDatabases() (errors []error) {
 }
 
 // Quorum
-func (n *Node[T]) GetSecuritySupports() (tlsConfigSource security.TLSConfigurationSource, authManager security.AuthenticationManager, err error) {
+func (n *Node[T,P]) GetSecuritySupports() (tlsConfigSource security.TLSConfigurationSource, authManager security.AuthenticationManager, err error) {
 	if n.pluginManager.IsEnabled(plugin.SecurityPluginInterfaceName) {
 		sp := new(plugin.SecurityPluginTemplate)
 		if err = n.pluginManager.GetPluginTemplate(plugin.SecurityPluginInterfaceName, sp); err != nil {
@@ -754,35 +754,35 @@ func (n *Node[T]) GetSecuritySupports() (tlsConfigSource security.TLSConfigurati
 // Quorum
 //
 // delegate call to node.Config
-func (n *Node[T]) IsPermissionEnabled() bool {
+func (n *Node[T,P]) IsPermissionEnabled() bool {
 	return n.config.IsPermissionEnabled()
 }
 
 // Quorum
 //
 // delegate call to node.Config
-func (n *Node[T]) GetNodeKey() T {
+func (n *Node[T,P]) GetNodeKey() T {
 	return n.config.NodeKey()
 }
 
 // Quorum
 //
 // This can be used to inspect plugins used in the current node
-func (n *Node[T]) PluginManager() *plugin.PluginManager {
+func (n *Node[T,P]) PluginManager() *plugin.PluginManager {
 	return n.pluginManager
 }
 
 // Quorum
 //
 // This can be used to set the plugin manager in the node (replacing the default Empty one)
-func (n *Node[T]) SetPluginManager(pm *plugin.PluginManager) {
+func (n *Node[T,P]) SetPluginManager(pm *plugin.PluginManager) {
 	n.pluginManager = pm
 }
 
 // Quorum
 //
 // Lifecycle retrieves a currently lifecycle registered of a specific type.
-func (n *Node[T]) Lifecycle(lifecycle interface{}) error {
+func (n *Node[T,P]) Lifecycle(lifecycle interface{}) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 

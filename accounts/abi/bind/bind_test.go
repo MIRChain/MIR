@@ -1137,7 +1137,7 @@ var bindTests = []struct {
 				}
 			}
 
-			if _, err := testContract.StoreDeepUintArray(&bind.TransactOpts{
+			if _, err := testContract.StoreDeepUintArray(&bind.TransactOpts[P]{
 				From: auth.From,
 				Signer: auth.Signer,
 			}, testArr); err != nil {

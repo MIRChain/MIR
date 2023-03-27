@@ -55,13 +55,13 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) CurrentBlock() *types.Block {
+func (bc *testBlockChain) CurrentBlock() *types.Block[P] {
 	return types.NewBlock(&types.Header{
 		GasLimit: bc.gasLimit,
 	}, nil, nil, nil, trie.NewStackTrie(nil))
 }
 
-func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block[P] {
 	return bc.CurrentBlock()
 }
 
@@ -73,16 +73,16 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
-func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
+func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction[P] {
 	return pricedTransaction(nonce, gaslimit, big.NewInt(1), key)
 }
 
-func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
+func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction[P] {
 	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
 	return tx
 }
 
-func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, bytes uint64) *types.Transaction {
+func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, bytes uint64) *types.Transaction[P] {
 	data := make([]byte, bytes)
 	rand.Read(data)
 
@@ -143,7 +143,7 @@ func validateTxPoolInternals(pool *TxPool) error {
 // validateEvents checks that the correct number of transaction addition events
 // were fired on the pool's event feed.
 func validateEvents(events chan NewTxsEvent, count int) error {
-	var received []*types.Transaction
+	var received []*types.Transaction[P]
 
 	for len(received) < count {
 		select {
@@ -168,7 +168,7 @@ func validateEvents(events chan NewTxsEvent, count int) error {
 	return nil
 }
 
-func deriveSender(tx *types.Transaction) (common.Address, error) {
+func deriveSender(tx *types.Transaction[P]) (common.Address, error) {
 	return types.Sender(types.HomesteadSigner{}, tx)
 }
 
@@ -224,7 +224,7 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 		t.Fatalf("Invalid nonce, want 0, got %d", nonce)
 	}
 
-	pool.AddRemotesSync([]*types.Transaction{tx0, tx1})
+	pool.AddRemotesSync([]*types.Transaction[P]{tx0, tx1})
 
 	nonce = pool.Nonce(address)
 	if nonce != 2 {
@@ -385,7 +385,7 @@ func TestValidateTx_whenValueNonZeroTransferForPrivateTransaction(t *testing.T) 
 	}
 }
 
-func newPrivateTransaction(value *big.Int, data []byte, key *ecdsa.PrivateKey) (*types.Transaction, *big.Int, common.Address) {
+func newPrivateTransaction(value *big.Int, data []byte, key *ecdsa.PrivateKey) (*types.Transaction[P], *big.Int, common.Address) {
 	zeroGasPrice := common.Big0
 	defaultTxPoolGasLimit := uint64(1000000)
 	arbitraryTx, _ := types.SignTx(types.NewTransaction(0, common.Address{}, value, defaultTxPoolGasLimit, zeroGasPrice, data), types.HomesteadSigner{}, key)
@@ -732,11 +732,11 @@ func TestTransactionPostponing(t *testing.T) {
 		pool.currentState.AddBalance(crypto.PubkeyToAddress(keys[i].PublicKey), big.NewInt(50100))
 	}
 	// Add a batch consecutive pending transactions for validation
-	txs := []*types.Transaction{}
+	txs := []*types.Transaction[P]{}
 	for i, key := range keys {
 
 		for j := 0; j < 100; j++ {
-			var tx *types.Transaction
+			var tx *types.Transaction[P]
 			if (i+j)%2 == 0 {
 				tx = transaction(uint64(j), 25000, key)
 			} else {
@@ -841,7 +841,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	// Create a pending and a queued transaction with a nonce-gap in between
-	pool.AddRemotesSync([]*types.Transaction{
+	pool.AddRemotesSync([]*types.Transaction[P]{
 		transaction(0, 100000, key),
 		transaction(2, 100000, key),
 	})
@@ -1758,11 +1758,11 @@ func TestTransactionDeduplication(t *testing.T) {
 	pool.currentState.AddBalance(crypto.PubkeyToAddress(key.PublicKey), big.NewInt(1000000000))
 
 	// Create a batch of transactions and add a few of them
-	txs := make([]*types.Transaction, 16)
+	txs := make([]*types.Transaction[P], 16)
 	for i := 0; i < len(txs); i++ {
 		txs[i] = pricedTransaction(uint64(i), 100000, big.NewInt(1), key)
 	}
-	var firsts []*types.Transaction
+	var firsts []*types.Transaction[P]
 	for i := 0; i < len(txs); i += 2 {
 		firsts = append(firsts, txs[i])
 	}
@@ -2167,11 +2167,11 @@ func BenchmarkInsertRemoteWithAllLocals(b *testing.B) {
 	remoteKey, _ := crypto.GenerateKey()
 	remoteAddr := crypto.PubkeyToAddress(remoteKey.PublicKey)
 
-	locals := make([]*types.Transaction, 4096+1024) // Occupy all slots
+	locals := make([]*types.Transaction[P], 4096+1024) // Occupy all slots
 	for i := 0; i < len(locals); i++ {
 		locals[i] = transaction(uint64(i), 100000, key)
 	}
-	remotes := make([]*types.Transaction, 1000)
+	remotes := make([]*types.Transaction[P], 1000)
 	for i := 0; i < len(remotes); i++ {
 		remotes[i] = pricedTransaction(uint64(i), 100000, big.NewInt(2), remoteKey) // Higher gasprice
 	}
@@ -2188,7 +2188,7 @@ func BenchmarkInsertRemoteWithAllLocals(b *testing.B) {
 		// Assign a high enough balance for testing
 		pool.currentState.AddBalance(remoteAddr, big.NewInt(100000000))
 		for i := 0; i < len(remotes); i++ {
-			pool.AddRemotes([]*types.Transaction{remotes[i]})
+			pool.AddRemotes([]*types.Transaction[P]{remotes[i]})
 		}
 		pool.Stop()
 	}

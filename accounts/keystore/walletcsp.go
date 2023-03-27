@@ -23,7 +23,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 )
 
-func (w *keystoreWallet) SignTxCsp(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *keystoreWallet) SignTxCsp(account accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	// Make sure the requested account is contained within
 	if !w.Contains(account) {
 		return nil, accounts.ErrUnknownAccount
@@ -32,7 +32,7 @@ func (w *keystoreWallet) SignTxCsp(account accounts.Account, tx *types.Transacti
 	return w.keystore.SignTx(account, tx, chainID)
 }
 
-func (w *keystoreWallet) SignTxWithPassphraseCsp(account accounts.Account, subjectKeyId string, pin string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *keystoreWallet) SignTxWithPassphraseCsp(account accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	// Make sure the requested account is contained within
 	if !w.Contains(account) {
 		return nil, accounts.ErrUnknownAccount

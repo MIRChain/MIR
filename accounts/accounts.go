@@ -26,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	// "github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -45,7 +46,7 @@ const (
 
 // Wallet represents a software or hardware wallet that might contain one or more
 // accounts (derived from the same seed).
-type Wallet interface {
+type Wallet [P crypto.PublicKey] interface {
 	// URL retrieves the canonical path under which this wallet is reachable. It is
 	// user by upper layers to define a sorting order over all wallets from multiple
 	// backends.
@@ -148,15 +149,15 @@ type Wallet interface {
 	// about which fields or actions are needed. The user may retry by providing
 	// the needed details via SignTxWithPassphrase, or by other means (e.g. unlock
 	// the account in a keystore).
-	SignTx(account Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignTx(account Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error)
 
 	// SignTxWithPassphrase is identical to SignTx, but also takes a password
-	SignTxWithPassphrase(account Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignTxWithPassphrase(account Account, passphrase string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error)
 }
 
 // Backend is a "wallet provider" that may contain a batch of accounts they can
 // sign transactions with and upon request, do so.
-type Backend interface {
+type Backend [P crypto.PublicKey] interface {
 	// Wallets retrieves the list of wallets the backend is currently aware of.
 	//
 	// The returned wallets are not opened by default. For software HD wallets this
@@ -167,11 +168,11 @@ type Backend interface {
 	// URL assigned by the backend. Since wallets (especially hardware) may come and
 	// go, the same wallet might appear at a different positions in the list during
 	// subsequent retrievals.
-	Wallets() []Wallet
+	Wallets() []Wallet[P]
 
 	// Subscribe creates an async subscription to receive notifications when the
 	// backend detects the arrival or departure of a wallet.
-	Subscribe(sink chan<- WalletEvent) event.Subscription
+	Subscribe(sink chan<- WalletEvent[P]) event.Subscription
 }
 
 // TextHash is a helper function that calculates a hash for the given message that can be
@@ -226,7 +227,7 @@ const (
 
 // WalletEvent is an event fired by an account backend when a wallet arrival or
 // departure is detected.
-type WalletEvent struct {
-	Wallet Wallet          // Wallet instance arrived or departed
+type WalletEvent [P crypto.PublicKey] struct {
+	Wallet Wallet[P]          // Wallet instance arrived or departed
 	Kind   WalletEventType // Event type that happened in the system
 }

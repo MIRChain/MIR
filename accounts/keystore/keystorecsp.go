@@ -79,7 +79,7 @@ func (ks *KeyStore) DeleteCsp(a accounts.Account, passphrase string) error {
 	return err
 }
 
-func (ks *KeyStore) SignTxCsp(a accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (ks *KeyStore) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -103,7 +103,7 @@ func (ks *KeyStore) SignTxCsp(a accounts.Account, tx *types.Transaction, chainID
 	// start quorum specific
 	if tx.IsPrivate() {
 		log.Info("Private transaction signing with QuorumPrivateTxSigner")
-		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner{}, unlockedKey.KeyCsp.SubjectKeyId)
+		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner[P]{}, unlockedKey.KeyCsp.SubjectKeyId)
 	} // End quorum specific
 
 	// Depending on the presence of the chain ID, sign with 2718 or homestead
@@ -129,13 +129,13 @@ func (ks *KeyStore) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId s
 	return crypto.SignCsp(hash, &crt)
 }
 
-func (ks *KeyStore) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (ks *KeyStore) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	_, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return nil, err
 	}
 	if tx.IsPrivate() {
-		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner{}, key.SubjectKeyId)
+		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner[P]{}, key.SubjectKeyId)
 	}
 	// Depending on the presence of the chain ID, sign with or without replay protection.
 	signer := types.LatestSignerForChainID(chainID)

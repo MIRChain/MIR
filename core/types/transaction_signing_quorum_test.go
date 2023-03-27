@@ -236,7 +236,7 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 *  1. sign with HomesteadSigner, this will set the v parameter to
 *     27 or 28. // there is no indication that this is a private tx yet.
 *
-*  2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction, isPrivate bool)`
+*  2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction[P], isPrivate bool)`
       check isPrivate param, and call `tx.SetPrivate()`, this will update the `v` signature param (recoveryID)
 *     from 27 -> 37, 28 -> 38. // this is now considered a private tx.
 *

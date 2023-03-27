@@ -17,13 +17,12 @@
 package core
 
 import (
-	"runtime"
-
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // senderCacher is a concurrent transaction sender recoverer and cacher.
-var senderCacher = newTxSenderCacher(runtime.NumCPU())
+// var senderCacher = newTxSenderCacher(runtime.NumCPU()) // MIR check best way to generalize
 
 // txSenderCacherRequest is a request for recovering transaction senders with a
 // specific signature scheme and caching it into the transactions themselves.
@@ -31,24 +30,24 @@ var senderCacher = newTxSenderCacher(runtime.NumCPU())
 // The inc field defines the number of transactions to skip after each recovery,
 // which is used to feed the same underlying input array to different threads but
 // ensure they process the early transactions fast.
-type txSenderCacherRequest struct {
-	signer types.Signer
-	txs    []*types.Transaction
+type txSenderCacherRequest [P crypto.PublicKey] struct {
+	signer types.Signer[P]
+	txs    []*types.Transaction[P]
 	inc    int
 }
 
 // txSenderCacher is a helper structure to concurrently ecrecover transaction
 // senders from digital signatures on background threads.
-type txSenderCacher struct {
+type txSenderCacher [P crypto.PublicKey] struct {
 	threads int
-	tasks   chan *txSenderCacherRequest
+	tasks   chan *txSenderCacherRequest[P]
 }
 
 // newTxSenderCacher creates a new transaction sender background cacher and starts
 // as many processing goroutines as allowed by the GOMAXPROCS on construction.
-func newTxSenderCacher(threads int) *txSenderCacher {
-	cacher := &txSenderCacher{
-		tasks:   make(chan *txSenderCacherRequest, threads),
+func newTxSenderCacher[P crypto.PublicKey](threads int) *txSenderCacher[P] {
+	cacher := &txSenderCacher[P]{
+		tasks:   make(chan *txSenderCacherRequest[P], threads),
 		threads: threads,
 	}
 	for i := 0; i < threads; i++ {
@@ -59,7 +58,7 @@ func newTxSenderCacher(threads int) *txSenderCacher {
 
 // cache is an infinite loop, caching transaction senders from various forms of
 // data structures.
-func (cacher *txSenderCacher) cache() {
+func (cacher *txSenderCacher[P]) cache() {
 	for task := range cacher.tasks {
 		for i := 0; i < len(task.txs); i += task.inc {
 			types.Sender(task.signer, task.txs[i])
@@ -70,7 +69,7 @@ func (cacher *txSenderCacher) cache() {
 // recover recovers the senders from a batch of transactions and caches them
 // back into the same data structures. There is no validation being done, nor
 // any reaction to invalid signatures. That is up to calling code later.
-func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transaction) {
+func (cacher *txSenderCacher[P]) recover(signer types.Signer[P], txs []*types.Transaction[P]) {
 	// If there's nothing to recover, abort
 	if len(txs) == 0 {
 		return
@@ -81,7 +80,7 @@ func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transact
 		tasks = (len(txs) + 3) / 4
 	}
 	for i := 0; i < tasks; i++ {
-		cacher.tasks <- &txSenderCacherRequest{
+		cacher.tasks <- &txSenderCacherRequest[P]{
 			signer: signer,
 			txs:    txs[i:],
 			inc:    tasks,
@@ -92,12 +91,12 @@ func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transact
 // recoverFromBlocks recovers the senders from a batch of blocks and caches them
 // back into the same data structures. There is no validation being done, nor
 // any reaction to invalid signatures. That is up to calling code later.
-func (cacher *txSenderCacher) recoverFromBlocks(signer types.Signer, blocks []*types.Block) {
+func (cacher *txSenderCacher[P]) recoverFromBlocks(signer types.Signer[P], blocks []*types.Block[P]) {
 	count := 0
 	for _, block := range blocks {
 		count += len(block.Transactions())
 	}
-	txs := make([]*types.Transaction, 0, count)
+	txs := make([]*types.Transaction[P], 0, count)
 	for _, block := range blocks {
 		txs = append(txs, block.Transactions()...)
 	}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM
@@ -107,17 +108,17 @@ func (al accessList) accessList() types.AccessList {
 
 // AccessListTracer is a tracer that accumulates touched accounts and storage
 // slots into an internal set.
-type AccessListTracer struct {
+type AccessListTracer [P crypto.PublicKey] struct {
 	excl map[common.Address]struct{} // Set of account to exclude from the list
 	list accessList                  // Set of accounts and storage slots touched
 }
 
-var _ Tracer = &AccessListTracer{}
+// var _ Tracer = &AccessListTracer{}
 
 // NewAccessListTracer creates a new tracer that can generate AccessLists.
 // An optional AccessList can be specified to occupy slots and addresses in
 // the resulting accesslist.
-func NewAccessListTracer(acl types.AccessList, from, to common.Address, precompiles []common.Address) *AccessListTracer {
+func NewAccessListTracer[P crypto.PublicKey](acl types.AccessList, from, to common.Address, precompiles []common.Address) *AccessListTracer[P] {
 	excl := map[common.Address]struct{}{
 		from: {}, to: {},
 	}
@@ -133,17 +134,17 @@ func NewAccessListTracer(acl types.AccessList, from, to common.Address, precompi
 			list.addSlot(al.Address, slot)
 		}
 	}
-	return &AccessListTracer{
+	return &AccessListTracer[P]{
 		excl: excl,
 		list: list,
 	}
 }
 
-func (a *AccessListTracer) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (a *AccessListTracer[P]) CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
 // CaptureState captures all opcodes that touch storage or addresses and adds them to the accesslist.
-func (a *AccessListTracer) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (a *AccessListTracer[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
 	stack := scope.Stack
 	if (op == SLOAD || op == SSTORE) && stack.len() >= 1 {
 		slot := common.Hash(stack.data[stack.len()-1].Bytes32())
@@ -163,17 +164,17 @@ func (a *AccessListTracer) CaptureState(env *EVM, pc uint64, op OpCode, gas, cos
 	}
 }
 
-func (*AccessListTracer) CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (*AccessListTracer[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
 }
 
-func (*AccessListTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
+func (*AccessListTracer[P]) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
 
 // AccessList returns the current accesslist maintained by the tracer.
-func (a *AccessListTracer) AccessList() types.AccessList {
+func (a *AccessListTracer[P]) AccessList() types.AccessList {
 	return a.list.accessList()
 }
 
 // Equal returns if the content of two access list traces are equal.
-func (a *AccessListTracer) Equal(other *AccessListTracer) bool {
+func (a *AccessListTracer[P]) Equal(other *AccessListTracer[P]) bool {
 	return a.list.equal(other.list)
 }

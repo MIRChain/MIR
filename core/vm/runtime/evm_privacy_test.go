@@ -15,6 +15,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	testifyassert "github.com/stretchr/testify/assert"
@@ -77,7 +78,7 @@ type contract struct {
 
 var (
 	c1, c2        *contract
-	stubPrivateTx *types.Transaction
+	stubPrivateTx *types.Transaction[nist.PublicKey]
 )
 
 func init() {
@@ -101,7 +102,7 @@ func TestPrivacyEnhancements_CreateC1(t *testing.T) {
 	initialValue := int64(42)
 	var affectedContracts []common.Address
 	var getPrivacyMetadataFunc func(common.Address) (*state.PrivacyMetadata, error)
-	cfg.onAfterEVM = func(evm *vm.EVM) {
+	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
 		affectedContracts = evm.AffectedContracts()
 		getPrivacyMetadataFunc = evm.StateDB.GetPrivacyMetadata
 	}
@@ -132,7 +133,7 @@ func TestPrivacyEnhancements_CreateC2(t *testing.T) {
 	c1Address := createC1(assert, cfg, initialValue)
 
 	var affectedContracts []common.Address
-	cfg.onAfterEVM = func(evm *vm.EVM) {
+	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
 		affectedContracts = evm.AffectedContracts()
 	}
 	c2Address := createC2(assert, cfg, c1Address)
@@ -156,7 +157,7 @@ func TestPrivacyEnhancements_CreateC2FromC1Function(t *testing.T) {
 	c1Address := createC1(assert, cfg, initialValue)
 
 	var affectedContracts []common.Address
-	cfg.onAfterEVM = func(evm *vm.EVM) {
+	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
 		affectedContracts = evm.AffectedContracts()
 	}
 	callContractFunction(assert, cfg, c1, c1Address, "newContractC2", big.NewInt(newValue))
@@ -171,7 +172,7 @@ func TestPrivacyEnhancements_CreateC1_StandardPrivate(t *testing.T) {
 	initialValue := int64(42)
 	var affectedContracts []common.Address
 	var getPrivacyMetadataFunc func(common.Address) (*state.PrivacyMetadata, error)
-	cfg.onAfterEVM = func(evm *vm.EVM) {
+	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
 		affectedContracts = evm.AffectedContracts()
 		getPrivacyMetadataFunc = evm.StateDB.GetPrivacyMetadata
 	}
@@ -236,7 +237,7 @@ func mustPack(assert *testifyassert.Assertions, c *contract, name string, args .
 }
 
 func newConfig() *extendedConfig {
-	cfg := new(Config)
+	cfg := new(Config[nist.PublicKey])
 	setDefaults(cfg)
 	cfg.Debug = true
 	database := rawdb.NewMemoryDatabase()
@@ -252,12 +253,12 @@ func newConfig() *extendedConfig {
 }
 
 type extendedConfig struct {
-	*Config
+	*Config[nist.PublicKey]
 	privateState *state.StateDB
-	onAfterEVM   func(evm *vm.EVM)
+	onAfterEVM   func(evm *vm.EVM[nist.PublicKey])
 }
 
-func newEVM(cfg *extendedConfig) *vm.EVM {
+func newEVM(cfg *extendedConfig) *vm.EVM[nist.PublicKey] {
 	context := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
@@ -273,13 +274,13 @@ func newEVM(cfg *extendedConfig) *vm.EVM {
 		Origin:   cfg.Origin,
 		GasPrice: cfg.GasPrice,
 	}
-	evm := vm.NewEVM(context, txContext, cfg.State, cfg.privateState, cfg.ChainConfig, cfg.EVMConfig)
+	evm := vm.NewEVM[nist.PublicKey](context, txContext, cfg.State, cfg.privateState, cfg.ChainConfig, cfg.EVMConfig)
 	evm.SetCurrentTX(stubPrivateTx)
 	return evm
 }
 
-func newTypicalPrivateTx(cfg *extendedConfig) *types.Transaction {
-	tx := types.NewTransaction(0, common.Address{}, cfg.Value, cfg.GasLimit, cfg.GasPrice, []byte("arbitrary payload"))
+func newTypicalPrivateTx(cfg *extendedConfig) *types.Transaction[nist.PublicKey] {
+	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, cfg.Value, cfg.GasLimit, cfg.GasPrice, []byte("arbitrary payload"))
 	tx.SetPrivate()
 	return tx
 }

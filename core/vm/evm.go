@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
@@ -29,7 +30,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/holiman/uint256"
 )
 
 // note: Quorum, States, and Value Transfer
@@ -57,7 +57,7 @@ type (
 	GetHashFunc func(uint64) common.Hash
 )
 
-func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
+func (evm *EVM[P]) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
 	switch {
 	case evm.chainRules.IsBerlin:
@@ -74,13 +74,14 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 }
 
 // Quorum
-func (evm *EVM) quorumPrecompile(addr common.Address) (QuorumPrecompiledContract, bool) {
-	var quorumPrecompiles map[common.Address]QuorumPrecompiledContract
+func (evm *EVM[P]) quorumPrecompile(addr common.Address) (QuorumPrecompiledContract[P], bool) {
+	var quorumPrecompiles map[common.Address]QuorumPrecompiledContract[P]
 	switch {
 	case evm.chainRules.IsPrivacyPrecompile:
-		quorumPrecompiles = QuorumPrecompiledContracts
+		quorumPrecompiles = map[common.Address]QuorumPrecompiledContract[P]{
+			common.QuorumPrivacyPrecompileContractAddress(): &privacyMarker[P]{},
+		}
 	}
-
 	p, ok := quorumPrecompiles[addr]
 	return p, ok
 }
@@ -88,7 +89,7 @@ func (evm *EVM) quorumPrecompile(addr common.Address) (QuorumPrecompiledContract
 // End Quorum
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
-func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
+func run[P crypto.PublicKey](evm *EVM[P], contract *Contract, input []byte, readOnly bool) ([]byte, error) {
 	// Quorum
 	if contract.CodeAddr != nil {
 		// Using CodeAddr is favour over contract.Address()
@@ -157,7 +158,7 @@ type PrivateState StateDB
 // sure that any errors generated are to be considered faulty code.
 //
 // The EVM should never be reused and is not thread safe.
-type EVM struct {
+type EVM [P crypto.PublicKey] struct {
 	// Context provides auxiliary blockchain related information
 	Context BlockContext
 	TxContext
@@ -172,7 +173,7 @@ type EVM struct {
 	chainRules params.Rules
 	// virtual machine configuration options used to initialise the
 	// evm.
-	vmConfig Config
+	vmConfig Config[P]
 	// global (to this context) ethereum virtual machine
 	// used throughout the execution of the tx.
 	interpreters []Interpreter
@@ -198,11 +199,11 @@ type EVM struct {
 
 	// Quorum: these are for privacy enhancements and multitenancy
 	affectedContracts map[common.Address]AffectedReason // affected contract account address -> type
-	currentTx         *types.Transaction                // transaction currently being applied on this EVM
+	currentTx         *types.Transaction[P]                // transaction currently being applied on this EVM
 
 	// Quorum: these are for privacy marker transactions
-	InnerApply          func(innerTx *types.Transaction) error //Quorum
-	InnerPrivateReceipt *types.Receipt                         //Quorum
+	InnerApply          func(innerTx *types.Transaction[P]) error //Quorum
+	InnerPrivateReceipt *types.Receipt[P]                         //Quorum
 }
 
 // AffectedReason defines a type of operation that was applied to a contract.
@@ -216,8 +217,8 @@ const (
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
-func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb, privateState StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
-	evm := &EVM{
+func NewEVM[P crypto.PublicKey](blockCtx BlockContext, txCtx TxContext, statedb, privateState StateDB, chainConfig *params.ChainConfig, vmConfig Config[P]) *EVM[P] {
+	evm := &EVM[P]{
 		Context:      blockCtx,
 		TxContext:    txCtx,
 		StateDB:      statedb,
@@ -260,24 +261,24 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb, privateState StateD
 
 // Reset resets the EVM with a new transaction context.Reset
 // This is not threadsafe and should only be done very cautiously.
-func (evm *EVM) Reset(txCtx TxContext, statedb StateDB, privateStateDB StateDB) {
+func (evm *EVM[P]) Reset(txCtx TxContext, statedb StateDB, privateStateDB StateDB) {
 	evm.TxContext = txCtx
 	evm.StateDB = statedb
 }
 
 // Cancel cancels any running EVM operation. This may be called concurrently and
 // it's safe to be called multiple times.
-func (evm *EVM) Cancel() {
+func (evm *EVM[P]) Cancel() {
 	atomic.StoreInt32(&evm.abort, 1)
 }
 
 // Cancelled returns true if Cancel has been called
-func (evm *EVM) Cancelled() bool {
+func (evm *EVM[P]) Cancelled() bool {
 	return atomic.LoadInt32(&evm.abort) == 1
 }
 
 // Interpreter returns the current interpreter
-func (evm *EVM) Interpreter() Interpreter {
+func (evm *EVM[P]) Interpreter() Interpreter {
 	return evm.interpreter
 }
 
@@ -285,7 +286,7 @@ func (evm *EVM) Interpreter() Interpreter {
 // parameters. It also handles any necessary value transfer required and takes
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
-func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM[P]) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -381,7 +382,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 //
 // CallCode differs from Call in the sense that it executes the given address'
 // code with the caller as context.
-func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM[P]) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -432,7 +433,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 //
 // DelegateCall differs from CallCode in the sense that it executes the given address'
 // code with the caller as context and the caller is set to the caller of the caller.
-func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM[P]) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -474,7 +475,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 // as parameters while disallowing any modifications to the state during the call.
 // Opcodes that attempt to perform such modifications will result in exceptions
 // instead of performing the modifications.
-func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM[P]) StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -541,7 +542,7 @@ func (c *codeAndHash) Hash() common.Hash {
 }
 
 // create creates a new contract using code as deployment code.
-func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address) ([]byte, common.Address, uint64, error) {
+func (evm *EVM[P]) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address) ([]byte, common.Address, uint64, error) {
 	// Depth check execution. Fail if we're trying to execute above the
 	// limit.
 	if evm.depth > int(params.CallCreateDepth) {
@@ -666,7 +667,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 }
 
 // Create creates a new contract using code as deployment code.
-func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (evm *EVM[P]) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	// Quorum
 	// Get the right state in case of a dual state environment. If a sender
 	// is a transaction (depth == 0) use the public state to derive the address
@@ -693,17 +694,17 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 //
 // The different between Create2 with Create is Create2 uses sha3(0xff ++ msg.sender ++ salt ++ sha3(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
-func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (evm *EVM[P]) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	codeAndHash := &codeAndHash{code: code}
 	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
 	return evm.create(caller, codeAndHash, gas, endowment, contractAddr)
 }
 
 // ChainConfig returns the environment's chain configuration
-func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+func (evm *EVM[P]) ChainConfig() *params.ChainConfig { return evm.chainConfig }
 
 // Quorum functions for dual state
-func getDualState(evm *EVM, addr common.Address) StateDB {
+func getDualState[P crypto.PublicKey](evm *EVM[P], addr common.Address) StateDB {
 	// priv: (a) -> (b)  (private)
 	// pub:   a  -> [b]  (private -> public)
 	// priv: (a) ->  b   (public)
@@ -718,13 +719,13 @@ func getDualState(evm *EVM, addr common.Address) StateDB {
 	return state
 }
 
-func (evm *EVM) PublicState() PublicState           { return evm.publicState }
-func (evm *EVM) PrivateState() PrivateState         { return evm.privateState }
-func (evm *EVM) SetCurrentTX(tx *types.Transaction) { evm.currentTx = tx }
-func (evm *EVM) SetTxPrivacyMetadata(pm *types.PrivacyMetadata) {
+func (evm *EVM[P]) PublicState() PublicState           { return evm.publicState }
+func (evm *EVM[P]) PrivateState() PrivateState         { return evm.privateState }
+func (evm *EVM[P]) SetCurrentTX(tx *types.Transaction[P]) { evm.currentTx = tx }
+func (evm *EVM[P]) SetTxPrivacyMetadata(pm *types.PrivacyMetadata) {
 	evm.currentTx.SetTxPrivacyMetadata(pm)
 }
-func (evm *EVM) Push(statedb StateDB) {
+func (evm *EVM[P]) Push(statedb StateDB) {
 	// Quorum : the read only depth to be set up only once for the entire
 	// op code execution. This will be set first time transition from
 	// private state to public state happens
@@ -742,7 +743,7 @@ func (evm *EVM) Push(statedb StateDB) {
 
 	evm.StateDB = statedb
 }
-func (evm *EVM) Pop() {
+func (evm *EVM[P]) Pop() {
 	evm.currentStateDepth--
 	if evm.quorumReadOnly && evm.currentStateDepth == evm.readOnlyDepth {
 		evm.quorumReadOnly = false
@@ -750,20 +751,20 @@ func (evm *EVM) Pop() {
 	evm.StateDB = evm.states[evm.currentStateDepth-1]
 }
 
-func (evm *EVM) Depth() int { return evm.depth }
+func (evm *EVM[P]) Depth() int { return evm.depth }
 
 // We only need to revert the current state because when we call from private
 // public state it's read only, there wouldn't be anything to reset.
 // (A)->(B)->C->(B): A failure in (B) wouldn't need to reset C, as C was flagged
 // read only.
-func (evm *EVM) RevertToSnapshot(snapshot int) {
+func (evm *EVM[P]) RevertToSnapshot(snapshot int) {
 	evm.StateDB.RevertToSnapshot(snapshot)
 }
 
 // Quorum
 //
 // Returns addresses of contracts which are newly created
-func (evm *EVM) CreatedContracts() []common.Address {
+func (evm *EVM[P]) CreatedContracts() []common.Address {
 	addr := make([]common.Address, 0, len(evm.affectedContracts))
 	for a, t := range evm.affectedContracts {
 		if t == Creation {
@@ -777,7 +778,7 @@ func (evm *EVM) CreatedContracts() []common.Address {
 //
 // AffectedContracts returns all affected contracts that are the results of
 // MessageCall transaction
-func (evm *EVM) AffectedContracts() []common.Address {
+func (evm *EVM[P]) AffectedContracts() []common.Address {
 	addr := make([]common.Address, 0, len(evm.affectedContracts))
 	for a, t := range evm.affectedContracts {
 		if t == MessageCall {
@@ -790,7 +791,7 @@ func (evm *EVM) AffectedContracts() []common.Address {
 // Quorum
 //
 // Return MerkleRoot of all affected contracts (due to both creation and message call)
-func (evm *EVM) CalculateMerkleRoot() (common.Hash, error) {
+func (evm *EVM[P]) CalculateMerkleRoot() (common.Hash, error) {
 	combined := new(trie.Trie)
 	for addr := range evm.affectedContracts {
 		data, err := getDualState(evm, addr).GetRLPEncodedStateObject(addr)

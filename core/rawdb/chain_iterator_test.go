@@ -31,14 +31,14 @@ func TestChainIterator(t *testing.T) {
 	// Construct test chain db
 	chainDb := NewMemoryDatabase()
 
-	var block *types.Block
-	var txs []*types.Transaction
+	var block *types.Block[P]
+	var txs []*types.Transaction[P]
 	to := common.BytesToAddress([]byte{0x11})
 	block = types.NewBlock(&types.Header{Number: big.NewInt(int64(0))}, nil, nil, nil, newHasher()) // Empty genesis block
 	WriteBlock(chainDb, block)
 	WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	for i := uint64(1); i <= 10; i++ {
-		var tx *types.Transaction
+		var tx *types.Transaction[P]
 		if i%2 == 0 {
 			tx = types.NewTx(&types.LegacyTx{
 				Nonce:    i,
@@ -60,7 +60,7 @@ func TestChainIterator(t *testing.T) {
 			})
 		}
 		txs = append(txs, tx)
-		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction{tx}, nil, nil, newHasher())
+		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[P]{tx}, nil, nil, newHasher())
 		WriteBlock(chainDb, block)
 		WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	}
@@ -106,8 +106,8 @@ func TestIndexTransactions(t *testing.T) {
 	// Construct test chain db
 	chainDb := NewMemoryDatabase()
 
-	var block *types.Block
-	var txs []*types.Transaction
+	var block *types.Block[P]
+	var txs []*types.Transaction[P]
 	to := common.BytesToAddress([]byte{0x11})
 
 	// Write empty genesis block
@@ -116,7 +116,7 @@ func TestIndexTransactions(t *testing.T) {
 	WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 
 	for i := uint64(1); i <= 10; i++ {
-		var tx *types.Transaction
+		var tx *types.Transaction[P]
 		if i%2 == 0 {
 			tx = types.NewTx(&types.LegacyTx{
 				Nonce:    i,
@@ -138,7 +138,7 @@ func TestIndexTransactions(t *testing.T) {
 			})
 		}
 		txs = append(txs, tx)
-		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction{tx}, nil, nil, newHasher())
+		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[P]{tx}, nil, nil, newHasher())
 		WriteBlock(chainDb, block)
 		WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	}

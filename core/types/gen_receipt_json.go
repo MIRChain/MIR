@@ -14,7 +14,7 @@ import (
 var _ = (*receiptMarshaling)(nil)
 
 // MarshalJSON marshals as JSON.
-func (r Receipt) MarshalJSON() ([]byte, error) {
+func (r Receipt[P]) MarshalJSON() ([]byte, error) {
 	type Receipt struct {
 		Type              hexutil.Uint64 `json:"type,omitempty"`
 		PostState         hexutil.Bytes  `json:"root"`
@@ -46,7 +46,7 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals from JSON.
-func (r *Receipt) UnmarshalJSON(input []byte) error {
+func (r *Receipt[P]) UnmarshalJSON(input []byte) error {
 	type Receipt struct {
 		Type              *hexutil.Uint64 `json:"type,omitempty"`
 		PostState         *hexutil.Bytes  `json:"root"`

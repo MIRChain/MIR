@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 
@@ -48,7 +49,7 @@ func TestDatadirCreation(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	node, err := New(&Config{DataDir: dir})
+	node, err := New(&Config[nist.PrivateKey, nist.PublicKey]{DataDir: dir})
 	if err != nil {
 		t.Fatalf("failed to create stack with existing datadir: %v", err)
 	}
@@ -57,7 +58,7 @@ func TestDatadirCreation(t *testing.T) {
 	}
 	// Generate a long non-existing datadir path and check that it gets created by a node
 	dir = filepath.Join(dir, "a", "b", "c", "d", "e", "f")
-	node, err = New(&Config{DataDir: dir})
+	node, err = New(&Config[nist.PrivateKey, nist.PublicKey]{DataDir: dir})
 	if err != nil {
 		t.Fatalf("failed to create stack with creatable datadir: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestDatadirCreation(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	dir = filepath.Join(file.Name(), "invalid/path")
-	node, err = New(&Config{DataDir: dir})
+	node, err = New(&Config[nist.PrivateKey, nist.PublicKey]{DataDir: dir})
 	if err == nil {
 		t.Fatalf("protocol stack created with an invalid datadir")
 		if err := node.Close(); err != nil {
@@ -108,7 +109,7 @@ func TestIPCPathResolution(t *testing.T) {
 	for i, test := range tests {
 		// Only run when platform/test match
 		if (runtime.GOOS == "windows") == test.Windows {
-			if endpoint := (&Config{DataDir: test.DataDir, IPCPath: test.IPCPath}).IPCEndpoint(); endpoint != test.Endpoint {
+			if endpoint := (&Config[nist.PrivateKey, nist.PublicKey]{DataDir: test.DataDir, IPCPath: test.IPCPath}).IPCEndpoint(); endpoint != test.Endpoint {
 				t.Errorf("test %d: IPC endpoint mismatch: have %s, want %s", i, endpoint, test.Endpoint)
 			}
 		}
@@ -128,23 +129,23 @@ func TestNodeKeyPersistency(t *testing.T) {
 	keyfile := filepath.Join(dir, "unit-test", datadirPrivateKey)
 
 	// Configure a node with a preset key and ensure it's not persisted
-	key, err := crypto.GenerateKey()
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Fatalf("failed to generate one-shot node key: %v", err)
 	}
-	config := &Config{Name: "unit-test", DataDir: dir, P2P: p2p.Config{PrivateKey: key}}
+	config := &Config[nist.PrivateKey, nist.PublicKey]{Name: "unit-test", DataDir: dir, P2P: p2p.Config[nist.PrivateKey, nist.PublicKey]{PrivateKey: key}}
 	config.NodeKey()
 	if _, err := os.Stat(filepath.Join(keyfile)); err == nil {
 		t.Fatalf("one-shot node key persisted to data directory")
 	}
 
 	// Configure a node with no preset key and ensure it is persisted this time
-	config = &Config{Name: "unit-test", DataDir: dir}
+	config = &Config[nist.PrivateKey, nist.PublicKey]{Name: "unit-test", DataDir: dir}
 	config.NodeKey()
 	if _, err := os.Stat(keyfile); err != nil {
 		t.Fatalf("node key not persisted to data directory: %v", err)
 	}
-	if _, err = crypto.LoadECDSA(keyfile); err != nil {
+	if _, err = crypto.LoadECDSA[nist.PrivateKey](keyfile); err != nil {
 		t.Fatalf("failed to load freshly persisted node key: %v", err)
 	}
 	blob1, err := ioutil.ReadFile(keyfile)
@@ -153,7 +154,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 	}
 
 	// Configure a new node and ensure the previously persisted key is loaded
-	config = &Config{Name: "unit-test", DataDir: dir}
+	config = &Config[nist.PrivateKey, nist.PublicKey]{Name: "unit-test", DataDir: dir}
 	config.NodeKey()
 	blob2, err := ioutil.ReadFile(filepath.Join(keyfile))
 	if err != nil {
@@ -164,7 +165,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 	}
 
 	// Configure ephemeral node and ensure no key is dumped locally
-	config = &Config{Name: "unit-test", DataDir: ""}
+	config = &Config[nist.PrivateKey, nist.PublicKey]{Name: "unit-test", DataDir: ""}
 	config.NodeKey()
 	if _, err := os.Stat(filepath.Join(".", "unit-test", datadirPrivateKey)); err == nil {
 		t.Fatalf("ephemeral node key persisted to disk")
@@ -172,7 +173,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 }
 
 func TestConfig_ResolvePluginBaseDir_whenPluginFeatureIsDisabled(t *testing.T) {
-	testObject := &Config{}
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{}
 
 	assert.NoError(t, testObject.ResolvePluginBaseDir())
 }
@@ -182,7 +183,7 @@ func TestConfig_ResolvePluginBaseDir_whenBaseDirDoesNotExist(t *testing.T) {
 	defer func() {
 		_ = os.RemoveAll(arbitraryBaseDir)
 	}()
-	testObject := &Config{
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		Plugins: &plugin.Settings{
 			BaseDir: plugin.EnvironmentAwaredValue(arbitraryBaseDir),
 		},
@@ -201,7 +202,7 @@ func TestConfig_ResolvePluginBaseDir_whenBaseDirExists(t *testing.T) {
 	defer func() {
 		_ = os.RemoveAll(arbitraryBaseDir)
 	}()
-	testObject := &Config{
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		Plugins: &plugin.Settings{
 			BaseDir: plugin.EnvironmentAwaredValue(arbitraryBaseDir),
 		},
@@ -224,7 +225,7 @@ func TestConfig_IsPermissionEnabled_whenTypical(t *testing.T) {
 	if err := ioutil.WriteFile(path.Join(tmpdir, params.PERMISSION_MODEL_CONFIG), []byte("foo"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	testObject := &Config{
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		EnableNodePermission: true,
 		DataDir:              tmpdir,
 	}
@@ -235,7 +236,7 @@ func TestConfig_IsPermissionEnabled_whenTypical(t *testing.T) {
 // Quorum
 //
 func TestConfig_IsPermissionEnabled_whenPermissionedFlagIsFalse(t *testing.T) {
-	testObject := &Config{
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		EnableNodePermission: false,
 	}
 
@@ -245,7 +246,7 @@ func TestConfig_IsPermissionEnabled_whenPermissionedFlagIsFalse(t *testing.T) {
 // Quorum
 //
 func TestConfig_IsPermissionEnabled_whenPermissionConfigIsNotAvailable(t *testing.T) {
-	testObject := &Config{
+	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		EnableNodePermission: true,
 		DataDir:              os.TempDir(),
 	}

@@ -48,53 +48,53 @@ func TestStateProcessorErrors(t *testing.T) {
 		blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
 	)
 	defer blockchain.Stop()
-	var makeTx = func(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *types.Transaction {
+	var makeTx = func(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *types.Transaction[P] {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data), signer, testKey)
 		return tx
 	}
 	for i, tt := range []struct {
-		txs  []*types.Transaction
+		txs  []*types.Transaction[P]
 		want string
 	}{
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
 				makeTx(0, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
 			},
 			want: "could not apply tx 1 [0x36bfa6d14f1cd35a1be8cc2322982a595fabc0e799f09c1de3bad7bd5b1f7626]: nonce too low: address 0x71562b71999873DB5b286dF957af199Ec94617F7, tx: 0 state: 1",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(100, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
 			},
 			want: "could not apply tx 0 [0x51cd272d41ef6011d8138e18bf4043797aca9b713c7d39a97563f9bbe6bdbe6f]: nonce too high: address 0x71562b71999873DB5b286dF957af199Ec94617F7, tx: 100 state: 0",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(0), 2100000000, nil, nil),
 			},
 			want: "could not apply tx 0 [0xa6111e2753b0495c90a4e5b709db7fadc4c3c7dc83ca5e80c2c8aedc53e6fa2c]: gas limit reached",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(0), 21001, nil, nil),
 			},
 			want: "invalid gas used (remote: 0 local: 21000)", // "could not apply tx 0 [0x54c58b530824b0bb84b7a98183f08913b5d74e1cebc368515ef3c65edf8eb56a]: gas limit reached",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(1), params.TxGas, nil, nil),
 			},
 			want: "could not apply tx 0 [0x3094b17498940d92b13baccf356ce8bfd6f221e926abc903d642fa1466c5b50e]: insufficient funds for transfer: address 0x71562b71999873DB5b286dF957af199Ec94617F7",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0xffffff), nil),
 			},
 			want: "could not apply tx 0 [0xaa3f7d86802b1f364576d9071bf231e31d61b392d306831ac9cf706ff5371ce0]: insufficient funds for gas * price + value: address 0x71562b71999873DB5b286dF957af199Ec94617F7 have 0 want 352321515000",
 		},
 		{
-			txs: []*types.Transaction{
+			txs: []*types.Transaction[P]{
 				makeTx(0, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
 				makeTx(1, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
 				makeTx(2, common.Address{}, big.NewInt(0), params.TxGas, nil, nil),
@@ -121,7 +121,7 @@ func TestStateProcessorErrors(t *testing.T) {
 // valid, and no proper post-state can be made. But from the perspective of the blockchain, the block is sufficiently
 // valid to be considered for import:
 // - valid pow (fake), ancestry, difficulty, gaslimit etc
-func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Transactions) *types.Block {
+func GenerateBadBlock(parent *types.Block[P], engine consensus.Engine, txs types.Transactions) *types.Block[P] {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),

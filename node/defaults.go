@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
@@ -37,7 +38,7 @@ const (
 )
 
 // DefaultConfig contains reasonable default settings.
-var DefaultConfig = Config{
+var DefaultConfig = Config[nist.PrivateKey, nist.PublicKey]{
 	DataDir:             DefaultDataDir(),
 	HTTPPort:            DefaultHTTPPort,
 	HTTPModules:         []string{"net", "web3"},
@@ -46,7 +47,7 @@ var DefaultConfig = Config{
 	WSPort:              DefaultWSPort,
 	WSModules:           []string{"net", "web3"},
 	GraphQLVirtualHosts: []string{"localhost"},
-	P2P: p2p.Config{
+	P2P: p2p.Config[nist.PrivateKey, nist.PublicKey]{
 		ListenAddr: ":30303",
 		MaxPeers:   50,
 		NAT:        nat.Any(),

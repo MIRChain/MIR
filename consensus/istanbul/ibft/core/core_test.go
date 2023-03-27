@@ -30,7 +30,7 @@ import (
 	elog "github.com/pavelkrolevets/MIR-pro/log"
 )
 
-func makeBlock(number int64) *types.Block {
+func makeBlock(number int64) *types.Block[P] {
 	header := &types.Header{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),

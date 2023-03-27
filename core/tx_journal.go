@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // errNoActiveJournal is returned if a transaction is attempted to be inserted
@@ -42,21 +43,21 @@ func (*devNull) Close() error                      { return nil }
 
 // txJournal is a rotating log of transactions with the aim of storing locally
 // created transactions to allow non-executed ones to survive node restarts.
-type txJournal struct {
+type txJournal [P crypto.PublicKey]struct {
 	path   string         // Filesystem path to store the transactions at
 	writer io.WriteCloser // Output stream to write new transactions into
 }
 
 // newTxJournal creates a new transaction journal to
-func newTxJournal(path string) *txJournal {
-	return &txJournal{
+func newTxJournal[P crypto.PublicKey](path string) *txJournal[P] {
+	return &txJournal[P]{
 		path: path,
 	}
 }
 
 // load parses a transaction journal dump from disk, loading its contents into
 // the specified pool.
-func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
+func (journal *txJournal[P]) load(add func([]*types.Transaction[P]) []error) error {
 	// Skip the parsing if the journal file doesn't exist at all
 	if _, err := os.Stat(journal.path); os.IsNotExist(err) {
 		return nil
@@ -79,7 +80,7 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	// Create a method to load a limited batch of transactions and bump the
 	// appropriate progress counters. Then use this method to load all the
 	// journaled transactions in small-ish batches.
-	loadBatch := func(txs types.Transactions) {
+	loadBatch := func(txs types.Transactions[P]) {
 		for _, err := range add(txs) {
 			if err != nil {
 				log.Debug("Failed to add journaled transaction", "err", err)
@@ -89,11 +90,11 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	}
 	var (
 		failure error
-		batch   types.Transactions
+		batch   types.Transactions[P]
 	)
 	for {
 		// Parse the next transaction and terminate on error
-		tx := new(types.Transaction)
+		tx := new(types.Transaction[P])
 		if err = stream.Decode(tx); err != nil {
 			if err != io.EOF {
 				failure = err
@@ -117,7 +118,7 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 }
 
 // insert adds the specified transaction to the local disk journal.
-func (journal *txJournal) insert(tx *types.Transaction) error {
+func (journal *txJournal[P]) insert(tx *types.Transaction[P]) error {
 	if journal.writer == nil {
 		return errNoActiveJournal
 	}
@@ -129,7 +130,7 @@ func (journal *txJournal) insert(tx *types.Transaction) error {
 
 // rotate regenerates the transaction journal based on the current contents of
 // the transaction pool.
-func (journal *txJournal) rotate(all map[common.Address]types.Transactions) error {
+func (journal *txJournal[P]) rotate(all map[common.Address]types.Transactions[P]) error {
 	// Close the current journal (if any is open)
 	if journal.writer != nil {
 		if err := journal.writer.Close(); err != nil {
@@ -169,7 +170,7 @@ func (journal *txJournal) rotate(all map[common.Address]types.Transactions) erro
 }
 
 // close flushes the transaction journal contents to disk and closes the file.
-func (journal *txJournal) close() error {
+func (journal *txJournal[P]) close() error {
 	var err error
 
 	if journal.writer != nil {

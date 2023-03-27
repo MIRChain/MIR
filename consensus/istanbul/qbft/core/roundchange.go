@@ -112,7 +112,7 @@ func (c *core) handleRoundChange(roundChange *qbfttypes.RoundChange) error {
 	if view.Round.Cmp(currentRound) >= 0 {
 		var prepareMessages []*qbfttypes.Prepare = nil
 		var pr *big.Int = nil
-		var pb *types.Block = nil
+		var pb *types.Block[P] = nil
 		if roundChange.PreparedRound != nil && roundChange.PreparedBlock != nil && roundChange.Justification != nil && len(roundChange.Justification) > 0 {
 			prepareMessages = roundChange.Justification
 			pr = roundChange.PreparedRound

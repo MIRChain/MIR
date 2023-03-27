@@ -21,6 +21,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/private"
 )
@@ -28,22 +29,22 @@ import (
 // QuorumPrecompiledContract is an extended interface for native Quorum Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
-type QuorumPrecompiledContract interface {
+type QuorumPrecompiledContract [P crypto.PublicKey] interface {
 	RequiredGas(input []byte) uint64            // RequiredPrice calculates the contract gas use
-	Run(evm *EVM, input []byte) ([]byte, error) // Run runs the precompiled contract
+	Run(evm *EVM[P], input []byte) ([]byte, error) // Run runs the precompiled contract
 }
 
 // QuorumPrecompiledContracts is the default set of pre-compiled Quorum contracts (with an extended interface).
-var QuorumPrecompiledContracts = map[common.Address]QuorumPrecompiledContract{
-	common.QuorumPrivacyPrecompileContractAddress(): &privacyMarker{},
-}
+// var QuorumPrecompiledContracts = map[common.Address]QuorumPrecompiledContract[P]{
+// 	common.QuorumPrivacyPrecompileContractAddress(): &privacyMarker[nist.PublicKey]{},
+// }
 
 // RunQuorumPrecompiledContract runs and evaluates the output of an extended precompiled contract.
 // It returns
 // - the returned bytes,
 // - the _remaining_ gas,
 // - any error that occurred
-func RunQuorumPrecompiledContract(evm *EVM, p QuorumPrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
+func RunQuorumPrecompiledContract[P crypto.PublicKey](evm *EVM[P], p QuorumPrecompiledContract[P], input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
 	if suppliedGas < gasCost {
 		return nil, 0, ErrOutOfGas
@@ -53,9 +54,9 @@ func RunQuorumPrecompiledContract(evm *EVM, p QuorumPrecompiledContract, input [
 	return output, suppliedGas, err
 }
 
-type privacyMarker struct{}
+type privacyMarker [P crypto.PublicKey] struct{}
 
-func (c *privacyMarker) RequiredGas(_ []byte) uint64 {
+func (c *privacyMarker[P]) RequiredGas(_ []byte) uint64 {
 	return uint64(0)
 }
 
@@ -63,7 +64,7 @@ func (c *privacyMarker) RequiredGas(_ []byte) uint64 {
 // Retrieves private transaction from Tessera and executes it.
 // If we are not a participant, then just ensure public state remains in sync.
 //		input = 20 byte address of sender, 64 byte hash for the private transaction
-func (c *privacyMarker) Run(evm *EVM, _ []byte) ([]byte, error) {
+func (c *privacyMarker[P]) Run(evm *EVM[P], _ []byte) ([]byte, error) {
 	log.Debug("Running privacy marker precompile")
 
 	// support vanilla ethereum tests where tx is not set
@@ -84,7 +85,7 @@ func (c *privacyMarker) Run(evm *EVM, _ []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	tx, _, _, err := private.FetchPrivateTransaction(evm.currentTx.Data())
+	tx, _, _, err := private.FetchPrivateTransaction[P](evm.currentTx.Data())
 	if err != nil {
 		logger.Error("Failed to retrieve inner transaction from private transaction manager", "err", err)
 		return nil, nil
@@ -129,7 +130,7 @@ func (c *privacyMarker) Run(evm *EVM, _ []byte) ([]byte, error) {
 // (3b) if the internal private tx is successfully executed then the sender's account nonce will be incremented back to the starting nonce.
 // (3c) if the execution was unsuccessful then the nonce may not be incremented.
 // (4)  force reset the nonce to the starting value in any case.
-func applyTransactionWithoutIncrementingNonce(evm *EVM, tx *types.Transaction) error {
+func applyTransactionWithoutIncrementingNonce[P crypto.PublicKey](evm *EVM[P], tx *types.Transaction[P]) error {
 	if evm.InnerApply == nil {
 		return errors.New("nil inner apply function")
 	}

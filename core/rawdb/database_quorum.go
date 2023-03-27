@@ -1,6 +1,4 @@
 /*
-
-
 // Copyright 2015 The go-ethereum Authors
 
 // This file is part of the go-ethereum library.
@@ -23,6 +21,7 @@ package rawdb
 import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
@@ -82,7 +81,7 @@ func WriteRootHashMapping(db ethdb.KeyValueWriter, stateRoot, extraDataRoot comm
 
 // WritePrivateBlockBloom creates a bloom filter for the given receipts and saves it to the database
 // with the number given as identifier (i.e. block number).
-func WritePrivateBlockBloom(db ethdb.Database, number uint64, receipts types.Receipts) error {
+func WritePrivateBlockBloom[P crypto.PublicKey](db ethdb.Database, number uint64, receipts types.Receipts[P]) error {
 	rbloom := types.CreateBloom(receipts.Flatten())
 	return db.Put(append(privateBloomPrefix, encodeBlockNumber(number)...), rbloom[:])
 }

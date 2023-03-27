@@ -56,7 +56,7 @@ type snapshotTestBasic struct {
 	engine  consensus.Engine
 }
 
-func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Block) {
+func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Block[P]) {
 	// Create a temporary persistent database
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -125,7 +125,7 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Blo
 	return chain, blocks
 }
 
-func (basic *snapshotTestBasic) verify(t *testing.T, chain *BlockChain, blocks []*types.Block) {
+func (basic *snapshotTestBasic) verify(t *testing.T, chain *BlockChain, blocks []*types.Block[P]) {
 	// Iterate over all the remaining blocks and ensure there are no gaps
 	verifyNoGaps(t, chain, true, blocks)
 	verifyCutoff(t, chain, true, blocks, basic.expCanonicalBlocks)

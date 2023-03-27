@@ -26,22 +26,23 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 // BlockGen creates blocks for testing.
 // See GenerateChain for a detailed explanation.
-type BlockGen struct {
+type BlockGen [P crypto.PublicKey] struct {
 	i       int
-	parent  *types.Block
-	chain   []*types.Block
+	parent  *types.Block[P]
+	chain   []*types.Block[P]
 	header  *types.Header
 	statedb *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
-	receipts []*types.Receipt
+	txs      []*types.Transaction[P]
+	receipts []*types.Receipt[P]
 	uncles   []*types.Header
 
 	config *params.ChainConfig
@@ -52,7 +53,7 @@ type BlockGen struct {
 
 // SetCoinbase sets the coinbase of the generated block.
 // It can be called at most once.
-func (b *BlockGen) SetCoinbase(addr common.Address) {
+func (b *BlockGen[P]) SetCoinbase(addr common.Address) {
 	if b.gasPool != nil {
 		if len(b.txs) > 0 {
 			panic("coinbase must be set before adding transactions")
@@ -64,19 +65,19 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 }
 
 // SetExtra sets the extra data field of the generated block.
-func (b *BlockGen) SetExtra(data []byte) {
+func (b *BlockGen[P]) SetExtra(data []byte) {
 	b.header.Extra = data
 }
 
 // SetNonce sets the nonce field of the generated block.
-func (b *BlockGen) SetNonce(nonce types.BlockNonce) {
+func (b *BlockGen[P]) SetNonce(nonce types.BlockNonce) {
 	b.header.Nonce = nonce
 }
 
 // SetDifficulty sets the difficulty field of the generated block. This method is
 // useful for Clique tests where the difficulty does not depend on time. For the
 // ethash tests, please use OffsetTime, which implicitly recalculates the diff.
-func (b *BlockGen) SetDifficulty(diff *big.Int) {
+func (b *BlockGen[P]) SetDifficulty(diff *big.Int) {
 	b.header.Difficulty = diff
 }
 
@@ -88,8 +89,8 @@ func (b *BlockGen) SetDifficulty(diff *big.Int) {
 // further limitations on the content of transactions that can be
 // added. Notably, contract code relying on the BLOCKHASH instruction
 // will panic during execution.
-func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.AddTxWithChain(&BlockChain{quorumConfig: &QuorumChainConfig{}}, tx)
+func (b *BlockGen[P]) AddTx(tx *types.Transaction[P]) {
+	b.AddTxWithChain(&BlockChain[P]{quorumConfig: &QuorumChainConfig{}}, tx)
 }
 
 // AddTxWithChain adds a transaction to the generated block. If no coinbase has
@@ -100,7 +101,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // further limitations on the content of transactions that can be
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
+func (b *BlockGen[P]) AddTxWithChain(bc *BlockChain[P], tx *types.Transaction[P]) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
@@ -114,7 +115,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	// End Quorum
 
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, privateDb, b.header, tx, &b.header.GasUsed, vm.Config{}, false, nil, false)
+	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, privateDb, b.header, tx, &b.header.GasUsed, vm.Config[P]{}, false, nil, false)
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +124,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 }
 
 // GetBalance returns the balance of the given address at the generated block.
-func (b *BlockGen) GetBalance(addr common.Address) *big.Int {
+func (b *BlockGen[P]) GetBalance(addr common.Address) *big.Int {
 	return b.statedb.GetBalance(addr)
 }
 
@@ -132,12 +133,12 @@ func (b *BlockGen) GetBalance(addr common.Address) *big.Int {
 //
 // AddUncheckedTx will cause consensus failures when used during real
 // chain processing. This is best used in conjunction with raw block insertion.
-func (b *BlockGen) AddUncheckedTx(tx *types.Transaction) {
+func (b *BlockGen[P]) AddUncheckedTx(tx *types.Transaction[P]) {
 	b.txs = append(b.txs, tx)
 }
 
 // Number returns the block number of the block being generated.
-func (b *BlockGen) Number() *big.Int {
+func (b *BlockGen[P]) Number() *big.Int {
 	return new(big.Int).Set(b.header.Number)
 }
 
@@ -146,13 +147,13 @@ func (b *BlockGen) Number() *big.Int {
 //
 // AddUncheckedReceipt will cause consensus failures when used during real
 // chain processing. This is best used in conjunction with raw block insertion.
-func (b *BlockGen) AddUncheckedReceipt(receipt *types.Receipt) {
+func (b *BlockGen[P]) AddUncheckedReceipt(receipt *types.Receipt[P]) {
 	b.receipts = append(b.receipts, receipt)
 }
 
 // TxNonce returns the next valid transaction nonce for the
 // account at addr. It panics if the account does not exist.
-func (b *BlockGen) TxNonce(addr common.Address) uint64 {
+func (b *BlockGen[P]) TxNonce(addr common.Address) uint64 {
 	if !b.statedb.Exist(addr) {
 		panic("account does not exist")
 	}
@@ -160,14 +161,14 @@ func (b *BlockGen) TxNonce(addr common.Address) uint64 {
 }
 
 // AddUncle adds an uncle header to the generated block.
-func (b *BlockGen) AddUncle(h *types.Header) {
+func (b *BlockGen[P]) AddUncle(h *types.Header) {
 	b.uncles = append(b.uncles, h)
 }
 
 // PrevBlock returns a previously generated block by number. It panics if
 // num is greater or equal to the number of the block being generated.
 // For index -1, PrevBlock returns the parent block given to GenerateChain.
-func (b *BlockGen) PrevBlock(index int) *types.Block {
+func (b *BlockGen[P]) PrevBlock(index int) *types.Block[P] {
 	if index >= b.i {
 		panic(fmt.Errorf("block index %d out of range (%d,%d)", index, -1, b.i))
 	}
@@ -180,12 +181,12 @@ func (b *BlockGen) PrevBlock(index int) *types.Block {
 // OffsetTime modifies the time instance of a block, implicitly changing its
 // associated difficulty. It's useful to test scenarios where forking is not
 // tied to chain length directly.
-func (b *BlockGen) OffsetTime(seconds int64) {
+func (b *BlockGen[P]) OffsetTime(seconds int64) {
 	b.header.Time += uint64(seconds)
 	if b.header.Time <= b.parent.Header().Time {
 		panic("block time out of range")
 	}
-	chainreader := &fakeChainReader{config: b.config}
+	chainreader := &fakeChainReader[P]{config: b.config}
 	b.header.Difficulty = b.engine.CalcDifficulty(chainreader, b.header.Time, b.parent.Header())
 }
 
@@ -201,15 +202,15 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types.Block[P], engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen[P])) ([]*types.Block[P], []types.Receipts[P]) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
-	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	blocks, receipts := make(types.Blocks[P], n), make([]types.Receipts[P], n)
+	chainreader := &fakeChainReader[P]{config: config}
 	// Quorum: add `privateStatedb` argument
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB, privateStatedb *state.StateDB) (*types.Block, types.Receipts) {
-		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, privateStatedb: privateStatedb, config: config, engine: engine}
+	genblock := func(i int, parent *types.Block[P], statedb *state.StateDB, privateStatedb *state.StateDB) (*types.Block[P], types.Receipts[P]) {
+		b := &BlockGen[P]{i: i, chain: blocks, parent: parent, statedb: statedb, privateStatedb: privateStatedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 
 		// Mutate the state and block according to any hard-fork specs
@@ -262,7 +263,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
-func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
+func makeHeader[P crypto.PublicKey](chain consensus.ChainReader, parent *types.Block[P], state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10
@@ -287,8 +288,8 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
-	blocks := makeBlockChain(types.NewBlockWithHeader(parent), n, engine, db, seed)
+func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
+	blocks := makeBlockChain(types.NewBlockWithHeader[P](parent), n, engine, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
@@ -297,24 +298,24 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
+func makeBlockChain[P crypto.PublicKey](parent *types.Block[P], n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block[P] {
+	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen[P]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks
 }
 
-type fakeChainReader struct {
+type fakeChainReader [P crypto.PublicKey] struct {
 	config *params.ChainConfig
 }
 
 // Config returns the chain configuration.
-func (cr *fakeChainReader) Config() *params.ChainConfig {
+func (cr *fakeChainReader[P]) Config() *params.ChainConfig {
 	return cr.config
 }
 
-func (cr *fakeChainReader) CurrentHeader() *types.Header                            { return nil }
-func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header           { return nil }
-func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
-func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
-func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
+func (cr *fakeChainReader[P]) CurrentHeader() *types.Header                            { return nil }
+func (cr *fakeChainReader[P]) GetHeaderByNumber(number uint64) *types.Header           { return nil }
+func (cr *fakeChainReader[P]) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
+func (cr *fakeChainReader[P]) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
+func (cr *fakeChainReader[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P]   { return nil }

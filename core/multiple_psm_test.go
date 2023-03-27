@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
@@ -19,7 +20,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +37,7 @@ var (
 	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *BlockChain) {
+func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[P], map[common.Hash]*types.Block[P], *BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 	blocks, _ := GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *BlockGen) {
@@ -53,7 +53,7 @@ func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block, map[comm
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block, n+1)
+	blockm := make(map[common.Hash]*types.Block[P], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()

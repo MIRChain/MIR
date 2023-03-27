@@ -1,6 +1,6 @@
 module github.com/pavelkrolevets/MIR-pro
 
-go 1.18
+go 1.20
 
 // Quorum - Replace Go modules that use modifications done by us
 replace github.com/coreos/etcd => github.com/Consensys/etcd v3.3.13-quorum197+incompatible

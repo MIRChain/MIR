@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -456,12 +457,12 @@ func HasBody(db ethdb.Reader, hash common.Hash, number uint64) bool {
 }
 
 // ReadBody retrieves the block body corresponding to the hash.
-func ReadBody(db ethdb.Reader, hash common.Hash, number uint64) *types.Body {
+func ReadBody[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) *types.Body[P] {
 	data := ReadBodyRLP(db, hash, number)
 	if len(data) == 0 {
 		return nil
 	}
-	body := new(types.Body)
+	body := new(types.Body[P])
 	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
 		log.Error("Invalid block body RLP", "hash", hash, "err", err)
 		return nil
@@ -470,7 +471,7 @@ func ReadBody(db ethdb.Reader, hash common.Hash, number uint64) *types.Body {
 }
 
 // WriteBody stores a block body into the database.
-func WriteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64, body *types.Body) {
+func WriteBody[P crypto.PublicKey](db ethdb.KeyValueWriter, hash common.Hash, number uint64, body *types.Body[P]) {
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
@@ -594,7 +595,7 @@ func ReadReceiptsRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawVa
 // ReadRawReceipts retrieves all the transaction receipts belonging to a block.
 // The receipt metadata fields are not guaranteed to be populated, so they
 // should not be used. Use ReadReceipts instead if the metadata is needed.
-func ReadRawReceipts(db ethdb.Reader, hash common.Hash, number uint64) types.Receipts {
+func ReadRawReceipts[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) types.Receipts[P] {
 	// Retrieve the flattened receipt slice
 	data := ReadReceiptsRLP(db, hash, number)
 	if len(data) == 0 {
@@ -610,17 +611,17 @@ func ReadRawReceipts(db ethdb.Reader, hash common.Hash, number uint64) types.Rec
 	vanillaDataWithListHeader := data[0 : len(data)-len(extraData)]
 
 	// Convert the receipts from their storage form to their internal representation
-	storageReceipts := []*types.ReceiptForStorage{}
+	storageReceipts := []*types.ReceiptForStorage[P]{}
 	if err := rlp.DecodeBytes(vanillaDataWithListHeader, &storageReceipts); err != nil {
 		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
 	}
-	receipts := make(types.Receipts, len(storageReceipts))
+	receipts := make(types.Receipts[P], len(storageReceipts))
 	for i, storageReceipt := range storageReceipts {
-		receipts[i] = (*types.Receipt)(storageReceipt)
+		receipts[i] = (*types.Receipt[P])(storageReceipt)
 	}
 	if len(extraData) > 0 {
-		quorumExtraDataReceipts := []*types.QuorumReceiptExtraData{}
+		quorumExtraDataReceipts := []*types.QuorumReceiptExtraData[P]{}
 		if err := rlp.DecodeBytes(extraData, &quorumExtraDataReceipts); err != nil {
 			log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 			return nil
@@ -641,13 +642,13 @@ func ReadRawReceipts(db ethdb.Reader, hash common.Hash, number uint64) types.Rec
 // The current implementation populates these metadata fields by reading the receipts'
 // corresponding block body, so if the block body is not found it will return nil even
 // if the receipt itself is stored.
-func ReadReceipts(db ethdb.Reader, hash common.Hash, number uint64, config *params.ChainConfig) types.Receipts {
+func ReadReceipts[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64, config *params.ChainConfig) types.Receipts[P] {
 	// We're deriving many fields from the block body, retrieve beside the receipt
-	receipts := ReadRawReceipts(db, hash, number)
+	receipts := ReadRawReceipts[P](db, hash, number)
 	if receipts == nil {
 		return nil
 	}
-	body := ReadBody(db, hash, number)
+	body := ReadBody[P](db, hash, number)
 	if body == nil {
 		log.Error("Missing body but have receipt", "hash", hash, "number", number)
 		return nil
@@ -660,13 +661,13 @@ func ReadReceipts(db ethdb.Reader, hash common.Hash, number uint64, config *para
 }
 
 // WriteReceipts stores all the transaction receipts belonging to a block.
-func WriteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64, receipts types.Receipts) {
+func WriteReceipts[P crypto.PublicKey](db ethdb.KeyValueWriter, hash common.Hash, number uint64, receipts types.Receipts[P]) {
 	// Convert the receipts into their storage form and serialize them
-	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
-	quorumReceiptsExtraData := make([]*types.QuorumReceiptExtraData, len(receipts))
+	storageReceipts := make([]*types.ReceiptForStorage[P], len(receipts))
+	quorumReceiptsExtraData := make([]*types.QuorumReceiptExtraData[P], len(receipts))
 	extraDataEmpty := true
 	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
+		storageReceipts[i] = (*types.ReceiptForStorage[P])(receipt)
 		quorumReceiptsExtraData[i] = &receipt.QuorumReceiptExtraData
 		if !receipt.QuorumReceiptExtraData.IsEmpty() {
 			extraDataEmpty = false
@@ -703,26 +704,26 @@ func DeleteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 //
 // Note, due to concurrent download of header and block body the header and thus
 // canonical hash can be stored in the database but the body data not (yet).
-func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
+func ReadBlock[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) *types.Block[P] {
 	header := ReadHeader(db, hash, number)
 	if header == nil {
 		return nil
 	}
-	body := ReadBody(db, hash, number)
+	body := ReadBody[P](db, hash, number)
 	if body == nil {
 		return nil
 	}
-	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
+	return types.NewBlockWithHeader[P](header).WithBody(body.Transactions, body.Uncles)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.
-func WriteBlock(db ethdb.KeyValueWriter, block *types.Block) {
+func WriteBlock[P crypto.PublicKey](db ethdb.KeyValueWriter, block *types.Block[P]) {
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
 }
 
 // WriteAncientBlock writes entire block data into ancient store and returns the total written size.
-func WriteAncientBlock(db ethdb.AncientWriter, block *types.Block, receipts types.Receipts, td *big.Int) int {
+func WriteAncientBlock[P crypto.PublicKey](db ethdb.AncientWriter, block *types.Block[P], receipts types.Receipts[P], td *big.Int) int {
 	// Encode all block components to RLP format.
 	headerBlob, err := rlp.EncodeToBytes(block.Header())
 	if err != nil {
@@ -732,9 +733,9 @@ func WriteAncientBlock(db ethdb.AncientWriter, block *types.Block, receipts type
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
 	}
-	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
+	storageReceipts := make([]*types.ReceiptForStorage[P], len(receipts))
 	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
+		storageReceipts[i] = (*types.ReceiptForStorage[P])(receipt)
 	}
 	receiptBlob, err := rlp.EncodeToBytes(storageReceipts)
 	if err != nil {
@@ -771,34 +772,34 @@ func DeleteBlockWithoutNumber(db ethdb.KeyValueWriter, hash common.Hash, number 
 
 const badBlockToKeep = 10
 
-type badBlock struct {
+type badBlock [P crypto.PublicKey] struct {
 	Header *types.Header
-	Body   *types.Body
+	Body   *types.Body[P]
 }
 
 // badBlockList implements the sort interface to allow sorting a list of
 // bad blocks by their number in the reverse order.
-type badBlockList []*badBlock
+type badBlockList [P crypto.PublicKey] []*badBlock[P]
 
-func (s badBlockList) Len() int { return len(s) }
-func (s badBlockList) Less(i, j int) bool {
+func (s badBlockList[P]) Len() int { return len(s) }
+func (s badBlockList[P]) Less(i, j int) bool {
 	return s[i].Header.Number.Uint64() < s[j].Header.Number.Uint64()
 }
-func (s badBlockList) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s badBlockList[P]) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // ReadBadBlock retrieves the bad block with the corresponding block hash.
-func ReadBadBlock(db ethdb.Reader, hash common.Hash) *types.Block {
+func ReadBadBlock[P crypto.PublicKey](db ethdb.Reader, hash common.Hash) *types.Block[P] {
 	blob, err := db.Get(badBlockKey)
 	if err != nil {
 		return nil
 	}
-	var badBlocks badBlockList
+	var badBlocks badBlockList[P]
 	if err := rlp.DecodeBytes(blob, &badBlocks); err != nil {
 		return nil
 	}
 	for _, bad := range badBlocks {
 		if bad.Header.Hash() == hash {
-			return types.NewBlockWithHeader(bad.Header).WithBody(bad.Body.Transactions, bad.Body.Uncles)
+			return types.NewBlockWithHeader[P](bad.Header).WithBody(bad.Body.Transactions, bad.Body.Uncles)
 		}
 	}
 	return nil
@@ -806,30 +807,30 @@ func ReadBadBlock(db ethdb.Reader, hash common.Hash) *types.Block {
 
 // ReadAllBadBlocks retrieves all the bad blocks in the database.
 // All returned blocks are sorted in reverse order by number.
-func ReadAllBadBlocks(db ethdb.Reader) []*types.Block {
+func ReadAllBadBlocks[P crypto.PublicKey](db ethdb.Reader) []*types.Block[P] {
 	blob, err := db.Get(badBlockKey)
 	if err != nil {
 		return nil
 	}
-	var badBlocks badBlockList
+	var badBlocks badBlockList[P]
 	if err := rlp.DecodeBytes(blob, &badBlocks); err != nil {
 		return nil
 	}
-	var blocks []*types.Block
+	var blocks []*types.Block[P]
 	for _, bad := range badBlocks {
-		blocks = append(blocks, types.NewBlockWithHeader(bad.Header).WithBody(bad.Body.Transactions, bad.Body.Uncles))
+		blocks = append(blocks, types.NewBlockWithHeader[P](bad.Header).WithBody(bad.Body.Transactions, bad.Body.Uncles))
 	}
 	return blocks
 }
 
 // WriteBadBlock serializes the bad block into the database. If the cumulated
 // bad blocks exceeds the limitation, the oldest will be dropped.
-func WriteBadBlock(db ethdb.KeyValueStore, block *types.Block) {
+func WriteBadBlock[P crypto.PublicKey](db ethdb.KeyValueStore, block *types.Block[P]) {
 	blob, err := db.Get(badBlockKey)
 	if err != nil {
 		log.Warn("Failed to load old bad blocks", "error", err)
 	}
-	var badBlocks badBlockList
+	var badBlocks badBlockList[P]
 	if len(blob) > 0 {
 		if err := rlp.DecodeBytes(blob, &badBlocks); err != nil {
 			log.Crit("Failed to decode old bad blocks", "error", err)
@@ -841,7 +842,7 @@ func WriteBadBlock(db ethdb.KeyValueStore, block *types.Block) {
 			return
 		}
 	}
-	badBlocks = append(badBlocks, &badBlock{
+	badBlocks = append(badBlocks, &badBlock[P]{
 		Header: block.Header(),
 		Body:   block.Body(),
 	})
@@ -906,7 +907,7 @@ func ReadHeadHeader(db ethdb.Reader) *types.Header {
 }
 
 // ReadHeadBlock returns the current canonical head block.
-func ReadHeadBlock(db ethdb.Reader) *types.Block {
+func ReadHeadBlock[P crypto.PublicKey](db ethdb.Reader) *types.Block[P] {
 	headBlockHash := ReadHeadBlockHash(db)
 	if headBlockHash == (common.Hash{}) {
 		return nil
@@ -915,5 +916,5 @@ func ReadHeadBlock(db ethdb.Reader) *types.Block {
 	if headBlockNumber == nil {
 		return nil
 	}
-	return ReadBlock(db, headBlockHash, *headBlockNumber)
+	return ReadBlock[P](db, headBlockHash, *headBlockNumber)
 }

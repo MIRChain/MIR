@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,8 +35,8 @@ import (
 func TestStartRPC(t *testing.T) {
 	type test struct {
 		name string
-		cfg  Config
-		fn   func(*testing.T, *Node, *privateAdminAPI)
+		cfg  Config[nist.PrivateKey, nist.PublicKey]
+		fn   func(*testing.T, *Node[nist.PrivateKey, nist.PublicKey], *privateAdminAPI[nist.PrivateKey, nist.PublicKey])
 
 		// Checks. These run after the node is configured and all API calls have been made.
 		wantReachable bool // whether the HTTP server should be reachable at all
@@ -47,8 +48,8 @@ func TestStartRPC(t *testing.T) {
 	tests := []test{
 		{
 			name: "all off",
-			cfg:  Config{},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 			},
 			wantReachable: false,
 			wantHandlers:  false,
@@ -57,8 +58,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc enabled through config",
-			cfg:  Config{HTTPHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{HTTPHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 			},
 			wantReachable: true,
 			wantHandlers:  true,
@@ -67,8 +68,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc enabled through API",
-			cfg:  Config{},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StartHTTP(sp("127.0.0.1"), ip(0), nil, nil, nil)
 				assert.NoError(t, err)
 			},
@@ -79,8 +80,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc start again after failure",
-			cfg:  Config{},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				// Listen on a random port.
 				listener, err := net.Listen("tcp", "127.0.0.1:0")
 				if err != nil {
@@ -107,8 +108,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc stopped through API",
-			cfg:  Config{HTTPHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{HTTPHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StopHTTP()
 				assert.NoError(t, err)
 			},
@@ -119,8 +120,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc stopped twice",
-			cfg:  Config{HTTPHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{HTTPHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StopHTTP()
 				assert.NoError(t, err)
 
@@ -134,7 +135,7 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name:          "ws enabled through config",
-			cfg:           Config{WSHost: "127.0.0.1"},
+			cfg:           Config[nist.PrivateKey, nist.PublicKey]{WSHost: "127.0.0.1"},
 			wantReachable: true,
 			wantHandlers:  false,
 			wantRPC:       false,
@@ -142,8 +143,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "ws enabled through API",
-			cfg:  Config{},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StartWS(sp("127.0.0.1"), ip(0), nil, nil)
 				assert.NoError(t, err)
 			},
@@ -154,8 +155,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "ws stopped through API",
-			cfg:  Config{WSHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{WSHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StopWS()
 				assert.NoError(t, err)
 			},
@@ -166,8 +167,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "ws stopped twice",
-			cfg:  Config{WSHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{WSHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StopWS()
 				assert.NoError(t, err)
 
@@ -181,8 +182,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "ws enabled after RPC",
-			cfg:  Config{HTTPHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{HTTPHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				wsport := n.http.port
 				_, err := api.StartWS(sp("127.0.0.1"), ip(wsport), nil, nil)
 				assert.NoError(t, err)
@@ -194,8 +195,8 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "ws enabled after RPC then stopped",
-			cfg:  Config{HTTPHost: "127.0.0.1"},
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			cfg:  Config[nist.PrivateKey, nist.PublicKey]{HTTPHost: "127.0.0.1"},
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				wsport := n.http.port
 				_, err := api.StartWS(sp("127.0.0.1"), ip(wsport), nil, nil)
 				assert.NoError(t, err)
@@ -210,7 +211,7 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc stopped with ws enabled",
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StartHTTP(sp("127.0.0.1"), ip(0), nil, nil, nil)
 				assert.NoError(t, err)
 
@@ -228,7 +229,7 @@ func TestStartRPC(t *testing.T) {
 		},
 		{
 			name: "rpc enabled after ws",
-			fn: func(t *testing.T, n *Node, api *privateAdminAPI) {
+			fn: func(t *testing.T, n *Node[nist.PrivateKey, nist.PublicKey], api *privateAdminAPI[nist.PrivateKey, nist.PublicKey]) {
 				_, err := api.StartWS(sp("127.0.0.1"), ip(0), nil, nil)
 				assert.NoError(t, err)
 
@@ -271,7 +272,7 @@ func TestStartRPC(t *testing.T) {
 
 			// Run the API call hook.
 			if test.fn != nil {
-				test.fn(t, stack, &privateAdminAPI{stack})
+				test.fn(t, stack, &privateAdminAPI[nist.PrivateKey, nist.PublicKey]{stack})
 			}
 
 			// Check if the HTTP endpoints are available.

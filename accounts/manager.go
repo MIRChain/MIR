@@ -23,6 +23,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Config contains the settings of the global account manager.
@@ -35,12 +36,12 @@ type Config struct {
 
 // Manager is an overarching account manager that can communicate with various
 // backends for signing transactions.
-type Manager struct {
+type Manager [P crypto.PublicKey] struct {
 	config   *Config                    // Global account manager configurations
-	backends map[reflect.Type][]Backend // Index of backends currently registered
+	backends map[reflect.Type][]Backend[P] // Index of backends currently registered
 	updaters []event.Subscription       // Wallet update subscriptions for all backends
-	updates  chan WalletEvent           // Subscription sink for backend wallet changes
-	wallets  []Wallet                   // Cache of all wallets from all registered backends
+	updates  chan WalletEvent[P]           // Subscription sink for backend wallet changes
+	wallets  []Wallet[P]                   // Cache of all wallets from all registered backends
 
 	feed event.Feed // Wallet feed notifying of arrivals/departures
 
@@ -50,23 +51,23 @@ type Manager struct {
 
 // NewManager creates a generic account manager to sign transaction via various
 // supported backends.
-func NewManager(config *Config, backends ...Backend) *Manager {
+func NewManager[P crypto.PublicKey](config *Config, backends ...Backend[P]) *Manager[P] {
 	// Retrieve the initial list of wallets from the backends and sort by URL
-	var wallets []Wallet
+	var wallets []Wallet[P]
 	for _, backend := range backends {
 		wallets = merge(wallets, backend.Wallets()...)
 	}
 	// Subscribe to wallet notifications from all backends
-	updates := make(chan WalletEvent, 4*len(backends))
+	updates := make(chan WalletEvent[P], 4*len(backends))
 
 	subs := make([]event.Subscription, len(backends))
 	for i, backend := range backends {
 		subs[i] = backend.Subscribe(updates)
 	}
 	// Assemble the account manager and return
-	am := &Manager{
+	am := &Manager[P]{
 		config:   config,
-		backends: make(map[reflect.Type][]Backend),
+		backends: make(map[reflect.Type][]Backend[P]),
 		updaters: subs,
 		updates:  updates,
 		wallets:  wallets,
@@ -82,20 +83,20 @@ func NewManager(config *Config, backends ...Backend) *Manager {
 }
 
 // Close terminates the account manager's internal notification processes.
-func (am *Manager) Close() error {
+func (am *Manager[P]) Close() error {
 	errc := make(chan error)
 	am.quit <- errc
 	return <-errc
 }
 
 // Config returns the configuration of account manager.
-func (am *Manager) Config() *Config {
+func (am *Manager[P]) Config() *Config {
 	return am.config
 }
 
 // update is the wallet event loop listening for notifications from the backends
 // and updating the cache of wallets.
-func (am *Manager) update() {
+func (am *Manager[P]) update() {
 	// Close all subscriptions when the manager terminates
 	defer func() {
 		am.lock.Lock()
@@ -132,12 +133,12 @@ func (am *Manager) update() {
 }
 
 // Backends retrieves the backend(s) with the given type from the account manager.
-func (am *Manager) Backends(kind reflect.Type) []Backend {
+func (am *Manager[P]) Backends(kind reflect.Type) []Backend[P] {
 	return am.backends[kind]
 }
 
 // Quorum
-func (am *Manager) Backend(account Account) (Backend, error) {
+func (am *Manager[P]) Backend(account Account) (Backend[P], error) {
 	for _, b := range am.backends {
 		for _, bb := range b {
 			for _, w := range bb.Wallets() {
@@ -153,7 +154,7 @@ func (am *Manager) Backend(account Account) (Backend, error) {
 // end Quorum
 
 // Wallets returns all signer accounts registered under this account manager.
-func (am *Manager) Wallets() []Wallet {
+func (am *Manager[P]) Wallets() []Wallet[P] {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -161,14 +162,14 @@ func (am *Manager) Wallets() []Wallet {
 }
 
 // walletsNoLock returns all registered wallets. Callers must hold am.lock.
-func (am *Manager) walletsNoLock() []Wallet {
-	cpy := make([]Wallet, len(am.wallets))
+func (am *Manager[P]) walletsNoLock() []Wallet[P] {
+	cpy := make([]Wallet[P], len(am.wallets))
 	copy(cpy, am.wallets)
 	return cpy
 }
 
 // Wallet retrieves the wallet associated with a particular URL.
-func (am *Manager) Wallet(url string) (Wallet, error) {
+func (am *Manager[P]) Wallet(url string) (Wallet[P], error) {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -185,7 +186,7 @@ func (am *Manager) Wallet(url string) (Wallet, error) {
 }
 
 // Accounts returns all account addresses of all wallets within the account manager
-func (am *Manager) Accounts() []common.Address {
+func (am *Manager[P]) Accounts() []common.Address {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -201,7 +202,7 @@ func (am *Manager) Accounts() []common.Address {
 // Find attempts to locate the wallet corresponding to a specific account. Since
 // accounts can be dynamically added to and removed from wallets, this method has
 // a linear runtime in the number of wallets.
-func (am *Manager) Find(account Account) (Wallet, error) {
+func (am *Manager[P]) Find(account Account) (Wallet[P], error) {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -215,7 +216,7 @@ func (am *Manager) Find(account Account) (Wallet, error) {
 
 // Subscribe creates an async subscription to receive notifications when the
 // manager detects the arrival or departure of a wallet from any of its backends.
-func (am *Manager) Subscribe(sink chan<- WalletEvent) event.Subscription {
+func (am *Manager[P]) Subscribe(sink chan<- WalletEvent[P]) event.Subscription {
 	return am.feed.Subscribe(sink)
 }
 
@@ -223,21 +224,21 @@ func (am *Manager) Subscribe(sink chan<- WalletEvent) event.Subscription {
 // origin list is preserved by inserting new wallets at the correct position.
 //
 // The original slice is assumed to be already sorted by URL.
-func merge(slice []Wallet, wallets ...Wallet) []Wallet {
+func merge[P crypto.PublicKey](slice []Wallet[P], wallets ...Wallet[P]) []Wallet[P] {
 	for _, wallet := range wallets {
 		n := sort.Search(len(slice), func(i int) bool { return slice[i].URL().Cmp(wallet.URL()) >= 0 })
 		if n == len(slice) {
 			slice = append(slice, wallet)
 			continue
 		}
-		slice = append(slice[:n], append([]Wallet{wallet}, slice[n:]...)...)
+		slice = append(slice[:n], append([]Wallet[P]{wallet}, slice[n:]...)...)
 	}
 	return slice
 }
 
 // drop is the couterpart of merge, which looks up wallets from within the sorted
 // cache and removes the ones specified.
-func drop(slice []Wallet, wallets ...Wallet) []Wallet {
+func drop[P crypto.PublicKey](slice []Wallet[P], wallets ...Wallet[P]) []Wallet[P] {
 	for _, wallet := range wallets {
 		n := sort.Search(len(slice), func(i int) bool { return slice[i].URL().Cmp(wallet.URL()) >= 0 })
 		if n == len(slice) {

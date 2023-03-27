@@ -171,7 +171,7 @@ func (mpsr *MultiplePrivateStateRepository) Reset() error {
 }
 
 // CommitAndWrite commits all private states, updates the trie of private states, writes to disk
-func (mpsr *MultiplePrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block) error {
+func (mpsr *MultiplePrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	// commit each managed state
@@ -208,7 +208,7 @@ func (mpsr *MultiplePrivateStateRepository) CommitAndWrite(isEIP158 bool, block 
 }
 
 // Commit commits all private states, updates the trie of private states only
-func (mpsr *MultiplePrivateStateRepository) Commit(isEIP158 bool, block *types.Block) error {
+func (mpsr *MultiplePrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	for psi, managedState := range mpsr.managedStates {
