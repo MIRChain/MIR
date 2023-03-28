@@ -22,34 +22,35 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 // handleGetBlockHeaders handles Block header query, collect the requested headers and reply
-func handleGetBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetBlockHeaders[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the complex header query
 	var query GetBlockHeadersPacket
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetBlockHeadersQuery(backend, &query, peer)
+	response := AnswerGetBlockHeadersQuery(backend, &query, peer)
 	return peer.SendBlockHeaders(response)
 }
 
 // handleGetBlockHeaders66 is the eth/66 version of handleGetBlockHeaders
-func handleGetBlockHeaders66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetBlockHeaders66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the complex header query
 	var query GetBlockHeadersPacket66
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetBlockHeadersQuery(backend, query.GetBlockHeadersPacket, peer)
+	response := AnswerGetBlockHeadersQuery(backend, query.GetBlockHeadersPacket, peer)
 	return peer.ReplyBlockHeaders(query.RequestId, response)
 }
 
-func answerGetBlockHeadersQuery(backend Backend, query *GetBlockHeadersPacket, peer *Peer) []*types.Header {
+func AnswerGetBlockHeadersQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query *GetBlockHeadersPacket, peer *Peer[T,P]) []*types.Header {
 	hashMode := query.Origin.Hash != (common.Hash{})
 	first := true
 	maxNonCanonical := uint64(100)
@@ -135,27 +136,27 @@ func answerGetBlockHeadersQuery(backend Backend, query *GetBlockHeadersPacket, p
 	return headers
 }
 
-func handleGetBlockBodies(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetBlockBodies[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the block body retrieval message
 	var query GetBlockBodiesPacket
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetBlockBodiesQuery(backend, query, peer)
+	response := AnswerGetBlockBodiesQuery(backend, query, peer)
 	return peer.SendBlockBodiesRLP(response)
 }
 
-func handleGetBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetBlockBodies66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the block body retrieval message
 	var query GetBlockBodiesPacket66
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
+	response := AnswerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
 	return peer.ReplyBlockBodiesRLP(query.RequestId, response)
 }
 
-func answerGetBlockBodiesQuery(backend Backend, query GetBlockBodiesPacket, peer *Peer) []rlp.RawValue {
+func AnswerGetBlockBodiesQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query GetBlockBodiesPacket, peer *Peer[T,P]) []rlp.RawValue {
 	// Gather blocks until the fetch or network limits is reached
 	var (
 		bytes  int
@@ -174,27 +175,27 @@ func answerGetBlockBodiesQuery(backend Backend, query GetBlockBodiesPacket, peer
 	return bodies
 }
 
-func handleGetNodeData(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetNodeData[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the trie node data retrieval message
 	var query GetNodeDataPacket
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetNodeDataQuery(backend, query, peer)
+	response := AnswerGetNodeDataQuery(backend, query, peer)
 	return peer.SendNodeData(response)
 }
 
-func handleGetNodeData66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetNodeData66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the trie node data retrieval message
 	var query GetNodeDataPacket66
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetNodeDataQuery(backend, query.GetNodeDataPacket, peer)
+	response := AnswerGetNodeDataQuery(backend, query.GetNodeDataPacket, peer)
 	return peer.ReplyNodeData(query.RequestId, response)
 }
 
-func answerGetNodeDataQuery(backend Backend, query GetNodeDataPacket, peer *Peer) [][]byte {
+func AnswerGetNodeDataQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query GetNodeDataPacket, peer *Peer[T,P]) [][]byte {
 	// Gather state data until the fetch or network limits is reached
 	var (
 		bytes int
@@ -223,27 +224,27 @@ func answerGetNodeDataQuery(backend Backend, query GetNodeDataPacket, peer *Peer
 	return nodes
 }
 
-func handleGetReceipts(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetReceipts[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the block receipts retrieval message
 	var query GetReceiptsPacket
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetReceiptsQuery(backend, query, peer)
+	response := AnswerGetReceiptsQuery(backend, query, peer)
 	return peer.SendReceiptsRLP(response)
 }
 
-func handleGetReceipts66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetReceipts66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the block receipts retrieval message
 	var query GetReceiptsPacket66
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	response := answerGetReceiptsQuery(backend, query.GetReceiptsPacket, peer)
+	response := AnswerGetReceiptsQuery(backend, query.GetReceiptsPacket, peer)
 	return peer.ReplyReceiptsRLP(query.RequestId, response)
 }
 
-func answerGetReceiptsQuery(backend Backend, query GetReceiptsPacket, peer *Peer) []rlp.RawValue {
+func AnswerGetReceiptsQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query GetReceiptsPacket, peer *Peer[T,P]) []rlp.RawValue {
 	// Gather state data until the fetch or network limits is reached
 	var (
 		bytes    int
@@ -272,7 +273,7 @@ func answerGetReceiptsQuery(backend Backend, query GetReceiptsPacket, peer *Peer
 	return receipts
 }
 
-func handleNewBlockhashes(backend Backend, msg Decoder, peer *Peer) error {
+func HandleNewBlockhashes[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of new block announcements just arrived
 	ann := new(NewBlockHashesPacket)
 	if err := msg.Decode(ann); err != nil {
@@ -286,9 +287,9 @@ func handleNewBlockhashes(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, ann)
 }
 
-func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
+func HandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Retrieve and decode the propagated block
-	ann := new(NewBlockPacket)
+	ann := new(NewBlockPacket[P])
 	if err := msg.Decode(ann); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -312,7 +313,7 @@ func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, ann)
 }
 
-func handleBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
+func HandleBlockHeaders[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of headers arrived to one of our previous requests
 	res := new(BlockHeadersPacket)
 	if err := msg.Decode(res); err != nil {
@@ -321,7 +322,7 @@ func handleBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, res)
 }
 
-func handleBlockHeaders66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleBlockHeaders66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of headers arrived to one of our previous requests
 	res := new(BlockHeadersPacket66)
 	if err := msg.Decode(res); err != nil {
@@ -332,18 +333,18 @@ func handleBlockHeaders66(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &res.BlockHeadersPacket)
 }
 
-func handleBlockBodies(backend Backend, msg Decoder, peer *Peer) error {
+func HandleBlockBodies[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of block bodies arrived to one of our previous requests
-	res := new(BlockBodiesPacket)
+	res := new(BlockBodiesPacket[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
 	return backend.Handle(peer, res)
 }
 
-func handleBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleBlockBodies66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of block bodies arrived to one of our previous requests
-	res := new(BlockBodiesPacket66)
+	res := new(BlockBodiesPacket66[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -352,7 +353,7 @@ func handleBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &res.BlockBodiesPacket)
 }
 
-func handleNodeData(backend Backend, msg Decoder, peer *Peer) error {
+func HandleNodeData[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of node state data arrived to one of our previous requests
 	res := new(NodeDataPacket)
 	if err := msg.Decode(res); err != nil {
@@ -361,7 +362,7 @@ func handleNodeData(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, res)
 }
 
-func handleNodeData66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleNodeData66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of node state data arrived to one of our previous requests
 	res := new(NodeDataPacket66)
 	if err := msg.Decode(res); err != nil {
@@ -372,18 +373,18 @@ func handleNodeData66(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &res.NodeDataPacket)
 }
 
-func handleReceipts(backend Backend, msg Decoder, peer *Peer) error {
+func HandleReceipts[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of receipts arrived to one of our previous requests
-	res := new(ReceiptsPacket)
+	res := new(ReceiptsPacket[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
 	return backend.Handle(peer, res)
 }
 
-func handleReceipts66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleReceipts66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of receipts arrived to one of our previous requests
-	res := new(ReceiptsPacket66)
+	res := new(ReceiptsPacket66[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -392,7 +393,7 @@ func handleReceipts66(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &res.ReceiptsPacket)
 }
 
-func handleNewPooledTransactionHashes(backend Backend, msg Decoder, peer *Peer) error {
+func HandleNewPooledTransactionHashes[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// New transaction announcement arrived, make sure we have
 	// a valid and fresh chain to handle them
 	if !backend.AcceptTxs() {
@@ -409,27 +410,27 @@ func handleNewPooledTransactionHashes(backend Backend, msg Decoder, peer *Peer) 
 	return backend.Handle(peer, ann)
 }
 
-func handleGetPooledTransactions(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetPooledTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the pooled transactions retrieval message
 	var query GetPooledTransactionsPacket
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	hashes, txs := answerGetPooledTransactions(backend, query, peer)
+	hashes, txs := AnswerGetPooledTransactions(backend, query, peer)
 	return peer.SendPooledTransactionsRLP(hashes, txs)
 }
 
-func handleGetPooledTransactions66(backend Backend, msg Decoder, peer *Peer) error {
+func HandleGetPooledTransactions66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Decode the pooled transactions retrieval message
 	var query GetPooledTransactionsPacket66
 	if err := msg.Decode(&query); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
-	hashes, txs := answerGetPooledTransactions(backend, query.GetPooledTransactionsPacket, peer)
+	hashes, txs := AnswerGetPooledTransactions(backend, query.GetPooledTransactionsPacket, peer)
 	return peer.ReplyPooledTransactionsRLP(query.RequestId, hashes, txs)
 }
 
-func answerGetPooledTransactions(backend Backend, query GetPooledTransactionsPacket, peer *Peer) ([]common.Hash, []rlp.RawValue) {
+func AnswerGetPooledTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query GetPooledTransactionsPacket, peer *Peer[T,P]) ([]common.Hash, []rlp.RawValue) {
 	// Gather transactions until the fetch or network limits is reached
 	var (
 		bytes  int
@@ -457,13 +458,13 @@ func answerGetPooledTransactions(backend Backend, query GetPooledTransactionsPac
 	return hashes, txs
 }
 
-func handleTransactions(backend Backend, msg Decoder, peer *Peer) error {
+func HandleTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Transactions arrived, make sure we have a valid and fresh chain to handle them
 	if !backend.AcceptTxs() {
 		return nil
 	}
 	// Transactions can be processed, parse all of them and deliver to the pool
-	var txs TransactionsPacket
+	var txs TransactionsPacket[P]
 	if err := msg.Decode(&txs); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -477,13 +478,13 @@ func handleTransactions(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &txs)
 }
 
-func handlePooledTransactions(backend Backend, msg Decoder, peer *Peer) error {
+func HandlePooledTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Transactions arrived, make sure we have a valid and fresh chain to handle them
 	if !backend.AcceptTxs() {
 		return nil
 	}
 	// Transactions can be processed, parse all of them and deliver to the pool
-	var txs PooledTransactionsPacket
+	var txs PooledTransactionsPacket[P]
 	if err := msg.Decode(&txs); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -497,13 +498,13 @@ func handlePooledTransactions(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, &txs)
 }
 
-func handlePooledTransactions66(backend Backend, msg Decoder, peer *Peer) error {
+func HandlePooledTransactions66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// Transactions arrived, make sure we have a valid and fresh chain to handle them
 	if !backend.AcceptTxs() {
 		return nil
 	}
 	// Transactions can be processed, parse all of them and deliver to the pool
-	var txs PooledTransactionsPacket66
+	var txs PooledTransactionsPacket66[P]
 	if err := msg.Decode(&txs); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}

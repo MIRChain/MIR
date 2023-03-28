@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const sampleNumber = 3 // Number of transactions sampled in a block
@@ -41,16 +42,16 @@ type Config struct {
 }
 
 // OracleBackend includes all necessary background APIs for oracle.
-type OracleBackend interface {
+type OracleBackend [P crypto.PublicKey] interface {
 	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
-	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
+	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
 	ChainConfig() *params.ChainConfig
 }
 
 // Oracle recommends gas prices based on the content of recent
 // blocks. Suitable for both light and full clients.
-type Oracle struct {
-	backend   OracleBackend
+type Oracle [P crypto.PublicKey] struct {
+	backend   OracleBackend[P]
 	lastHead  common.Hash
 	lastPrice *big.Int
 	maxPrice  *big.Int
@@ -63,7 +64,7 @@ type Oracle struct {
 
 // NewOracle returns a new gasprice oracle which can recommend suitable
 // gasprice for newly created transaction.
-func NewOracle(backend OracleBackend, params Config) *Oracle {
+func NewOracle[P crypto.PublicKey](backend OracleBackend[P], params Config) *Oracle[P] {
 	blocks := params.Blocks
 	if blocks < 1 {
 		blocks = 1
@@ -83,7 +84,7 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 		maxPrice = DefaultMaxPrice
 		log.Warn("Sanitizing invalid gasprice oracle price cap", "provided", params.MaxPrice, "updated", maxPrice)
 	}
-	return &Oracle{
+	return &Oracle[P]{
 		backend:     backend,
 		lastPrice:   params.Default,
 		maxPrice:    maxPrice,
@@ -94,7 +95,7 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 
 // SuggestPrice returns a gasprice so that newly created transaction can
 // have a very high chance to be included in the following blocks.
-func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
+func (gpo *Oracle[P]) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	head, _ := gpo.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
 	headHash := head.Hash()
 
@@ -123,7 +124,7 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 		txPrices  []*big.Int
 	)
 	for sent < gpo.checkBlocks && number > 0 {
-		go gpo.getBlockPrices(ctx, types.MakeSigner(gpo.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, result, quit)
+		go gpo.getBlockPrices(ctx, types.MakeSigner[P](gpo.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, result, quit)
 		sent++
 		exp++
 		number--
@@ -146,7 +147,7 @@ func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
 		// meaningful returned, try to query more blocks. But the maximum
 		// is 2*checkBlocks.
 		if len(res.prices) == 1 && len(txPrices)+1+exp < gpo.checkBlocks*2 && number > 0 {
-			go gpo.getBlockPrices(ctx, types.MakeSigner(gpo.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, result, quit)
+			go gpo.getBlockPrices(ctx, types.MakeSigner[P](gpo.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, result, quit)
 			sent++
 			exp++
 			number--
@@ -173,17 +174,17 @@ type getBlockPricesResult struct {
 	err    error
 }
 
-type transactionsByGasPrice []*types.Transaction
+type transactionsByGasPrice[P crypto.PublicKey] []*types.Transaction[P]
 
-func (t transactionsByGasPrice) Len() int           { return len(t) }
-func (t transactionsByGasPrice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t transactionsByGasPrice) Less(i, j int) bool { return t[i].GasPriceCmp(t[j]) < 0 }
+func (t transactionsByGasPrice[P]) Len() int           { return len(t) }
+func (t transactionsByGasPrice[P]) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
+func (t transactionsByGasPrice[P]) Less(i, j int) bool { return t[i].GasPriceCmp(t[j]) < 0 }
 
 // getBlockPrices calculates the lowest transaction gas price in a given block
 // and sends it to the result channel. If the block is empty or all transactions
 // are sent by the miner itself(it doesn't make any sense to include this kind of
 // transaction prices for sampling), nil gasprice is returned.
-func (gpo *Oracle) getBlockPrices(ctx context.Context, signer types.Signer, blockNum uint64, limit int, result chan getBlockPricesResult, quit chan struct{}) {
+func (gpo *Oracle[P]) getBlockPrices(ctx context.Context, signer types.Signer[P], blockNum uint64, limit int, result chan getBlockPricesResult, quit chan struct{}) {
 	block, err := gpo.backend.BlockByNumber(ctx, rpc.BlockNumber(blockNum))
 	if block == nil {
 		select {
@@ -193,9 +194,9 @@ func (gpo *Oracle) getBlockPrices(ctx context.Context, signer types.Signer, bloc
 		return
 	}
 	blockTxs := block.Transactions()
-	txs := make([]*types.Transaction, len(blockTxs))
+	txs := make([]*types.Transaction[P], len(blockTxs))
 	copy(txs, blockTxs)
-	sort.Sort(transactionsByGasPrice(txs))
+	sort.Sort(transactionsByGasPrice[P](txs))
 
 	var prices []*big.Int
 	for _, tx := range txs {

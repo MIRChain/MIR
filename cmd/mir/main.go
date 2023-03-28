@@ -437,7 +437,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 
 	// Now that the plugin manager has been started we register the account plugin with the corresponding account backend.  All other account management is disabled when using External Signer
 	if !ctx.IsSet(utils.ExternalSignerFlag.Name) && stack.PluginManager().IsEnabled(plugin.AccountPluginInterfaceName) {
-		b := stack.AccountManager().Backends(pluggable.BackendType)[0].(*pluggable.Backend)
+		b := stack.AccountManager().Backends(reflect.TypeOf(&pluggable.Backend[P]{}))[0].(*pluggable.Backend)
 		if err := stack.PluginManager().AddAccountPluginToBackend(b); err != nil {
 			log.Error("failed to setup account plugin", "err", err)
 		}

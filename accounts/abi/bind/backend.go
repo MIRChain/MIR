@@ -24,6 +24,7 @@ import (
 	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -66,7 +67,7 @@ type PendingContractCaller interface {
 // on a write only basis. Besides the transacting method, the remainder are helpers
 // used when the user does not provide some needed values, but rather leaves it up
 // to the transactor to decide.
-type ContractTransactor interface {
+type ContractTransactor [P crypto.PublicKey] interface {
 	// PendingCodeAt returns the code of the given account in the pending state.
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	// PendingNonceAt retrieves the current pending nonce associated with an account.
@@ -104,14 +105,14 @@ type ContractFilterer interface {
 }
 
 // DeployBackend wraps the operations needed by WaitMined and WaitDeployed.
-type DeployBackend interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+type DeployBackend [P crypto.PublicKey] interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt[P], error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
 // ContractBackend defines the methods needed to work with contracts on a read-write basis.
-type ContractBackend interface {
+type ContractBackend [P crypto.PublicKey] interface {
 	ContractCaller
-	ContractTransactor
+	ContractTransactor[P]
 	ContractFilterer
 }

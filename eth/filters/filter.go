@@ -31,18 +31,19 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-type Backend interface {
+type Backend [P crypto.PublicKey] interface {
 	ChainDb() ethdb.Database
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
 	HeaderByHash(ctx context.Context, blockHash common.Hash) (*types.Header, error)
-	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
+	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts[P], error)
 	GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error)
 
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
-	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
-	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent[P]) event.Subscription
+	SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription
+	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent[P]) event.Subscription
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
 	SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription
 
@@ -55,8 +56,8 @@ type Backend interface {
 }
 
 // Filter can be used to retrieve and filter logs.
-type Filter struct {
-	backend Backend
+type Filter [P crypto.PublicKey] struct {
+	backend Backend[P]
 
 	db        ethdb.Database
 	addresses []common.Address
@@ -71,7 +72,7 @@ type Filter struct {
 
 // NewRangeFilter creates a new filter which uses a bloom filter on blocks to
 // figure out whether a particular block is interesting or not.
-func NewRangeFilter(backend Backend, begin, end int64, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter {
+func NewRangeFilter[P crypto.PublicKey](backend Backend[P], begin, end int64, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter[P] {
 	// Flatten the address and topic filter clauses into a single bloombits filter
 	// system. Since the bloombits are not positional, nil topics are permitted,
 	// which get flattened into a nil byte slice.
@@ -104,17 +105,17 @@ func NewRangeFilter(backend Backend, begin, end int64, addresses []common.Addres
 
 // NewBlockFilter creates a new filter which directly inspects the contents of
 // a block to figure out whether it is interesting or not.
-func NewBlockFilter(backend Backend, block common.Hash, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter {
+func NewBlockFilter[P crypto.PublicKey](backend Backend[P], block common.Hash, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter[P] {
 	// Create a generic filter and convert it into a block filter
-	filter := newFilter(backend, addresses, topics, psi)
+	filter := newFilter[P](backend, addresses, topics, psi)
 	filter.block = block
 	return filter
 }
 
 // newFilter creates a generic filter that can either filter based on a block hash,
 // or based on range queries. The search criteria needs to be explicitly set.
-func newFilter(backend Backend, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter {
-	return &Filter{
+func newFilter[P crypto.PublicKey](backend Backend[P], addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter[P] {
+	return &Filter[P]{
 		backend:   backend,
 		addresses: addresses,
 		topics:    topics,
@@ -125,7 +126,7 @@ func newFilter(backend Backend, addresses []common.Address, topics [][]common.Ha
 
 // Logs searches the blockchain for matching log entries, returning all from the
 // first block that contains matches, updating the start of the filter accordingly.
-func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
+func (f *Filter[P]) Logs(ctx context.Context) ([]*types.Log, error) {
 	// If we're doing singleton block filtering, execute and return
 	if f.block != (common.Hash{}) {
 		header, err := f.backend.HeaderByHash(ctx, f.block)
@@ -174,7 +175,7 @@ func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
 
 // indexedLogs returns the logs matching the filter criteria based on the bloom
 // bits indexed available locally or via the network.
-func (f *Filter) indexedLogs(ctx context.Context, end uint64) ([]*types.Log, error) {
+func (f *Filter[P]) indexedLogs(ctx context.Context, end uint64) ([]*types.Log, error) {
 	// Create a matcher session and request servicing from the backend
 	matches := make(chan uint64, 64)
 
@@ -221,7 +222,7 @@ func (f *Filter) indexedLogs(ctx context.Context, end uint64) ([]*types.Log, err
 
 // unindexedLogs returns the logs matching the filter criteria based on raw block
 // iteration and bloom matching.
-func (f *Filter) unindexedLogs(ctx context.Context, end uint64) ([]*types.Log, error) {
+func (f *Filter[P]) unindexedLogs(ctx context.Context, end uint64) ([]*types.Log, error) {
 	var logs []*types.Log
 
 	for ; f.begin <= int64(end); f.begin++ {
@@ -239,7 +240,7 @@ func (f *Filter) unindexedLogs(ctx context.Context, end uint64) ([]*types.Log, e
 }
 
 // blockLogs returns the logs matching the filter criteria within a single block.
-func (f *Filter) blockLogs(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
+func (f *Filter[P]) blockLogs(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
 	// Quorum
 	// Apply bloom filter for both public bloom and private bloom
 	bloomMatches := bloomFilter(header.Bloom, f.addresses, f.topics) ||
@@ -256,7 +257,7 @@ func (f *Filter) blockLogs(ctx context.Context, header *types.Header) (logs []*t
 
 // checkMatches checks if the receipts belonging to the given header contain any log events that
 // match the filter criteria. This function is called when the bloom filter signals a potential match.
-func (f *Filter) checkMatches(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
+func (f *Filter[P]) checkMatches(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
 	// Get the logs of the block
 	logsList, err := f.backend.GetLogs(ctx, header.Hash())
 	if err != nil {

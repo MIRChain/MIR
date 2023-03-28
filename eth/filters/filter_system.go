@@ -32,6 +32,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Type determines the kind of filter and is used to put the filter in to
@@ -82,8 +83,8 @@ type subscription struct {
 
 // EventSystem creates subscriptions, processes events and broadcasts them to the
 // subscription which match the subscription criteria.
-type EventSystem struct {
-	backend   Backend
+type EventSystem [P crypto.PublicKey] struct {
+	backend   Backend[P]
 	lightMode bool
 	lastHead  *types.Header
 
@@ -97,11 +98,11 @@ type EventSystem struct {
 	// Channels
 	install       chan *subscription         // install filter for event notification
 	uninstall     chan *subscription         // remove filter for event notification
-	txsCh         chan core.NewTxsEvent      // Channel to receive new transactions event
+	txsCh         chan core.NewTxsEvent[P]      // Channel to receive new transactions event
 	logsCh        chan []*types.Log          // Channel to receive new log event
 	pendingLogsCh chan []*types.Log          // Channel to receive new log event
-	rmLogsCh      chan core.RemovedLogsEvent // Channel to receive removed log event
-	chainCh       chan core.ChainEvent       // Channel to receive new chain event
+	rmLogsCh      chan core.RemovedLogsEvent[P] // Channel to receive removed log event
+	chainCh       chan core.ChainEvent[P]       // Channel to receive new chain event
 }
 
 // NewEventSystem creates a new manager that listens for event on the given mux,
@@ -110,17 +111,17 @@ type EventSystem struct {
 //
 // The returned manager has a loop that needs to be stopped with the Stop function
 // or by stopping the given mux.
-func NewEventSystem(backend Backend, lightMode bool) *EventSystem {
-	m := &EventSystem{
+func NewEventSystem[P crypto.PublicKey](backend Backend[P], lightMode bool) *EventSystem[P] {
+	m := &EventSystem[P]{
 		backend:       backend,
 		lightMode:     lightMode,
 		install:       make(chan *subscription),
 		uninstall:     make(chan *subscription),
-		txsCh:         make(chan core.NewTxsEvent, txChanSize),
+		txsCh:         make(chan core.NewTxsEvent[P], txChanSize),
 		logsCh:        make(chan []*types.Log, logsChanSize),
-		rmLogsCh:      make(chan core.RemovedLogsEvent, rmLogsChanSize),
+		rmLogsCh:      make(chan core.RemovedLogsEvent[P], rmLogsChanSize),
 		pendingLogsCh: make(chan []*types.Log, logsChanSize),
-		chainCh:       make(chan core.ChainEvent, chainEvChanSize),
+		chainCh:       make(chan core.ChainEvent[P], chainEvChanSize),
 	}
 
 	// Subscribe events
@@ -140,20 +141,20 @@ func NewEventSystem(backend Backend, lightMode bool) *EventSystem {
 }
 
 // Subscription is created when the client registers itself for a particular event.
-type Subscription struct {
+type Subscription [P crypto.PublicKey] struct {
 	ID        rpc.ID
 	f         *subscription
-	es        *EventSystem
+	es        *EventSystem[P]
 	unsubOnce sync.Once
 }
 
 // Err returns a channel that is closed when unsubscribed.
-func (sub *Subscription) Err() <-chan error {
+func (sub *Subscription[P]) Err() <-chan error {
 	return sub.f.err
 }
 
 // Unsubscribe uninstalls the subscription from the event broadcast loop.
-func (sub *Subscription) Unsubscribe() {
+func (sub *Subscription[P]) Unsubscribe() {
 	sub.unsubOnce.Do(func() {
 	uninstallLoop:
 		for {
@@ -178,16 +179,16 @@ func (sub *Subscription) Unsubscribe() {
 }
 
 // subscribe installs the subscription in the event broadcast loop.
-func (es *EventSystem) subscribe(sub *subscription) *Subscription {
+func (es *EventSystem[P]) subscribe(sub *subscription) *Subscription[P] {
 	es.install <- sub
 	<-sub.installed
-	return &Subscription{ID: sub.id, f: sub, es: es}
+	return &Subscription[P]{ID: sub.id, f: sub, es: es}
 }
 
 // SubscribeLogs creates a subscription that will write all logs matching the
 // given criteria to the given logs channel. Default value for the from and to
 // block is "latest". If the fromBlock > toBlock an error is returned.
-func (es *EventSystem) SubscribeLogs(crit ethereum.FilterQuery, logs chan []*types.Log) (*Subscription, error) {
+func (es *EventSystem[P]) SubscribeLogs(crit ethereum.FilterQuery, logs chan []*types.Log) (*Subscription[P], error) {
 	var from, to rpc.BlockNumber
 	if crit.FromBlock == nil {
 		from = rpc.LatestBlockNumber
@@ -225,7 +226,7 @@ func (es *EventSystem) SubscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 
 // subscribeMinedPendingLogs creates a subscription that returned mined and
 // pending logs that match the given criteria.
-func (es *EventSystem) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription {
+func (es *EventSystem[P]) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription[P] {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       MinedAndPendingLogsSubscription,
@@ -242,7 +243,7 @@ func (es *EventSystem) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs
 
 // subscribeLogs creates a subscription that will write all logs matching the
 // given criteria to the given logs channel.
-func (es *EventSystem) subscribeLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription {
+func (es *EventSystem[P]) subscribeLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription[P] {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       LogsSubscription,
@@ -259,7 +260,7 @@ func (es *EventSystem) subscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 
 // subscribePendingLogs creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) subscribePendingLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription {
+func (es *EventSystem[P]) subscribePendingLogs(crit ethereum.FilterQuery, logs chan []*types.Log) *Subscription[P] {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       PendingLogsSubscription,
@@ -276,7 +277,7 @@ func (es *EventSystem) subscribePendingLogs(crit ethereum.FilterQuery, logs chan
 
 // SubscribeNewHeads creates a subscription that writes the header of a block that is
 // imported in the chain.
-func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscription {
+func (es *EventSystem[P]) SubscribeNewHeads(headers chan *types.Header) *Subscription[P] {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       BlocksSubscription,
@@ -292,7 +293,7 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 
 // SubscribePendingTxs creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscription {
+func (es *EventSystem[P]) SubscribePendingTxs(hashes chan []common.Hash) *Subscription[P] {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       PendingTransactionsSubscription,
@@ -308,7 +309,7 @@ func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscript
 
 type filterIndex map[Type]map[rpc.ID]*subscription
 
-func (es *EventSystem) handleLogs(filters filterIndex, ev []*types.Log) {
+func (es *EventSystem[P]) handleLogs(filters filterIndex, ev []*types.Log) {
 	if len(ev) == 0 {
 		return
 	}
@@ -320,7 +321,7 @@ func (es *EventSystem) handleLogs(filters filterIndex, ev []*types.Log) {
 	}
 }
 
-func (es *EventSystem) handlePendingLogs(filters filterIndex, ev []*types.Log) {
+func (es *EventSystem[P]) handlePendingLogs(filters filterIndex, ev []*types.Log) {
 	if len(ev) == 0 {
 		return
 	}
@@ -332,7 +333,7 @@ func (es *EventSystem) handlePendingLogs(filters filterIndex, ev []*types.Log) {
 	}
 }
 
-func (es *EventSystem) handleRemovedLogs(filters filterIndex, ev core.RemovedLogsEvent) {
+func (es *EventSystem[P]) handleRemovedLogs(filters filterIndex, ev core.RemovedLogsEvent[P]) {
 	for _, f := range filters[LogsSubscription] {
 		matchedLogs := filterLogs(ev.Logs, f.logsCrit.FromBlock, f.logsCrit.ToBlock, f.logsCrit.Addresses, f.logsCrit.Topics, f.logsCrit.PSI)
 		if len(matchedLogs) > 0 {
@@ -341,7 +342,7 @@ func (es *EventSystem) handleRemovedLogs(filters filterIndex, ev core.RemovedLog
 	}
 }
 
-func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
+func (es *EventSystem[P]) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent[P]) {
 	hashes := make([]common.Hash, 0, len(ev.Txs))
 	for _, tx := range ev.Txs {
 		hashes = append(hashes, tx.Hash())
@@ -351,7 +352,7 @@ func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) 
 	}
 }
 
-func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent) {
+func (es *EventSystem[P]) handleChainEvent(filters filterIndex, ev core.ChainEvent[P]) {
 	for _, f := range filters[BlocksSubscription] {
 		f.headers <- ev.Block.Header()
 	}
@@ -366,7 +367,7 @@ func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent)
 	}
 }
 
-func (es *EventSystem) lightFilterNewHead(newHeader *types.Header, callBack func(*types.Header, bool)) {
+func (es *EventSystem[P]) lightFilterNewHead(newHeader *types.Header, callBack func(*types.Header, bool)) {
 	oldh := es.lastHead
 	es.lastHead = newHeader
 	if oldh == nil {
@@ -400,7 +401,7 @@ func (es *EventSystem) lightFilterNewHead(newHeader *types.Header, callBack func
 }
 
 // filter logs of a single header in light client mode
-func (es *EventSystem) lightFilterLogs(header *types.Header, addresses []common.Address, topics [][]common.Hash, remove bool) []*types.Log {
+func (es *EventSystem[P]) lightFilterLogs(header *types.Header, addresses []common.Address, topics [][]common.Hash, remove bool) []*types.Log {
 	if bloomFilter(header.Bloom, addresses, topics) {
 		// Get the logs of the block
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -440,7 +441,7 @@ func (es *EventSystem) lightFilterLogs(header *types.Header, addresses []common.
 }
 
 // eventLoop (un)installs filters and processes mux events.
-func (es *EventSystem) eventLoop() {
+func (es *EventSystem[P]) eventLoop() {
 	// Ensure all subscriptions get cleaned up
 	defer func() {
 		es.txsSub.Unsubscribe()

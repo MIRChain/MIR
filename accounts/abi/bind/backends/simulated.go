@@ -70,7 +70,7 @@ type SimulatedBackend [P crypto.PublicKey] struct {
 	pendingBlock *types.Block[P]   // Currently pending block that will be imported on request
 	pendingState *state.StateDB // Currently pending state that will be the active on request
 
-	events *filters.EventSystem // Event system for filtering log events live
+	events *filters.EventSystem[P] // Event system for filtering log events live
 
 	config *params.ChainConfig
 }
@@ -81,13 +81,13 @@ type SimulatedBackend [P crypto.PublicKey] struct {
 func NewSimulatedBackendWithDatabase[P crypto.PublicKey](database ethdb.Database, alloc core.GenesisAlloc, gasLimit uint64) *SimulatedBackend[P] {
 	genesis := core.Genesis[P]{Config: params.AllEthashProtocolChanges, GasLimit: gasLimit, Alloc: alloc}
 	genesis.MustCommit(database)
-	blockchain, _ := core.NewBlockChain[P](database, nil, genesis.Config, ethash.NewFaker(), vm.Config[P]{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[P](database, nil, genesis.Config, ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
 
 	backend := &SimulatedBackend[P]{
 		database:   database,
 		blockchain: blockchain,
 		config:     genesis.Config,
-		events:     filters.NewEventSystem(&filterBackend[P]{database, blockchain}, false),
+		events:     filters.NewEventSystem[P](&filterBackend[P]{database, blockchain}, false),
 	}
 	backend.rollback()
 	return backend
@@ -96,12 +96,12 @@ func NewSimulatedBackendWithDatabase[P crypto.PublicKey](database ethdb.Database
 // Quorum
 //
 // Create a simulated backend based on existing Ethereum service
-func NewSimulatedBackendFrom[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T]) *SimulatedBackend[P] {
+func NewSimulatedBackendFrom[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P]) *SimulatedBackend[P] {
 	backend := &SimulatedBackend[P]{
 		database:   ethereum.ChainDb(),
 		blockchain: ethereum.BlockChain(),
 		config:     ethereum.BlockChain().Config(),
-		events:     filters.NewEventSystem(&filterBackend{ethereum.ChainDb(), ethereum.BlockChain()}, false),
+		events:     filters.NewEventSystem[P](&filterBackend[P]{ethereum.ChainDb(), ethereum.BlockChain()}, false),
 	}
 	backend.rollback()
 	return backend
@@ -141,7 +141,7 @@ func (b *SimulatedBackend[P]) Rollback() {
 }
 
 func (b *SimulatedBackend[P]) rollback() {
-	blocks, _ := core.GenerateChain(b.config, b.blockchain.CurrentBlock(), ethash.NewFaker(), b.database, 1, func(int, *core.BlockGen[P]) {})
+	blocks, _ := core.GenerateChain(b.config, b.blockchain.CurrentBlock(), ethash.NewFaker[P](), b.database, 1, func(int, *core.BlockGen[P]) {})
 
 	b.pendingBlock = blocks[0]
 	b.pendingState, _ = state.New(b.pendingBlock.Root(), b.blockchain.StateCache(), nil)
@@ -591,7 +591,7 @@ func (b *SimulatedBackend[P]) SendTransaction(ctx context.Context, tx *types.Tra
 	}
 
 	// Include tx in chain.
-	blocks, _ := core.GenerateChain(b.config, block, ethash.NewFaker(), b.database, 1, func(number int, block *core.BlockGen[P]) {
+	blocks, _ := core.GenerateChain(b.config, block, ethash.NewFaker[P](), b.database, 1, func(number int, block *core.BlockGen[P]) {
 		for _, tx := range b.pendingBlock.Transactions() {
 			block.AddTxWithChain(b.blockchain, tx)
 		}
@@ -618,10 +618,10 @@ func (b *SimulatedBackend[P]) DistributeTransaction(ctx context.Context, tx *typ
 //
 // TODO(karalabe): Deprecate when the subscription one can return past data too.
 func (b *SimulatedBackend[P]) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
-	var filter *filters.Filter
+	var filter *filters.Filter[P]
 	if query.BlockHash != nil {
 		// Block filter requested, construct a single-shot filter
-		filter = filters.NewBlockFilter(&filterBackend[P]{b.database, b.blockchain}, *query.BlockHash, query.Addresses, query.Topics, query.PSI)
+		filter = filters.NewBlockFilter[P](&filterBackend[P]{b.database, b.blockchain}, *query.BlockHash, query.Addresses, query.Topics, query.PSI)
 	} else {
 		// Initialize unset filter boundaries to run from genesis to chain head
 		from := int64(0)
@@ -633,7 +633,7 @@ func (b *SimulatedBackend[P]) FilterLogs(ctx context.Context, query ethereum.Fil
 			to = query.ToBlock.Int64()
 		}
 		// Construct the range filter
-		filter = filters.NewRangeFilter(&filterBackend[P]{b.database, b.blockchain}, from, to, query.Addresses, query.Topics, query.PSI)
+		filter = filters.NewRangeFilter[P](&filterBackend[P]{b.database, b.blockchain}, from, to, query.Addresses, query.Topics, query.PSI)
 	}
 	// Run the filter and return all the logs
 	logs, err := filter.Logs(ctx)
@@ -718,7 +718,7 @@ func (b *SimulatedBackend[P]) AdjustTime(adjustment time.Duration) error {
 		return errors.New("Could not adjust time on non-empty block")
 	}
 
-	blocks, _ := core.GenerateChain(b.config, b.blockchain.CurrentBlock(), ethash.NewFaker(), b.database, 1, func(number int, block *core.BlockGen[P]) {
+	blocks, _ := core.GenerateChain(b.config, b.blockchain.CurrentBlock(), ethash.NewFaker[P](), b.database, 1, func(number int, block *core.BlockGen[P]) {
 		block.OffsetTime(int64(adjustment.Seconds()))
 	})
 	stateDB, _, _ := b.blockchain.State()

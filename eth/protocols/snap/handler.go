@@ -24,6 +24,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/light"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
@@ -59,19 +60,19 @@ const (
 
 // Handler is a callback to invoke from an outside runner after the boilerplate
 // exchanges have passed.
-type Handler func(peer *Peer) error
+type Handler[T crypto.PrivateKey, P crypto.PublicKey] func(peer *Peer[T,P]) error
 
 // Backend defines the data retrieval methods to serve remote requests and the
 // callback methods to invoke on remote deliveries.
-type Backend interface {
+type Backend [T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// Chain retrieves the blockchain object to serve data.
-	Chain() *core.BlockChain
+	Chain() *core.BlockChain[P]
 
 	// RunPeer is invoked when a peer joins on the `eth` protocol. The handler
 	// should do any peer maintenance work, handshakes and validations. If all
 	// is passed, control should be given back to the `handler` to process the
 	// inbound messages going forward.
-	RunPeer(peer *Peer, handler Handler) error
+	RunPeer(peer *Peer[T,P], handler Handler[T,P]) error
 
 	// PeerInfo retrieves all known `snap` information about a peer.
 	PeerInfo(id enode.ID) interface{}
@@ -79,27 +80,27 @@ type Backend interface {
 	// Handle is a callback to be invoked when a data packet is received from
 	// the remote peer. Only packets not consumed by the protocol handler will
 	// be forwarded to the backend.
-	Handle(peer *Peer, packet Packet) error
+	Handle(peer *Peer[T,P], packet Packet) error
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `snap`.
-func MakeProtocols(backend Backend, dnsdisc enode.Iterator) []p2p.Protocol {
+func MakeProtocols[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], dnsdisc enode.Iterator[P]) []p2p.Protocol[T,P] {
 	// Filter the discovery iterator for nodes advertising snap support.
-	dnsdisc = enode.Filter(dnsdisc, func(n *enode.Node) bool {
+	dnsdisc = enode.Filter(dnsdisc, func(n *enode.Node[P]) bool {
 		var snap enrEntry
 		return n.Load(&snap) == nil
 	})
 
-	protocols := make([]p2p.Protocol, len(ProtocolVersions))
+	protocols := make([]p2p.Protocol[T,P], len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
 		version := version // Closure
 
-		protocols[i] = p2p.Protocol{
+		protocols[i] = p2p.Protocol[T,P]{
 			Name:    ProtocolName,
 			Version: version,
 			Length:  protocolLengths[version],
-			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-				return backend.RunPeer(newPeer(version, p, rw), func(peer *Peer) error {
+			Run: func(p *p2p.Peer[T,P], rw p2p.MsgReadWriter) error {
+				return backend.RunPeer(newPeer(version, p, rw), func(peer *Peer[T,P]) error {
 					return handle(backend, peer)
 				})
 			},
@@ -118,7 +119,7 @@ func MakeProtocols(backend Backend, dnsdisc enode.Iterator) []p2p.Protocol {
 
 // handle is the callback invoked to manage the life cycle of a `snap` peer.
 // When this function terminates, the peer is disconnected.
-func handle(backend Backend, peer *Peer) error {
+func handle[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], peer *Peer[T,P]) error {
 	for {
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `snap`", "err", err)
@@ -130,7 +131,7 @@ func handle(backend Backend, peer *Peer) error {
 // handleMessage is invoked whenever an inbound message is received from a
 // remote peer on the `snap` protocol. The remote connection is torn down upon
 // returning any error.
-func handleMessage(backend Backend, peer *Peer) error {
+func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], peer *Peer[T,P]) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
@@ -523,6 +524,6 @@ func handleMessage(backend Backend, peer *Peer) error {
 type NodeInfo struct{}
 
 // nodeInfo retrieves some `snap` protocol metadata about the running host node.
-func nodeInfo(chain *core.BlockChain) *NodeInfo {
+func nodeInfo[P crypto.PublicKey](chain *core.BlockChain[P]) *NodeInfo {
 	return &NodeInfo{}
 }

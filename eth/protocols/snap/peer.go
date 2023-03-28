@@ -20,13 +20,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Peer is a collection of relevant information we have about a `snap` peer.
-type Peer struct {
+type Peer [T crypto.PrivateKey, P crypto.PublicKey]struct {
 	id string // Unique ID for the peer, cached
 
-	*p2p.Peer                   // The embedded P2P package peer
+	*p2p.Peer[T,P]                   // The embedded P2P package peer
 	rw        p2p.MsgReadWriter // Input/output streams for snap
 	version   uint              // Protocol version negotiated
 
@@ -35,9 +36,9 @@ type Peer struct {
 
 // newPeer create a wrapper for a network connection and negotiated  protocol
 // version.
-func newPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
+func newPeer[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter) *Peer[T,P] {
 	id := p.ID().String()
-	return &Peer{
+	return &Peer[T,P]{
 		id:      id,
 		Peer:    p,
 		rw:      rw,
@@ -47,23 +48,23 @@ func newPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 }
 
 // ID retrieves the peer's unique identifier.
-func (p *Peer) ID() string {
+func (p *Peer[T,P]) ID() string {
 	return p.id
 }
 
 // Version retrieves the peer's negoatiated `snap` protocol version.
-func (p *Peer) Version() uint {
+func (p *Peer[T,P]) Version() uint {
 	return p.version
 }
 
 // Log overrides the P2P logget with the higher level one containing only the id.
-func (p *Peer) Log() log.Logger {
+func (p *Peer[T,P]) Log() log.Logger {
 	return p.logger
 }
 
 // RequestAccountRange fetches a batch of accounts rooted in a specific account
 // trie, starting with the origin.
-func (p *Peer) RequestAccountRange(id uint64, root common.Hash, origin, limit common.Hash, bytes uint64) error {
+func (p *Peer[T,P]) RequestAccountRange(id uint64, root common.Hash, origin, limit common.Hash, bytes uint64) error {
 	p.logger.Trace("Fetching range of accounts", "reqid", id, "root", root, "origin", origin, "limit", limit, "bytes", common.StorageSize(bytes))
 
 	requestTracker.Track(p.id, p.version, GetAccountRangeMsg, AccountRangeMsg, id)
@@ -79,7 +80,7 @@ func (p *Peer) RequestAccountRange(id uint64, root common.Hash, origin, limit co
 // RequestStorageRange fetches a batch of storage slots belonging to one or more
 // accounts. If slots from only one accout is requested, an origin marker may also
 // be used to retrieve from there.
-func (p *Peer) RequestStorageRanges(id uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, bytes uint64) error {
+func (p *Peer[T,P]) RequestStorageRanges(id uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, bytes uint64) error {
 	if len(accounts) == 1 && origin != nil {
 		p.logger.Trace("Fetching range of large storage slots", "reqid", id, "root", root, "account", accounts[0], "origin", common.BytesToHash(origin), "limit", common.BytesToHash(limit), "bytes", common.StorageSize(bytes))
 	} else {
@@ -97,7 +98,7 @@ func (p *Peer) RequestStorageRanges(id uint64, root common.Hash, accounts []comm
 }
 
 // RequestByteCodes fetches a batch of bytecodes by hash.
-func (p *Peer) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint64) error {
+func (p *Peer[T,P]) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint64) error {
 	p.logger.Trace("Fetching set of byte codes", "reqid", id, "hashes", len(hashes), "bytes", common.StorageSize(bytes))
 
 	requestTracker.Track(p.id, p.version, GetByteCodesMsg, ByteCodesMsg, id)
@@ -110,7 +111,7 @@ func (p *Peer) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint64) e
 
 // RequestTrieNodes fetches a batch of account or storage trie nodes rooted in
 // a specificstate trie.
-func (p *Peer) RequestTrieNodes(id uint64, root common.Hash, paths []TrieNodePathSet, bytes uint64) error {
+func (p *Peer[T,P]) RequestTrieNodes(id uint64, root common.Hash, paths []TrieNodePathSet, bytes uint64) error {
 	p.logger.Trace("Fetching set of trie nodes", "reqid", id, "root", root, "pathsets", len(paths), "bytes", common.StorageSize(bytes))
 
 	requestTracker.Track(p.id, p.version, GetTrieNodesMsg, TrieNodesMsg, id)

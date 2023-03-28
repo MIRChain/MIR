@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/consensus"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -48,7 +49,7 @@ var (
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (ethash *Ethash[P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -86,11 +87,11 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 	}
 	// Push new work to remote sealer
 	if ethash.remote != nil {
-		ethash.remote.workCh <- &sealTask{block: block, results: results}
+		ethash.remote.workCh <- &sealTask[P]{block: block, results: results}
 	}
 	var (
 		pend   sync.WaitGroup
-		locals = make(chan *types.Block)
+		locals = make(chan *types.Block[P])
 	)
 	for i := 0; i < threads; i++ {
 		pend.Add(1)
@@ -101,7 +102,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 	}
 	// Wait until sealing is terminated or a nonce is found
 	go func() {
-		var result *types.Block
+		var result *types.Block[P]
 		select {
 		case <-stop:
 			// Outside abort, stop all miner threads
@@ -129,7 +130,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
-func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
+func (ethash *Ethash[P]) mine(block *types.Block[P], id int, seed uint64, abort chan struct{}, found chan *types.Block[P]) {
 	// Extract some data from the header
 	var (
 		header  = block.Header()
@@ -189,20 +190,20 @@ search:
 // This is the timeout for HTTP requests to notify external miners.
 const remoteSealerTimeout = 1 * time.Second
 
-type remoteSealer struct {
-	works        map[common.Hash]*types.Block
+type remoteSealer [P crypto.PublicKey] struct {
+	works        map[common.Hash]*types.Block[P]
 	rates        map[common.Hash]hashrate
-	currentBlock *types.Block
+	currentBlock *types.Block[P]
 	currentWork  [4]string
 	notifyCtx    context.Context
 	cancelNotify context.CancelFunc // cancels all notification requests
 	reqWG        sync.WaitGroup     // tracks notification request goroutines
 
-	ethash       *Ethash
+	ethash       *Ethash[P]
 	noverify     bool
 	notifyURLs   []string
-	results      chan<- *types.Block
-	workCh       chan *sealTask   // Notification channel to push new work and relative result channel to remote sealer
+	results      chan<- *types.Block[P]
+	workCh       chan *sealTask[P]   // Notification channel to push new work and relative result channel to remote sealer
 	fetchWorkCh  chan *sealWork   // Channel used for remote sealer to fetch mining work
 	submitWorkCh chan *mineResult // Channel used for remote sealer to submit their mining result
 	fetchRateCh  chan chan uint64 // Channel used to gather submitted hash rate for local or remote sealer.
@@ -212,9 +213,9 @@ type remoteSealer struct {
 }
 
 // sealTask wraps a seal block with relative result channel for remote sealer thread.
-type sealTask struct {
-	block   *types.Block
-	results chan<- *types.Block
+type sealTask [P crypto.PublicKey] struct {
+	block   *types.Block[P]
+	results chan<- *types.Block[P]
 }
 
 // mineResult wraps the pow solution parameters for the specified block.
@@ -241,17 +242,17 @@ type sealWork struct {
 	res  chan [4]string
 }
 
-func startRemoteSealer(ethash *Ethash, urls []string, noverify bool) *remoteSealer {
+func startRemoteSealer[P crypto.PublicKey](ethash *Ethash[P], urls []string, noverify bool) *remoteSealer[P] {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &remoteSealer{
+	s := &remoteSealer[P]{
 		ethash:       ethash,
 		noverify:     noverify,
 		notifyURLs:   urls,
 		notifyCtx:    ctx,
 		cancelNotify: cancel,
-		works:        make(map[common.Hash]*types.Block),
+		works:        make(map[common.Hash]*types.Block[P]),
 		rates:        make(map[common.Hash]hashrate),
-		workCh:       make(chan *sealTask),
+		workCh:       make(chan *sealTask[P]),
 		fetchWorkCh:  make(chan *sealWork),
 		submitWorkCh: make(chan *mineResult),
 		fetchRateCh:  make(chan chan uint64),
@@ -263,7 +264,7 @@ func startRemoteSealer(ethash *Ethash, urls []string, noverify bool) *remoteSeal
 	return s
 }
 
-func (s *remoteSealer) loop() {
+func (s *remoteSealer[P]) loop() {
 	defer func() {
 		s.ethash.config.Log.Trace("Ethash remote sealer is exiting")
 		s.cancelNotify()
@@ -342,7 +343,7 @@ func (s *remoteSealer) loop() {
 //   result[1], 32 bytes hex encoded seed hash used for DAG
 //   result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
 //   result[3], hex encoded block number
-func (s *remoteSealer) makeWork(block *types.Block) {
+func (s *remoteSealer[P]) makeWork(block *types.Block[P]) {
 	hash := s.ethash.SealHash(block.Header())
 	s.currentWork[0] = hash.Hex()
 	s.currentWork[1] = common.BytesToHash(SeedHash(block.NumberU64())).Hex()
@@ -356,7 +357,7 @@ func (s *remoteSealer) makeWork(block *types.Block) {
 
 // notifyWork notifies all the specified mining endpoints of the availability of
 // new work to be processed.
-func (s *remoteSealer) notifyWork() {
+func (s *remoteSealer[P]) notifyWork() {
 	work := s.currentWork
 
 	// Encode the JSON payload of the notification. When NotifyFull is set,
@@ -374,7 +375,7 @@ func (s *remoteSealer) notifyWork() {
 	}
 }
 
-func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []byte, work [4]string) {
+func (s *remoteSealer[P]) sendNotification(ctx context.Context, url string, json []byte, work [4]string) {
 	defer s.reqWG.Done()
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(json))
@@ -399,7 +400,7 @@ func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []
 // submitWork verifies the submitted pow solution, returning
 // whether the solution was accepted or not (not can be both a bad pow as well as
 // any other error, like no pending work or stale mining result).
-func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash) bool {
+func (s *remoteSealer[P]) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash) bool {
 	if s.currentBlock == nil {
 		s.ethash.config.Log.Error("Pending work without block", "sealhash", sealhash)
 		return false

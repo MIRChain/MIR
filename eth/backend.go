@@ -40,6 +40,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/eth/filters"
@@ -70,28 +72,28 @@ import (
 type Config = ethconfig.Config
 
 // Ethereum implements the Ethereum full node service.
-type Ethereum [T crypto.PrivateKey ] struct {
+type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	config *ethconfig.Config
 
 	// Handlers
-	txPool             *core.TxPool
-	blockchain         *core.BlockChain
+	txPool             *core.TxPool[P]
+	blockchain         *core.BlockChain[P]
 	handler            *handler
-	ethDialCandidates  enode.Iterator
-	snapDialCandidates enode.Iterator
+	ethDialCandidates  enode.Iterator[P]
+	snapDialCandidates enode.Iterator[P]
 
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
 
 	eventMux       *event.TypeMux
-	engine         consensus.Engine
-	accountManager *accounts.Manager
+	engine         consensus.Engine[P]
+	accountManager *accounts.Manager[P]
 
 	bloomRequests     chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
-	bloomIndexer      *core.ChainIndexer             // Bloom indexer operating during block imports
+	bloomIndexer      *core.ChainIndexer[P]          // Bloom indexer operating during block imports
 	closeBloomHandler chan struct{}
 
-	APIBackend *EthAPIBackend
+	APIBackend *EthAPIBackend[T,P]
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -100,20 +102,20 @@ type Ethereum [T crypto.PrivateKey ] struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	p2pServer *p2p.Server[T]
+	p2pServer *p2p.Server[T,P]
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
 	// Quorum - consensus as eth-service (e.g. raft)
 	consensusServicePendingLogsFeed *event.Feed
 	qlightServerHandler             *handler
-	qlightP2pServer                 *p2p.Server[T]
+	qlightP2pServer                 *p2p.Server[T,P]
 	qlightTokenHolder               *qlight.TokenHolder
 }
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*Ethereum[T], error) {
+func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config *ethconfig.Config) (*Ethereum[T,P], error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -177,7 +179,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 		rawdb.WriteQuorumEIP155Activation(chainDb)
 	}
 
-	eth := &Ethereum[T]{
+	eth := &Ethereum[T,P]{
 		config:            config,
 		chainDb:           chainDb,
 		eventMux:          stack.EventMux(),
@@ -188,7 +190,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 		gasPrice:          config.Miner.GasPrice,
 		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
-		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
+		bloomIndexer:      core.NewBloomIndexer[P](chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
 		// Quorum
 		qlightP2pServer:                 stack.QServer(),
@@ -213,7 +215,17 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 
 	// force to set the istanbul etherbase to node key address
 	if chainConfig.Istanbul != nil || chainConfig.IBFT != nil || chainConfig.QBFT != nil {
-		eth.etherbase = crypto.PubkeyToAddress(stack.GetNodeKey().PublicKey)
+		key:= stack.GetNodeKey()
+		var pub P
+		switch t:=any(&key).(type) {
+		case *nist.PrivateKey:
+			p:=any(&pub).(*nist.PublicKey)
+			*p = *t.Public()
+		case *gost3410.PrivateKey:
+			p:=any(&pub).(*gost3410.PublicKey)
+			*p = *t.Public()
+		}
+		eth.etherbase = crypto.PubkeyToAddress(pub)
 	}
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -236,7 +248,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 		}
 	}
 	var (
-		vmConfig = vm.Config{
+		vmConfig = vm.Config[P]{
 			EnablePreimageRecording: config.EnablePreimageRecording,
 			EWASMInterpreter:        config.EWASMInterpreter,
 			EVMInterpreter:          config.EVMInterpreter,
@@ -253,9 +265,9 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 			Preimages:           config.Preimages,
 		}
 	)
-	newBlockChainFunc := core.NewBlockChain
+	newBlockChainFunc := core.NewBlockChain[P]
 	if config.QuorumChainConfig.MultiTenantEnabled() {
-		newBlockChainFunc = core.NewMultitenantBlockChain
+		newBlockChainFunc = core.NewMultitenantBlockChain[P]
 	}
 	eth.blockchain, err = newBlockChainFunc(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, &config.TxLookupLimit, &config.QuorumChainConfig)
 	if err != nil {
@@ -282,7 +294,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
+	eth.txPool = core.NewTxPool[P](config.TxPool, chainConfig, eth.blockchain)
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit
@@ -379,7 +391,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 				RaftMode:                 config.RaftMode,
 				Engine:                   eth.engine,
 				authProvider:             qlight.NewAuthProvider(eth.blockchain.PrivateStateManager(), authManProvider),
-				privateBlockDataResolver: qlight.NewPrivateBlockDataResolver(eth.blockchain.PrivateStateManager(), private.P),
+				privateBlockDataResolver: qlight.NewPrivateBlockDataResolver(eth.blockchain.PrivateStateManager(), private.Ptm),
 			}); err != nil {
 				return nil, err
 			}
@@ -388,8 +400,17 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData, eth.blockchain.Config().IsQuorum))
-
-	hexNodeId := fmt.Sprintf("%x", crypto.FromECDSAPub(&stack.GetNodeKey().PublicKey)[1:]) // Quorum
+	key := stack.GetNodeKey()
+	var pub P
+	switch t:=any(&key).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
+	hexNodeId := fmt.Sprintf("%x", crypto.FromECDSAPub(pub)[1:]) // Quorum
 	if eth.config.QuorumLightClient.Enabled() {
 		var (
 			proxyClient *rpc.Client
@@ -429,13 +450,13 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 			proxyClient = proxyClient.WithPSI(types.PrivateStateIdentifier(eth.config.QuorumLightClient.PSI))
 		}
 		// TODO qlight - need to find a better way to inject the rpc client into the tx manager
-		rpcClientSetter, ok := private.P.(private.HasRPCClient)
+		rpcClientSetter, ok := private.Ptm.(private.HasRPCClient)
 		if ok {
 			rpcClientSetter.SetRPCClient(proxyClient)
 		}
-		eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil, hexNodeId, config.EVMCallTimeOut, proxyClient}
+		eth.APIBackend = &EthAPIBackend[T,P]{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil, hexNodeId, config.EVMCallTimeOut, proxyClient}
 	} else {
-		eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil, hexNodeId, config.EVMCallTimeOut, nil}
+		eth.APIBackend = &EthAPIBackend[T,P]{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil, hexNodeId, config.EVMCallTimeOut, nil}
 	}
 
 	if eth.APIBackend.allowUnprotectedTxs {
@@ -448,7 +469,7 @@ func New[T crypto.PrivateKey ](stack *node.Node[T], config *ethconfig.Config) (*
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
 	// Setup DNS discovery iterators.
-	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
+	dnsclient := dnsdisc.NewClient[T,P](dnsdisc.Config{})
 	eth.ethDialCandidates, err = dnsclient.NewIterator(eth.config.EthDiscoveryURLs...)
 	if err != nil {
 		return nil, err
@@ -504,7 +525,7 @@ func makeExtraData(extra []byte, isQuorum bool) []byte {
 	return extra
 }
 
-func (s *Ethereum) QLightClientAPIs() []rpc.API {
+func (s *Ethereum[T,P]) QLightClientAPIs() []rpc.API {
 	return []rpc.API{
 		{
 			Namespace: "qlight",
@@ -517,7 +538,7 @@ func (s *Ethereum) QLightClientAPIs() []rpc.API {
 
 // APIs return the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
-func (s *Ethereum) APIs() []rpc.API {
+func (s *Ethereum[T,P]) APIs() []rpc.API {
 	apis := ethapi.GetAPIs(s.APIBackend)
 
 	// Append any APIs exposed explicitly by the consensus engine
@@ -548,7 +569,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.APIBackend, false, 5*time.Minute),
+			Service:   filters.NewPublicFilterAPI[P](s.APIBackend, false, 5*time.Minute),
 			Public:    true,
 		}, {
 			Namespace: "admin",
@@ -573,11 +594,11 @@ func (s *Ethereum) APIs() []rpc.API {
 	return apis
 }
 
-func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
+func (s *Ethereum[T,P]) ResetWithGenesisBlock(gb *types.Block[P]) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *Ethereum) Etherbase() (eb common.Address, err error) {
+func (s *Ethereum[T,P]) Etherbase() (eb common.Address, err error) {
 	s.lock.RLock()
 	etherbase := s.etherbase
 	s.lock.RUnlock()
@@ -605,7 +626,7 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 //
 // We regard two types of accounts as local miner account: etherbase
 // and accounts specified via `txpool.locals` flag.
-func (s *Ethereum) isLocalBlock(block *types.Block) bool {
+func (s *Ethereum[T,P]) isLocalBlock(block *types.Block[P]) bool {
 	author, err := s.engine.Author(block.Header())
 	if err != nil {
 		log.Warn("Failed to retrieve block author", "number", block.NumberU64(), "hash", block.Hash(), "err", err)
@@ -631,7 +652,7 @@ func (s *Ethereum) isLocalBlock(block *types.Block) bool {
 // shouldPreserve checks whether we should preserve the given block
 // during the chain reorg depending on whether the author of block
 // is a local account.
-func (s *Ethereum) shouldPreserve(block *types.Block) bool {
+func (s *Ethereum[T,P]) shouldPreserve(block *types.Block[P]) bool {
 	// The reason we need to disable the self-reorg preserving for clique
 	// is it can be probable to introduce a deadlock.
 	//
@@ -656,7 +677,7 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 
 // SetEtherbase sets the mining reward address.
 // Quorum: method now has a return value
-func (s *Ethereum) SetEtherbase(etherbase common.Address) bool {
+func (s *Ethereum[T,P]) SetEtherbase(etherbase common.Address) bool {
 	//Quorum
 	consensusAlgo := s.handler.getConsensusAlgorithm()
 	if consensusAlgo == "istanbul" || consensusAlgo == "clique" || consensusAlgo == "raft" {
@@ -676,7 +697,7 @@ func (s *Ethereum) SetEtherbase(etherbase common.Address) bool {
 // StartMining starts the miner with the given number of CPU threads. If mining
 // is already running, this method adjust the number of threads allowed to use
 // and updates the minimum price required by the transaction pool.
-func (s *Ethereum) StartMining(threads int) error {
+func (s *Ethereum[T,P]) StartMining(threads int) error {
 	// Update the thread count within the consensus engine
 	type threaded interface {
 		SetThreads(threads int)
@@ -721,7 +742,7 @@ func (s *Ethereum) StartMining(threads int) error {
 
 // StopMining terminates the miner, both at the consensus engine level as well as
 // at the block creation level.
-func (s *Ethereum) StopMining() {
+func (s *Ethereum[T,P]) StopMining() {
 	// Update the thread count within the consensus engine
 	type threaded interface {
 		SetThreads(threads int)
@@ -733,20 +754,20 @@ func (s *Ethereum) StopMining() {
 	s.miner.Stop()
 }
 
-func (s *Ethereum) IsMining() bool      { return s.miner.Mining() }
-func (s *Ethereum) Miner() *miner.Miner { return s.miner }
+func (s *Ethereum[T,P]) IsMining() bool      { return s.miner.Mining() }
+func (s *Ethereum[T,P]) Miner() *miner.Miner { return s.miner }
 
-func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager }
-func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
-func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
-func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
-func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
-func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
-func (s *Ethereum) IsListening() bool                  { return true } // Always listening
-func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
-func (s *Ethereum) Synced() bool                       { return atomic.LoadUint32(&s.handler.acceptTxs) == 1 }
-func (s *Ethereum) ArchiveMode() bool                  { return s.config.NoPruning }
-func (s *Ethereum) BloomIndexer() *core.ChainIndexer   { return s.bloomIndexer }
+func (s *Ethereum[T,P]) AccountManager() *accounts.Manager[P]  { return s.accountManager }
+func (s *Ethereum[T,P]) BlockChain() *core.BlockChain[P]      { return s.blockchain }
+func (s *Ethereum[T,P]) TxPool() *core.TxPool[P]               { return s.txPool }
+func (s *Ethereum[T,P]) EventMux() *event.TypeMux           { return s.eventMux }
+func (s *Ethereum[T,P]) Engine() consensus.Engine[P]           { return s.engine }
+func (s *Ethereum[T,P]) ChainDb() ethdb.Database            { return s.chainDb }
+func (s *Ethereum[T,P]) IsListening() bool                  { return true } // Always listening
+func (s *Ethereum[T,P]) Downloader() *downloader.Downloader { return s.handler.downloader }
+func (s *Ethereum[T,P]) Synced() bool                       { return atomic.LoadUint32(&s.handler.acceptTxs) == 1 }
+func (s *Ethereum[T,P]) ArchiveMode() bool                  { return s.config.NoPruning }
+func (s *Ethereum[T,P]) BloomIndexer() *core.ChainIndexer[P]   { return s.bloomIndexer }
 
 // Quorum
 // adds quorum specific protocols to the Protocols() function which in the associated upstream geth version returns
@@ -761,7 +782,7 @@ func (s *Ethereum) BloomIndexer() *core.ChainIndexer   { return s.bloomIndexer }
 
 // Protocols returns all the currently configured
 // network protocols to start.
-func (s *Ethereum) Protocols() []p2p.Protocol {
+func (s *Ethereum[T,P]) Protocols() []p2p.Protocol[T,P] {
 	if s.config.QuorumLightClient.Enabled() {
 		protos := qlightproto.MakeProtocolsClient((*qlightClientHandler)(s.handler), s.networkID, s.ethDialCandidates)
 		return protos
@@ -783,14 +804,14 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 	return protos
 }
 
-func (s *Ethereum) QProtocols() []p2p.Protocol {
+func (s *Ethereum[T,P]) QProtocols() []p2p.Protocol[T,P] {
 	protos := qlightproto.MakeProtocolsServer((*qlightServerHandler)(s.qlightServerHandler), s.networkID, s.ethDialCandidates)
 	return protos
 }
 
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
-func (s *Ethereum) Start() error {
+func (s *Ethereum[T,P]) Start() error {
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 
 	// Start the bloom bits servicing goroutines
@@ -819,7 +840,7 @@ func (s *Ethereum) Start() error {
 
 // Stop implements node.Lifecycle, terminating all internal goroutines used by the
 // Ethereum protocol.
-func (s *Ethereum) Stop() error {
+func (s *Ethereum[T,P]) Stop() error {
 	// Stop all the peer-related stuff first.
 	if s.config.QuorumLightClient.Enabled() {
 		s.handler.StopQLightClient()
@@ -846,7 +867,7 @@ func (s *Ethereum) Stop() error {
 	return nil
 }
 
-func (s *Ethereum) CalcGasLimit(block *types.Block) uint64 {
+func (s *Ethereum[T,P]) CalcGasLimit(block *types.Block[P]) uint64 {
 	minGasLimit := params.DefaultMinGasLimit
 	if s != nil && s.config != nil && s.config.Genesis != nil {
 		minGasLimit = s.config.Genesis.Config.GetMinerMinGasLimit(block.Number(), params.DefaultMinGasLimit)
@@ -856,13 +877,13 @@ func (s *Ethereum) CalcGasLimit(block *types.Block) uint64 {
 
 // (Quorum)
 // ConsensusServicePendingLogsFeed returns an event.Feed.  When the consensus protocol does not use eth.worker (e.g. raft), the event.Feed should be used to send logs from transactions included in the pending block
-func (s *Ethereum) ConsensusServicePendingLogsFeed() *event.Feed {
+func (s *Ethereum[T,P]) ConsensusServicePendingLogsFeed() *event.Feed {
 	return s.consensusServicePendingLogsFeed
 }
 
 // (Quorum)
 // SubscribePendingLogs starts delivering logs from transactions included in the consensus engine's pending block to the given channel.
-func (s *Ethereum) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
+func (s *Ethereum[T,P]) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
 	if s.config.RaftMode {
 		return s.consensusServicePendingLogsFeed.Subscribe(ch)
 	}
@@ -871,7 +892,7 @@ func (s *Ethereum) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscripti
 
 // NotifyRegisteredPluginService will ask to refresh the plugin service
 // (Quorum)
-func (s *Ethereum) NotifyRegisteredPluginService(pluginManager *plugin.PluginManager) error {
+func (s *Ethereum[T,P]) NotifyRegisteredPluginService(pluginManager *plugin.PluginManager) error {
 	if s.qlightTokenHolder == nil {
 		return nil
 	}

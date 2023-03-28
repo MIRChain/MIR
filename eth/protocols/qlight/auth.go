@@ -6,7 +6,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 )
 
-func (p *Peer) PeriodicAuthCheck() {
+func (p *Peer[T,P]) PeriodicAuthCheck() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 

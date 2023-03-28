@@ -19,6 +19,7 @@ package eth
 import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/forkid"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
@@ -38,8 +39,8 @@ func (e enrEntry) ENRKey() string {
 
 // StartENRUpdater starts the `eth` ENR updater loop, which listens for chain
 // head events and updates the requested node record whenever a fork is passed.
-func StartENRUpdater(chain *core.BlockChain, ln *enode.LocalNode) {
-	var newHead = make(chan core.ChainHeadEvent, 10)
+func StartENRUpdater[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChain[P], ln *enode.LocalNode[T,P]) {
+	var newHead = make(chan core.ChainHeadEvent[P], 10)
 	sub := chain.SubscribeChainHeadEvent(newHead)
 
 	go func() {
@@ -58,7 +59,7 @@ func StartENRUpdater(chain *core.BlockChain, ln *enode.LocalNode) {
 }
 
 // currentENREntry constructs an `eth` ENR entry based on the current state of the chain.
-func currentENREntry(chain *core.BlockChain) *enrEntry {
+func currentENREntry[P crypto.PublicKey](chain *core.BlockChain[P]) *enrEntry {
 	return &enrEntry{
 		ForkID: forkid.NewID(chain.Config(), chain.Genesis().Hash(), chain.CurrentHeader().Number.Uint64()),
 	}

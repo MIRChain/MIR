@@ -30,23 +30,24 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ethHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
-type ethHandler handler
+type ethHandler [T crypto.PrivateKey,P crypto.PublicKey] handler
 
-func (h *ethHandler) Chain() *core.BlockChain     { return h.chain }
-func (h *ethHandler) StateBloom() *trie.SyncBloom { return h.stateBloom }
-func (h *ethHandler) TxPool() eth.TxPool          { return h.txpool }
+func (h *ethHandler[T,P]) Chain() *core.BlockChain[P]     { return h.chain }
+func (h *ethHandler[T,P]) StateBloom() *trie.SyncBloom { return h.stateBloom }
+func (h *ethHandler[T,P]) TxPool() eth.TxPool          { return h.txpool }
 
 // RunPeer is invoked when a peer joins on the `eth` protocol.
-func (h *ethHandler) RunPeer(peer *eth.Peer, hand eth.Handler) error {
+func (h *ethHandler[T,P]) RunPeer(peer *eth.Peer[T,P], hand eth.Handler) error {
 	return (*handler)(h).runEthPeer(peer, hand)
 }
 
 // PeerInfo retrieves all known `eth` information about a peer.
-func (h *ethHandler) PeerInfo(id enode.ID) interface{} {
+func (h *ethHandler[T,P]) PeerInfo(id enode.ID) interface{} {
 	if p := h.peers.peer(id.String()); p != nil {
 		return p.info()
 	}
@@ -55,13 +56,13 @@ func (h *ethHandler) PeerInfo(id enode.ID) interface{} {
 
 // AcceptTxs retrieves whether transaction processing is enabled on the node
 // or if inbound transactions should simply be dropped.
-func (h *ethHandler) AcceptTxs() bool {
+func (h *ethHandler[T,P]) AcceptTxs() bool {
 	return atomic.LoadUint32(&h.acceptTxs) == 1
 }
 
 // Handle is invoked from a peer's message handler when it receives a new remote
 // message that the handler couldn't consume and serve itself.
-func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
+func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 	// Consume any broadcasts and announces, forwarding the rest to the downloader
 	switch packet := packet.(type) {
 	case *eth.BlockHeadersPacket:
@@ -106,7 +107,7 @@ func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 // handleHeaders is invoked from a peer's message handler when it transmits a batch
 // of headers for the local node to process.
-func (h *ethHandler) handleHeaders(peer *eth.Peer, headers []*types.Header) error {
+func (h *ethHandler[T,P]) handleHeaders(peer *eth.Peer[T,P], headers []*types.Header) error {
 	p := h.peers.peer(peer.ID())
 	if p == nil {
 		return errors.New("unregistered during callback")
@@ -162,7 +163,7 @@ func (h *ethHandler) handleHeaders(peer *eth.Peer, headers []*types.Header) erro
 
 // handleBodies is invoked from a peer's message handler when it transmits a batch
 // of block bodies for the local node to process.
-func (h *ethHandler) handleBodies(peer *eth.Peer, txs [][]*types.Transaction, uncles [][]*types.Header) error {
+func (h *ethHandler[T,P]) handleBodies(peer *eth.Peer[T,P], txs [][]*types.Transaction[P], uncles [][]*types.Header) error {
 	// Filter out any explicitly requested bodies, deliver the rest to the downloader
 	filter := len(txs) > 0 || len(uncles) > 0
 	if filter {
@@ -179,7 +180,7 @@ func (h *ethHandler) handleBodies(peer *eth.Peer, txs [][]*types.Transaction, un
 
 // handleBlockAnnounces is invoked from a peer's message handler when it transmits a
 // batch of block announcements for the local node to process.
-func (h *ethHandler) handleBlockAnnounces(peer *eth.Peer, hashes []common.Hash, numbers []uint64) error {
+func (h *ethHandler[T,P]) handleBlockAnnounces(peer *eth.Peer[T,P], hashes []common.Hash, numbers []uint64) error {
 	// Schedule all the unknown hashes for retrieval
 	var (
 		unknownHashes  = make([]common.Hash, 0, len(hashes))
@@ -199,7 +200,7 @@ func (h *ethHandler) handleBlockAnnounces(peer *eth.Peer, hashes []common.Hash, 
 
 // handleBlockBroadcast is invoked from a peer's message handler when it transmits a
 // block broadcast for the local node to process.
-func (h *ethHandler) handleBlockBroadcast(peer *eth.Peer, block *types.Block, td *big.Int) error {
+func (h *ethHandler[T,P]) handleBlockBroadcast(peer *eth.Peer[T,P], block *types.Block[P], td *big.Int) error {
 	// Schedule the block for import
 	h.blockFetcher.Enqueue(peer.ID(), block)
 

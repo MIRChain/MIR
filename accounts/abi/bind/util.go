@@ -24,11 +24,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // WaitMined waits for tx to be mined on the blockchain.
 // It stops waiting when the context is canceled.
-func WaitMined(ctx context.Context, b DeployBackend, tx *types.Transaction[P]) (*types.Receipt, error) {
+func WaitMined[P crypto.PublicKey](ctx context.Context, b DeployBackend[P], tx *types.Transaction[P]) (*types.Receipt[P], error) {
 	queryTicker := time.NewTicker(time.Second)
 	defer queryTicker.Stop()
 
@@ -54,7 +55,7 @@ func WaitMined(ctx context.Context, b DeployBackend, tx *types.Transaction[P]) (
 
 // WaitDeployed waits for a contract deployment transaction and returns the on-chain
 // contract address when it is mined. It stops waiting when ctx is canceled.
-func WaitDeployed(ctx context.Context, b DeployBackend, tx *types.Transaction[P]) (common.Address, error) {
+func WaitDeployed[P crypto.PublicKey](ctx context.Context, b DeployBackend[P], tx *types.Transaction[P]) (common.Address, error) {
 	if tx.To() != nil {
 		return common.Address{}, errors.New("tx is not contract creation")
 	}

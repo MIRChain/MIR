@@ -443,7 +443,7 @@ type Ethash [P crypto.PublicKey] struct {
 	threads  int           // Number of threads to mine on if mining
 	update   chan struct{} // Notification channel to update mining parameters
 	hashrate metrics.Meter // Meter tracking the average hashrate
-	remote   *remoteSealer
+	remote   *remoteSealer[P]
 
 	// The fields below are hooks for testing
 	shared    *Ethash[P]       // Shared PoW verifier to avoid cache regeneration
@@ -676,13 +676,13 @@ func (ethash *Ethash[P]) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 		{
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   &API{ethash},
+			Service:   &API[P]{ethash},
 			Public:    true,
 		},
 		{
 			Namespace: "ethash",
 			Version:   "1.0",
-			Service:   &API{ethash},
+			Service:   &API[P]{ethash},
 			Public:    true,
 		},
 	}

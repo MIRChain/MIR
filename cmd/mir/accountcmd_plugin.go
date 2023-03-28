@@ -237,7 +237,7 @@ func (c *accountPlugin) teardown() error {
 }
 
 func (c *accountPlugin) accounts() []accounts.Account {
-	b := c.am.Backends(pluggable.BackendType)
+	b := c.am.Backends(reflect.TypeOf(&pluggable.Backend{}))
 	if b == nil {
 		return []accounts.Account{}
 	}

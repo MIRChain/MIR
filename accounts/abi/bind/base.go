@@ -94,13 +94,13 @@ type BoundContract [P crypto.PublicKey] struct {
 	address    common.Address     // Deployment address of the contract on the Ethereum blockchain
 	abi        abi.ABI            // Reflect based ABI to access the correct Ethereum methods
 	caller     ContractCaller     // Read interface to interact with the blockchain
-	transactor ContractTransactor // Write interface to interact with the blockchain
+	transactor ContractTransactor[P] // Write interface to interact with the blockchain
 	filterer   ContractFilterer   // Event filtering to interact with the blockchain
 }
 
 // NewBoundContract creates a low level contract interface through which calls
 // and transactions may be made through.
-func NewBoundContract[P crypto.PublicKey](address common.Address, abi abi.ABI, caller ContractCaller, transactor ContractTransactor, filterer ContractFilterer) *BoundContract[P] {
+func NewBoundContract[P crypto.PublicKey](address common.Address, abi abi.ABI, caller ContractCaller, transactor ContractTransactor[P], filterer ContractFilterer) *BoundContract[P] {
 	return &BoundContract[P]{
 		address:    address,
 		abi:        abi,
@@ -112,7 +112,7 @@ func NewBoundContract[P crypto.PublicKey](address common.Address, abi abi.ABI, c
 
 // DeployContract deploys a contract onto the Ethereum blockchain and binds the
 // deployment address with a Go wrapper.
-func DeployContract[P crypto.PublicKey](opts *TransactOpts[P], abi abi.ABI, bytecode []byte, backend ContractBackend, params ...interface{}) (common.Address, *types.Transaction[P], *BoundContract[P], error) {
+func DeployContract[P crypto.PublicKey](opts *TransactOpts[P], abi abi.ABI, bytecode []byte, backend ContractBackend[P], params ...interface{}) (common.Address, *types.Transaction[P], *BoundContract[P], error) {
 	// Otherwise try to deploy the contract
 	c := NewBoundContract[P](common.Address{}, abi, backend, backend, backend)
 

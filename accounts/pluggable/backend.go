@@ -1,7 +1,6 @@
 package pluggable
 
 import (
-	"reflect"
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
@@ -10,7 +9,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-var BackendType = reflect.TypeOf(&Backend{})
+// var BackendType = reflect.TypeOf(&Backend{})
 
 type Backend [P crypto.PublicKey]struct {
 	wallets []accounts.Wallet[P]
@@ -19,7 +18,7 @@ type Backend [P crypto.PublicKey]struct {
 func NewBackend[P crypto.PublicKey]() *Backend[P] {
 	return &Backend[P]{
 		wallets: []accounts.Wallet[P]{
-			&wallet{
+			&wallet[P]{
 				url: accounts.URL{
 					Scheme: "plugin",
 					Path:   "account",
@@ -70,6 +69,6 @@ func (b *Backend[P]) ImportRawKey(rawKey string, newAccountConfig interface{}) (
 	return b.wallet().importRawKey(rawKey, newAccountConfig)
 }
 
-func (b *Backend[P]) wallet() *wallet {
-	return b.wallets[0].(*wallet)
+func (b *Backend[P]) wallet() *wallet[P] {
+	return b.wallets[0].(*wallet[P])
 }

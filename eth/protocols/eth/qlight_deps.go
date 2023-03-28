@@ -5,33 +5,34 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 )
 
-func CurrentENREntry(chain *core.BlockChain) *enrEntry {
+func CurrentENREntry[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChain[P]) *enrEntry {
 	return currentENREntry(chain)
 }
 
-func NodeInfoFunc(chain *core.BlockChain, network uint64) *NodeInfo {
-	return nodeInfo(chain, network)
+func NodeInfoFunc[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChain[P], network uint64) *NodeInfo {
+	return nodeInfo[T,P](chain, network)
 }
 
-var ETH_65_FULL_SYNC = map[uint64]msgHandler{
-	// old 64 messages
-	GetBlockHeadersMsg: handleGetBlockHeaders,
-	BlockHeadersMsg:    handleBlockHeaders,
-	GetBlockBodiesMsg:  handleGetBlockBodies,
-	BlockBodiesMsg:     handleBlockBodies,
-	NewBlockHashesMsg:  handleNewBlockhashes,
-	NewBlockMsg:        handleNewBlock,
-	TransactionsMsg:    handleTransactions,
-	// New eth65 messages
-	NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
-	GetPooledTransactionsMsg:      handleGetPooledTransactions,
-	PooledTransactionsMsg:         handlePooledTransactions,
-}
+// var ETH_65_FULL_SYNC = map[uint64]MsgHandler{
+// 	// old 64 messages
+// 	GetBlockHeadersMsg: handleGetBlockHeaders,
+// 	BlockHeadersMsg:    handleBlockHeaders,
+// 	GetBlockBodiesMsg:  handleGetBlockBodies,
+// 	BlockBodiesMsg:     handleBlockBodies,
+// 	NewBlockHashesMsg:  handleNewBlockhashes,
+// 	NewBlockMsg:        handleNewBlock,
+// 	TransactionsMsg:    handleTransactions,
+// 	// New eth65 messages
+// 	NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
+// 	GetPooledTransactionsMsg:      handleGetPooledTransactions,
+// 	PooledTransactionsMsg:         handlePooledTransactions,
+// }
 
-func NewPeerWithTxBroadcast(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
+func NewPeerWithTxBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T,P] {
 	peer := NewPeerNoBroadcast(version, p, rw, txpool)
 	// Start up all the broadcasters
 	go peer.broadcastTransactions()
@@ -41,16 +42,16 @@ func NewPeerWithTxBroadcast(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txp
 	return peer
 }
 
-func NewPeerNoBroadcast(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
-	peer := &Peer{
+func NewPeerNoBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T,P] {
+	peer := &Peer[T,P]{
 		id:              p.ID().String(),
 		Peer:            p,
 		rw:              rw,
 		version:         version,
 		knownTxs:        mapset.NewSet(),
 		knownBlocks:     mapset.NewSet(),
-		queuedBlocks:    make(chan *blockPropagation, maxQueuedBlocks),
-		queuedBlockAnns: make(chan *types.Block, maxQueuedBlockAnns),
+		queuedBlocks:    make(chan *blockPropagation[P], maxQueuedBlocks),
+		queuedBlockAnns: make(chan *types.Block[P], maxQueuedBlockAnns),
 		txBroadcast:     make(chan []common.Hash),
 		txAnnounce:      make(chan []common.Hash),
 		txpool:          txpool,
@@ -59,10 +60,10 @@ func NewPeerNoBroadcast(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool 
 	return peer
 }
 
-func (p *Peer) MarkBlock(hash common.Hash) {
+func (p *Peer[T,P]) MarkBlock(hash common.Hash) {
 	p.markBlock(hash)
 }
 
-func (p *Peer) MarkTransaction(hash common.Hash) {
+func (p *Peer[T,P]) MarkTransaction(hash common.Hash) {
 	p.markTransaction(hash)
 }

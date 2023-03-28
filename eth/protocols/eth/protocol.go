@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/forkid"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -118,7 +119,7 @@ func (p *NewBlockHashesPacket) Unpack() ([]common.Hash, []uint64) {
 }
 
 // TransactionsPacket is the network packet for broadcasting new transactions.
-type TransactionsPacket []*types.Transaction
+type TransactionsPacket[P crypto.PublicKey]  []*types.Transaction[P]
 
 // GetBlockHeadersPacket represents a block header query.
 type GetBlockHeadersPacket struct {
@@ -180,13 +181,13 @@ type BlockHeadersPacket66 struct {
 }
 
 // NewBlockPacket is the network packet for the block propagation message.
-type NewBlockPacket struct {
-	Block *types.Block
+type NewBlockPacket [P crypto.PublicKey] struct {
+	Block *types.Block[P]
 	TD    *big.Int
 }
 
 // sanityCheck verifies that the values are reasonable, as a DoS protection
-func (request *NewBlockPacket) sanityCheck() error {
+func (request *NewBlockPacket[P]) sanityCheck() error {
 	if err := request.Block.SanityCheck(); err != nil {
 		return err
 	}
@@ -208,12 +209,12 @@ type GetBlockBodiesPacket66 struct {
 }
 
 // BlockBodiesPacket is the network packet for block content distribution.
-type BlockBodiesPacket []*BlockBody
+type BlockBodiesPacket[P crypto.PublicKey] []*BlockBody[P]
 
 // BlockBodiesPacket is the network packet for block content distribution over eth/66.
-type BlockBodiesPacket66 struct {
+type BlockBodiesPacket66 [P crypto.PublicKey] struct {
 	RequestId uint64
-	BlockBodiesPacket
+	BlockBodiesPacket[P]
 }
 
 // BlockBodiesRLPPacket is used for replying to block body requests, in cases
@@ -228,16 +229,16 @@ type BlockBodiesRLPPacket66 struct {
 }
 
 // BlockBody represents the data content of a single block.
-type BlockBody struct {
-	Transactions []*types.Transaction // Transactions contained within a block
+type BlockBody [P crypto.PublicKey] struct {
+	Transactions []*types.Transaction[P] // Transactions contained within a block
 	Uncles       []*types.Header      // Uncles contained within a block
 }
 
 // Unpack retrieves the transactions and uncles from the range packet and returns
 // them in a split flat format that's more consistent with the internal data structures.
-func (p *BlockBodiesPacket) Unpack() ([][]*types.Transaction, [][]*types.Header) {
+func (p *BlockBodiesPacket[P]) Unpack() ([][]*types.Transaction[P], [][]*types.Header) {
 	var (
-		txset    = make([][]*types.Transaction, len(*p))
+		txset    = make([][]*types.Transaction[P], len(*p))
 		uncleset = make([][]*types.Header, len(*p))
 	)
 	for i, body := range *p {
@@ -274,12 +275,12 @@ type GetReceiptsPacket66 struct {
 }
 
 // ReceiptsPacket is the network packet for block receipts distribution.
-type ReceiptsPacket [][]*types.Receipt
+type ReceiptsPacket[P crypto.PublicKey] [][]*types.Receipt[P]
 
 // ReceiptsPacket is the network packet for block receipts distribution over eth/66.
-type ReceiptsPacket66 struct {
+type ReceiptsPacket66 [P crypto.PublicKey] struct {
 	RequestId uint64
-	ReceiptsPacket
+	ReceiptsPacket[P]
 }
 
 // ReceiptsRLPPacket is used for receipts, when we already have it encoded
@@ -303,12 +304,12 @@ type GetPooledTransactionsPacket66 struct {
 }
 
 // PooledTransactionsPacket is the network packet for transaction distribution.
-type PooledTransactionsPacket []*types.Transaction
+type PooledTransactionsPacket[P crypto.PublicKey] []*types.Transaction[P]
 
 // PooledTransactionsPacket is the network packet for transaction distribution over eth/66.
-type PooledTransactionsPacket66 struct {
+type PooledTransactionsPacket66[P crypto.PublicKey] struct {
 	RequestId uint64
-	PooledTransactionsPacket
+	PooledTransactionsPacket[P]
 }
 
 // PooledTransactionsPacket is the network packet for transaction distribution, used
@@ -327,8 +328,8 @@ func (*StatusPacket) Kind() byte   { return StatusMsg }
 func (*NewBlockHashesPacket) Name() string { return "NewBlockHashes" }
 func (*NewBlockHashesPacket) Kind() byte   { return NewBlockHashesMsg }
 
-func (*TransactionsPacket) Name() string { return "Transactions" }
-func (*TransactionsPacket) Kind() byte   { return TransactionsMsg }
+func (*TransactionsPacket[P]) Name() string { return "Transactions" }
+func (*TransactionsPacket[P]) Kind() byte   { return TransactionsMsg }
 
 func (*GetBlockHeadersPacket) Name() string { return "GetBlockHeaders" }
 func (*GetBlockHeadersPacket) Kind() byte   { return GetBlockHeadersMsg }
@@ -339,11 +340,11 @@ func (*BlockHeadersPacket) Kind() byte   { return BlockHeadersMsg }
 func (*GetBlockBodiesPacket) Name() string { return "GetBlockBodies" }
 func (*GetBlockBodiesPacket) Kind() byte   { return GetBlockBodiesMsg }
 
-func (*BlockBodiesPacket) Name() string { return "BlockBodies" }
-func (*BlockBodiesPacket) Kind() byte   { return BlockBodiesMsg }
+func (*BlockBodiesPacket[P]) Name() string { return "BlockBodies" }
+func (*BlockBodiesPacket[P]) Kind() byte   { return BlockBodiesMsg }
 
-func (*NewBlockPacket) Name() string { return "NewBlock" }
-func (*NewBlockPacket) Kind() byte   { return NewBlockMsg }
+func (*NewBlockPacket[P]) Name() string { return "NewBlock" }
+func (*NewBlockPacket[P]) Kind() byte   { return NewBlockMsg }
 
 func (*GetNodeDataPacket) Name() string { return "GetNodeData" }
 func (*GetNodeDataPacket) Kind() byte   { return GetNodeDataMsg }
@@ -354,8 +355,8 @@ func (*NodeDataPacket) Kind() byte   { return NodeDataMsg }
 func (*GetReceiptsPacket) Name() string { return "GetReceipts" }
 func (*GetReceiptsPacket) Kind() byte   { return GetReceiptsMsg }
 
-func (*ReceiptsPacket) Name() string { return "Receipts" }
-func (*ReceiptsPacket) Kind() byte   { return ReceiptsMsg }
+func (*ReceiptsPacket[P]) Name() string { return "Receipts" }
+func (*ReceiptsPacket[P]) Kind() byte   { return ReceiptsMsg }
 
 func (*NewPooledTransactionHashesPacket) Name() string { return "NewPooledTransactionHashes" }
 func (*NewPooledTransactionHashesPacket) Kind() byte   { return NewPooledTransactionHashesMsg }
@@ -363,5 +364,5 @@ func (*NewPooledTransactionHashesPacket) Kind() byte   { return NewPooledTransac
 func (*GetPooledTransactionsPacket) Name() string { return "GetPooledTransactions" }
 func (*GetPooledTransactionsPacket) Kind() byte   { return GetPooledTransactionsMsg }
 
-func (*PooledTransactionsPacket) Name() string { return "PooledTransactions" }
-func (*PooledTransactionsPacket) Kind() byte   { return PooledTransactionsMsg }
+func (*PooledTransactionsPacket[P]) Name() string { return "PooledTransactions" }
+func (*PooledTransactionsPacket[P]) Kind() byte   { return PooledTransactionsMsg }

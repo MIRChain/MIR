@@ -118,7 +118,7 @@ func (ks *KeyStore[T,P]) init(keydir string) {
 	accs := ks.cache.accounts()
 	ks.wallets = make([]accounts.Wallet[P], len(accs))
 	for i := 0; i < len(accs); i++ {
-		ks.wallets[i] = &keystoreWallet{account: accs[i], keystore: ks}
+		ks.wallets[i] = &keystoreWallet[T,P]{account: accs[i], keystore: ks}
 	}
 }
 
@@ -157,7 +157,7 @@ func (ks *KeyStore[T,P]) refreshWallets() {
 		}
 		// If there are no more wallets or the account is before the next, wrap new wallet
 		if len(ks.wallets) == 0 || ks.wallets[0].URL().Cmp(account.URL) > 0 {
-			wallet := &keystoreWallet{account: account, keystore: ks}
+			wallet := &keystoreWallet[T,P]{account: account, keystore: ks}
 
 			events = append(events, accounts.WalletEvent[P]{Wallet: wallet, Kind: accounts.WalletArrived})
 			wallets = append(wallets, wallet)
@@ -502,7 +502,7 @@ func (ks *KeyStore[T,P]) Update(a accounts.Account, passphrase, newPassphrase st
 // ImportPreSaleKey decrypts the given Ethereum presale wallet and stores
 // a key file in the key directory. The key file is encrypted with the same passphrase.
 func (ks *KeyStore[T,P]) ImportPreSaleKey(keyJSON []byte, passphrase string) (accounts.Account, error) {
-	a, _, err := importPreSaleKey(ks.storage, keyJSON, passphrase)
+	a, _, err := importPreSaleKey[T,P](ks.storage, keyJSON, passphrase)
 	if err != nil {
 		return a, err
 	}

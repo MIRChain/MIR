@@ -802,7 +802,20 @@ func (h *handler) handleConsensus(p *eth.Peer, protoRW p2p.MsgReadWriter, fallTh
 	}
 
 	if fallThroughBackend != nil {
-		var handlers = eth.ETH_65_FULL_SYNC
+		var handlers = map[uint64]eth.MsgHandler[T,P]{
+			// old 64 messages
+			GetBlockHeadersMsg: handleGetBlockHeaders,
+			BlockHeadersMsg:    handleBlockHeaders,
+			GetBlockBodiesMsg:  handleGetBlockBodies,
+			BlockBodiesMsg:     handleBlockBodies,
+			NewBlockHashesMsg:  handleNewBlockhashes,
+			NewBlockMsg:        handleNewBlock,
+			TransactionsMsg:    handleTransactions,
+			// New eth65 messages
+			NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
+			GetPooledTransactionsMsg:      handleGetPooledTransactions,
+			PooledTransactionsMsg:         handlePooledTransactions,
+		}
 
 		p.Log().Trace("Message not handled by legacy sub-protocol", "msg", msg.Code)
 

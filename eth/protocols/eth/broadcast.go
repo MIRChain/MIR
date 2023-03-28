@@ -21,6 +21,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -31,15 +32,15 @@ const (
 
 // blockPropagation is a block propagation event, waiting for its turn in the
 // broadcast queue.
-type blockPropagation struct {
-	block *types.Block
+type blockPropagation [P crypto.PublicKey] struct {
+	block *types.Block[P]
 	td    *big.Int
 }
 
 // broadcastBlocks is a write loop that multiplexes blocks and block accouncements
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer) broadcastBlocks() {
+func (p *Peer[T,P]) broadcastBlocks() {
 	for {
 		select {
 		case prop := <-p.queuedBlocks:
@@ -63,7 +64,7 @@ func (p *Peer) broadcastBlocks() {
 // broadcastTransactions is a write loop that schedules transaction broadcasts
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer) broadcastTransactions() {
+func (p *Peer[T,P]) broadcastTransactions() {
 	var (
 		queue  []common.Hash         // Queue of hashes to broadcast as full transactions
 		done   chan struct{}         // Non-nil if background broadcaster is running
@@ -76,7 +77,7 @@ func (p *Peer) broadcastTransactions() {
 			// Pile transaction until we reach our allowed network limit
 			var (
 				hashes []common.Hash
-				txs    []*types.Transaction
+				txs    []*types.Transaction[P]
 				size   common.StorageSize
 			)
 			for i := 0; i < len(queue) && size < maxTxPacketSize; i++ {
@@ -130,7 +131,7 @@ func (p *Peer) broadcastTransactions() {
 // announceTransactions is a write loop that schedules transaction broadcasts
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer) announceTransactions() {
+func (p *Peer[T,P]) announceTransactions() {
 	var (
 		queue  []common.Hash         // Queue of hashes to announce as transaction stubs
 		done   chan struct{}         // Non-nil if background announcer is running
