@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -44,6 +45,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/debug"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/internal/flags"
@@ -198,7 +200,7 @@ The setpw command stores a password for a given address (keyfile).
 The delpw command removes a password for a given address (keyfile).
 `}
 	newAccountCommand = cli.Command{
-		Action:    utils.MigrateFlags(newAccount),
+		Action:    utils.MigrateFlags(newAccount[nist.PrivateKey,nist.PublicKey]),
 		Name:      "newaccount",
 		Usage:     "Create a new account",
 		ArgsUsage: "",
@@ -295,7 +297,7 @@ func init() {
 		utils.PluginPublicKeyFlag,
 		utils.PluginSkipVerifyFlag,
 	}
-	app.Action = signer
+	app.Action = signer[nist.PrivateKey,nist.PublicKey]
 	app.Commands = []cli.Command{initCommand,
 		attestCommand,
 		setCredentialCommand,
@@ -495,7 +497,7 @@ func removeCredential(ctx *cli.Context) error {
 	return nil
 }
 
-func newAccount(c *cli.Context) error {
+func newAccount[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	if err := initialize(c); err != nil {
 		return err
 	}
@@ -508,7 +510,7 @@ func newAccount(c *cli.Context) error {
 		lightKdf                  = c.GlobalBool(utils.LightKDFFlag.Name)
 	)
 	log.Info("Starting clef", "keystore", ksLoc, "light-kdf", lightKdf)
-	am, _, err := startClefAccountManagerWithPlugins(c, ksLoc, true, lightKdf, "")
+	am, _, err := startClefAccountManagerWithPlugins[T,P](c, ksLoc, true, lightKdf, "")
 	if err != nil {
 		return err
 	}
@@ -569,7 +571,7 @@ func ipcEndpoint(ipcPath, datadir string) string {
 	return ipcPath
 }
 
-func signer(c *cli.Context) error {
+func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	// If we have some unrecognized command, bail out
 	if args := c.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
@@ -651,7 +653,7 @@ func signer(c *cli.Context) error {
 	log.Info("Starting signer", "chainid", chainId, "keystore", ksLoc,
 		"light-kdf", lightKdf, "advanced", advanced)
 
-	am, pm, err := startClefAccountManagerWithPlugins(c, ksLoc, nousb, lightKdf, scpath)
+	am, pm, err := startClefAccountManagerWithPlugins[T,P](c, ksLoc, nousb, lightKdf, scpath)
 	if err != nil {
 		return err
 	}
@@ -756,8 +758,8 @@ func signer(c *cli.Context) error {
 
 // <Quorum/>
 // startPluginManager gets plugin config and starts a new PluginManager
-func startPluginManager(c *cli.Context) (*plugin.PluginManager, *plugin.Settings, error) {
-	nodeConf := new(node.Config)
+func startPluginManager[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) (*plugin.PluginManager, *plugin.Settings, error) {
+	nodeConf := new(node.Config[T,P])
 	if err := utils.SetPlugins(c, nodeConf); err != nil {
 		return nil, nil, err
 	}
@@ -1184,7 +1186,7 @@ func GenDoc(ctx *cli.Context) {
 			"The `OnApproved` method cannot be responded to, it's purely informative"
 
 		rlpdata := common.FromHex("0xf85d640101948a8eafb1cf62bfbeb1741769dae1a9dd47996192018026a0716bd90515acb1e68e5ac5867aa11a1e65399c3349d479f5fb698554ebc6f293a04e8a4ebfff434e971e0ef12c5bf3a881b06fd04fc3f8b8a7291fb67a26a1d4ed")
-		var tx types.Transaction
+		var tx types.Transaction[nist.PublicKey]
 		tx.UnmarshalBinary(rlpdata)
 		add("OnApproved - SignTransactionResult", desc, &ethapi.SignTransactionResult{Raw: rlpdata, Tx: &tx})
 
@@ -1230,7 +1232,7 @@ These data types are defined in the channel between clef and the UI`)
 
 // Quorum
 // startClefAccountManagerWithPlugins - wrapped function to create a CLEF account manager with Plugin Support
-func startClefAccountManagerWithPlugins(c *cli.Context, ksLocation string, nousb, lightKDF bool, scpath string) (*accounts.Manager, *plugin.PluginManager, error) {
+func startClefAccountManagerWithPlugins[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context, ksLocation string, nousb, lightKDF bool, scpath string) (*accounts.Manager[P], *plugin.PluginManager, error) {
 	var err error
 	// <Quorum> start the plugin manager
 	var (
@@ -1239,7 +1241,7 @@ func startClefAccountManagerWithPlugins(c *cli.Context, ksLocation string, nousb
 	)
 	if c.IsSet(utils.PluginSettingsFlag.Name) {
 		log.Info("Using plugins")
-		pm, pluginConf, err = startPluginManager(c)
+		pm, pluginConf, err = startPluginManager[T,P](c)
 		if err != nil {
 			utils.Fatalf(err.Error())
 		}
@@ -1268,7 +1270,7 @@ func startClefAccountManagerWithPlugins(c *cli.Context, ksLocation string, nousb
 
 	// <Quorum> setup the pluggable accounts backend with the plugin
 	if pm != nil && pm.IsEnabled(plugin.AccountPluginInterfaceName) {
-		b := am.Backends(pluggable.BackendType)[0].(*pluggable.Backend)
+		b := am.Backends(reflect.TypeOf(&pluggable.Backend[P]{}))[0].(*pluggable.Backend)
 		if err := pm.AddAccountPluginToBackend(b); err != nil {
 			return nil, nil, err
 		}

@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
@@ -294,12 +295,12 @@ func accountCreate(ctx *cli.Context) error {
 
 // accountUpdate transitions an account from a previous format to the current
 // one, also providing the possibility to change the pass-phrase.
-func accountUpdate(ctx *cli.Context) error {
+func accountUpdate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if len(ctx.Args()) == 0 {
 		utils.Fatalf("No accounts specified to update")
 	}
-	stack, _ := makeConfigNode(ctx)
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	stack, _ := makeConfigNode[T,P](ctx)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore)
 
 	for _, addr := range ctx.Args() {
 		account, oldPassword := unlockAccount(ks, addr, 0, nil)
@@ -324,7 +325,7 @@ func importWallet(ctx *cli.Context) error {
 	stack, _ := makeConfigNode(ctx)
 	passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
 
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
 	acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
 	if err != nil {
 		utils.Fatalf("%v", err)
@@ -345,7 +346,7 @@ func accountImport(ctx *cli.Context) error {
 	stack, _ := makeConfigNode(ctx)
 	passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
 	acct, err := ks.ImportECDSA(key, passphrase)
 	if err != nil {
 		utils.Fatalf("Could not create the account: %v", err)

@@ -35,14 +35,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/google/uuid"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
@@ -70,7 +73,7 @@ const (
 	scryptDKLen = 32
 )
 
-type keyStorePassphrase struct {
+type keyStorePassphrase [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	keysDirPath string
 	scryptN     int
 	scryptP     int
@@ -80,13 +83,13 @@ type keyStorePassphrase struct {
 	skipKeyFileVerification bool
 }
 
-func (ks keyStorePassphrase) GetKey(addr common.Address, filename, auth string) (*Key, error) {
+func (ks keyStorePassphrase[T,P]) GetKey(addr common.Address, filename, auth string) (*Key[T], error) {
 	// Load the key from the keystore and decrypt its contents
 	keyjson, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	key, err := DecryptKey(keyjson, auth)
+	key, err := DecryptKey[T,P](keyjson, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -98,13 +101,13 @@ func (ks keyStorePassphrase) GetKey(addr common.Address, filename, auth string) 
 }
 
 // StoreKey generates a key, encrypts with 'auth' and stores in the given directory
-func StoreKey(dir, auth string, scryptN, scryptP int) (accounts.Account, error) {
-	_, a, err := storeNewKey(&keyStorePassphrase{dir, scryptN, scryptP, false}, rand.Reader, auth)
+func StoreKey[T crypto.PrivateKey, P crypto.PublicKey](dir, auth string, scryptN, scryptP int) (accounts.Account, error) {
+	_, a, err := storeNewKey[T,P](&keyStorePassphrase[T,P] {dir, scryptN, scryptP, false}, rand.Reader, auth)
 	return a, err
 }
 
-func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) error {
-	keyjson, err := EncryptKey(key, auth, ks.scryptN, ks.scryptP)
+func (ks keyStorePassphrase[T,P]) StoreKey(filename string, key *Key[T], auth string) error {
+	keyjson, err := EncryptKey[T,P](key, auth, ks.scryptN, ks.scryptP)
 	if err != nil {
 		return err
 	}
@@ -130,7 +133,7 @@ func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) er
 	return os.Rename(tmpName, filename)
 }
 
-func (ks keyStorePassphrase) JoinPath(filename string) string {
+func (ks keyStorePassphrase[T,P]) JoinPath(filename string) string {
 	if filepath.IsAbs(filename) {
 		return filename
 	}
@@ -183,8 +186,15 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 
 // EncryptKey encrypts a key using the specified scrypt parameters into a json
 // blob that can be decrypted later on.
-func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
-	keyBytes := math.PaddedBigBytes(key.PrivateKey.D, 32)
+func EncryptKey[T crypto.PrivateKey, P crypto.PublicKey](key *Key[T], auth string, scryptN, scryptP int) ([]byte, error) {
+	var D *big.Int
+	switch t:= any(&key.PrivateKey).(type) {
+	case *nist.PrivateKey:
+		*D = *t.D
+	case *gost3410.PrivateKey:
+		*D = *t.Key
+	}
+	keyBytes := math.PaddedBigBytes(D, 32)
 	cryptoStruct, err := EncryptDataV3(keyBytes, []byte(auth), scryptN, scryptP)
 	if err != nil {
 		return nil, err
@@ -199,7 +209,7 @@ func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
 }
 
 // DecryptKey decrypts a key from a json blob, returning the private key itself.
-func DecryptKey(keyjson []byte, auth string) (*Key, error) {
+func DecryptKey[T crypto.PrivateKey, P crypto.PublicKey](keyjson []byte, auth string) (*Key[T], error) {
 	// Parse the json into a simple map to fetch the key version
 	m := make(map[string]interface{})
 	if err := json.Unmarshal(keyjson, &m); err != nil {
@@ -227,14 +237,23 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := crypto.ToECDSAUnsafe(keyBytes)
+	key := crypto.ToECDSAUnsafe[T](keyBytes)
 	id, err := uuid.FromBytes(keyId)
 	if err != nil {
 		return nil, err
 	}
-	return &Key{
+	var pub P
+	switch t:= any(&key).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p=*t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p=*t.Public()
+	}
+	return &Key[T]{
 		Id:         id,
-		Address:    crypto.PubkeyToAddress(key.PublicKey),
+		Address:    crypto.PubkeyToAddress(pub),
 		PrivateKey: key,
 	}, nil
 }

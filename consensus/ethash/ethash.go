@@ -34,11 +34,12 @@ import (
 	"unsafe"
 
 	"github.com/edsrzf/mmap-go"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pavelkrolevets/MIR-pro/consensus"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
@@ -48,7 +49,8 @@ var (
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
 	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash *Ethash
+	// sharedEthash *Ethash
+	sharedConfig Config
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -58,12 +60,12 @@ var (
 )
 
 func init() {
-	sharedConfig := Config{
+	sharedConfig = Config{
 		PowMode:       ModeNormal,
 		CachesInMem:   3,
 		DatasetsInMem: 1,
 	}
-	sharedEthash = New(sharedConfig, nil, false)
+	// sharedEthash = New(sharedConfig, nil, false)
 }
 
 // isLittleEndian returns whether the local system is running in little or big
@@ -430,7 +432,7 @@ type Config struct {
 
 // Ethash is a consensus engine based on proof-of-work implementing the ethash
 // algorithm.
-type Ethash struct {
+type Ethash [P crypto.PublicKey] struct {
 	config Config
 
 	caches   *lru // In memory caches to avoid regenerating too often
@@ -444,7 +446,7 @@ type Ethash struct {
 	remote   *remoteSealer
 
 	// The fields below are hooks for testing
-	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
+	shared    *Ethash[P]       // Shared PoW verifier to avoid cache regeneration
 	fakeFail  uint64        // Block number which fails PoW check even in fake mode
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
@@ -455,7 +457,7 @@ type Ethash struct {
 // New creates a full sized ethash PoW scheme and starts a background thread for
 // remote mining, also optionally notifying a batch of remote services of new work
 // packages.
-func New(config Config, notify []string, noverify bool) *Ethash {
+func New[P crypto.PublicKey](config Config, notify []string, noverify bool) *Ethash[P] {
 	if config.Log == nil {
 		config.Log = log.Root()
 	}
@@ -469,7 +471,7 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		config.Log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-	ethash := &Ethash{
+	ethash := &Ethash[P]{
 		config:   config,
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
@@ -477,7 +479,7 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		hashrate: metrics.NewMeterForced(),
 	}
 	if config.PowMode == ModeShared {
-		ethash.shared = sharedEthash
+		ethash.shared = New[P](sharedConfig, nil, false)
 	}
 	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
@@ -485,15 +487,15 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 
 // NewTester creates a small sized ethash PoW scheme useful only for testing
 // purposes.
-func NewTester(notify []string, noverify bool) *Ethash {
-	return New(Config{PowMode: ModeTest}, notify, noverify)
+func NewTester[P crypto.PublicKey](notify []string, noverify bool) *Ethash[P] {
+	return New[P](Config{PowMode: ModeTest}, notify, noverify)
 }
 
 // NewFaker creates a ethash consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
-func NewFaker() *Ethash {
-	return &Ethash{
+func NewFaker[P crypto.PublicKey]() *Ethash[P] {
+	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFake,
 			Log:     log.Root(),
@@ -504,8 +506,8 @@ func NewFaker() *Ethash {
 // NewFakeFailer creates a ethash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid apart from the single one specified, though they
 // still have to conform to the Ethereum consensus rules.
-func NewFakeFailer(fail uint64) *Ethash {
-	return &Ethash{
+func NewFakeFailer[P crypto.PublicKey](fail uint64) *Ethash[P] {
+	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFake,
 			Log:     log.Root(),
@@ -517,8 +519,8 @@ func NewFakeFailer(fail uint64) *Ethash {
 // NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
-func NewFakeDelayer(delay time.Duration) *Ethash {
-	return &Ethash{
+func NewFakeDelayer[P crypto.PublicKey](delay time.Duration) *Ethash[P]{
+	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFake,
 			Log:     log.Root(),
@@ -529,8 +531,8 @@ func NewFakeDelayer(delay time.Duration) *Ethash {
 
 // NewFullFaker creates an ethash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFaker() *Ethash {
-	return &Ethash{
+func NewFullFaker[P crypto.PublicKey]() *Ethash[P]{
+	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFullFake,
 			Log:     log.Root(),
@@ -540,12 +542,12 @@ func NewFullFaker() *Ethash {
 
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
-func NewShared() *Ethash {
-	return &Ethash{shared: sharedEthash}
+func NewShared[P crypto.PublicKey]() *Ethash[P]{
+	return &Ethash[P]{shared: New[P](sharedConfig, nil, false)}
 }
 
 // Close closes the exit channel to notify all backend threads exiting.
-func (ethash *Ethash) Close() error {
+func (ethash *Ethash[P]) Close() error {
 	ethash.closeOnce.Do(func() {
 		// Short circuit if the exit channel is not allocated.
 		if ethash.remote == nil {
@@ -560,7 +562,7 @@ func (ethash *Ethash) Close() error {
 // cache tries to retrieve a verification cache for the specified block number
 // by first checking against a list of in-memory caches, then against caches
 // stored on disk, and finally generating one if none can be found.
-func (ethash *Ethash) cache(block uint64) *cache {
+func (ethash *Ethash[P]) cache(block uint64) *cache {
 	epoch := block / epochLength
 	currentI, futureI := ethash.caches.get(epoch)
 	current := currentI.(*cache)
@@ -582,7 +584,7 @@ func (ethash *Ethash) cache(block uint64) *cache {
 //
 // If async is specified, not only the future but the current DAG is also
 // generates on a background thread.
-func (ethash *Ethash) dataset(block uint64, async bool) *dataset {
+func (ethash *Ethash[P]) dataset(block uint64, async bool) *dataset {
 	// Retrieve the requested ethash dataset
 	epoch := block / epochLength
 	currentI, futureI := ethash.datasets.get(epoch)
@@ -612,7 +614,7 @@ func (ethash *Ethash) dataset(block uint64, async bool) *dataset {
 
 // Threads returns the number of mining threads currently enabled. This doesn't
 // necessarily mean that mining is running!
-func (ethash *Ethash) Threads() int {
+func (ethash *Ethash[P]) Threads() int {
 	ethash.lock.Lock()
 	defer ethash.lock.Unlock()
 
@@ -624,7 +626,7 @@ func (ethash *Ethash) Threads() int {
 // specified, the miner will use all cores of the machine. Setting a thread
 // count below zero is allowed and will cause the miner to idle, without any
 // work being done.
-func (ethash *Ethash) SetThreads(threads int) {
+func (ethash *Ethash[P]) SetThreads(threads int) {
 	ethash.lock.Lock()
 	defer ethash.lock.Unlock()
 
@@ -645,7 +647,7 @@ func (ethash *Ethash) SetThreads(threads int) {
 // per second over the last minute.
 // Note the returned hashrate includes local hashrate, but also includes the total
 // hashrate of all remote miner.
-func (ethash *Ethash) Hashrate() float64 {
+func (ethash *Ethash[P]) Hashrate() float64 {
 	if ethash.hashrate == nil {
 		return 0
 	}
@@ -667,7 +669,7 @@ func (ethash *Ethash) Hashrate() float64 {
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC APIs.
-func (ethash *Ethash) APIs(chain consensus.ChainHeaderReader) []rpc.API {
+func (ethash *Ethash[P]) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 	// In order to ensure backward compatibility, we exposes ethash RPC APIs
 	// to both eth and ethash namespaces.
 	return []rpc.API{
@@ -693,6 +695,6 @@ func SeedHash(block uint64) []byte {
 }
 
 // Protocol implements consensus.Engine.Protocol
-func (ethash *Ethash) Protocol() consensus.Protocol {
+func (ethash *Ethash[P]) Protocol() consensus.Protocol {
 	return consensus.EthProtocol
 }

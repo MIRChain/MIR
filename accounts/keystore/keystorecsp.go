@@ -34,7 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
-func (ks *KeyStore) SignHashCsp(a accounts.Account, hash []byte) ([]byte, error) {
+func (ks *KeyStore[T,P]) SignHashCsp(a accounts.Account, hash []byte) ([]byte, error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -54,10 +54,10 @@ func (ks *KeyStore) SignHashCsp(a accounts.Account, hash []byte) ([]byte, error)
 	}
 	defer crt.Close()
 	// Sign the hash using plain ECDSA operations
-	return crypto.SignCsp(hash, &crt)
+	return crypto.Sign(hash, &crt)
 }
 
-func (ks *KeyStore) DeleteCsp(a accounts.Account, passphrase string) error {
+func (ks *KeyStore[T,P]) DeleteCsp(a accounts.Account, passphrase string) error {
 	// Decrypting the key isn't really necessary, but we do
 	// it anyway to check the password and zero out the key
 	// immediately afterwards.
@@ -79,7 +79,7 @@ func (ks *KeyStore) DeleteCsp(a accounts.Account, passphrase string) error {
 	return err
 }
 
-func (ks *KeyStore) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
+func (ks *KeyStore[T,P]) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -99,19 +99,21 @@ func (ks *KeyStore) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chai
 		return nil, err
 	}
 	defer crt.Close()
-
+	var priv T
+	t := any(&priv).(*csp.Cert)
+	*t = crt
 	// start quorum specific
 	if tx.IsPrivate() {
 		log.Info("Private transaction signing with QuorumPrivateTxSigner")
-		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner[P]{}, unlockedKey.KeyCsp.SubjectKeyId)
+		return types.SignTx[T,P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
 	} // End quorum specific
 
 	// Depending on the presence of the chain ID, sign with 2718 or homestead
-	signer := types.LatestSignerForChainID(chainID)
-	return types.SignTxCsp(tx, signer, unlockedKey.KeyCsp.SubjectKeyId)
+	signer := types.LatestSignerForChainID[P](chainID)
+	return types.SignTx[T,P](tx, signer, priv)
 }
 
-func (ks *KeyStore) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, hash []byte) (signature []byte, err error) {
+func (ks *KeyStore[T,P]) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, hash []byte) (signature []byte, err error) {
 	_, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return nil, err
@@ -126,23 +128,36 @@ func (ks *KeyStore) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId s
 		return nil, err
 	}
 	defer crt.Close()
-	return crypto.SignCsp(hash, &crt)
+	return crypto.Sign(hash, &crt)
 }
 
-func (ks *KeyStore) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
+func (ks *KeyStore[T,P]) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	_, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return nil, err
 	}
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	crt, err := store.GetBySubjectId(key.SubjectKeyId)
+	if err != nil {
+		return nil, err
+	}
+	defer crt.Close()
+	var priv T
+	t := any(&priv).(*csp.Cert)
+	*t = crt
 	if tx.IsPrivate() {
-		return types.SignTxCsp(tx, types.QuorumPrivateTxSigner[P]{}, key.SubjectKeyId)
+		return types.SignTx[T,P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
 	}
 	// Depending on the presence of the chain ID, sign with or without replay protection.
-	signer := types.LatestSignerForChainID(chainID)
-	return types.SignTxCsp(tx, signer, key.SubjectKeyId)
+	signer := types.LatestSignerForChainID[P](chainID)
+	return types.SignTx[T,P](tx, signer, priv)
 }
 
-func (ks *KeyStore) getDecryptedKeyCsp(a accounts.Account) (accounts.Account, *KeyCsp, error) {
+func (ks *KeyStore[T,P]) getDecryptedKeyCsp(a accounts.Account) (accounts.Account, *KeyCsp, error) {
 	a, err := ks.Find(a)
 	if err != nil {
 		return a, nil, err
@@ -151,8 +166,8 @@ func (ks *KeyStore) getDecryptedKeyCsp(a accounts.Account) (accounts.Account, *K
 	return a, key, err
 }
 
-func (ks *KeyStore) NewAccountCsp(subjectKeyId string) (accounts.Account, error) {
-	_, account, err := storeNewKeyCsp(ks.storage, crand.Reader, subjectKeyId)
+func (ks *KeyStore[T,P]) NewAccountCsp(subjectKeyId string) (accounts.Account, error) {
+	_, account, err := storeNewKeyCsp[T,P](ks.storage, crand.Reader, subjectKeyId)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -164,12 +179,12 @@ func (ks *KeyStore) NewAccountCsp(subjectKeyId string) (accounts.Account, error)
 }
 
 // Unlock unlocks the given account indefinitely.
-func (ks *KeyStore) UnlockCsp(a accounts.Account, pin string) error {
+func (ks *KeyStore[T,P]) UnlockCsp(a accounts.Account, pin string) error {
 	return ks.TimedUnlockCsp(a, pin, 0)
 }
 
 // Lock removes the private key with the given address from memory.
-func (ks *KeyStore) LockCsp(addr common.Address) error {
+func (ks *KeyStore[T,P]) LockCsp(addr common.Address) error {
 	ks.mu.Lock()
 	if unl, found := ks.unlocked[addr]; found {
 		ks.mu.Unlock()
@@ -180,7 +195,7 @@ func (ks *KeyStore) LockCsp(addr common.Address) error {
 	return nil
 }
 
-func (ks *KeyStore) TimedUnlockCsp(a accounts.Account, pin string, timeout time.Duration) error {
+func (ks *KeyStore[T,P]) TimedUnlockCsp(a accounts.Account, pin string, timeout time.Duration) error {
 	a, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return err
@@ -200,10 +215,10 @@ func (ks *KeyStore) TimedUnlockCsp(a accounts.Account, pin string, timeout time.
 		close(u.abort)
 	}
 	if timeout > 0 {
-		u = &unlocked{KeyCsp: key, abort: make(chan struct{})}
+		u = &unlocked[T]{KeyCsp: key, abort: make(chan struct{})}
 		go ks.expire(a.Address, u, timeout)
 	} else {
-		u = &unlocked{KeyCsp: key}
+		u = &unlocked[T]{KeyCsp: key}
 	}
 	ks.unlocked[a.Address] = u
 	return nil

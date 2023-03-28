@@ -23,19 +23,20 @@ import (
 	"path/filepath"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-type keyStorePlain struct {
+type keyStorePlain [T crypto.PrivateKey] struct {
 	keysDirPath string
 }
 
-func (ks keyStorePlain) GetKey(addr common.Address, filename, auth string) (*Key, error) {
+func (ks keyStorePlain[T]) GetKey(addr common.Address, filename, auth string) (*Key[T], error) {
 	fd, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer fd.Close()
-	key := new(Key)
+	key := new(Key[T])
 	if err := json.NewDecoder(fd).Decode(key); err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func (ks keyStorePlain) GetKey(addr common.Address, filename, auth string) (*Key
 	return key, nil
 }
 
-func (ks keyStorePlain) StoreKey(filename string, key *Key, auth string) error {
+func (ks keyStorePlain[T]) StoreKey(filename string, key *Key[T], auth string) error {
 	content, err := json.Marshal(key)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func (ks keyStorePlain) StoreKey(filename string, key *Key, auth string) error {
 	return writeKeyFile(filename, content)
 }
 
-func (ks keyStorePlain) JoinPath(filename string) string {
+func (ks keyStorePlain[T]) JoinPath(filename string) string {
 	if filepath.IsAbs(filename) {
 		return filename
 	}

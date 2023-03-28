@@ -25,15 +25,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/google/uuid"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"golang.org/x/crypto/pbkdf2"
 )
 
 // creates a Key and stores that in the given KeyStore by decrypting a presale key JSON
-func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
-	key, err := decryptPreSaleKey(keyJSON, password)
+func importPreSaleKey[T crypto.PrivateKey, P crypto.PublicKey](keyStore keyStore[T], keyJSON []byte, password string) (accounts.Account, *Key[T], error) {
+	key, err := decryptPreSaleKey[T, P](keyJSON, password)
 	if err != nil {
 		return accounts.Account{}, nil, err
 	}
@@ -52,7 +54,7 @@ func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accou
 	return a, key, err
 }
 
-func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error) {
+func decryptPreSaleKey[T crypto.PrivateKey, P crypto.PublicKey](fileContent []byte, password string) (key *Key[T], err error) {
 	preSaleKeyStruct := struct {
 		EncSeed string
 		EthAddr string
@@ -86,11 +88,20 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 		return nil, err
 	}
 	ethPriv := crypto.Keccak256(plainText)
-	ecKey := crypto.ToECDSAUnsafe(ethPriv)
+	ecKey := crypto.ToECDSAUnsafe[T](ethPriv)
 
-	key = &Key{
+	var pub P
+	switch t:=any(&ecKey).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
+	key = &Key[T]{
 		Id:         uuid.UUID{},
-		Address:    crypto.PubkeyToAddress(ecKey.PublicKey),
+		Address:    crypto.PubkeyToAddress(pub),
 		PrivateKey: ecKey,
 	}
 	derivedAddr := hex.EncodeToString(key.Address.Bytes()) // needed because .Hex() gives leading "0x"

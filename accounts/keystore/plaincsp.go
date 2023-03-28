@@ -25,7 +25,7 @@ import (
 )
 
 
-func (ks keyStorePlain) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
+func (ks keyStorePlain[T]) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
 	fd, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (ks keyStorePlain) GetKeyCsp(addr common.Address, filename string) (*KeyCsp
 	return key, nil
 }
 
-func (ks keyStorePlain) StoreKeyCsp(filename string, key *KeyCsp) error {
+func (ks keyStorePlain[T]) StoreKeyCsp(filename string, key *KeyCsp) error {
 	content, err := json.Marshal(key)
 	if err != nil {
 		return err

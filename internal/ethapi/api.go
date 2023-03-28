@@ -310,7 +310,7 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 
 // fetchKeystore retrieves the encrypted keystore from the account manager.
 func fetchKeystore(am *accounts.Manager) (*keystore.KeyStore, error) {
-	if ks := am.Backends(keystore.KeyStoreType); len(ks) > 0 {
+	if ks := am.Backends(reflect.TypeOf(&keystore.KeyStore{})); len(ks) > 0 {
 		return ks[0].(*keystore.KeyStore), nil
 	}
 	return nil, errors.New("local keystore not used")
@@ -2440,9 +2440,9 @@ func (s *PublicTransactionPoolAPI) Sign(addr common.Address, data hexutil.Bytes)
 }
 
 // SignTransactionResult represents a RLP encoded signed transaction.
-type SignTransactionResult struct {
+type SignTransactionResult[P crypto.PublicKey]struct {
 	Raw hexutil.Bytes      `json:"raw"`
-	Tx  *types.Transaction `json:"tx"`
+	Tx  *types.Transaction[P] `json:"tx"`
 }
 
 // SignTransaction will sign the given transaction with the from account.

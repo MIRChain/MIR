@@ -2028,7 +2028,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		log.Warn("LES server cannot serve old transaction status and cannot connect below les/4 protocol version if transaction lookup index is limited")
 	}
 	var ks *keystore.KeyStore
-	if keystores := stack.AccountManager().Backends(keystore.KeyStoreType); len(keystores) > 0 {
+	if keystores := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{})); len(keystores) > 0 {
 		ks = keystores[0].(*keystore.KeyStore)
 	}
 	setEtherbase(ctx, ks, cfg)

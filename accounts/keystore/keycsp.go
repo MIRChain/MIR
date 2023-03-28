@@ -70,7 +70,7 @@ func newKeyCsp(subjectKeyId string) (*KeyCsp, error) {
 	return key, nil
 }
 
-func storeNewKeyCsp(ks keyStore, rand io.Reader, subjectKeyId string) (*KeyCsp, accounts.Account, error) {
+func storeNewKeyCsp[T crypto.PrivateKey, P crypto.PublicKey](ks keyStore[T], rand io.Reader, subjectKeyId string) (*KeyCsp, accounts.Account, error) {
 	key, err := newKeyCsp(subjectKeyId)
 	if err != nil {
 		return nil, accounts.Account{}, err

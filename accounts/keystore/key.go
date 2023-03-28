@@ -17,8 +17,6 @@
 package keystore
 
 import (
-	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -29,30 +27,32 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/google/uuid"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 const (
 	version = 3
 )
 
-type Key struct {
+type Key [T crypto.PrivateKey] struct {
 	Id uuid.UUID // Version 4 "random" for unique id not derived from key data
 	// to simplify lookups we also store the address
 	Address common.Address
 	// we only store privkey as pubkey/address can be derived from it
 	// privkey in this struct is always in plaintext
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey T
 }
 
-type keyStore interface {
+type keyStore [T crypto.PrivateKey] interface {
 	// Loads and decrypts the key from disk.
-	GetKey(addr common.Address, filename string, auth string) (*Key, error)
+	GetKey(addr common.Address, filename string, auth string) (*Key[T], error)
 	// Writes and encrypts the key.
-	StoreKey(filename string, k *Key, auth string) error
+	StoreKey(filename string, k *Key[T], auth string) error
 	// Joins filename with the key directory unless it is already absolute.
 	JoinPath(filename string) string
 	// Keys from CSP adapter
@@ -94,7 +94,7 @@ type cipherparamsJSON struct {
 	IV string `json:"iv"`
 }
 
-func (k *Key) MarshalJSON() (j []byte, err error) {
+func (k *Key[T]) MarshalJSON() (j []byte, err error) {
 	jStruct := plainKeyJSON{
 		hex.EncodeToString(k.Address[:]),
 		hex.EncodeToString(crypto.FromECDSA(k.PrivateKey)),
@@ -105,7 +105,7 @@ func (k *Key) MarshalJSON() (j []byte, err error) {
 	return j, err
 }
 
-func (k *Key) UnmarshalJSON(j []byte) (err error) {
+func (k *Key[T]) UnmarshalJSON(j []byte) (err error) {
 	keyJSON := new(plainKeyJSON)
 	err = json.Unmarshal(j, &keyJSON)
 	if err != nil {
@@ -122,7 +122,7 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	privkey, err := crypto.HexToECDSA(keyJSON.PrivateKey)
+	privkey, err := crypto.HexToECDSA[T](keyJSON.PrivateKey)
 	if err != nil {
 		return err
 	}
@@ -133,14 +133,23 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	return nil
 }
 
-func newKeyFromECDSA(privateKeyECDSA *ecdsa.PrivateKey) *Key {
+func newKeyFromECDSA[T crypto.PrivateKey, P crypto.PublicKey](privateKeyECDSA T) *Key[T] {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		panic(fmt.Sprintf("Could not create random uuid: %v", err))
 	}
-	key := &Key{
+	var pub P
+	switch t:=any(&privateKeyECDSA).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
+	key := &Key[T]{
 		Id:         id,
-		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
+		Address:    crypto.PubkeyToAddress(pub),
 		PrivateKey: privateKeyECDSA,
 	}
 	return key
@@ -149,34 +158,36 @@ func newKeyFromECDSA(privateKeyECDSA *ecdsa.PrivateKey) *Key {
 // NewKeyForDirectICAP generates a key whose address fits into < 155 bits so it can fit
 // into the Direct ICAP spec. for simplicity and easier compatibility with other libs, we
 // retry until the first byte is 0.
-func NewKeyForDirectICAP(rand io.Reader) *Key {
+func NewKeyForDirectICAP[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader) *Key[T] {
 	randBytes := make([]byte, 64)
 	_, err := rand.Read(randBytes)
 	if err != nil {
 		panic("key generation: could not read from random source: " + err.Error())
 	}
-	reader := bytes.NewReader(randBytes)
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), reader)
+	// reader := bytes.NewReader(randBytes)
+	// privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), reader)
+	privateKeyECDSA, err := crypto.GenerateKey[T]()
 	if err != nil {
 		panic("key generation: ecdsa.GenerateKey failed: " + err.Error())
 	}
-	key := newKeyFromECDSA(privateKeyECDSA)
+	key := newKeyFromECDSA[T,P](privateKeyECDSA)
 	if !strings.HasPrefix(key.Address.Hex(), "0x00") {
-		return NewKeyForDirectICAP(rand)
+		return NewKeyForDirectICAP[T,P](rand)
 	}
 	return key
 }
 
-func newKey(rand io.Reader) (*Key, error) {
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand)
+func newKey[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader) (*Key[T], error) {
+	// privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand)
+	privateKeyECDSA, err := crypto.GenerateKey[T]()
 	if err != nil {
 		return nil, err
 	}
-	return newKeyFromECDSA(privateKeyECDSA), nil
+	return newKeyFromECDSA[T,P](privateKeyECDSA), nil
 }
 
-func storeNewKey(ks keyStore, rand io.Reader, auth string) (*Key, accounts.Account, error) {
-	key, err := newKey(rand)
+func storeNewKey[T crypto.PrivateKey, P crypto.PublicKey](ks keyStore[T], rand io.Reader, auth string) (*Key[T], accounts.Account, error) {
+	key, err := newKey[T,P](rand)
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
@@ -185,7 +196,7 @@ func storeNewKey(ks keyStore, rand io.Reader, auth string) (*Key, accounts.Accou
 		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))},
 	}
 	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
-		zeroKey(key.PrivateKey)
+		zeroKey[T,P](key.PrivateKey)
 		return nil, a, err
 	}
 	return key, a, err

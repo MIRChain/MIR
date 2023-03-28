@@ -109,7 +109,7 @@ func setup() {
 		},
 	})
 
-	ksbackend := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	ksbackend := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
 	guardianAccount, err = ksbackend.ImportECDSA(guardianKey, "foo")
 	guardianAddress = guardianAccount.Address
 	if err != nil {

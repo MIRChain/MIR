@@ -33,7 +33,7 @@ import (
 )
 
 
-func (ks keyStorePassphrase) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
+func (ks keyStorePassphrase[T,P]) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
 	fd, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (ks keyStorePassphrase) GetKeyCsp(addr common.Address, filename string) (*K
 	return key, nil
 }
 
-func (ks keyStorePassphrase) StoreKeyCsp(filename string, key *KeyCsp) error {
+func (ks keyStorePassphrase[T,P]) StoreKeyCsp(filename string, key *KeyCsp) error {
 	keyjson, err := json.Marshal(key)
 	if err != nil {
 		return err

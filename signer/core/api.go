@@ -36,6 +36,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 	"github.com/pavelkrolevets/MIR-pro/signer/storage"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -288,7 +289,7 @@ var ErrRequestDenied = errors.New("request denied")
 // key that is generated when a new Account is created.
 // noUSB disables USB support that is required to support hardware devices such as
 // ledger and trezor.
-func NewSignerAPI(am *accounts.Manager, chainID int64, noUSB bool, ui UIClientAPI, validator Validator, advancedMode bool, credentials storage.Storage) *SignerAPI {
+func NewSignerAPI[P crypto.PublicKey](am *accounts.Manager[P], chainID int64, noUSB bool, ui UIClientAPI, validator Validator, advancedMode bool, credentials storage.Storage) *SignerAPI {
 	if advancedMode {
 		log.Info("Clef is in advanced mode: will warn instead of reject")
 	}
@@ -419,7 +420,7 @@ func (api *SignerAPI) List(ctx context.Context) ([]common.Address, error) {
 // the given password. Users are responsible to backup the private key that is stored
 // in the keystore location thas was specified when this API was created.
 func (api *SignerAPI) New(ctx context.Context) (common.Address, error) {
-	if be := api.am.Backends(keystore.KeyStoreType); len(be) == 0 {
+	if be := api.am.Backends(reflect.TypeOf(&keystore.KeyStore{})); len(be) == 0 {
 		return common.Address{}, errors.New("password based accounts not supported")
 	}
 	if resp, err := api.UI.ApproveNewAccount(&NewAccountRequest{MetadataFromContext(ctx)}); err != nil {
@@ -433,7 +434,7 @@ func (api *SignerAPI) New(ctx context.Context) (common.Address, error) {
 // newAccount is the internal method to create a new account. It should be used
 // _after_ user-approval has been obtained
 func (api *SignerAPI) newAccount() (common.Address, error) {
-	be := api.am.Backends(keystore.KeyStoreType)
+	be := api.am.Backends(reflect.TypeOf(&keystore.KeyStore{}))
 	if len(be) == 0 {
 		return common.Address{}, errors.New("password based accounts not supported")
 	}
