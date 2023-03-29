@@ -47,25 +47,25 @@ const (
 // Author retrieves the Ethereum address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
-func (sb *Backend) Author(header *types.Header) (common.Address, error) {
+func (sb *Backend[T,P]) Author(header *types.Header) (common.Address, error) {
 	return sb.EngineForBlockNumber(header.Number).Author(header)
 }
 
 // Signers extracts all the addresses who have signed the given header
 // It will extract for each seal who signed it, regardless of if the seal is
 // repeated
-func (sb *Backend) Signers(header *types.Header) ([]common.Address, error) {
+func (sb *Backend[T,P]) Signers(header *types.Header) ([]common.Address, error) {
 	return sb.EngineForBlockNumber(header.Number).Signers(header)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
+func (sb *Backend[T,P]) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
 	return sb.verifyHeader(chain, header, nil)
 }
 
-func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+func (sb *Backend[T,P]) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
 	// Assemble the voting snapshot
 	snap, err := sb.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, parents)
 	if err != nil {
@@ -79,7 +79,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header *types
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (sb *Backend[T,P]) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 	go func() {
@@ -108,13 +108,13 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of a given engine.
-func (sb *Backend) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+func (sb *Backend[T,P]) VerifyUncles(chain consensus.ChainReader[P], block *types.Block[P]) error {
 	return sb.EngineForBlockNumber(block.Header().Number).VerifyUncles(chain, block)
 }
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (sb *Backend) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend[T,P]) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// get parent header and ensure the signer is in parent's validator set
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -132,7 +132,7 @@ func (sb *Backend) VerifySeal(chain consensus.ChainHeaderReader, header *types.H
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend[T,P]) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Assemble the voting snapshot
 	snap, err := sb.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil)
 	if err != nil {
@@ -174,19 +174,19 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (sb *Backend) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (sb *Backend[T,P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header) {
 	sb.EngineForBlockNumber(header.Number).Finalize(chain, header, state, txs, uncles)
 }
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (sb *Backend[T,P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	return sb.EngineForBlockNumber(header.Number).FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 }
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (sb *Backend[T,P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error {
 	// update the block header timestamp and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
@@ -244,17 +244,17 @@ func (sb *Backend) Seal(chain consensus.ChainHeaderReader, block *types.Block, r
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
-func (sb *Backend) APIs(chain consensus.ChainHeaderReader) []rpc.API {
+func (sb *Backend[T,P]) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "istanbul",
 		Version:   "1.0",
-		Service:   &API{chain: chain, backend: sb},
+		Service:   &API[T,P]{chain: chain, backend: sb},
 		Public:    true,
 	}}
 }
 
 // Start implements consensus.Istanbul.Start
-func (sb *Backend) Start(chain consensus.ChainHeaderReader, currentBlock func() *types.Block, hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error {
+func (sb *Backend[T,P]) Start(chain consensus.ChainHeaderReader, currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -266,7 +266,7 @@ func (sb *Backend) Start(chain consensus.ChainHeaderReader, currentBlock func() 
 	if sb.commitCh != nil {
 		close(sb.commitCh)
 	}
-	sb.commitCh = make(chan *types.Block, 1)
+	sb.commitCh = make(chan *types.Block[P], 1)
 
 	sb.chain = chain
 	sb.currentBlock = currentBlock
@@ -292,7 +292,7 @@ func (sb *Backend) Start(chain consensus.ChainHeaderReader, currentBlock func() 
 }
 
 // Stop implements consensus.Istanbul.Stop
-func (sb *Backend) Stop() error {
+func (sb *Backend[T,P]) Stop() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if !sb.coreStarted {
@@ -314,7 +314,7 @@ func addrsToString(addrs []common.Address) []string {
 	return strs
 }
 
-func (sb *Backend) snapLogger(snap *Snapshot) log.Logger {
+func (sb *Backend[T,P]) snapLogger(snap *Snapshot) log.Logger {
 	return sb.logger.New(
 		"snap.number", snap.Number,
 		"snap.hash", snap.Hash.String(),
@@ -324,7 +324,7 @@ func (sb *Backend) snapLogger(snap *Snapshot) log.Logger {
 	)
 }
 
-func (sb *Backend) storeSnap(snap *Snapshot) error {
+func (sb *Backend[T,P]) storeSnap(snap *Snapshot) error {
 	logger := sb.snapLogger(snap)
 	logger.Debug("BFT: store snapshot to database")
 	if err := snap.store(sb.db); err != nil {
@@ -336,7 +336,7 @@ func (sb *Backend) storeSnap(snap *Snapshot) error {
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (sb *Backend) snapshot(chain consensus.ChainHeaderReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
+func (sb *Backend[T,P]) snapshot(chain consensus.ChainHeaderReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -370,7 +370,7 @@ func (sb *Backend) snapshot(chain consensus.ChainHeaderReader, number uint64, ha
 			validatorContract := sb.config.GetValidatorContractAddress(big.NewInt(0))
 			if validatorContract != (common.Address{}) && sb.config.GetValidatorSelectionMode(big.NewInt(0)) == params.ContractMode {
 
-				validatorContractCaller, err := contract.NewValidatorContractInterfaceCaller(validatorContract, sb.config.Client)
+				validatorContractCaller, err := contract.NewValidatorContractInterfaceCaller[P](validatorContract, sb.config.Client)
 
 				if err != nil {
 					return nil, fmt.Errorf("invalid smart contract in genesis alloc: %w", err)
@@ -447,7 +447,7 @@ func (sb *Backend) snapshot(chain consensus.ChainHeaderReader, number uint64, ha
 	if len(headers) == 0 && validatorContract != (common.Address{}) && sb.config.GetValidatorSelectionMode(targetBlockHeight) == params.ContractMode {
 		sb.logger.Trace("Applying snap with smart contract validators", "address", validatorContract, "client", sb.config.Client)
 
-		validatorContractCaller, err := contract.NewValidatorContractInterfaceCaller(validatorContract, sb.config.Client)
+		validatorContractCaller, err := contract.NewValidatorContractInterfaceCaller[P](validatorContract, sb.config.Client)
 
 		if err != nil {
 			return nil, fmt.Errorf("BFT: invalid smart contract in genesis alloc: %w", err)
@@ -484,11 +484,11 @@ func (sb *Backend) snapshot(chain consensus.ChainHeaderReader, number uint64, ha
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
-func (sb *Backend) SealHash(header *types.Header) common.Hash {
+func (sb *Backend[T,P]) SealHash(header *types.Header) common.Hash {
 	return sb.EngineForBlockNumber(header.Number).SealHash(header)
 }
 
-func (sb *Backend) snapApply(snap *Snapshot, headers []*types.Header) (*Snapshot, error) {
+func (sb *Backend[T,P]) snapApply(snap *Snapshot, headers []*types.Header) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return snap, nil
@@ -517,7 +517,7 @@ func (sb *Backend) snapApply(snap *Snapshot, headers []*types.Header) (*Snapshot
 	return snapCpy, nil
 }
 
-func (sb *Backend) snapApplyHeader(snap *Snapshot, header *types.Header) error {
+func (sb *Backend[T,P]) snapApplyHeader(snap *Snapshot, header *types.Header) error {
 	logger := sb.snapLogger(snap).New("header.number", header.Number.Uint64(), "header.hash", header.Hash().String())
 
 	logger.Trace("BFT: apply header to voting snapshot")

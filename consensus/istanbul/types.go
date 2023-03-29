@@ -23,6 +23,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -39,7 +40,7 @@ type Proposal interface {
 	DecodeRLP(s *rlp.Stream) error
 }
 
-var _ Proposal = &types.Block{}
+// var _ Proposal = &types.Block{}
 
 type Request struct {
 	Proposal Proposal
@@ -93,21 +94,21 @@ func (v *View) Cmp(y *View) int {
 	return 0
 }
 
-type Preprepare struct {
+type Preprepare [P crypto.PublicKey] struct {
 	View     *View
 	Proposal Proposal
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Preprepare) EncodeRLP(w io.Writer) error {
+func (b *Preprepare[P]) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{b.View, b.Proposal})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Preprepare) DecodeRLP(s *rlp.Stream) error {
+func (b *Preprepare[P]) DecodeRLP(s *rlp.Stream) error {
 	var preprepare struct {
 		View     *View
-		Proposal *types.Block
+		Proposal *types.Block[P]
 	}
 
 	if err := s.Decode(&preprepare); err != nil {

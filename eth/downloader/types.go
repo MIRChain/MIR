@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
@@ -43,30 +44,30 @@ func (p *headerPack) Items() int     { return len(p.headers) }
 func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) }
 
 // bodyPack is a batch of block bodies returned by a peer.
-type bodyPack struct {
+type bodyPack [P crypto.PublicKey] struct {
 	peerID       string
-	transactions [][]*types.Transaction
+	transactions [][]*types.Transaction[P]
 	uncles       [][]*types.Header
 }
 
-func (p *bodyPack) PeerId() string { return p.peerID }
-func (p *bodyPack) Items() int {
+func (p *bodyPack[P]) PeerId() string { return p.peerID }
+func (p *bodyPack[P]) Items() int {
 	if len(p.transactions) <= len(p.uncles) {
 		return len(p.transactions)
 	}
 	return len(p.uncles)
 }
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d", len(p.transactions), len(p.uncles)) }
+func (p *bodyPack[P]) Stats() string { return fmt.Sprintf("%d:%d", len(p.transactions), len(p.uncles)) }
 
 // receiptPack is a batch of receipts returned by a peer.
-type receiptPack struct {
+type receiptPack [P crypto.PublicKey] struct {
 	peerID   string
-	receipts [][]*types.Receipt
+	receipts [][]*types.Receipt[P]
 }
 
-func (p *receiptPack) PeerId() string { return p.peerID }
-func (p *receiptPack) Items() int     { return len(p.receipts) }
-func (p *receiptPack) Stats() string  { return fmt.Sprintf("%d", len(p.receipts)) }
+func (p *receiptPack[P]) PeerId() string { return p.peerID }
+func (p *receiptPack[P]) Items() int     { return len(p.receipts) }
+func (p *receiptPack[P]) Stats() string  { return fmt.Sprintf("%d", len(p.receipts)) }
 
 // statePack is a batch of states returned by a peer.
 type statePack struct {

@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus"
@@ -30,22 +31,22 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
-type Backend interface {
+type Backend [T crypto.PrivateKey,P crypto.PublicKey] interface {
 	// General Ethereum API
-	Downloader() *downloader.Downloader
+	Downloader() *downloader.Downloader[T,P]
 	SuggestPrice(ctx context.Context) (*big.Int, error)
 	ChainDb() ethdb.Database
-	AccountManager() *accounts.Manager
+	AccountManager() *accounts.Manager[P]
 	ExtRPCEnabled() bool
 	RPCGasCap() uint64        // global gas cap for eth_call over rpc: DoS protection
 	RPCTxFeeCap() float64     // global tx fee cap for all transaction related APIs
@@ -57,28 +58,28 @@ type Backend interface {
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error)
 	CurrentHeader() *types.Header
-	CurrentBlock() *types.Block
-	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
-	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
-	BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error)
+	CurrentBlock() *types.Block[P]
+	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
+	BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[P], error)
 	StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error)
 	StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error)
-	GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error)
+	GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts[P], error)
 	GetTd(ctx context.Context, hash common.Hash) *big.Int
-	GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmConfig *vm.Config) (*vm.EVM, func() error, error)
-	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
-	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription
+	GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error)
+	SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription
+	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent[P]) event.Subscription
 
 	// Transaction pool API
-	SendTx(ctx context.Context, signedTx *types.Transaction) error
-	GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error)
-	GetPoolTransactions() (types.Transactions, error)
-	GetPoolTransaction(txHash common.Hash) *types.Transaction
+	SendTx(ctx context.Context, signedTx *types.Transaction[P]) error
+	GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction[P], common.Hash, uint64, uint64, error)
+	GetPoolTransactions() (types.Transactions[P], error)
+	GetPoolTransaction(txHash common.Hash) *types.Transaction[P]
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
-	TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions)
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	TxPoolContent() (map[common.Address]types.Transactions[P], map[common.Address]types.Transactions[P])
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent[P]) event.Subscription
 
 	// Filter API
 	BloomStatus() (uint64, uint64)
@@ -86,10 +87,10 @@ type Backend interface {
 	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
 	SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription
-	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
+	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent[P]) event.Subscription
 
 	ChainConfig() *params.ChainConfig
-	Engine() consensus.Engine
+	Engine() consensus.Engine[P]
 
 	// Quorum
 	CallTimeOut() time.Duration
@@ -101,7 +102,7 @@ type Backend interface {
 	IsPrivacyMarkerTransactionCreationEnabled() bool
 }
 
-func GetAPIs(apiBackend Backend) []rpc.API {
+func GetAPIs[T crypto.PrivateKey, P crypto.PublicKey] (apiBackend Backend[T,P]) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
@@ -141,7 +142,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "personal",
 			Version:   "1.0",
-			Service:   NewPrivateAccountProxyAPI(apiBackend, nonceLock),
+			Service:   NewPrivateAccountProxyAPI[T,P](apiBackend, nonceLock),
 			Public:    false,
 		},
 	}

@@ -2,13 +2,14 @@ package qbfttypes
 
 import (
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
-func Decode(code uint64, data []byte) (QBFTMessage, error) {
+func Decode[P crypto.PublicKey] (code uint64, data []byte) (QBFTMessage, error) {
 	switch code {
 	case PreprepareCode:
-		var preprepare Preprepare
+		var preprepare Preprepare[P]
 		if err := rlp.DecodeBytes(data, &preprepare); err != nil {
 			return nil, istanbulcommon.ErrFailedDecodePreprepare
 		}
@@ -29,7 +30,7 @@ func Decode(code uint64, data []byte) (QBFTMessage, error) {
 		commit.code = CommitCode
 		return &commit, nil
 	case RoundChangeCode:
-		var roundChange RoundChange
+		var roundChange RoundChange[P]
 		if err := rlp.DecodeBytes(data, &roundChange); err != nil {
 			return nil, istanbulcommon.ErrFailedDecodeRoundChange
 		}

@@ -17,9 +17,9 @@ import (
 )
 
 // MarshalTOML marshals as TOML.
-func (c Config) MarshalTOML() (interface{}, error) {
+func (c Config[P]) MarshalTOML() (interface{}, error) {
 	type Config struct {
-		Genesis                 *core.Genesis `toml:",omitempty"`
+		Genesis                 *core.Genesis[P] `toml:",omitempty"`
 		NetworkId               uint64
 		SyncMode                downloader.SyncMode
 		EthDiscoveryURLs        []string
@@ -119,9 +119,9 @@ func (c Config) MarshalTOML() (interface{}, error) {
 }
 
 // UnmarshalTOML unmarshals from TOML.
-func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
+func (c *Config[P]) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	type Config struct {
-		Genesis                 *core.Genesis `toml:",omitempty"`
+		Genesis                 *core.Genesis[P] `toml:",omitempty"`
 		NetworkId               *uint64
 		SyncMode                *downloader.SyncMode
 		EthDiscoveryURLs        []string

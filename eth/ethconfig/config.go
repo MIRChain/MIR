@@ -33,6 +33,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulBackend "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/backend"
 	"github.com/pavelkrolevets/MIR-pro/core"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/gasprice"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
@@ -57,7 +59,7 @@ var LightClientGPO = gasprice.Config{
 }
 
 // Defaults contains default settings for use on the Ethereum main net.
-var Defaults = Config{
+var Defaults = Config[nist.PublicKey]{
 	// Quorum - make full sync the default sync mode in quorum (as opposed to upstream geth)
 	SyncMode: downloader.FullSync,
 	// End Quorum
@@ -120,10 +122,10 @@ func init() {
 //go:generate gencodec -type Config -formats toml -out gen_config.go
 
 // Config contains configuration options for of the ETH and LES protocols.
-type Config struct {
+type Config [P crypto.PublicKey] struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Ethereum main net block is used.
-	Genesis *core.Genesis `toml:",omitempty"`
+	Genesis *core.Genesis[P] `toml:",omitempty"`
 
 	// Protocol options
 	NetworkId uint64 // Network ID to use for selecting peers to connect to
@@ -229,7 +231,7 @@ type Config struct {
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
-func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
+func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], chainConfig *params.ChainConfig, config *Config[P], notify []string, noverify bool, db ethdb.Database) consensus.Engine[P] {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
@@ -248,7 +250,7 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 		config.Istanbul.Ceil2Nby3Block = chainConfig.Istanbul.Ceil2Nby3Block
 		config.Istanbul.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
 		config.Istanbul.TestQBFTBlock = chainConfig.Istanbul.TestQBFTBlock
-		return istanbulBackend.New(&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	if chainConfig.IBFT == nil && len(chainConfig.Transitions) > 0 {
 		chainConfig.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
@@ -272,7 +274,7 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 		if chainConfig.IBFT.ValidatorContractAddress != (common.Address{}) {
 			config.Istanbul.ValidatorContract = chainConfig.IBFT.ValidatorContractAddress
 		}
-		return istanbulBackend.New(&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	if chainConfig.QBFT == nil && len(chainConfig.Transitions) > 0 {
 		chainConfig.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
@@ -299,12 +301,12 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 		config.Istanbul.Validators = chainConfig.QBFT.Validators
 		config.Istanbul.ValidatorSelectionMode = chainConfig.QBFT.ValidatorSelectionMode
 
-		return istanbulBackend.New(&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	// For Quorum, Raft run as a separate service, so
 	// the Ethereum service still needs a consensus engine,
 	// use the consensus with the lightest overhead
-	engine := ethash.NewFullFaker()
+	engine := ethash.NewFullFaker[P]()
 	engine.SetThreads(-1) // Disable CPU Mining
 	return engine
 }

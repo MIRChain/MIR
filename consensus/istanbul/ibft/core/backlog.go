@@ -37,7 +37,7 @@ var (
 // return errInvalidMessage if the message is invalid
 // return errFutureMessage if the message view is larger than current view
 // return errOldMessage if the message view is smaller than current view
-func (c *core) checkMessage(msgCode uint64, view *istanbul.View) error {
+func (c *core[P]) checkMessage(msgCode uint64, view *istanbul.View) error {
 	if view == nil || view.Sequence == nil || view.Round == nil {
 		return istanbulcommon.ErrInvalidMessage
 	}
@@ -77,7 +77,7 @@ func (c *core) checkMessage(msgCode uint64, view *istanbul.View) error {
 	return nil
 }
 
-func (c *core) storeBacklog(msg *ibfttypes.Message, src istanbul.Validator) {
+func (c *core[P]) storeBacklog(msg *ibfttypes.Message, src istanbul.Validator) {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	if src.Address() == c.Address() {
@@ -97,7 +97,7 @@ func (c *core) storeBacklog(msg *ibfttypes.Message, src istanbul.Validator) {
 	}
 	switch msg.Code {
 	case ibfttypes.MsgPreprepare:
-		var p *istanbul.Preprepare
+		var p *istanbul.Preprepare[P]
 		err := msg.Decode(&p)
 		if err == nil {
 			backlog.Push(msg, toPriority(msg.Code, p.View))
@@ -113,7 +113,7 @@ func (c *core) storeBacklog(msg *ibfttypes.Message, src istanbul.Validator) {
 	c.backlogs[src.Address()] = backlog
 }
 
-func (c *core) processBacklog() {
+func (c *core[P]) processBacklog() {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
@@ -139,7 +139,7 @@ func (c *core) processBacklog() {
 			var view *istanbul.View
 			switch msg.Code {
 			case ibfttypes.MsgPreprepare:
-				var m *istanbul.Preprepare
+				var m *istanbul.Preprepare[P]
 				err := msg.Decode(&m)
 				if err == nil {
 					view = m.View

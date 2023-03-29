@@ -21,14 +21,15 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 // PublicDownloaderAPI provides an API which gives information about the current synchronisation status.
 // It offers only methods that operates on data that can be available to anyone without security risks.
-type PublicDownloaderAPI struct {
-	d                         *Downloader
+type PublicDownloaderAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	d                         *Downloader[T,P]
 	mux                       *event.TypeMux
 	installSyncSubscription   chan chan interface{}
 	uninstallSyncSubscription chan *uninstallSyncSubscriptionRequest
@@ -38,8 +39,8 @@ type PublicDownloaderAPI struct {
 // listens for events from the downloader through the global event mux. In case it receives one of
 // these events it broadcasts it to all syncing subscriptions that are installed through the
 // installSyncSubscription channel.
-func NewPublicDownloaderAPI(d *Downloader, m *event.TypeMux) *PublicDownloaderAPI {
-	api := &PublicDownloaderAPI{
+func NewPublicDownloaderAPI[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T,P], m *event.TypeMux) *PublicDownloaderAPI[T,P] {
+	api := &PublicDownloaderAPI[T,P]{
 		d:                         d,
 		mux:                       m,
 		installSyncSubscription:   make(chan chan interface{}),
@@ -53,7 +54,7 @@ func NewPublicDownloaderAPI(d *Downloader, m *event.TypeMux) *PublicDownloaderAP
 
 // eventLoop runs a loop until the event mux closes. It will install and uninstall new
 // sync subscriptions and broadcasts sync status updates to the installed sync subscriptions.
-func (api *PublicDownloaderAPI) eventLoop() {
+func (api *PublicDownloaderAPI[T,P]) eventLoop() {
 	var (
 		sub               = api.mux.Subscribe(StartEvent{}, DoneEvent{}, FailedEvent{})
 		syncSubscriptions = make(map[chan interface{}]struct{})
@@ -90,7 +91,7 @@ func (api *PublicDownloaderAPI) eventLoop() {
 }
 
 // Syncing provides information when this nodes starts synchronising with the Ethereum network and when it's finished.
-func (api *PublicDownloaderAPI) Syncing(ctx context.Context) (*rpc.Subscription, error) {
+func (api *PublicDownloaderAPI[T,P]) Syncing(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -132,8 +133,8 @@ type uninstallSyncSubscriptionRequest struct {
 }
 
 // SyncStatusSubscription represents a syncing subscription.
-type SyncStatusSubscription struct {
-	api       *PublicDownloaderAPI // register subscription in event loop of this api instance
+type SyncStatusSubscription [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	api       *PublicDownloaderAPI[T,P] // register subscription in event loop of this api instance
 	c         chan interface{}     // channel where events are broadcasted to
 	unsubOnce sync.Once            // make sure unsubscribe logic is executed once
 }
@@ -141,7 +142,7 @@ type SyncStatusSubscription struct {
 // Unsubscribe uninstalls the subscription from the DownloadAPI event loop.
 // The status channel that was passed to subscribeSyncStatus isn't used anymore
 // after this method returns.
-func (s *SyncStatusSubscription) Unsubscribe() {
+func (s *SyncStatusSubscription[T,P]) Unsubscribe() {
 	s.unsubOnce.Do(func() {
 		req := uninstallSyncSubscriptionRequest{s.c, make(chan interface{})}
 		s.api.uninstallSyncSubscription <- &req
@@ -160,7 +161,7 @@ func (s *SyncStatusSubscription) Unsubscribe() {
 
 // SubscribeSyncStatus creates a subscription that will broadcast new synchronisation updates.
 // The given channel must receive interface values, the result can either
-func (api *PublicDownloaderAPI) SubscribeSyncStatus(status chan interface{}) *SyncStatusSubscription {
+func (api *PublicDownloaderAPI[T,P]) SubscribeSyncStatus(status chan interface{}) *SyncStatusSubscription[T,P] {
 	api.installSyncSubscription <- status
-	return &SyncStatusSubscription{api: api, c: status}
+	return &SyncStatusSubscription[T,P]{api: api, c: status}
 }

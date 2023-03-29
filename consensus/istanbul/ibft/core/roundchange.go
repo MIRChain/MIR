@@ -27,13 +27,13 @@ import (
 )
 
 // sendNextRoundChange sends the ROUND CHANGE message with current round + 1
-func (c *core) sendNextRoundChange() {
+func (c *core[P]) sendNextRoundChange() {
 	cv := c.currentView()
 	c.sendRoundChange(new(big.Int).Add(cv.Round, common.Big1))
 }
 
 // sendRoundChange sends the ROUND CHANGE message with the given round
-func (c *core) sendRoundChange(round *big.Int) {
+func (c *core[P]) sendRoundChange(round *big.Int) {
 	logger := c.logger.New("state", c.state)
 
 	cv := c.currentView()
@@ -67,7 +67,7 @@ func (c *core) sendRoundChange(round *big.Int) {
 	})
 }
 
-func (c *core) handleRoundChange(msg *ibfttypes.Message, src istanbul.Validator) error {
+func (c *core[P]) handleRoundChange(msg *ibfttypes.Message, src istanbul.Validator) error {
 	logger := c.logger.New("state", c.state, "from", src.Address().Hex())
 
 	// Decode ROUND CHANGE message

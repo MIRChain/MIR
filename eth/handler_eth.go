@@ -35,15 +35,15 @@ import (
 
 // ethHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
-type ethHandler [T crypto.PrivateKey,P crypto.PublicKey] handler
+type ethHandler [T crypto.PrivateKey,P crypto.PublicKey] handler[T,P]
 
 func (h *ethHandler[T,P]) Chain() *core.BlockChain[P]     { return h.chain }
 func (h *ethHandler[T,P]) StateBloom() *trie.SyncBloom { return h.stateBloom }
-func (h *ethHandler[T,P]) TxPool() eth.TxPool          { return h.txpool }
+func (h *ethHandler[T,P]) TxPool() eth.TxPool[P]          { return h.txpool }
 
 // RunPeer is invoked when a peer joins on the `eth` protocol.
-func (h *ethHandler[T,P]) RunPeer(peer *eth.Peer[T,P], hand eth.Handler) error {
-	return (*handler)(h).runEthPeer(peer, hand)
+func (h *ethHandler[T,P]) RunPeer(peer *eth.Peer[T,P], hand eth.Handler[T,P]) error {
+	return (*handler[T,P])(h).runEthPeer(peer, hand)
 }
 
 // PeerInfo retrieves all known `eth` information about a peer.
@@ -68,7 +68,7 @@ func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 	case *eth.BlockHeadersPacket:
 		return h.handleHeaders(peer, *packet)
 
-	case *eth.BlockBodiesPacket:
+	case *eth.BlockBodiesPacket[P]:
 		txset, uncleset := packet.Unpack()
 		return h.handleBodies(peer, txset, uncleset)
 
@@ -78,7 +78,7 @@ func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 		}
 		return nil
 
-	case *eth.ReceiptsPacket:
+	case *eth.ReceiptsPacket[P]:
 		if err := h.downloader.DeliverReceipts(peer.ID(), *packet); err != nil {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
@@ -88,16 +88,16 @@ func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 		hashes, numbers := packet.Unpack()
 		return h.handleBlockAnnounces(peer, hashes, numbers)
 
-	case *eth.NewBlockPacket:
+	case *eth.NewBlockPacket[P]:
 		return h.handleBlockBroadcast(peer, packet.Block, packet.TD)
 
 	case *eth.NewPooledTransactionHashesPacket:
 		return h.txFetcher.Notify(peer.ID(), *packet)
 
-	case *eth.TransactionsPacket:
+	case *eth.TransactionsPacket[P]:
 		return h.txFetcher.Enqueue(peer.ID(), *packet, false)
 
-	case *eth.PooledTransactionsPacket:
+	case *eth.PooledTransactionsPacket[P]:
 		return h.txFetcher.Enqueue(peer.ID(), *packet, true)
 
 	default:

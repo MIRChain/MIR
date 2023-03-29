@@ -23,13 +23,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 // API is a user facing RPC API to dump Istanbul state
-type API struct {
+type API [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	chain   consensus.ChainHeaderReader
-	backend *Backend
+	backend *Backend[T,P]
 }
 
 // BlockSigners is contains who created and who signed a particular block, denoted by its number and hash
@@ -46,13 +47,13 @@ type Status struct {
 }
 
 // NodeAddress returns the public address that is used to sign block headers in IBFT
-func (api *API) NodeAddress() common.Address {
+func (api *API[T,P]) NodeAddress() common.Address {
 	return api.backend.Address()
 }
 
 // GetSignersFromBlock returns the signers and minter for a given block number, or the
 // latest block available if none is specified
-func (api *API) GetSignersFromBlock(number *rpc.BlockNumber) (*BlockSigners, error) {
+func (api *API[T,P]) GetSignersFromBlock(number *rpc.BlockNumber) (*BlockSigners, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header *types.Header
 	if number == nil || *number == rpc.LatestBlockNumber {
@@ -69,7 +70,7 @@ func (api *API) GetSignersFromBlock(number *rpc.BlockNumber) (*BlockSigners, err
 }
 
 // GetSignersFromBlockByHash returns the signers and minter for a given block hash
-func (api *API) GetSignersFromBlockByHash(hash common.Hash) (*BlockSigners, error) {
+func (api *API[T,P]) GetSignersFromBlockByHash(hash common.Hash) (*BlockSigners, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, istanbulcommon.ErrUnknownBlock
@@ -78,7 +79,7 @@ func (api *API) GetSignersFromBlockByHash(hash common.Hash) (*BlockSigners, erro
 	return api.signers(header)
 }
 
-func (api *API) signers(header *types.Header) (*BlockSigners, error) {
+func (api *API[T,P]) signers(header *types.Header) (*BlockSigners, error) {
 	author, err := api.backend.Author(header)
 	if err != nil {
 		return nil, err
@@ -98,7 +99,7 @@ func (api *API) signers(header *types.Header) (*BlockSigners, error) {
 }
 
 // GetSnapshot retrieves the state snapshot at a given block.
-func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
+func (api *API[T,P]) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header *types.Header
 	if number == nil || *number == rpc.LatestBlockNumber {
@@ -114,7 +115,7 @@ func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
-func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
+func (api *API[T,P]) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, istanbulcommon.ErrUnknownBlock
@@ -123,7 +124,7 @@ func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 }
 
 // GetValidators retrieves the list of authorized validators at the specified block.
-func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
+func (api *API[T,P]) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header *types.Header
 	if number == nil || *number == rpc.LatestBlockNumber {
@@ -143,7 +144,7 @@ func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error)
 }
 
 // GetValidatorsAtHash retrieves the state snapshot at a given block.
-func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) {
+func (api *API[T,P]) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, istanbulcommon.ErrUnknownBlock
@@ -156,7 +157,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 }
 
 // Candidates returns the current candidates the node tries to uphold and vote on.
-func (api *API) Candidates() map[common.Address]bool {
+func (api *API[T,P]) Candidates() map[common.Address]bool {
 	api.backend.candidatesLock.RLock()
 	defer api.backend.candidatesLock.RUnlock()
 
@@ -169,7 +170,7 @@ func (api *API) Candidates() map[common.Address]bool {
 
 // Propose injects a new authorization candidate that the validator will attempt to
 // push through.
-func (api *API) Propose(address common.Address, auth bool) {
+func (api *API[T,P]) Propose(address common.Address, auth bool) {
 	api.backend.candidatesLock.Lock()
 	defer api.backend.candidatesLock.Unlock()
 
@@ -178,14 +179,14 @@ func (api *API) Propose(address common.Address, auth bool) {
 
 // Discard drops a currently running candidate, stopping the validator from casting
 // further votes (either for or against).
-func (api *API) Discard(address common.Address) {
+func (api *API[T,P]) Discard(address common.Address) {
 	api.backend.candidatesLock.Lock()
 	defer api.backend.candidatesLock.Unlock()
 
 	delete(api.backend.candidates, address)
 }
 
-func (api *API) Status(startBlockNum *rpc.BlockNumber, endBlockNum *rpc.BlockNumber) (*Status, error) {
+func (api *API[T,P]) Status(startBlockNum *rpc.BlockNumber, endBlockNum *rpc.BlockNumber) (*Status, error) {
 	var (
 		numBlocks   uint64
 		header      = api.chain.CurrentHeader()
@@ -254,7 +255,7 @@ func (api *API) Status(startBlockNum *rpc.BlockNumber, endBlockNum *rpc.BlockNum
 	}, nil
 }
 
-func (api *API) IsValidator(blockNum *rpc.BlockNumber) (bool, error) {
+func (api *API[T,P]) IsValidator(blockNum *rpc.BlockNumber) (bool, error) {
 	var blockNumber rpc.BlockNumber
 	if blockNum != nil {
 		blockNumber = *blockNum

@@ -45,7 +45,7 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Digest: common.StringToHash("1234567890"),
 	})
-	// with a matched payload. msgPreprepare should match with *istanbul.Preprepare in normal case.
+	// with a matched payload. msgPreprepare should match with *istanbul.Preprepare[P] in normal case.
 	msg := &ibfttypes.Message{
 		Code:          ibfttypes.MsgPreprepare,
 		Msg:           m,

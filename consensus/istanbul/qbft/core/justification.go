@@ -7,6 +7,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
@@ -90,8 +91,8 @@ func hasQuorumOfRoundChangeMessagesForPreparedRoundAndBlock(roundChangeMessages 
 
 // Checks whether the round and block of a set of PREPARE messages of at least quorumSize match the
 // preparedRound and preparedBlockDigest of a ROUND-CHANGE qbfttypes.
-func hasMatchingRoundChangeAndPrepares(
-	roundChange *qbfttypes.RoundChange, prepareMessages []*qbfttypes.Prepare, quorumSize int) error {
+func hasMatchingRoundChangeAndPrepares[P crypto.PublicKey](
+	roundChange *qbfttypes.RoundChange[P], prepareMessages []*qbfttypes.Prepare, quorumSize int) error {
 
 	if len(prepareMessages) < quorumSize {
 		return errors.New("number of prepare messages is less than quorum of messages")

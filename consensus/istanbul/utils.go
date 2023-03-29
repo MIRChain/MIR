@@ -32,29 +32,29 @@ func RLPHash(v interface{}) (h common.Hash) {
 }
 
 // GetSignatureAddress gets the signer address from the signature
-func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
+func GetSignatureAddress[P crypto.PublicKey](data []byte, sig []byte) (common.Address, error) {
 	// 1. Keccak data
 	hashData := crypto.Keccak256(data)
 	// 2. Recover public key
-	pubkey, err := crypto.SigToPub(hashData, sig)
+	pubkey, err := crypto.SigToPub[P](hashData, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return crypto.PubkeyToAddress(*pubkey), nil
+	return crypto.PubkeyToAddress(pubkey), nil
 }
 
 // GetSignatureAddressNoHashing gets the signer address from the signature without first hashing the data
-func GetSignatureAddressNoHashing(data []byte, sig []byte) (common.Address, error) {
-	pubkey, err := crypto.SigToPub(data, sig)
+func GetSignatureAddressNoHashing[P crypto.PublicKey](data []byte, sig []byte) (common.Address, error) {
+	pubkey, err := crypto.SigToPub[P](data, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return crypto.PubkeyToAddress(*pubkey), nil
+	return crypto.PubkeyToAddress(pubkey), nil
 }
 
-func CheckValidatorSignature(valSet ValidatorSet, data []byte, sig []byte) (common.Address, error) {
+func CheckValidatorSignature[P crypto.PublicKey](valSet ValidatorSet, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
-	signer, err := GetSignatureAddress(data, sig)
+	signer, err := GetSignatureAddress[P](data, sig)
 	if err != nil {
 		log.Error("Failed to get signer address", "err", err)
 		return common.Address{}, err

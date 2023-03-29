@@ -28,7 +28,7 @@ import (
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start() error {
+func (c *core[P]) Start() error {
 	c.logger.Info("QBFT: start")
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
@@ -43,7 +43,7 @@ func (c *core) Start() error {
 }
 
 // Stop implements core.Engine.Stop
-func (c *core) Stop() error {
+func (c *core[P]) Stop() error {
 	c.logger.Info("QBFT: stopping...")
 	c.stopTimer()
 	c.unsubscribeEvents()
@@ -57,7 +57,7 @@ func (c *core) Stop() error {
 // ----------------------------------------------------------------------------
 
 // Subscribe both internal and external events
-func (c *core) subscribeEvents() {
+func (c *core[P]) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events
 		istanbul.RequestEvent{},
@@ -74,7 +74,7 @@ func (c *core) subscribeEvents() {
 }
 
 // Unsubscribe all events
-func (c *core) unsubscribeEvents() {
+func (c *core[P]) unsubscribeEvents() {
 	c.events.Unsubscribe()
 	c.timeoutSub.Unsubscribe()
 	c.finalCommittedSub.Unsubscribe()
@@ -91,7 +91,7 @@ func (c *core) unsubscribeEvents() {
 // - if correct time, message is handled
 
 // Each time a message is successfully handled it is gossiped to other validators
-func (c *core) handleEvents() {
+func (c *core[P]) handleEvents() {
 	// Clear state
 	defer func() {
 		c.current = nil
@@ -161,11 +161,11 @@ func (c *core) handleEvents() {
 }
 
 // sendEvent sends events to mux
-func (c *core) sendEvent(ev interface{}) {
+func (c *core[P]) sendEvent(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }
 
-func (c *core) handleEncodedMsg(code uint64, data []byte) error {
+func (c *core[P]) handleEncodedMsg(code uint64, data []byte) error {
 	logger := c.logger.New("code", code, "data", data)
 
 	if _, ok := qbfttypes.MessageCodes()[code]; !ok {
@@ -174,7 +174,7 @@ func (c *core) handleEncodedMsg(code uint64, data []byte) error {
 	}
 
 	// Decode data into a QBFTMessage
-	m, err := qbfttypes.Decode(code, data)
+	m, err := qbfttypes.Decode[P](code, data)
 	if err != nil {
 		logger.Error("QBFT: invalid message", "err", err)
 		return err
@@ -189,7 +189,7 @@ func (c *core) handleEncodedMsg(code uint64, data []byte) error {
 
 }
 
-func (c *core) handleDecodedMessage(m qbfttypes.QBFTMessage) error {
+func (c *core[P]) handleDecodedMessage(m qbfttypes.QBFTMessage) error {
 	view := m.View()
 	if err := c.checkMessage(m.Code(), &view); err != nil {
 		// Store in the backlog it it's a future message
@@ -203,18 +203,18 @@ func (c *core) handleDecodedMessage(m qbfttypes.QBFTMessage) error {
 }
 
 // Deliver to specific message handler
-func (c *core) deliverMessage(m qbfttypes.QBFTMessage) error {
+func (c *core[P]) deliverMessage(m qbfttypes.QBFTMessage) error {
 	var err error
 
 	switch m.Code() {
 	case qbfttypes.PreprepareCode:
-		err = c.handlePreprepareMsg(m.(*qbfttypes.Preprepare))
+		err = c.handlePreprepareMsg(m.(*qbfttypes.Preprepare[P]))
 	case qbfttypes.PrepareCode:
 		err = c.handlePrepare(m.(*qbfttypes.Prepare))
 	case qbfttypes.CommitCode:
 		err = c.handleCommitMsg(m.(*qbfttypes.Commit))
 	case qbfttypes.RoundChangeCode:
-		err = c.handleRoundChange(m.(*qbfttypes.RoundChange))
+		err = c.handleRoundChange(m.(*qbfttypes.RoundChange[P]))
 	default:
 		c.logger.Error("QBFT: invalid message code", "code", m.Code())
 		return errInvalidMessage
@@ -223,7 +223,7 @@ func (c *core) deliverMessage(m qbfttypes.QBFTMessage) error {
 	return err
 }
 
-func (c *core) handleTimeoutMsg() {
+func (c *core[P]) handleTimeoutMsg() {
 	logger := c.currentLogger(true, nil)
 	// Start the new round
 	round := c.current.Round()
@@ -240,7 +240,7 @@ func (c *core) handleTimeoutMsg() {
 // Verifies the signature of the message m and of any justification payloads
 // piggybacked in m, if any. It also sets the source address on the messages
 // and justification payloads.
-func (c *core) verifySignatures(m qbfttypes.QBFTMessage) error {
+func (c *core[P]) verifySignatures(m qbfttypes.QBFTMessage) error {
 	logger := c.currentLogger(true, m)
 
 	// Anonymous function to verify the signature of a single message or payload
@@ -266,14 +266,14 @@ func (c *core) verifySignatures(m qbfttypes.QBFTMessage) error {
 
 	// Verifies the signature of piggybacked justification payloads.
 	switch msgType := m.(type) {
-	case *qbfttypes.RoundChange:
+	case *qbfttypes.RoundChange[P]:
 		signedPreparePayloads := msgType.Justification
 		for _, p := range signedPreparePayloads {
 			if err := verify(p); err != nil {
 				return err
 			}
 		}
-	case *qbfttypes.Preprepare:
+	case *qbfttypes.Preprepare[P]:
 		signedRoundChangePayloads := msgType.JustificationRoundChanges
 		for _, p := range signedRoundChangePayloads {
 			if err := verify(p); err != nil {
@@ -285,7 +285,7 @@ func (c *core) verifySignatures(m qbfttypes.QBFTMessage) error {
 	return nil
 }
 
-func (c *core) currentLogger(state bool, msg qbfttypes.QBFTMessage) log.Logger {
+func (c *core[P]) currentLogger(state bool, msg qbfttypes.QBFTMessage) log.Logger {
 	logCtx := []interface{}{}
 	if c.current != nil {
 		logCtx = append(logCtx,
@@ -311,7 +311,7 @@ func (c *core) currentLogger(state bool, msg qbfttypes.QBFTMessage) log.Logger {
 	return c.logger.New(logCtx...)
 }
 
-func (c *core) withState(logger log.Logger) log.Logger {
+func (c *core[P]) withState(logger log.Logger) log.Logger {
 	return logger.New("state", c.state)
 }
 

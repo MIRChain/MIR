@@ -26,7 +26,7 @@ import (
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 )
 
-func newTestPreprepare(v *istanbul.View) *istanbul.Preprepare {
+func newTestPreprepare(v *istanbul.View) *istanbul.Preprepare[P] {
 	return &istanbul.Preprepare{
 		View:     v,
 		Proposal: newTestProposal(),

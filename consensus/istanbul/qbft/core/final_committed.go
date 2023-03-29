@@ -18,7 +18,7 @@ package core
 
 import "github.com/pavelkrolevets/MIR-pro/common"
 
-func (c *core) handleFinalCommitted() error {
+func (c *core[P]) handleFinalCommitted() error {
 	c.currentLogger(true, nil).Info("QBFT: handle final committed")
 
 	// Stopping the timer, so that round changes do not happen

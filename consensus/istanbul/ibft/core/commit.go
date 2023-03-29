@@ -25,12 +25,12 @@ import (
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 )
 
-func (c *core) sendCommit() {
+func (c *core[P]) sendCommit() {
 	sub := c.current.Subject()
 	c.broadcastCommit(sub)
 }
 
-func (c *core) sendCommitForOldBlock(view *istanbul.View, digest common.Hash) {
+func (c *core[P]) sendCommitForOldBlock(view *istanbul.View, digest common.Hash) {
 	sub := &istanbul.Subject{
 		View:   view,
 		Digest: digest,
@@ -38,7 +38,7 @@ func (c *core) sendCommitForOldBlock(view *istanbul.View, digest common.Hash) {
 	c.broadcastCommit(sub)
 }
 
-func (c *core) broadcastCommit(sub *istanbul.Subject) {
+func (c *core[P]) broadcastCommit(sub *istanbul.Subject) {
 	logger := c.logger.New("state", c.state)
 
 	encodedSubject, err := ibfttypes.Encode(sub)
@@ -52,7 +52,7 @@ func (c *core) broadcastCommit(sub *istanbul.Subject) {
 	})
 }
 
-func (c *core) handleCommit(msg *ibfttypes.Message, src istanbul.Validator) error {
+func (c *core[P]) handleCommit(msg *ibfttypes.Message, src istanbul.Validator) error {
 	// Decode COMMIT message
 	var commit *istanbul.Subject
 	err := msg.Decode(&commit)
@@ -84,7 +84,7 @@ func (c *core) handleCommit(msg *ibfttypes.Message, src istanbul.Validator) erro
 }
 
 // verifyCommit verifies if the received COMMIT message is equivalent to our subject
-func (c *core) verifyCommit(commit *istanbul.Subject, src istanbul.Validator) error {
+func (c *core[P]) verifyCommit(commit *istanbul.Subject, src istanbul.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	sub := c.current.Subject()
@@ -96,7 +96,7 @@ func (c *core) verifyCommit(commit *istanbul.Subject, src istanbul.Validator) er
 	return nil
 }
 
-func (c *core) acceptCommit(msg *ibfttypes.Message, src istanbul.Validator) error {
+func (c *core[P]) acceptCommit(msg *ibfttypes.Message, src istanbul.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	// Add the COMMIT message to current round state

@@ -46,7 +46,7 @@ type BlockGen [P crypto.PublicKey] struct {
 	uncles   []*types.Header
 
 	config *params.ChainConfig
-	engine consensus.Engine
+	engine consensus.Engine[P]
 
 	privateStatedb *state.StateDB // Quorum
 }
@@ -115,7 +115,7 @@ func (b *BlockGen[P]) AddTxWithChain(bc *BlockChain[P], tx *types.Transaction[P]
 	}
 	// End Quorum
 
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, privateDb, b.header, tx, &b.header.GasUsed, vm.Config[P]{}, false, nil, false)
+	receipt, _, err := ApplyTransaction[P](b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, privateDb, b.header, tx, &b.header.GasUsed, vm.Config[P]{}, false, nil, false)
 	if err != nil {
 		panic(err)
 	}
@@ -202,7 +202,7 @@ func (b *BlockGen[P]) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types.Block[P], engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen[P])) ([]*types.Block[P], []types.Receipts[P]) {
+func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types.Block[P], engine consensus.Engine[P], db ethdb.Database, n int, gen func(int, *BlockGen[P])) ([]*types.Block[P], []types.Receipts[P]) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -211,7 +211,7 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 	// Quorum: add `privateStatedb` argument
 	genblock := func(i int, parent *types.Block[P], statedb *state.StateDB, privateStatedb *state.StateDB) (*types.Block[P], types.Receipts[P]) {
 		b := &BlockGen[P]{i: i, chain: blocks, parent: parent, statedb: statedb, privateStatedb: privateStatedb, config: config, engine: engine}
-		b.header = makeHeader(chainreader, parent, statedb, b.engine)
+		b.header = makeHeader[P](chainreader, parent, statedb, b.engine)
 
 		// Mutate the state and block according to any hard-fork specs
 		if daoBlock := config.DAOForkBlock; daoBlock != nil {
@@ -263,7 +263,7 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 	return blocks, receipts
 }
 
-func makeHeader[P crypto.PublicKey](chain consensus.ChainReader, parent *types.Block[P], state *state.StateDB, engine consensus.Engine) *types.Header {
+func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *types.Block[P], state *state.StateDB, engine consensus.Engine[P]) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10
@@ -288,7 +288,7 @@ func makeHeader[P crypto.PublicKey](chain consensus.ChainReader, parent *types.B
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
+func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, engine consensus.Engine[P], db ethdb.Database, seed int) []*types.Header {
 	blocks := makeBlockChain(types.NewBlockWithHeader[P](parent), n, engine, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
@@ -298,7 +298,7 @@ func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, engine con
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain[P crypto.PublicKey](parent *types.Block[P], n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block[P] {
+func makeBlockChain[P crypto.PublicKey](parent *types.Block[P], n int, engine consensus.Engine[P], db ethdb.Database, seed int) []*types.Block[P] {
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen[P]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})

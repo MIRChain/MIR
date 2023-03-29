@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -41,20 +42,20 @@ const (
 	txsyncPackSize = 100 * 1024
 )
 
-type txsync struct {
-	p   *eth.Peer
-	txs []*types.Transaction
+type txsync [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	p   *eth.Peer[T,P]
+	txs []*types.Transaction[P]
 }
 
 // syncTransactions starts sending all currently pending transactions to the given peer.
-func (h *handler) syncTransactions(p *eth.Peer) {
+func (h *handler[T,P]) syncTransactions(p *eth.Peer[T,P]) {
 	// Assemble the set of transaction to broadcast or announce to the remote
 	// peer. Fun fact, this is quite an expensive operation as it needs to sort
 	// the transactions if the sorting is not cached yet. However, with a random
 	// order, insertions could overflow the non-executable queues and get dropped.
 	//
 	// TODO(karalabe): Figure out if we could get away with random order somehow
-	var txs types.Transactions
+	var txs types.Transactions[P]
 	pending, _ := h.txpool.Pending()
 	for _, batch := range pending {
 		txs = append(txs, batch...)
@@ -75,7 +76,7 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 	}
 	// Out of luck, peer is running legacy protocols, drop the txs over
 	select {
-	case h.txsyncCh <- &txsync{p: p, txs: txs}:
+	case h.txsyncCh <- &txsync[T,P]{p: p, txs: txs}:
 	case <-h.quitSync:
 	}
 }
@@ -84,18 +85,18 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 // connection. When a new peer appears, we relay all currently pending
 // transactions. In order to minimise egress bandwidth usage, we send
 // the transactions in small packs to one peer at a time.
-func (h *handler) txsyncLoop64() {
+func (h *handler[T,P]) txsyncLoop64() {
 	defer h.wg.Done()
 
 	var (
-		pending = make(map[enode.ID]*txsync)
+		pending = make(map[enode.ID]*txsync[T,P])
 		sending = false               // whether a send is active
-		pack    = new(txsync)         // the pack that is being sent
+		pack    = new(txsync[T,P])         // the pack that is being sent
 		done    = make(chan error, 1) // result of the send
 	)
 
 	// send starts a sending a pack of transactions from the sync.
-	send := func(s *txsync) {
+	send := func(s *txsync[T,P]) {
 		if s.p.Version() >= eth.ETH65 {
 			panic("initial transaction syncer running on eth/65+")
 		}
@@ -118,7 +119,7 @@ func (h *handler) txsyncLoop64() {
 		go func() { done <- pack.p.SendTransactions(pack.txs) }()
 	}
 	// pick chooses the next pending sync.
-	pick := func() *txsync {
+	pick := func() *txsync[T,P] {
 		if len(pending) == 0 {
 			return nil
 		}
@@ -156,8 +157,8 @@ func (h *handler) txsyncLoop64() {
 }
 
 // chainSyncer coordinates blockchain sync components.
-type chainSyncer struct {
-	handler     *handler
+type chainSyncer [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	handler     *handler[T,P]
 	force       *time.Timer
 	forced      bool // true when force timer fired
 	peerEventCh chan struct{}
@@ -165,16 +166,16 @@ type chainSyncer struct {
 }
 
 // chainSyncOp is a scheduled sync operation.
-type chainSyncOp struct {
+type chainSyncOp  [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	mode downloader.SyncMode
-	peer *eth.Peer
+	peer *eth.Peer[T,P]
 	td   *big.Int
 	head common.Hash
 }
 
 // newChainSyncer creates a chainSyncer.
-func newChainSyncer(handler *handler) *chainSyncer {
-	return &chainSyncer{
+func newChainSyncer[T crypto.PrivateKey, P crypto.PublicKey](handler *handler[T,P]) *chainSyncer[T,P] {
+	return &chainSyncer[T,P]{
 		handler:     handler,
 		peerEventCh: make(chan struct{}),
 	}
@@ -183,7 +184,7 @@ func newChainSyncer(handler *handler) *chainSyncer {
 // handlePeerEvent notifies the syncer about a change in the peer set.
 // This is called for new peers and every time a peer announces a new
 // chain head.
-func (cs *chainSyncer) handlePeerEvent(peer *eth.Peer) bool {
+func (cs *chainSyncer[T,P]) handlePeerEvent(peer *eth.Peer[T,P]) bool {
 	select {
 	case cs.peerEventCh <- struct{}{}:
 		return true
@@ -193,7 +194,7 @@ func (cs *chainSyncer) handlePeerEvent(peer *eth.Peer) bool {
 }
 
 // loop runs in its own goroutine and launches the sync when necessary.
-func (cs *chainSyncer) loop() {
+func (cs *chainSyncer[T,P]) loop() {
 	defer cs.handler.wg.Done()
 
 	cs.handler.blockFetcher.Start()
@@ -238,7 +239,7 @@ func (cs *chainSyncer) loop() {
 }
 
 // nextSyncOp determines whether sync is required at this time.
-func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
+func (cs *chainSyncer[T,P]) nextSyncOp() *chainSyncOp[T,P] {
 	if cs.doneCh != nil {
 		return nil // Sync already running.
 	}
@@ -274,12 +275,12 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	return op
 }
 
-func peerToSyncOp(mode downloader.SyncMode, p *eth.Peer) *chainSyncOp {
+func peerToSyncOp[T crypto.PrivateKey, P crypto.PublicKey](mode downloader.SyncMode, p *eth.Peer[T,P]) *chainSyncOp[T,P] {
 	peerHead, peerTD := p.Head()
-	return &chainSyncOp{mode: mode, peer: p, td: peerTD, head: peerHead}
+	return &chainSyncOp[T,P]{mode: mode, peer: p, td: peerTD, head: peerHead}
 }
 
-func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
+func (cs *chainSyncer[T,P]) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
 	// If we're in fast sync mode, return that directly
 	if atomic.LoadUint32(&cs.handler.fastSync) == 1 {
 		block := cs.handler.chain.CurrentFastBlock()
@@ -302,13 +303,13 @@ func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
 }
 
 // startSync launches doSync in a new goroutine.
-func (cs *chainSyncer) startSync(op *chainSyncOp) {
+func (cs *chainSyncer[T,P]) startSync(op *chainSyncOp[T,P]) {
 	cs.doneCh = make(chan error, 1)
 	go func() { cs.doneCh <- cs.handler.doSync(op) }()
 }
 
 // doSync synchronizes the local blockchain with a remote peer.
-func (h *handler) doSync(op *chainSyncOp) error {
+func (h *handler[T,P]) doSync(op *chainSyncOp[T,P]) error {
 	if op.mode == downloader.FastSync || op.mode == downloader.SnapSync {
 		// Before launch the fast sync, we have to ensure user uses the same
 		// txlookup limit.

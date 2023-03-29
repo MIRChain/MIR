@@ -22,6 +22,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
@@ -32,97 +33,97 @@ type ProxyAPISupport interface {
 }
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
-type PublicTransactionPoolProxyAPI struct {
-	PublicTransactionPoolAPI
+type PublicTransactionPoolProxyAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	PublicTransactionPoolAPI[T,P]
 	proxyClient *rpc.Client
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolProxyAPI(b Backend, nonceLock *AddrLocker) interface{} {
+func NewPublicTransactionPoolProxyAPI[T crypto.PrivateKey, P crypto.PublicKey](b Backend[T,P], nonceLock *AddrLocker) interface{} {
 	apiSupport, ok := b.(ProxyAPISupport)
 	if ok && apiSupport.ProxyEnabled() {
-		signer := types.LatestSigner(b.ChainConfig())
-		return &PublicTransactionPoolProxyAPI{
-			PublicTransactionPoolAPI{b, nonceLock, signer},
+		signer := types.LatestSigner[P](b.ChainConfig())
+		return &PublicTransactionPoolProxyAPI[T,P]{
+			PublicTransactionPoolAPI[T,P]{b, nonceLock, signer},
 			apiSupport.ProxyClient(),
 		}
 	}
 	return NewPublicTransactionPoolAPI(b, nonceLock)
 }
 
-func (s *PublicTransactionPoolProxyAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) SendTransaction(ctx context.Context, args SendTxArgs[T,P]) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "eth_sendTransaction", args)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "eth_sendRawTransaction", encodedTx)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) SendRawPrivateTransaction(ctx context.Context, encodedTx hexutil.Bytes, args SendRawTxArgs) (common.Hash, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) SendRawPrivateTransaction(ctx context.Context, encodedTx hexutil.Bytes, args SendRawTxArgs[T,P]) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "eth_sendRawPrivateTransaction", encodedTx, args)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) FillTransaction(ctx context.Context, args SendTxArgs) (*SignTransactionResult, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) FillTransaction(ctx context.Context, args SendTxArgs[T,P]) (*SignTransactionResult[P], error) {
 	log.Info("QLight - proxy enabled")
-	var result SignTransactionResult
+	var result SignTransactionResult[P]
 	err := s.proxyClient.CallContext(ctx, &result, "eth_fillTransaction", args)
 	return &result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) DistributePrivateTransaction(ctx context.Context, encodedTx hexutil.Bytes, args SendRawTxArgs) (string, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) DistributePrivateTransaction(ctx context.Context, encodedTx hexutil.Bytes, args SendRawTxArgs[T,P]) (string, error) {
 	log.Info("QLight - proxy enabled")
 	var result string
 	err := s.proxyClient.CallContext(ctx, &result, "eth_distributePrivateTransaction", encodedTx, args)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) Resend(ctx context.Context, sendArgs SendTxArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) Resend(ctx context.Context, sendArgs SendTxArgs[T,P], gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "eth_resend", sendArgs, gasPrice, gasLimit)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) SendTransactionAsync(ctx context.Context, args AsyncSendTxArgs) (common.Hash, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) SendTransactionAsync(ctx context.Context, args AsyncSendTxArgs[T,P]) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "eth_sendTransactionAsync", args)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) Sign(addr common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) Sign(addr common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
 	log.Info("QLight - proxy enabled")
 	var result hexutil.Bytes
 	err := s.proxyClient.Call(&result, "eth_sign", addr, data)
 	return result, err
 }
 
-func (s *PublicTransactionPoolProxyAPI) SignTransaction(ctx context.Context, args SendTxArgs) (*SignTransactionResult, error) {
+func (s *PublicTransactionPoolProxyAPI[T,P]) SignTransaction(ctx context.Context, args SendTxArgs[T,P]) (*SignTransactionResult[P], error) {
 	log.Info("QLight - proxy enabled")
-	var result SignTransactionResult
+	var result SignTransactionResult[P]
 	err := s.proxyClient.CallContext(ctx, &result, "eth_signTransaction", args)
 	return &result, err
 }
 
-type PrivateAccountProxyAPI struct {
-	PrivateAccountAPI
+type PrivateAccountProxyAPI [T crypto.PrivateKey, P crypto.PublicKey]  struct {
+	PrivateAccountAPI[T,P]
 	proxyClient *rpc.Client
 }
 
-func NewPrivateAccountProxyAPI(b Backend, nonceLock *AddrLocker) interface{} {
+func NewPrivateAccountProxyAPI[T crypto.PrivateKey, P crypto.PublicKey](b Backend[T,P], nonceLock *AddrLocker) interface{} {
 	apiSupport, ok := b.(ProxyAPISupport)
 	if ok && apiSupport.ProxyEnabled() {
-		return &PrivateAccountProxyAPI{
-			PrivateAccountAPI{
+		return &PrivateAccountProxyAPI[T,P]{
+			PrivateAccountAPI[T,P]{
 				am:        b.AccountManager(),
 				nonceLock: nonceLock,
 				b:         b,
@@ -130,30 +131,30 @@ func NewPrivateAccountProxyAPI(b Backend, nonceLock *AddrLocker) interface{} {
 			apiSupport.ProxyClient(),
 		}
 	}
-	return NewPrivateAccountAPI(b, nonceLock)
+	return NewPrivateAccountAPI[T,P](b, nonceLock)
 }
 
-func (s *PrivateAccountProxyAPI) SendTransaction(ctx context.Context, args SendTxArgs, passwd string) (common.Hash, error) {
+func (s *PrivateAccountProxyAPI[T,P]) SendTransaction(ctx context.Context, args SendTxArgs[T,P], passwd string) (common.Hash, error) {
 	log.Info("QLight - proxy enabled")
 	var result common.Hash
 	err := s.proxyClient.CallContext(ctx, &result, "personal_sendTransaction", args, passwd)
 	return result, err
 }
 
-func (s *PrivateAccountProxyAPI) SignTransaction(ctx context.Context, args SendTxArgs, passwd string) (*SignTransactionResult, error) {
+func (s *PrivateAccountProxyAPI[T,P]) SignTransaction(ctx context.Context, args SendTxArgs[T,P], passwd string) (*SignTransactionResult[P], error) {
 	log.Info("QLight - proxy enabled")
-	var result SignTransactionResult
+	var result SignTransactionResult[P]
 	err := s.proxyClient.CallContext(ctx, &result, "personal_signTransaction", args, passwd)
 	return &result, err
 }
 
-func (s *PrivateAccountProxyAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
+func (s *PrivateAccountProxyAPI[T,P]) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	log.Info("QLight - proxy enabled")
 	var result hexutil.Bytes
 	err := s.proxyClient.CallContext(ctx, &result, "personal_sign", data, addr, passwd)
 	return result, err
 }
 
-func (s *PrivateAccountProxyAPI) SignAndSendTransaction(ctx context.Context, args SendTxArgs, passwd string) (common.Hash, error) {
+func (s *PrivateAccountProxyAPI[T,P]) SignAndSendTransaction(ctx context.Context, args SendTxArgs[T,P], passwd string) (common.Hash, error) {
 	return s.SendTransaction(ctx, args, passwd)
 }

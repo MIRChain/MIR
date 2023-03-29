@@ -18,6 +18,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -28,29 +29,29 @@ var (
 
 type SignerFn func(data []byte) ([]byte, error)
 
-type Engine struct {
+type Engine [P crypto.PublicKey]  struct {
 	cfg *istanbul.Config
 
 	signer common.Address // Ethereum address of the signing key
 	sign   SignerFn       // Signer function to authorize hashes with
 }
 
-func NewEngine(cfg *istanbul.Config, signer common.Address, sign SignerFn) *Engine {
-	return &Engine{
+func NewEngine[P crypto.PublicKey](cfg *istanbul.Config, signer common.Address, sign SignerFn) *Engine[P] {
+	return &Engine[P]{
 		cfg:    cfg,
 		signer: signer,
 		sign:   sign,
 	}
 }
 
-func (e *Engine) Author(header *types.Header) (common.Address, error) {
+func (e *Engine[P]) Author(header *types.Header) (common.Address, error) {
 	// Retrieve the signature from the header extra-data
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	addr, err := istanbul.GetSignatureAddress(sigHash(header).Bytes(), extra.Seal)
+	addr, err := istanbul.GetSignatureAddress[P](sigHash(header).Bytes(), extra.Seal)
 	if err != nil {
 		return addr, err
 	}
@@ -58,12 +59,12 @@ func (e *Engine) Author(header *types.Header) (common.Address, error) {
 	return addr, nil
 }
 
-func (e *Engine) CommitHeader(header *types.Header, seals [][]byte, round *big.Int) error {
+func (e *Engine[P]) CommitHeader(header *types.Header, seals [][]byte, round *big.Int) error {
 	// Append seals into extra-data
 	return writeCommittedSeals(header, seals)
 }
 
-func (e *Engine) VerifyBlockProposal(chain consensus.ChainHeaderReader, block *types.Block, validators istanbul.ValidatorSet) (time.Duration, error) {
+func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader, block *types.Block[P], validators istanbul.ValidatorSet) (time.Duration, error) {
 	// check block body
 	txnHash := types.DeriveSha(block.Transactions(), new(trie.Trie))
 	if txnHash != block.Header().TxHash {
@@ -87,7 +88,7 @@ func (e *Engine) VerifyBlockProposal(chain consensus.ChainHeaderReader, block *t
 	return 0, err
 }
 
-func (e *Engine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
 	return e.verifyHeader(chain, header, parents, validators)
 }
 
@@ -95,7 +96,7 @@ func (e *Engine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.H
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
-func (e *Engine) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
 	if header.Number == nil {
 		return istanbulcommon.ErrUnknownBlock
 	}
@@ -136,7 +137,7 @@ func (e *Engine) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
-func (e *Engine) verifyCascadingFields(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet, parents []*types.Header) error {
+func (e *Engine[P]) verifyCascadingFields(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet, parents []*types.Header) error {
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -169,7 +170,7 @@ func (e *Engine) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	return e.verifyCommittedSeals(chain, header, parents, validators)
 }
 
-func (e *Engine) verifySigner(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifySigner(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -191,7 +192,7 @@ func (e *Engine) verifySigner(chain consensus.ChainHeaderReader, header *types.H
 }
 
 // verifyCommittedSeals checks whether every committed seal is signed by one of the parent's validators
-func (e *Engine) verifyCommittedSeals(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifyCommittedSeals(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
 	number := header.Number.Uint64()
 
 	if number == 0 {
@@ -237,7 +238,7 @@ func (e *Engine) verifyCommittedSeals(chain consensus.ChainHeaderReader, header 
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of a given engine.
-func (e *Engine) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+func (e *Engine[P]) VerifyUncles(chain consensus.ChainReader[P], block *types.Block[P]) error {
 	if len(block.Uncles()) > 0 {
 		return istanbulcommon.ErrInvalidUncleHash
 	}
@@ -246,7 +247,7 @@ func (e *Engine) VerifyUncles(chain consensus.ChainReader, block *types.Block) e
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (e *Engine) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
 
 	// get parent header and ensure the signer is in parent's validator set
 	number := header.Number.Uint64()
@@ -262,7 +263,7 @@ func (e *Engine) VerifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 	return e.verifySigner(chain, header, nil, validators)
 }
 
-func (e *Engine) Prepare(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) Prepare(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
 	header.Coinbase = common.Address{}
 	header.Nonce = istanbulcommon.EmptyBlockNonce
 	header.MixDigest = types.IstanbulDigest
@@ -306,7 +307,7 @@ func (e *Engine) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (e *Engine) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header) {
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -314,7 +315,7 @@ func (e *Engine) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (e *Engine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	/// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -325,7 +326,7 @@ func (e *Engine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (e *Engine) Seal(chain consensus.ChainHeaderReader, block *types.Block, validators istanbul.ValidatorSet) (*types.Block, error) {
+func (e *Engine[P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P], validators istanbul.ValidatorSet) (*types.Block[P], error) {
 	// update the block header timestamp and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
@@ -343,7 +344,7 @@ func (e *Engine) Seal(chain consensus.ChainHeaderReader, block *types.Block, val
 }
 
 // update timestamp and signature of the block based on its number of transactions
-func (e *Engine) updateBlock(parent *types.Header, block *types.Block) (*types.Block, error) {
+func (e *Engine[P]) updateBlock(parent *types.Header, block *types.Block[P]) (*types.Block[P], error) {
 	// sign the hash
 	header := block.Header()
 	seal, err := e.sign(sigHash(header).Bytes())
@@ -381,15 +382,15 @@ func writeSeal(h *types.Header, seal []byte) error {
 	return nil
 }
 
-func (e *Engine) SealHash(header *types.Header) common.Hash {
+func (e *Engine[P]) SealHash(header *types.Header) common.Hash {
 	return sigHash(header)
 }
 
-func (e *Engine) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
+func (e *Engine[P]) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
 	return new(big.Int)
 }
 
-func (e *Engine) ExtractGenesisValidators(header *types.Header) ([]common.Address, error) {
+func (e *Engine[P]) ExtractGenesisValidators(header *types.Header) ([]common.Address, error) {
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
 		return nil, err
@@ -398,7 +399,7 @@ func (e *Engine) ExtractGenesisValidators(header *types.Header) ([]common.Addres
 	return extra.Validators, nil
 }
 
-func (e *Engine) Signers(header *types.Header) ([]common.Address, error) {
+func (e *Engine[P]) Signers(header *types.Header) ([]common.Address, error) {
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
 		return []common.Address{}, err
@@ -410,7 +411,7 @@ func (e *Engine) Signers(header *types.Header) ([]common.Address, error) {
 	// 1. Get committed seals from current header
 	for _, seal := range committedSeal {
 		// 2. Get the original address by seal and parent block hash
-		addr, err := istanbulcommon.GetSignatureAddress(proposalSeal, seal)
+		addr, err := istanbulcommon.GetSignatureAddress[P](proposalSeal, seal)
 		if err != nil {
 			return nil, istanbulcommon.ErrInvalidSignature
 		}
@@ -420,11 +421,11 @@ func (e *Engine) Signers(header *types.Header) ([]common.Address, error) {
 	return addrs, nil
 }
 
-func (e *Engine) Address() common.Address {
+func (e *Engine[P]) Address() common.Address {
 	return e.signer
 }
 
-func (e *Engine) WriteVote(header *types.Header, candidate common.Address, authorize bool) error {
+func (e *Engine[P]) WriteVote(header *types.Header, candidate common.Address, authorize bool) error {
 	header.Coinbase = candidate
 	if authorize {
 		copy(header.Nonce[:], nonceAuthVote)
@@ -435,7 +436,7 @@ func (e *Engine) WriteVote(header *types.Header, candidate common.Address, autho
 	return nil
 }
 
-func (e *Engine) ReadVote(header *types.Header) (candidate common.Address, authorize bool, err error) {
+func (e *Engine[P]) ReadVote(header *types.Header) (candidate common.Address, authorize bool, err error) {
 	switch {
 	case bytes.Equal(header.Nonce[:], nonceAuthVote):
 		authorize = true

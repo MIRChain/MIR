@@ -23,11 +23,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
-func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, preprepare *qbfttypes.Preprepare, preparedRound *big.Int, preparedBlock istanbul.Proposal, pendingRequest *Request, hasBadProposal func(hash common.Hash) bool) *roundState {
-	return &roundState{
+func newRoundState[P crypto.PublicKey](view *istanbul.View, validatorSet istanbul.ValidatorSet, preprepare *qbfttypes.Preprepare[P], preparedRound *big.Int, preparedBlock istanbul.Proposal, pendingRequest *Request, hasBadProposal func(hash common.Hash) bool) *roundState[P] {
+	return &roundState[P]{
 		round:      view.Round,
 		sequence:   view.Sequence,
 		Preprepare: preprepare,
@@ -45,10 +46,10 @@ func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, prep
 }
 
 // roundState stores the consensus state
-type roundState struct {
+type roundState [P crypto.PublicKey] struct {
 	round      *big.Int
 	sequence   *big.Int
-	Preprepare *qbfttypes.Preprepare
+	Preprepare *qbfttypes.Preprepare[P]
 
 	QBFTPrepares *qbftMsgSet
 	QBFTCommits  *qbftMsgSet
@@ -64,7 +65,7 @@ type roundState struct {
 	preprepareSent *big.Int
 }
 
-func (s *roundState) Subject() *Subject {
+func (s *roundState[P]) Subject() *Subject {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -81,14 +82,14 @@ func (s *roundState) Subject() *Subject {
 	}
 }
 
-func (s *roundState) SetPreprepare(preprepare *qbfttypes.Preprepare) {
+func (s *roundState[P]) SetPreprepare(preprepare *qbfttypes.Preprepare[P]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.Preprepare = preprepare
 }
 
-func (s *roundState) Proposal() istanbul.Proposal {
+func (s *roundState[P]) Proposal() istanbul.Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -99,28 +100,28 @@ func (s *roundState) Proposal() istanbul.Proposal {
 	return nil
 }
 
-func (s *roundState) SetRound(r *big.Int) {
+func (s *roundState[P]) SetRound(r *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.round = new(big.Int).Set(r)
 }
 
-func (s *roundState) Round() *big.Int {
+func (s *roundState[P]) Round() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return s.round
 }
 
-func (s *roundState) SetSequence(seq *big.Int) {
+func (s *roundState[P]) SetSequence(seq *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.sequence = seq
 }
 
-func (s *roundState) Sequence() *big.Int {
+func (s *roundState[P]) Sequence() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

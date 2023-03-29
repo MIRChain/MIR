@@ -50,7 +50,7 @@ type EthAPIBackend [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	extRPCEnabled       bool
 	allowUnprotectedTxs bool
 	eth                 *Ethereum[T,P]
-	gpo                 *gasprice.Oracle
+	gpo                 *gasprice.Oracle[P]
 
 	// Quorum
 	//
@@ -385,7 +385,7 @@ func (b *EthAPIBackend[T,P]) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent[P])
 	return b.eth.TxPool().SubscribeNewTxsEvent(ch)
 }
 
-func (b *EthAPIBackend[T,P]) Downloader() *downloader.Downloader {
+func (b *EthAPIBackend[T,P]) Downloader() *downloader.Downloader[T,P] {
 	return b.eth.Downloader()
 }
 

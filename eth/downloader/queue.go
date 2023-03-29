@@ -29,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/prque"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -61,17 +62,17 @@ type fetchRequest struct {
 
 // fetchResult is a struct collecting partial results from data fetchers until
 // all outstanding pieces complete and the result as a whole can be processed.
-type fetchResult struct {
+type fetchResult [P crypto.PublicKey] struct {
 	pending int32 // Flag telling what deliveries are outstanding
 
 	Header       *types.Header
 	Uncles       []*types.Header
-	Transactions types.Transactions
-	Receipts     types.Receipts
+	Transactions types.Transactions[P]
+	Receipts     types.Receipts[P]
 }
 
-func newFetchResult(header *types.Header, fastSync bool) *fetchResult {
-	item := &fetchResult{
+func newFetchResult[P crypto.PublicKey](header *types.Header, fastSync bool) *fetchResult[P] {
+	item := &fetchResult[P]{
 		Header: header,
 	}
 	if !header.EmptyBody() {
@@ -84,32 +85,32 @@ func newFetchResult(header *types.Header, fastSync bool) *fetchResult {
 }
 
 // SetBodyDone flags the body as finished.
-func (f *fetchResult) SetBodyDone() {
+func (f *fetchResult[P]) SetBodyDone() {
 	if v := atomic.LoadInt32(&f.pending); (v & (1 << bodyType)) != 0 {
 		atomic.AddInt32(&f.pending, -1)
 	}
 }
 
 // AllDone checks if item is done.
-func (f *fetchResult) AllDone() bool {
+func (f *fetchResult[P]) AllDone() bool {
 	return atomic.LoadInt32(&f.pending) == 0
 }
 
 // SetReceiptsDone flags the receipts as finished.
-func (f *fetchResult) SetReceiptsDone() {
+func (f *fetchResult[P]) SetReceiptsDone() {
 	if v := atomic.LoadInt32(&f.pending); (v & (1 << receiptType)) != 0 {
 		atomic.AddInt32(&f.pending, -2)
 	}
 }
 
 // Done checks if the given type is done already
-func (f *fetchResult) Done(kind uint) bool {
+func (f *fetchResult[P]) Done(kind uint) bool {
 	v := atomic.LoadInt32(&f.pending)
 	return v&(1<<kind) == 0
 }
 
 // queue represents hashes that are either need fetching or are being fetched
-type queue struct {
+type queue [P crypto.PublicKey] struct {
 	mode SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching
 
 	// Headers are "special", they download in batches, supported by a skeleton chain
@@ -132,7 +133,7 @@ type queue struct {
 	receiptTaskQueue *prque.Prque                  // Priority queue of the headers to fetch the receipts for
 	receiptPendPool  map[string]*fetchRequest      // Currently pending receipt retrieval operations
 
-	resultCache *resultStore       // Downloaded but not yet delivered fetch results
+	resultCache *resultStore[P]       // Downloaded but not yet delivered fetch results
 	resultSize  common.StorageSize // Approximate size of a block (exponential moving average)
 
 	lock   *sync.RWMutex
@@ -143,9 +144,9 @@ type queue struct {
 }
 
 // newQueue creates a new download queue for scheduling block retrieval.
-func newQueue(blockCacheLimit int, thresholdInitialSize int) *queue {
+func newQueue[P crypto.PublicKey](blockCacheLimit int, thresholdInitialSize int) *queue[P] {
 	lock := new(sync.RWMutex)
-	q := &queue{
+	q := &queue[P]{
 		headerContCh:     make(chan bool),
 		blockTaskQueue:   prque.New(nil),
 		receiptTaskQueue: prque.New(nil),
@@ -157,7 +158,7 @@ func newQueue(blockCacheLimit int, thresholdInitialSize int) *queue {
 }
 
 // Reset clears out the queue contents.
-func (q *queue) Reset(blockCacheLimit int, thresholdInitialSize int) {
+func (q *queue[P]) Reset(blockCacheLimit int, thresholdInitialSize int) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -175,13 +176,13 @@ func (q *queue) Reset(blockCacheLimit int, thresholdInitialSize int) {
 	q.receiptTaskQueue.Reset()
 	q.receiptPendPool = make(map[string]*fetchRequest)
 
-	q.resultCache = newResultStore(blockCacheLimit)
+	q.resultCache = newResultStore[P](blockCacheLimit)
 	q.resultCache.SetThrottleThreshold(uint64(thresholdInitialSize))
 }
 
 // Close marks the end of the sync, unblocking Results.
 // It may be called even if the queue is already closed.
-func (q *queue) Close() {
+func (q *queue[P]) Close() {
 	q.lock.Lock()
 	q.closed = true
 	q.active.Signal()
@@ -189,7 +190,7 @@ func (q *queue) Close() {
 }
 
 // PendingHeaders retrieves the number of header requests pending for retrieval.
-func (q *queue) PendingHeaders() int {
+func (q *queue[P]) PendingHeaders() int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -197,7 +198,7 @@ func (q *queue) PendingHeaders() int {
 }
 
 // PendingBlocks retrieves the number of block (body) requests pending for retrieval.
-func (q *queue) PendingBlocks() int {
+func (q *queue[P]) PendingBlocks() int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -205,7 +206,7 @@ func (q *queue) PendingBlocks() int {
 }
 
 // PendingReceipts retrieves the number of block receipts pending for retrieval.
-func (q *queue) PendingReceipts() int {
+func (q *queue[P]) PendingReceipts() int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -214,7 +215,7 @@ func (q *queue) PendingReceipts() int {
 
 // InFlightHeaders retrieves whether there are header fetch requests currently
 // in flight.
-func (q *queue) InFlightHeaders() bool {
+func (q *queue[P]) InFlightHeaders() bool {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -223,7 +224,7 @@ func (q *queue) InFlightHeaders() bool {
 
 // InFlightBlocks retrieves whether there are block fetch requests currently in
 // flight.
-func (q *queue) InFlightBlocks() bool {
+func (q *queue[P]) InFlightBlocks() bool {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -232,7 +233,7 @@ func (q *queue) InFlightBlocks() bool {
 
 // InFlightReceipts retrieves whether there are receipt fetch requests currently
 // in flight.
-func (q *queue) InFlightReceipts() bool {
+func (q *queue[P]) InFlightReceipts() bool {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -240,7 +241,7 @@ func (q *queue) InFlightReceipts() bool {
 }
 
 // Idle returns if the queue is fully idle or has some data still inside.
-func (q *queue) Idle() bool {
+func (q *queue[P]) Idle() bool {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -252,7 +253,7 @@ func (q *queue) Idle() bool {
 
 // ScheduleSkeleton adds a batch of header retrieval tasks to the queue to fill
 // up an already retrieved header skeleton.
-func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
+func (q *queue[P]) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -279,7 +280,7 @@ func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 
 // RetrieveHeaders retrieves the header chain assemble based on the scheduled
 // skeleton.
-func (q *queue) RetrieveHeaders() ([]*types.Header, int) {
+func (q *queue[P]) RetrieveHeaders() ([]*types.Header, int) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -291,7 +292,7 @@ func (q *queue) RetrieveHeaders() ([]*types.Header, int) {
 
 // Schedule adds a set of headers for the download queue for scheduling, returning
 // the new headers encountered.
-func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
+func (q *queue[P]) Schedule(headers []*types.Header, from uint64) []*types.Header {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -337,7 +338,7 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 // the cache. the result slice will be empty if the queue has been closed.
 // Results can be called concurrently with Deliver and Schedule,
 // but assumes that there are not two simultaneous callers to Results
-func (q *queue) Results(block bool) []*fetchResult {
+func (q *queue[P]) Results(block bool) []*fetchResult[P] {
 	// Abort early if there are no items and non-blocking requested
 	if !block && !q.resultCache.HasCompletedItems() {
 		return nil
@@ -393,14 +394,14 @@ func (q *queue) Results(block bool) []*fetchResult {
 	return results
 }
 
-func (q *queue) Stats() []interface{} {
+func (q *queue[P]) Stats() []interface{} {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
 	return q.stats()
 }
 
-func (q *queue) stats() []interface{} {
+func (q *queue[P]) stats() []interface{} {
 	return []interface{}{
 		"receiptTasks", q.receiptTaskQueue.Size(),
 		"blockTasks", q.blockTaskQueue.Size(),
@@ -410,7 +411,7 @@ func (q *queue) stats() []interface{} {
 
 // ReserveHeaders reserves a set of headers for the given peer, skipping any
 // previously failed batches.
-func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
+func (q *queue[P]) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -451,7 +452,7 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 // ReserveBodies reserves a set of body fetches for the given peer, skipping any
 // previously failed downloads. Beside the next batch of needed fetches, it also
 // returns a flag whether empty blocks were queued requiring processing.
-func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, bool) {
+func (q *queue[P]) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -461,7 +462,7 @@ func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool
 // ReserveReceipts reserves a set of receipt fetches for the given peer, skipping
 // any previously failed downloads. Beside the next batch of needed fetches, it
 // also returns a flag whether empty receipts were queued requiring importing.
-func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bool, bool) {
+func (q *queue[P]) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bool, bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -480,7 +481,7 @@ func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bo
 //   item     - the fetchRequest
 //   progress - whether any progress was made
 //   throttle - if the caller should throttle for a while
-func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common.Hash]*types.Header, taskQueue *prque.Prque,
+func (q *queue[P]) reserveHeaders(p *peerConnection, count int, taskPool map[common.Hash]*types.Header, taskQueue *prque.Prque,
 	pendPool map[string]*fetchRequest, kind uint) (*fetchRequest, bool, bool) {
 	// Short circuit if the pool has been depleted, or if the peer's already
 	// downloading something (sanity check not to corrupt state)
@@ -567,7 +568,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 }
 
 // CancelHeaders aborts a fetch request, returning all pending skeleton indexes to the queue.
-func (q *queue) CancelHeaders(request *fetchRequest) {
+func (q *queue[P]) CancelHeaders(request *fetchRequest) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	q.cancel(request, q.headerTaskQueue, q.headerPendPool)
@@ -575,7 +576,7 @@ func (q *queue) CancelHeaders(request *fetchRequest) {
 
 // CancelBodies aborts a body fetch request, returning all pending headers to the
 // task queue.
-func (q *queue) CancelBodies(request *fetchRequest) {
+func (q *queue[P]) CancelBodies(request *fetchRequest) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	q.cancel(request, q.blockTaskQueue, q.blockPendPool)
@@ -583,14 +584,14 @@ func (q *queue) CancelBodies(request *fetchRequest) {
 
 // CancelReceipts aborts a body fetch request, returning all pending headers to
 // the task queue.
-func (q *queue) CancelReceipts(request *fetchRequest) {
+func (q *queue[P]) CancelReceipts(request *fetchRequest) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	q.cancel(request, q.receiptTaskQueue, q.receiptPendPool)
 }
 
 // Cancel aborts a fetch request, returning all pending hashes to the task queue.
-func (q *queue) cancel(request *fetchRequest, taskQueue *prque.Prque, pendPool map[string]*fetchRequest) {
+func (q *queue[P]) cancel(request *fetchRequest, taskQueue *prque.Prque, pendPool map[string]*fetchRequest) {
 	if request.From > 0 {
 		taskQueue.Push(request.From, -int64(request.From))
 	}
@@ -603,7 +604,7 @@ func (q *queue) cancel(request *fetchRequest, taskQueue *prque.Prque, pendPool m
 // Revoke cancels all pending requests belonging to a given peer. This method is
 // meant to be called during a peer drop to quickly reassign owned data fetches
 // to remaining nodes.
-func (q *queue) Revoke(peerID string) {
+func (q *queue[P]) Revoke(peerID string) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -623,7 +624,7 @@ func (q *queue) Revoke(peerID string) {
 
 // ExpireHeaders checks for in flight requests that exceeded a timeout allowance,
 // canceling them and returning the responsible peers for penalisation.
-func (q *queue) ExpireHeaders(timeout time.Duration) map[string]int {
+func (q *queue[P]) ExpireHeaders(timeout time.Duration) map[string]int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -632,7 +633,7 @@ func (q *queue) ExpireHeaders(timeout time.Duration) map[string]int {
 
 // ExpireBodies checks for in flight block body requests that exceeded a timeout
 // allowance, canceling them and returning the responsible peers for penalisation.
-func (q *queue) ExpireBodies(timeout time.Duration) map[string]int {
+func (q *queue[P]) ExpireBodies(timeout time.Duration) map[string]int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -641,7 +642,7 @@ func (q *queue) ExpireBodies(timeout time.Duration) map[string]int {
 
 // ExpireReceipts checks for in flight receipt requests that exceeded a timeout
 // allowance, canceling them and returning the responsible peers for penalisation.
-func (q *queue) ExpireReceipts(timeout time.Duration) map[string]int {
+func (q *queue[P]) ExpireReceipts(timeout time.Duration) map[string]int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -654,7 +655,7 @@ func (q *queue) ExpireReceipts(timeout time.Duration) map[string]int {
 // Note, this method expects the queue lock to be already held. The
 // reason the lock is not obtained in here is because the parameters already need
 // to access the queue, so they already need a lock anyway.
-func (q *queue) expire(timeout time.Duration, pendPool map[string]*fetchRequest, taskQueue *prque.Prque, timeoutMeter metrics.Meter) map[string]int {
+func (q *queue[P]) expire(timeout time.Duration, pendPool map[string]*fetchRequest, taskQueue *prque.Prque, timeoutMeter metrics.Meter) map[string]int {
 	// Iterate over the expired requests and return each to the queue
 	expiries := make(map[string]int)
 	for id, request := range pendPool {
@@ -686,7 +687,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*fetchRequest,
 // If the headers are accepted, the method makes an attempt to deliver the set
 // of ready headers to the processor to keep the pipeline full. However it will
 // not block to prevent stalling other pending deliveries.
-func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh chan []*types.Header) (int, error) {
+func (q *queue[P]) DeliverHeaders(id string, headers []*types.Header, headerProcCh chan []*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -780,11 +781,11 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLists [][]*types.Header) (int, error) {
+func (q *queue[P]) DeliverBodies(id string, txLists [][]*types.Transaction[P], uncleLists [][]*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	validate := func(index int, header *types.Header) error {
-		if types.DeriveSha(types.Transactions(txLists[index]), trie.NewStackTrie(nil)) != header.TxHash {
+		if types.DeriveSha(types.Transactions[P](txLists[index]), trie.NewStackTrie(nil)) != header.TxHash {
 			return errInvalidBody
 		}
 		if types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
@@ -793,7 +794,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 		return nil
 	}
 
-	reconstruct := func(index int, result *fetchResult) {
+	reconstruct := func(index int, result *fetchResult[P]) {
 		result.Transactions = txLists[index]
 		result.Uncles = uncleLists[index]
 		result.SetBodyDone()
@@ -805,16 +806,16 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 // DeliverReceipts injects a receipt retrieval response into the results queue.
 // The method returns the number of transaction receipts accepted from the delivery
 // and also wakes any threads waiting for data delivery.
-func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt) (int, error) {
+func (q *queue[P]) DeliverReceipts(id string, receiptList [][]*types.Receipt[P]) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	validate := func(index int, header *types.Header) error {
-		if types.DeriveSha(types.Receipts(receiptList[index]), trie.NewStackTrie(nil)) != header.ReceiptHash {
+		if types.DeriveSha(types.Receipts[P](receiptList[index]), trie.NewStackTrie(nil)) != header.ReceiptHash {
 			return errInvalidReceipt
 		}
 		return nil
 	}
-	reconstruct := func(index int, result *fetchResult) {
+	reconstruct := func(index int, result *fetchResult[P]) {
 		result.Receipts = receiptList[index]
 		result.SetReceiptsDone()
 	}
@@ -827,10 +828,10 @@ func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt) (int,
 // Note, this method expects the queue lock to be already held for writing. The
 // reason this lock is not obtained in here is because the parameters already need
 // to access the queue, so they already need a lock anyway.
-func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header,
+func (q *queue[P]) deliver(id string, taskPool map[common.Hash]*types.Header,
 	taskQueue *prque.Prque, pendPool map[string]*fetchRequest, reqTimer metrics.Timer,
 	results int, validate func(index int, header *types.Header) error,
-	reconstruct func(index int, result *fetchResult)) (int, error) {
+	reconstruct func(index int, result *fetchResult[P])) (int, error) {
 
 	// Short circuit if the data was never requested
 	request := pendPool[id]
@@ -901,7 +902,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header,
 
 // Prepare configures the result cache to allow accepting and caching inbound
 // fetch results.
-func (q *queue) Prepare(offset uint64, mode SyncMode) {
+func (q *queue[P]) Prepare(offset uint64, mode SyncMode) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 

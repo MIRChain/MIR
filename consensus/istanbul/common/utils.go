@@ -6,13 +6,13 @@ import (
 )
 
 // GetSignatureAddress gets the signer address from the signature
-func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
+func GetSignatureAddress[P crypto.PublicKey](data []byte, sig []byte) (common.Address, error) {
 	// 1. Keccak data
 	hashData := crypto.Keccak256(data)
 	// 2. Recover public key
-	pubkey, err := crypto.SigToPub(hashData, sig)
+	pubkey, err := crypto.SigToPub[P](hashData, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return crypto.PubkeyToAddress(*pubkey), nil
+	return crypto.PubkeyToAddress(pubkey), nil
 }

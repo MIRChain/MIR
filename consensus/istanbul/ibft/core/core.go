@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	metrics "github.com/pavelkrolevets/MIR-pro/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -40,8 +41,8 @@ var (
 )
 
 // New creates an Istanbul consensus core
-func New(backend istanbul.Backend, config *istanbul.Config) *core {
-	c := &core{
+func New[P crypto.PublicKey](backend istanbul.Backend, config *istanbul.Config) *core[P] {
+	c := &core[P]{
 		config:             config,
 		address:            backend.Address(),
 		state:              ibfttypes.StateAcceptRequest,
@@ -61,7 +62,7 @@ func New(backend istanbul.Backend, config *istanbul.Config) *core {
 
 // ----------------------------------------------------------------------------
 
-type core struct {
+type core [P crypto.PublicKey] struct {
 	config  *istanbul.Config
 	address common.Address
 	state   ibfttypes.State
@@ -80,7 +81,7 @@ type core struct {
 	backlogs   map[common.Address]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	current   *roundState
+	current   *roundState[P]
 	handlerWg *sync.WaitGroup
 
 	roundChangeSet   *roundChangeSet
@@ -92,7 +93,7 @@ type core struct {
 	consensusTimestamp time.Time
 }
 
-func (c *core) finalizeMessage(msg *ibfttypes.Message) ([]byte, error) {
+func (c *core[P]) finalizeMessage(msg *ibfttypes.Message) ([]byte, error) {
 	var err error
 	// Add sender address
 	msg.Address = c.Address()
@@ -127,7 +128,7 @@ func (c *core) finalizeMessage(msg *ibfttypes.Message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(msg *ibfttypes.Message) {
+func (c *core[P]) broadcast(msg *ibfttypes.Message) {
 	logger := c.logger.New("state", c.state)
 
 	payload, err := c.finalizeMessage(msg)
@@ -143,14 +144,14 @@ func (c *core) broadcast(msg *ibfttypes.Message) {
 	}
 }
 
-func (c *core) currentView() *istanbul.View {
+func (c *core[P]) currentView() *istanbul.View {
 	return &istanbul.View{
 		Sequence: new(big.Int).Set(c.current.Sequence()),
 		Round:    new(big.Int).Set(c.current.Round()),
 	}
 }
 
-func (c *core) IsProposer() bool {
+func (c *core[P]) IsProposer() bool {
 	v := c.valSet
 	if v == nil {
 		return false
@@ -158,11 +159,11 @@ func (c *core) IsProposer() bool {
 	return v.IsProposer(c.backend.Address())
 }
 
-func (c *core) IsCurrentProposal(blockHash common.Hash) bool {
+func (c *core[P]) IsCurrentProposal(blockHash common.Hash) bool {
 	return c.current != nil && c.current.pendingRequest != nil && c.current.pendingRequest.Proposal.Hash() == blockHash
 }
 
-func (c *core) commit() {
+func (c *core[P]) commit() {
 	c.setState(ibfttypes.StateCommitted)
 
 	proposal := c.current.Proposal()
@@ -182,7 +183,7 @@ func (c *core) commit() {
 }
 
 // startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
-func (c *core) startNewRound(round *big.Int) {
+func (c *core[P]) startNewRound(round *big.Int) {
 	var logger log.Logger
 	if c.current == nil {
 		logger = c.logger.New("old_round", -1, "old_seq", 0)
@@ -271,7 +272,7 @@ func (c *core) startNewRound(round *big.Int) {
 	logger.Debug("New round", "new_round", newView.Round, "new_seq", newView.Sequence, "new_proposer", c.valSet.GetProposer(), "valSet", c.valSet.List(), "size", c.valSet.Size(), "IsProposer", c.IsProposer())
 }
 
-func (c *core) catchUpRound(view *istanbul.View) {
+func (c *core[P]) catchUpRound(view *istanbul.View) {
 	logger := c.logger.New("old_round", c.current.Round(), "old_seq", c.current.Sequence(), "old_proposer", c.valSet.GetProposer())
 
 	if view.Round.Cmp(c.current.Round()) > 0 {
@@ -288,20 +289,20 @@ func (c *core) catchUpRound(view *istanbul.View) {
 }
 
 // updateRoundState updates round state by checking if locking block is necessary
-func (c *core) updateRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, roundChange bool) {
+func (c *core[P]) updateRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, roundChange bool) {
 	// Lock only if both roundChange is true and it is locked
 	if roundChange && c.current != nil {
 		if c.current.IsHashLocked() {
 			c.current = newRoundState(view, validatorSet, c.current.GetLockedHash(), c.current.Preprepare, c.current.pendingRequest, c.backend.HasBadProposal)
 		} else {
-			c.current = newRoundState(view, validatorSet, common.Hash{}, nil, c.current.pendingRequest, c.backend.HasBadProposal)
+			c.current = newRoundState[P](view, validatorSet, common.Hash{}, nil, c.current.pendingRequest, c.backend.HasBadProposal)
 		}
 	} else {
-		c.current = newRoundState(view, validatorSet, common.Hash{}, nil, nil, c.backend.HasBadProposal)
+		c.current = newRoundState[P](view, validatorSet, common.Hash{}, nil, nil, c.backend.HasBadProposal)
 	}
 }
 
-func (c *core) setState(state ibfttypes.State) {
+func (c *core[P]) setState(state ibfttypes.State) {
 	if c.state != state {
 		c.state = state
 	}
@@ -311,24 +312,24 @@ func (c *core) setState(state ibfttypes.State) {
 	c.processBacklog()
 }
 
-func (c *core) Address() common.Address {
+func (c *core[P]) Address() common.Address {
 	return c.address
 }
 
-func (c *core) stopFuturePreprepareTimer() {
+func (c *core[P]) stopFuturePreprepareTimer() {
 	if c.futurePreprepareTimer != nil {
 		c.futurePreprepareTimer.Stop()
 	}
 }
 
-func (c *core) stopTimer() {
+func (c *core[P]) stopTimer() {
 	c.stopFuturePreprepareTimer()
 	if c.roundChangeTimer != nil {
 		c.roundChangeTimer.Stop()
 	}
 }
 
-func (c *core) newRoundChangeTimer() {
+func (c *core[P]) newRoundChangeTimer() {
 	c.stopTimer()
 
 	// set timeout based on the round number
@@ -342,11 +343,11 @@ func (c *core) newRoundChangeTimer() {
 	})
 }
 
-func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return istanbul.CheckValidatorSignature(c.valSet, data, sig)
+func (c *core[P]) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
+	return istanbul.CheckValidatorSignature[P](c.valSet, data, sig)
 }
 
-func (c *core) QuorumSize() int {
+func (c *core[P]) QuorumSize() int {
 	if c.config.Get2FPlus1Enabled(c.current.sequence) || c.config.Ceil2Nby3Block == nil || (c.current != nil && c.current.sequence.Cmp(c.config.Ceil2Nby3Block) < 0) {
 		c.logger.Trace("Confirmation Formula used 2F+ 1")
 		return (2 * c.valSet.F()) + 1

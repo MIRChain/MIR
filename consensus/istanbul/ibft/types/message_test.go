@@ -65,7 +65,7 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedPP *istanbul.Preprepare
+	var decodedPP *istanbul.Preprepare[P]
 	err = decodedMsg.Decode(&decodedPP)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

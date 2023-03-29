@@ -2,20 +2,21 @@ package testutils
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
-func Genesis(validators []common.Address, isQBFT bool) *core.Genesis {
+func Genesis[P crypto.PublicKey](validators []common.Address, isQBFT bool) *core.Genesis[P] {
 	// generate genesis block
-	genesis := core.DefaultGenesisBlock()
+	genesis := core.DefaultGenesisBlock[P]()
 	genesis.Config = params.TestChainConfig
 	// force enable Istanbul engine
 	genesis.Config.Istanbul = &params.IstanbulConfig{}
@@ -33,22 +34,31 @@ func Genesis(validators []common.Address, isQBFT bool) *core.Genesis {
 	return genesis
 }
 
-func GenesisAndKeys(n int, isQBFT bool) (*core.Genesis, []*ecdsa.PrivateKey) {
+func GenesisAndKeys[T crypto.PrivateKey, P crypto.PublicKey](n int, isQBFT bool) (*core.Genesis[P], []T) {
 	// Setup validators
-	var nodeKeys = make([]*ecdsa.PrivateKey, n)
+	var nodeKeys = make([]T, n)
 	var addrs = make([]common.Address, n)
 	for i := 0; i < n; i++ {
-		nodeKeys[i], _ = crypto.GenerateKey()
-		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
+		nodeKeys[i], _ = crypto.GenerateKey[T]()
+		var pub P
+		switch t:=any(&nodeKeys[i]).(type) {
+		case *nist.PrivateKey:
+			p:=any(&pub).(*nist.PublicKey)
+			*p = *t.Public()
+		case *gost3410.PrivateKey:
+			p:=any(&pub).(*gost3410.PublicKey)
+			*p = *t.Public()
+		}
+		addrs[i] = crypto.PubkeyToAddress(pub)
 	}
 
 	// generate genesis block
-	genesis := Genesis(addrs, isQBFT)
+	genesis := Genesis[P](addrs, isQBFT)
 
 	return genesis, nodeKeys
 }
 
-func appendValidatorsIstanbulExtra(genesis *core.Genesis, addrs []common.Address) {
+func appendValidatorsIstanbulExtra[P crypto.PublicKey](genesis *core.Genesis[P], addrs []common.Address) {
 	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
 		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
 	}
@@ -67,7 +77,7 @@ func appendValidatorsIstanbulExtra(genesis *core.Genesis, addrs []common.Address
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 }
 
-func appendValidators(genesis *core.Genesis, addrs []common.Address) {
+func appendValidators[P crypto.PublicKey](genesis *core.Genesis[P], addrs []common.Address) {
 	vanity := append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity-len(genesis.ExtraData))...)
 	ist := &types.QBFTExtra{
 		VanityData:    vanity,

@@ -25,12 +25,12 @@ import (
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 )
 
-func (c *core) sendPreprepare(request *istanbul.Request) {
+func (c *core[P]) sendPreprepare(request *istanbul.Request) {
 	logger := c.logger.New("state", c.state)
 	// If I'm the proposer and I have the same sequence with the proposal
 	if c.current.Sequence().Cmp(request.Proposal.Number()) == 0 && c.IsProposer() {
 		curView := c.currentView()
-		preprepare, err := ibfttypes.Encode(&istanbul.Preprepare{
+		preprepare, err := ibfttypes.Encode(&istanbul.Preprepare[P]{
 			View:     curView,
 			Proposal: request.Proposal,
 		})
@@ -45,11 +45,11 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 	}
 }
 
-func (c *core) handlePreprepare(msg *ibfttypes.Message, src istanbul.Validator) error {
+func (c *core[P]) handlePreprepare(msg *ibfttypes.Message, src istanbul.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	// Decode PRE-PREPARE
-	var preprepare *istanbul.Preprepare
+	var preprepare *istanbul.Preprepare[P]
 	err := msg.Decode(&preprepare)
 	if err != nil {
 		return istanbulcommon.ErrFailedDecodePreprepare
@@ -125,7 +125,7 @@ func (c *core) handlePreprepare(msg *ibfttypes.Message, src istanbul.Validator) 
 	return nil
 }
 
-func (c *core) acceptPreprepare(preprepare *istanbul.Preprepare) {
+func (c *core[P]) acceptPreprepare(preprepare *istanbul.Preprepare[P]) {
 	c.consensusTimestamp = time.Now()
 	c.current.SetPreprepare(preprepare)
 }

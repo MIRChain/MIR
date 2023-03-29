@@ -10,19 +10,20 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 // ROUND-CHANGE
-type RoundChange struct {
+type RoundChange [P crypto.PublicKey] struct {
 	SignedRoundChangePayload
-	PreparedBlock *types.Block
+	PreparedBlock *types.Block[P]
 	Justification []*Prepare
 }
 
-func NewRoundChange(sequence *big.Int, round *big.Int, preparedRound *big.Int, preparedBlock istanbul.Proposal) *RoundChange {
-	roundChange := &RoundChange{
+func NewRoundChange[P crypto.PublicKey](sequence *big.Int, round *big.Int, preparedRound *big.Int, preparedBlock istanbul.Proposal) *RoundChange[P] {
+	roundChange := &RoundChange[P]{
 		SignedRoundChangePayload: SignedRoundChangePayload{
 			CommonPayload: CommonPayload{
 				code:     RoundChangeCode,
@@ -35,7 +36,7 @@ func NewRoundChange(sequence *big.Int, round *big.Int, preparedRound *big.Int, p
 	}
 
 	if preparedBlock != nil {
-		roundChange.PreparedBlock = preparedBlock.(*types.Block)
+		roundChange.PreparedBlock = preparedBlock.(*types.Block[P])
 		roundChange.PreparedDigest = preparedBlock.Hash()
 	}
 
@@ -163,7 +164,7 @@ func (p *SignedRoundChangePayload) EncodePayloadForSigning() ([]byte, error) {
 		})
 }
 
-func (m *RoundChange) EncodeRLP(w io.Writer) error {
+func (m *RoundChange[P]) EncodeRLP(w io.Writer) error {
 	var encodedPayload rlp.RawValue
 	encodedPayload, err := m.encodePayloadInternal()
 	if err != nil {
@@ -181,7 +182,7 @@ func (m *RoundChange) EncodeRLP(w io.Writer) error {
 		})
 }
 
-func (m *RoundChange) DecodeRLP(stream *rlp.Stream) error {
+func (m *RoundChange[P]) DecodeRLP(stream *rlp.Stream) error {
 	var err error
 
 	// RoundChange Message

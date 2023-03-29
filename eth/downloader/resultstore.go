@@ -22,12 +22,13 @@ import (
 	"sync/atomic"
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // resultStore implements a structure for maintaining fetchResults, tracking their
 // download-progress and delivering (finished) results.
-type resultStore struct {
-	items        []*fetchResult // Downloaded but not yet delivered fetch results
+type resultStore [P crypto.PublicKey] struct {
+	items        []*fetchResult[P] // Downloaded but not yet delivered fetch results
 	resultOffset uint64         // Offset of the first cached fetch result in the block chain
 
 	// Internal index of first non-completed entry, updated atomically when needed.
@@ -45,17 +46,17 @@ type resultStore struct {
 	lock sync.RWMutex
 }
 
-func newResultStore(size int) *resultStore {
-	return &resultStore{
+func newResultStore[P crypto.PublicKey](size int) *resultStore[P] {
+	return &resultStore[P]{
 		resultOffset:      0,
-		items:             make([]*fetchResult, size),
+		items:             make([]*fetchResult[P], size),
 		throttleThreshold: uint64(size),
 	}
 }
 
 // SetThrottleThreshold updates the throttling threshold based on the requested
 // limit and the total queue capacity. It returns the (possibly capped) threshold
-func (r *resultStore) SetThrottleThreshold(threshold uint64) uint64 {
+func (r *resultStore[P]) SetThrottleThreshold(threshold uint64) uint64 {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -75,7 +76,7 @@ func (r *resultStore) SetThrottleThreshold(threshold uint64) uint64 {
 //   throttled - if true, the store is at capacity, this particular header is not prio now
 //   item      - the result to store data into
 //   err       - any error that occurred
-func (r *resultStore) AddFetch(header *types.Header, fastSync bool) (stale, throttled bool, item *fetchResult, err error) {
+func (r *resultStore[P]) AddFetch(header *types.Header, fastSync bool) (stale, throttled bool, item *fetchResult[P], err error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -85,7 +86,7 @@ func (r *resultStore) AddFetch(header *types.Header, fastSync bool) (stale, thro
 		return stale, throttled, item, err
 	}
 	if item == nil {
-		item = newFetchResult(header, fastSync)
+		item = newFetchResult[P](header, fastSync)
 		r.items[index] = item
 	}
 	return stale, throttled, item, err
@@ -95,7 +96,7 @@ func (r *resultStore) AddFetch(header *types.Header, fastSync bool) (stale, thro
 // is true, that means the header has already been delivered 'upstream'. This method
 // does not bubble up the 'throttle' flag, since it's moot at the point in time when
 // the item is downloaded and ready for delivery
-func (r *resultStore) GetDeliverySlot(headerNumber uint64) (*fetchResult, bool, error) {
+func (r *resultStore[P]) GetDeliverySlot(headerNumber uint64) (*fetchResult[P], bool, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 
@@ -105,7 +106,7 @@ func (r *resultStore) GetDeliverySlot(headerNumber uint64) (*fetchResult, bool, 
 
 // getFetchResult returns the fetchResult corresponding to the given item, and
 // the index where the result is stored.
-func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, index int, stale, throttle bool, err error) {
+func (r *resultStore[P]) getFetchResult(headerNumber uint64) (item *fetchResult[P], index int, stale, throttle bool, err error) {
 	index = int(int64(headerNumber) - int64(r.resultOffset))
 	throttle = index >= int(r.throttleThreshold)
 	stale = index < 0
@@ -125,7 +126,7 @@ func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, in
 
 // hasCompletedItems returns true if there are processable items available
 // this method is cheaper than countCompleted
-func (r *resultStore) HasCompletedItems() bool {
+func (r *resultStore[P]) HasCompletedItems() bool {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 
@@ -142,7 +143,7 @@ func (r *resultStore) HasCompletedItems() bool {
 // the first non-complete item.
 //
 // The mthod assumes (at least) rlock is held.
-func (r *resultStore) countCompleted() int {
+func (r *resultStore[P]) countCompleted() int {
 	// We iterate from the already known complete point, and see
 	// if any more has completed since last count
 	index := atomic.LoadInt32(&r.indexIncomplete)
@@ -160,7 +161,7 @@ func (r *resultStore) countCompleted() int {
 }
 
 // GetCompleted returns the next batch of completed fetchResults
-func (r *resultStore) GetCompleted(limit int) []*fetchResult {
+func (r *resultStore[P]) GetCompleted(limit int) []*fetchResult[P] {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -168,7 +169,7 @@ func (r *resultStore) GetCompleted(limit int) []*fetchResult {
 	if limit > completed {
 		limit = completed
 	}
-	results := make([]*fetchResult, limit)
+	results := make([]*fetchResult[P], limit)
 	copy(results, r.items[:limit])
 
 	// Delete the results from the cache and clear the tail.
@@ -184,7 +185,7 @@ func (r *resultStore) GetCompleted(limit int) []*fetchResult {
 }
 
 // Prepare initialises the offset with the given block number
-func (r *resultStore) Prepare(offset uint64) {
+func (r *resultStore[P]) Prepare(offset uint64) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 

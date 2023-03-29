@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 )
@@ -141,7 +142,7 @@ type txDrop struct {
 //   - Each peer that announced transactions may be scheduled retrievals, but
 //     only ever one concurrently. This ensures we can immediately know what is
 //     missing from a reply and reschedule it.
-type TxFetcher struct {
+type TxFetcher [P crypto.PublicKey] struct {
 	notify  chan *txAnnounce
 	cleanup chan *txDelivery
 	drop    chan *txDrop
@@ -169,7 +170,7 @@ type TxFetcher struct {
 
 	// Callbacks
 	hasTx    func(common.Hash) bool             // Retrieves a tx from the local txpool
-	addTxs   func([]*types.Transaction) []error // Insert a batch of transactions into local txpool
+	addTxs   func([]*types.Transaction[P]) []error // Insert a batch of transactions into local txpool
 	fetchTxs func(string, []common.Hash) error  // Retrieves a set of txs from a remote peer
 
 	step  chan struct{} // Notification channel when the fetcher loop iterates
@@ -179,16 +180,16 @@ type TxFetcher struct {
 
 // NewTxFetcher creates a transaction fetcher to retrieve transaction
 // based on hash announcements.
-func NewTxFetcher(hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error) *TxFetcher {
+func NewTxFetcher[P crypto.PublicKey](hasTx func(common.Hash) bool, addTxs func([]*types.Transaction[P]) []error, fetchTxs func(string, []common.Hash) error) *TxFetcher[P] {
 	return NewTxFetcherForTests(hasTx, addTxs, fetchTxs, mclock.System{}, nil)
 }
 
 // NewTxFetcherForTests is a testing method to mock out the realtime clock with
 // a simulated version and the internal randomness with a deterministic one.
-func NewTxFetcherForTests(
-	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error,
-	clock mclock.Clock, rand *mrand.Rand) *TxFetcher {
-	return &TxFetcher{
+func NewTxFetcherForTests[P crypto.PublicKey](
+	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction[P]) []error, fetchTxs func(string, []common.Hash) error,
+	clock mclock.Clock, rand *mrand.Rand) *TxFetcher[P] {
+	return &TxFetcher[P]{
 		notify:      make(chan *txAnnounce),
 		cleanup:     make(chan *txDelivery),
 		drop:        make(chan *txDrop),
@@ -212,7 +213,7 @@ func NewTxFetcherForTests(
 
 // Notify announces the fetcher of the potential availability of a new batch of
 // transactions in the network.
-func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
+func (f *TxFetcher[P]) Notify(peer string, hashes []common.Hash) error {
 	// Keep track of all the announced transactions
 	txAnnounceInMeter.Mark(int64(len(hashes)))
 
@@ -260,7 +261,7 @@ func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
 // and the fetcher. This method may be called by both transaction broadcasts and
 // direct request replies. The differentiation is important so the fetcher can
 // re-shedule missing transactions as soon as possible.
-func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) error {
+func (f *TxFetcher[P]) Enqueue(peer string, txs []*types.Transaction[P], direct bool) error {
 	// Keep track of all the propagated transactions
 	if direct {
 		txReplyInMeter.Mark(int64(len(txs)))
@@ -322,7 +323,7 @@ func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) 
 
 // Drop should be called when a peer disconnects. It cleans up all the internal
 // data structures of the given node.
-func (f *TxFetcher) Drop(peer string) error {
+func (f *TxFetcher[P]) Drop(peer string) error {
 	select {
 	case f.drop <- &txDrop{peer: peer}:
 		return nil
@@ -333,17 +334,17 @@ func (f *TxFetcher) Drop(peer string) error {
 
 // Start boots up the announcement based synchroniser, accepting and processing
 // hash notifications and block fetches until termination requested.
-func (f *TxFetcher) Start() {
+func (f *TxFetcher[P]) Start() {
 	go f.loop()
 }
 
 // Stop terminates the announcement based synchroniser, canceling all pending
 // operations.
-func (f *TxFetcher) Stop() {
+func (f *TxFetcher[P]) Stop() {
 	close(f.quit)
 }
 
-func (f *TxFetcher) loop() {
+func (f *TxFetcher[P]) loop() {
 	var (
 		waitTimer    = new(mclock.Timer)
 		timeoutTimer = new(mclock.Timer)
@@ -689,7 +690,7 @@ func (f *TxFetcher) loop() {
 // The method has a granularity of 'gatherSlack', since there's not much point in
 // spinning over all the transactions just to maybe find one that should trigger
 // a few ms earlier.
-func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
+func (f *TxFetcher[P]) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
 	if *timer != nil {
 		(*timer).Stop()
 	}
@@ -723,7 +724,7 @@ func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
 // pending requests and timed out requests separatey. Without double tracking, if
 // we simply didn't reschedule the timer on all-timeout then the timer would never
 // be set again since len(request) > 0 => something's running.
-func (f *TxFetcher) rescheduleTimeout(timer *mclock.Timer, trigger chan struct{}) {
+func (f *TxFetcher[P]) rescheduleTimeout(timer *mclock.Timer, trigger chan struct{}) {
 	if *timer != nil {
 		(*timer).Stop()
 	}
@@ -748,7 +749,7 @@ func (f *TxFetcher) rescheduleTimeout(timer *mclock.Timer, trigger chan struct{}
 }
 
 // scheduleFetches starts a batch of retrievals for all available idle peers.
-func (f *TxFetcher) scheduleFetches(timer *mclock.Timer, timeout chan struct{}, authorizationList map[string]struct{}) {
+func (f *TxFetcher[P]) scheduleFetches(timer *mclock.Timer, timeout chan struct{}, authorizationList map[string]struct{}) {
 	// Gather the set of peers we want to retrieve from (default to all)
 	actives := authorizationList
 	if actives == nil {
@@ -813,7 +814,7 @@ func (f *TxFetcher) scheduleFetches(timer *mclock.Timer, timeout chan struct{}, 
 
 // forEachPeer does a range loop over a map of peers in production, but during
 // testing it does a deterministic sorted random to allow reproducing issues.
-func (f *TxFetcher) forEachPeer(peers map[string]struct{}, do func(peer string)) {
+func (f *TxFetcher[P]) forEachPeer(peers map[string]struct{}, do func(peer string)) {
 	// If we're running production, use whatever Go's map gives us
 	if f.rand == nil {
 		for peer := range peers {
@@ -835,7 +836,7 @@ func (f *TxFetcher) forEachPeer(peers map[string]struct{}, do func(peer string))
 
 // forEachHash does a range loop over a map of hashes in production, but during
 // testing it does a deterministic sorted random to allow reproducing issues.
-func (f *TxFetcher) forEachHash(hashes map[common.Hash]struct{}, do func(hash common.Hash) bool) {
+func (f *TxFetcher[P]) forEachHash(hashes map[common.Hash]struct{}, do func(hash common.Hash) bool) {
 	// If we're running production, use whatever Go's map gives us
 	if f.rand == nil {
 		for hash := range hashes {

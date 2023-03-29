@@ -46,11 +46,11 @@ var (
 )
 
 // Protocol implements consensus.Engine.Protocol
-func (sb *Backend) Protocol() consensus.Protocol {
+func (sb *Backend[T,P]) Protocol() consensus.Protocol {
 	return consensus.IstanbulProtocol
 }
 
-func (sb *Backend) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
+func (sb *Backend[T,P]) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
 	var data []byte
 	if sb.IsQBFTConsensus() {
 		data = make([]byte, msg.Size)
@@ -66,7 +66,7 @@ func (sb *Backend) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
-func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+func (sb *Backend[T,P]) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if _, ok := qbfttypes.MessageCodes()[msg.Code]; ok || msg.Code == istanbulMsg {
@@ -115,7 +115,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			reader.Reset(payload)       // ready to be decoded
 			defer reader.Reset(payload) // restore so main eth/handler can decode
 			var request struct {        // this has to be same as eth/protocol.go#newBlockData as we are reading NewBlockMsg
-				Block *types.Block
+				Block *types.Block[P]
 				TD    *big.Int
 			}
 			if err := msg.Decode(&request); err != nil {
@@ -133,11 +133,11 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
-func (sb *Backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (sb *Backend[T,P]) SetBroadcaster(broadcaster consensus.Broadcaster[P]) {
 	sb.broadcaster = broadcaster
 }
 
-func (sb *Backend) NewChainHead() error {
+func (sb *Backend[T,P]) NewChainHead() error {
 	sb.coreMu.RLock()
 	defer sb.coreMu.RUnlock()
 	if !sb.coreStarted {

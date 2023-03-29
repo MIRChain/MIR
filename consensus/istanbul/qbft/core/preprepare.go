@@ -33,14 +33,14 @@ import (
 // - creates and sign PRE-PREPARE message with block proposed on `miner.Seal()`
 // - extends PRE-PREPARE message with ROUND-CHANGE and PREPARE justification
 // - broadcast PRE-PREPARE message to other validators
-func (c *core) sendPreprepareMsg(request *Request) {
+func (c *core[P]) sendPreprepareMsg(request *Request) {
 	logger := c.currentLogger(true, nil)
 
 	// If I'm the proposer and I have the same sequence with the proposal
 	if c.current.Sequence().Cmp(request.Proposal.Number()) == 0 && c.IsProposer() {
 		// Creates PRE-PREPARE message
 		curView := c.currentView()
-		preprepare := qbfttypes.NewPreprepare(curView.Sequence, curView.Round, request.Proposal)
+		preprepare := qbfttypes.NewPreprepare[P](curView.Sequence, curView.Round, request.Proposal)
 		preprepare.SetSource(c.Address())
 
 		// Sign payload
@@ -60,8 +60,8 @@ func (c *core) sendPreprepareMsg(request *Request) {
 		if request.RCMessages != nil {
 			preprepare.JustificationRoundChanges = make([]*qbfttypes.SignedRoundChangePayload, 0)
 			for _, m := range request.RCMessages.Values() {
-				preprepare.JustificationRoundChanges = append(preprepare.JustificationRoundChanges, &m.(*qbfttypes.RoundChange).SignedRoundChangePayload)
-				withMsg(logger, preprepare).Trace("QBFT: add ROUND-CHANGE justification", "rc", m.(*qbfttypes.RoundChange).SignedRoundChangePayload)
+				preprepare.JustificationRoundChanges = append(preprepare.JustificationRoundChanges, &m.(*qbfttypes.RoundChange[P]).SignedRoundChangePayload)
+				withMsg(logger, preprepare).Trace("QBFT: add ROUND-CHANGE justification", "rc", m.(*qbfttypes.RoundChange[P]).SignedRoundChangePayload)
 			}
 			withMsg(logger, preprepare).Trace("QBFT: extended PRE-PREPARE message with ROUND-CHANGE justifications", "justifications", preprepare.JustificationRoundChanges)
 		}
@@ -100,7 +100,7 @@ func (c *core) sendPreprepareMsg(request *Request) {
 // - validates PRE-PREPARE message was created by the right proposer node
 // - validates PRE-PREPARE message justification
 // - validates PRE-PREPARE message block proposal
-func (c *core) handlePreprepareMsg(preprepare *qbfttypes.Preprepare) error {
+func (c *core[P]) handlePreprepareMsg(preprepare *qbfttypes.Preprepare[P]) error {
 	logger := c.currentLogger(true, preprepare)
 
 	logger = logger.New("proposal.number", preprepare.Proposal.Number().Uint64(), "proposal.hash", preprepare.Proposal.Hash().String())

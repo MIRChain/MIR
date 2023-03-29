@@ -27,12 +27,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 // broadcastNextRoundChange sends the ROUND CHANGE message with current round + 1
-func (c *core) broadcastNextRoundChange() {
+func (c *core[P]) broadcastNextRoundChange() {
 	cv := c.currentView()
 	c.broadcastRoundChange(new(big.Int).Add(cv.Round, common.Big1))
 }
@@ -44,7 +45,7 @@ func (c *core) broadcastNextRoundChange() {
 // It
 // - Creates and sign ROUND-CHANGE message
 // - broadcast the ROUND-CHANGE message with the given round
-func (c *core) broadcastRoundChange(round *big.Int) {
+func (c *core[P]) broadcastRoundChange(round *big.Int) {
 	logger := c.currentLogger(true, nil)
 
 	// Validates new round corresponds to current view
@@ -54,7 +55,7 @@ func (c *core) broadcastRoundChange(round *big.Int) {
 		return
 	}
 
-	roundChange := qbfttypes.NewRoundChange(c.current.Sequence(), round, c.current.preparedRound, c.current.preparedBlock)
+	roundChange := qbfttypes.NewRoundChange[P](c.current.Sequence(), round, c.current.preparedRound, c.current.preparedBlock)
 
 	// Sign message
 	encodedPayload, err := roundChange.EncodePayloadForSigning()
@@ -94,7 +95,7 @@ func (c *core) broadcastRoundChange(round *big.Int) {
 // handleRoundChange is called when receiving a ROUND-CHANGE message from another validator
 // - accumulates ROUND-CHANGE messages until reaching quorum for a given round
 // - when quorum of ROUND-CHANGE messages is reached then
-func (c *core) handleRoundChange(roundChange *qbfttypes.RoundChange) error {
+func (c *core[P]) handleRoundChange(roundChange *qbfttypes.RoundChange[P]) error {
 	logger := c.currentLogger(true, roundChange)
 
 	view := roundChange.View()
@@ -164,7 +165,7 @@ func (c *core) handleRoundChange(roundChange *qbfttypes.RoundChange) error {
 		roundChangeMessages := c.roundChangeSet.roundChanges[currentRound.Uint64()]
 		rcSignedPayloads := make([]*qbfttypes.SignedRoundChangePayload, 0)
 		for _, m := range roundChangeMessages.Values() {
-			rcMsg := m.(*qbfttypes.RoundChange)
+			rcMsg := m.(*qbfttypes.RoundChange[P])
 			rcSignedPayloads = append(rcSignedPayloads, &rcMsg.SignedRoundChangePayload)
 		}
 
@@ -187,14 +188,14 @@ func (c *core) handleRoundChange(roundChange *qbfttypes.RoundChange) error {
 }
 
 // highestPrepared returns the highest Prepared Round and the corresponding Prepared Block
-func (c *core) highestPrepared(round *big.Int) (*big.Int, istanbul.Proposal) {
+func (c *core[P]) highestPrepared(round *big.Int) (*big.Int, istanbul.Proposal) {
 	return c.roundChangeSet.highestPreparedRound[round.Uint64()], c.roundChangeSet.highestPreparedBlock[round.Uint64()]
 }
 
 // ----------------------------------------------------------------------------
 
-func newRoundChangeSet(valSet istanbul.ValidatorSet) *roundChangeSet {
-	return &roundChangeSet{
+func newRoundChangeSet [P crypto.PublicKey] (valSet istanbul.ValidatorSet) *roundChangeSet[P] {
+	return &roundChangeSet[P]{
 		validatorSet:         valSet,
 		roundChanges:         make(map[uint64]*qbftMsgSet),
 		prepareMessages:      make(map[uint64][]*qbfttypes.Prepare),
@@ -204,7 +205,7 @@ func newRoundChangeSet(valSet istanbul.ValidatorSet) *roundChangeSet {
 	}
 }
 
-type roundChangeSet struct {
+type roundChangeSet [P crypto.PublicKey] struct {
 	validatorSet         istanbul.ValidatorSet
 	roundChanges         map[uint64]*qbftMsgSet
 	prepareMessages      map[uint64][]*qbfttypes.Prepare
@@ -213,7 +214,7 @@ type roundChangeSet struct {
 	mu                   *sync.Mutex
 }
 
-func (rcs *roundChangeSet) NewRound(r *big.Int) {
+func (rcs *roundChangeSet[P]) NewRound(r *big.Int) {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 	round := r.Uint64()
@@ -226,7 +227,7 @@ func (rcs *roundChangeSet) NewRound(r *big.Int) {
 }
 
 // Add adds the round and message into round change set
-func (rcs *roundChangeSet) Add(r *big.Int, msg qbfttypes.QBFTMessage, preparedRound *big.Int, preparedBlock istanbul.Proposal, prepareMessages []*qbfttypes.Prepare, quorumSize int) error {
+func (rcs *roundChangeSet[P]) Add(r *big.Int, msg qbfttypes.QBFTMessage, preparedRound *big.Int, preparedBlock istanbul.Proposal, prepareMessages []*qbfttypes.Prepare, quorumSize int) error {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 
@@ -239,7 +240,7 @@ func (rcs *roundChangeSet) Add(r *big.Int, msg qbfttypes.QBFTMessage, preparedRo
 	}
 
 	if preparedRound != nil && (rcs.highestPreparedRound[round] == nil || preparedRound.Cmp(rcs.highestPreparedRound[round]) > 0) {
-		roundChange := msg.(*qbfttypes.RoundChange)
+		roundChange := msg.(*qbfttypes.RoundChange[P])
 		if hasMatchingRoundChangeAndPrepares(roundChange, prepareMessages, quorumSize) == nil {
 			rcs.highestPreparedRound[round] = preparedRound
 			rcs.highestPreparedBlock[round] = preparedBlock
@@ -252,7 +253,7 @@ func (rcs *roundChangeSet) Add(r *big.Int, msg qbfttypes.QBFTMessage, preparedRo
 
 // higherRoundMessages returns the count of validators we received a ROUND-CHANGE message from
 // for any round greater than the given round
-func (rcs *roundChangeSet) higherRoundMessages(round *big.Int) int {
+func (rcs *roundChangeSet[P]) higherRoundMessages(round *big.Int) int {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 
@@ -269,7 +270,7 @@ func (rcs *roundChangeSet) higherRoundMessages(round *big.Int) int {
 
 // getRCMessagesForGivenRound return the count ROUND-CHANGE messages
 // received for a given round
-func (rcs *roundChangeSet) getRCMessagesForGivenRound(round *big.Int) int {
+func (rcs *roundChangeSet[P]) getRCMessagesForGivenRound(round *big.Int) int {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 
@@ -280,7 +281,7 @@ func (rcs *roundChangeSet) getRCMessagesForGivenRound(round *big.Int) int {
 }
 
 // getMinRoundChange returns the minimum round greater than the given round
-func (rcs *roundChangeSet) getMinRoundChange(round *big.Int) *big.Int {
+func (rcs *roundChangeSet[P]) getMinRoundChange(round *big.Int) *big.Int {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 
@@ -298,7 +299,7 @@ func (rcs *roundChangeSet) getMinRoundChange(round *big.Int) *big.Int {
 }
 
 // ClearLowerThan deletes the messages for round earlier than the given round
-func (rcs *roundChangeSet) ClearLowerThan(round *big.Int) {
+func (rcs *roundChangeSet[P]) ClearLowerThan(round *big.Int) {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 
@@ -313,7 +314,7 @@ func (rcs *roundChangeSet) ClearLowerThan(round *big.Int) {
 }
 
 // MaxRound returns the max round which the number of messages is equal or larger than num
-func (rcs *roundChangeSet) MaxRound(num int) *big.Int {
+func (rcs *roundChangeSet[P]) MaxRound(num int) *big.Int {
 	rcs.mu.Lock()
 	defer rcs.mu.Unlock()
 

@@ -286,7 +286,7 @@ func (cw *contractWrapper) pushObject(vm *duktape.Context) {
 
 // Tracer provides an implementation of Tracer that evaluates a Javascript
 // function for each VM execution step.
-type Tracer struct {
+type Tracer [P crypto.PublicKey] struct {
 	vm *duktape.Context // Javascript VM instance
 
 	tracerObject int // Stack index of the tracer JavaScript object
@@ -312,17 +312,17 @@ type Tracer struct {
 	reason    error  // Textual reason for the interruption
 }
 
-var _ vm.Tracer = &Tracer{}
+// var _ vm.Tracer = &Tracer{}
 
 // New instantiates a new tracer instance. code specifies a Javascript snippet,
 // which must evaluate to an expression returning an object with 'step', 'fault'
 // and 'result' functions.
-func New(code string, txCtx vm.TxContext) (*Tracer, error) {
+func New[P crypto.PublicKey](code string, txCtx vm.TxContext) (*Tracer[P], error) {
 	// Resolve any tracers by name and assemble the tracer object
 	if tracer, ok := tracer(code); ok {
 		code = tracer
 	}
-	tracer := &Tracer{
+	tracer := &Tracer[P]{
 		vm:              duktape.New(),
 		ctx:             make(map[string]interface{}),
 		opWrapper:       new(opWrapper),
@@ -500,14 +500,14 @@ func New(code string, txCtx vm.TxContext) (*Tracer, error) {
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.
-func (jst *Tracer) Stop(err error) {
+func (jst *Tracer[P]) Stop(err error) {
 	jst.reason = err
 	atomic.StoreUint32(&jst.interrupt, 1)
 }
 
 // call executes a method on a JS object, catching any errors, formatting and
 // returning them as error objects.
-func (jst *Tracer) call(method string, args ...string) (json.RawMessage, error) {
+func (jst *Tracer[P]) call(method string, args ...string) (json.RawMessage, error) {
 	// Execute the JavaScript call and return any error
 	jst.vm.PushString(method)
 	for _, arg := range args {
@@ -529,7 +529,7 @@ func wrapError(context string, err error) error {
 }
 
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
-func (jst *Tracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (jst *Tracer[P]) CaptureStart(env *vm.EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	jst.ctx["type"] = "CALL"
 	if create {
 		jst.ctx["type"] = "CREATE"
@@ -554,7 +554,7 @@ func (jst *Tracer) CaptureStart(env *vm.EVM, from common.Address, to common.Addr
 }
 
 // CaptureState implements the Tracer interface to trace a single step of VM execution.
-func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (jst *Tracer[P]) CaptureState(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
 	if jst.err != nil {
 		return
 	}
@@ -586,7 +586,7 @@ func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 }
 
 // CaptureFault implements the Tracer interface to trace an execution fault
-func (jst *Tracer) CaptureFault(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
+func (jst *Tracer[P]) CaptureFault(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
 	if jst.err != nil {
 		return
 	}
@@ -600,7 +600,7 @@ func (jst *Tracer) CaptureFault(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
-func (jst *Tracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
+func (jst *Tracer[P]) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
 	jst.ctx["output"] = output
 	jst.ctx["time"] = t.String()
 	jst.ctx["gasUsed"] = gasUsed
@@ -611,7 +611,7 @@ func (jst *Tracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, er
 }
 
 // GetResult calls the Javascript 'result' function and returns its value, or any accumulated error
-func (jst *Tracer) GetResult() (json.RawMessage, error) {
+func (jst *Tracer[P]) GetResult() (json.RawMessage, error) {
 	// Transform the context into a JavaScript object and inject into the state
 	obj := jst.vm.PushObject()
 

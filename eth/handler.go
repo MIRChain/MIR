@@ -67,33 +67,33 @@ var (
 
 // txPool defines the methods needed from a transaction pool implementation to
 // support all the operations needed by the Ethereum chain protocols.
-type txPool interface {
+type txPool [P crypto.PublicKey] interface {
 	// Has returns an indicator whether txpool has a transaction
 	// cached with the given hash.
 	Has(hash common.Hash) bool
 
 	// Get retrieves the transaction from local txpool with given
 	// tx hash.
-	Get(hash common.Hash) *types.Transaction
+	Get(hash common.Hash) *types.Transaction[P]
 
 	// AddRemotes should add the given transactions to the pool.
-	AddRemotes([]*types.Transaction) []error
+	AddRemotes([]*types.Transaction[P]) []error
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
-	Pending() (map[common.Address]types.Transactions, error)
+	Pending() (map[common.Address]types.Transactions[P], error)
 
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent[P]) event.Subscription
 }
 
 // handlerConfig is the collection of initialization parameters to create a full
 // node network handler.
-type handlerConfig struct {
+type handlerConfig [P crypto.PublicKey] struct {
 	Database   ethdb.Database            // Database for direct sync insertions
-	Chain      *core.BlockChain          // Blockchain to serve data from
-	TxPool     txPool                    // Transaction pool to propagate from
+	Chain      *core.BlockChain[P]          // Blockchain to serve data from
+	TxPool     txPool[P]                    // Transaction pool to propagate from
 	Network    uint64                    // Network identifier to adfvertise
 	Sync       downloader.SyncMode       // Whether to fast or full sync
 	BloomCache uint64                    // Megabytes to alloc for fast sync bloom
@@ -103,7 +103,7 @@ type handlerConfig struct {
 	// Quorum
 	AuthorizationList map[uint64]common.Hash // Hard coded authorization list for sync challenged
 
-	Engine   consensus.Engine
+	Engine   consensus.Engine[P]
 	RaftMode bool
 
 	// Quorum QLight
@@ -116,7 +116,7 @@ type handlerConfig struct {
 	privateBlockDataResolver qlight.PrivateBlockDataResolver
 }
 
-type handler struct {
+type handler [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
@@ -128,34 +128,34 @@ type handler struct {
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
 
 	database ethdb.Database
-	txpool   txPool
-	chain    *core.BlockChain
+	txpool   txPool[P]
+	chain    *core.BlockChain[P]
 	maxPeers int
 
-	downloader   *downloader.Downloader
+	downloader   *downloader.Downloader[T,P]
 	stateBloom   *trie.SyncBloom
-	blockFetcher *fetcher.BlockFetcher
-	txFetcher    *fetcher.TxFetcher
-	peers        *peerSet
+	blockFetcher *fetcher.BlockFetcher[P]
+	txFetcher    *fetcher.TxFetcher[P]
+	peers        *peerSet[T,P]
 
 	eventMux      *event.TypeMux
-	txsCh         chan core.NewTxsEvent
+	txsCh         chan core.NewTxsEvent[P]
 	txsSub        event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
 
 	authorizationList map[uint64]common.Hash
 
 	// channels for fetcher, syncer, txsyncLoop
-	txsyncCh chan *txsync
+	txsyncCh chan *txsync[T,P]
 	quitSync chan struct{}
 
-	chainSync *chainSyncer
+	chainSync *chainSyncer[T,P]
 	wg        sync.WaitGroup
 	peerWG    sync.WaitGroup
 
 	// Quorum
 	raftMode    bool
-	engine      consensus.Engine
+	engine      consensus.Engine[P]
 	tokenHolder *qlight.TokenHolder
 
 	// Test fields or hooks
@@ -171,20 +171,20 @@ type handler struct {
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
-func newHandler(config *handlerConfig) (*handler, error) {
+func newHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[P]) (*handler[T,P], error) {
 	// Create the protocol manager with the base fields
 	if config.EventMux == nil {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
-	h := &handler{
+	h := &handler[T,P]{
 		networkID:  config.Network,
 		forkFilter: forkid.NewFilter(config.Chain),
 		eventMux:   config.EventMux,
 		database:   config.Database,
 		txpool:     config.TxPool,
 		chain:      config.Chain,
-		peers:      newPeerSet(),
-		txsyncCh:   make(chan *txsync),
+		peers:      newPeerSet[T,P](),
+		txsyncCh:   make(chan *txsync[T,P]),
 		quitSync:   make(chan struct{}),
 		// Quorum
 		authorizationList: config.AuthorizationList,
@@ -194,7 +194,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	}
 
 	// Quorum
-	if handler, ok := h.engine.(consensus.Handler); ok {
+	if handler, ok := h.engine.(consensus.Handler[P]); ok {
 		handler.SetBroadcaster(h)
 	}
 	// /Quorum
@@ -240,7 +240,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	if atomic.LoadUint32(&h.fastSync) == 1 && atomic.LoadUint32(&h.snapSync) == 0 {
 		h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
 	}
-	h.downloader = downloader.New(h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
+	h.downloader = downloader.New[T,P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -249,7 +249,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	heighter := func() uint64 {
 		return h.chain.CurrentBlock().NumberU64()
 	}
-	inserter := func(blocks types.Blocks) (int, error) {
+	inserter := func(blocks types.Blocks[P]) (int, error) {
 		// If sync hasn't reached the checkpoint yet, deny importing weird blocks.
 		//
 		// Ideally we would also compare the head block's timestamp and similarly reject
@@ -275,7 +275,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		}
 		return n, err
 	}
-	h.blockFetcher = fetcher.NewBlockFetcher(false, nil, h.chain.GetBlockByHash, validator, h.BroadcastBlock, heighter, nil, inserter, h.removePeer)
+	h.blockFetcher = fetcher.NewBlockFetcher[P](false, nil, h.chain.GetBlockByHash, validator, h.BroadcastBlock, heighter, nil, inserter, h.removePeer)
 
 	fetchTx := func(peer string, hashes []common.Hash) error {
 		p := h.peers.peer(peer)
@@ -291,7 +291,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
 // various subsistems and starts handling messages.
-func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
+func (h *handler[T,P]) runEthPeer(peer *eth.Peer[T,P], handler eth.Handler[T,P]) error {
 	// If the peer has a `snap` extension, wait for it to connect so we can have
 	// a uniform initialization/teardown mechanism
 	snap, err := h.peers.waitSnapExtension(peer)
@@ -414,7 +414,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 // starts handling inbound messages. As `snap` is only a satellite protocol to
 // `eth`, all subsystem registrations and lifecycle management will be done by
 // the main `eth` handler to prevent strange races.
-func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error {
+func (h *handler[T,P]) runSnapExtension(peer *snap.Peer[T,P], handler snap.Handler[T,P]) error {
 	h.peerWG.Add(1)
 	defer h.peerWG.Done()
 
@@ -427,7 +427,7 @@ func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error 
 
 // removePeer requests disconnection of a peer.
 // Quorum: added by https://github.com/bnb-chain/bsc/pull/856
-func (h *handler) removePeer(id string) {
+func (h *handler[T,P]) removePeer(id string) {
 	peer := h.peers.peer(id)
 	if peer != nil {
 		// Hard disconnect at the networking layer. Handler will get an EOF and terminate the peer. defer unregisterPeer will do the cleanup task after then.
@@ -437,7 +437,7 @@ func (h *handler) removePeer(id string) {
 
 // unregisterPeer removes a peer from the downloader, fetchers and main peer set.
 // Quorum: changed by https://github.com/bnb-chain/bsc/pull/856
-func (h *handler) unregisterPeer(id string) {
+func (h *handler[T,P]) unregisterPeer(id string) {
 	// Create a custom logger to avoid printing the entire id
 	var logger log.Logger
 	if len(id) < 16 {
@@ -469,12 +469,12 @@ func (h *handler) unregisterPeer(id string) {
 	// peer.Peer.Disconnect(p2p.DiscUselessPeer) // Quorum: removed by https://github.com/bnb-chain/bsc/pull/856
 }
 
-func (h *handler) Start(maxPeers int) {
+func (h *handler[T,P]) Start(maxPeers int) {
 	h.maxPeers = maxPeers
 
 	// broadcast transactions
 	h.wg.Add(1)
-	h.txsCh = make(chan core.NewTxsEvent, txChanSize)
+	h.txsCh = make(chan core.NewTxsEvent[P], txChanSize)
 	h.txsSub = h.txpool.SubscribeNewTxsEvent(h.txsCh)
 	go h.txBroadcastLoop()
 
@@ -482,7 +482,7 @@ func (h *handler) Start(maxPeers int) {
 	if !h.raftMode {
 		// broadcast mined blocks
 		h.wg.Add(1)
-		h.minedBlockSub = h.eventMux.Subscribe(core.NewMinedBlockEvent{})
+		h.minedBlockSub = h.eventMux.Subscribe(core.NewMinedBlockEvent[P]{})
 		go h.minedBroadcastLoop()
 	} else {
 		// We set this immediately in raft mode to make sure the miner never drops
@@ -498,7 +498,7 @@ func (h *handler) Start(maxPeers int) {
 	go h.txsyncLoop64() // TODO(karalabe): Legacy initial tx echange, drop with eth/64.
 }
 
-func (h *handler) Stop() {
+func (h *handler[T,P]) Stop() {
 	h.txsSub.Unsubscribe() // quits txBroadcastLoop
 	// quorum - ensure raft stops cleanly
 	if h.minedBlockSub != nil {
@@ -521,13 +521,13 @@ func (h *handler) Stop() {
 }
 
 // Quorum
-func (h *handler) Enqueue(id string, block *types.Block) {
+func (h *handler[T,P]) Enqueue(id string, block *types.Block[P]) {
 	h.blockFetcher.Enqueue(id, block)
 }
 
 // BroadcastBlock will either propagate a block to a subset of its peers, or
 // will only announce its availability (depending what's requested).
-func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
+func (h *handler[T,P]) BroadcastBlock(block *types.Block[P], propagate bool) {
 	hash := block.Hash()
 	peers := h.peers.peersWithoutBlock(hash)
 
@@ -562,15 +562,15 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 // - To a square root of all peers
 // - And, separately, as announcements to all peers which are not known to
 // already have the given transaction.
-func (h *handler) BroadcastTransactions(txs types.Transactions) {
+func (h *handler[T,P]) BroadcastTransactions(txs types.Transactions[P]) {
 	var (
 		annoCount   int // Count of announcements made
 		annoPeers   int
 		directCount int // Count of the txs sent directly to peers
 		directPeers int // Count of the peers that were sent transactions directly
 
-		txset = make(map[*ethPeer][]common.Hash) // Set peer->hash to transfer directly
-		annos = make(map[*ethPeer][]common.Hash) // Set peer->hash to announce
+		txset = make(map[*ethPeer[T,P]][]common.Hash) // Set peer->hash to transfer directly
+		annos = make(map[*ethPeer[T,P]][]common.Hash) // Set peer->hash to announce
 
 	)
 	// Broadcast transactions to a batch of peers not knowing about it
@@ -615,11 +615,11 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 }
 
 // minedBroadcastLoop sends mined blocks to connected peers.
-func (h *handler) minedBroadcastLoop() {
+func (h *handler[T,P]) minedBroadcastLoop() {
 	defer h.wg.Done()
 
 	for obj := range h.minedBlockSub.Chan() {
-		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
+		if ev, ok := obj.Data.(core.NewMinedBlockEvent[P]); ok {
 			h.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			h.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
@@ -627,7 +627,7 @@ func (h *handler) minedBroadcastLoop() {
 }
 
 // txBroadcastLoop announces new transactions to connected peers.
-func (h *handler) txBroadcastLoop() {
+func (h *handler[T,P]) txBroadcastLoop() {
 	defer h.wg.Done()
 	for {
 		select {
@@ -651,7 +651,7 @@ type NodeInfo struct {
 }
 
 // NodeInfo retrieves some protocol metadata about the running host node.
-func (h *handler) NodeInfo() *NodeInfo {
+func (h *handler[T,P]) NodeInfo() *NodeInfo {
 	currentBlock := h.chain.CurrentBlock()
 	// //Quorum
 	//
@@ -672,17 +672,17 @@ func (h *handler) NodeInfo() *NodeInfo {
 }
 
 // Quorum
-func (h *handler) getConsensusAlgorithm() string {
+func (h *handler[T,P]) getConsensusAlgorithm() string {
 	var consensusAlgo string
 	if h.raftMode { // raft does not use consensus interface
 		consensusAlgo = "raft"
 	} else {
 		switch h.engine.(type) {
-		case consensus.Istanbul:
+		case consensus.Istanbul[P]:
 			consensusAlgo = "istanbul"
 		case *clique.Clique:
 			consensusAlgo = "clique"
-		case *ethash.Ethash:
+		case *ethash.Ethash[P]:
 			consensusAlgo = "ethash"
 		default:
 			consensusAlgo = "unknown"
@@ -691,13 +691,13 @@ func (h *handler) getConsensusAlgorithm() string {
 	return consensusAlgo
 }
 
-func (h *handler) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
+func (h *handler[T,P]) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
 	m := make(map[common.Address]consensus.Peer)
 	h.peers.lock.RLock()
 	defer h.peers.lock.RUnlock()
 	for _, p := range h.peers.peers {
 		pubKey := p.Node().Pubkey()
-		addr := crypto.PubkeyToAddress(*pubKey)
+		addr := crypto.PubkeyToAddress(pubKey)
 		if targets[addr] {
 			m[addr] = p
 		}
@@ -710,15 +710,15 @@ func (h *handler) FindPeers(targets map[common.Address]bool) map[common.Address]
 // The Run method starts the protocol and is called by the p2p server. The quorum consensus subprotocol,
 // leverages the peer created and managed by the "eth" subprotocol.
 // The quorum consensus protocol requires that the "eth" protocol is running as well.
-func (h *handler) makeQuorumConsensusProtocol(protoName string, version uint, length uint64, backend eth.Backend, network uint64, dnsdisc enode.Iterator) p2p.Protocol {
+func (h *handler[T,P]) makeQuorumConsensusProtocol(protoName string, version uint, length uint64, backend eth.Backend[T,P], network uint64, dnsdisc enode.Iterator[P]) p2p.Protocol[T,P] {
 	log.Debug("registering qouorum protocol ", "protoName", protoName, "version", version)
 
-	return p2p.Protocol{
+	return p2p.Protocol[T,P]{
 		Name:    protoName,
 		Version: version,
 		Length:  length,
 		// no new peer created, uses the "eth" peer, so no peer management needed.
-		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+		Run: func(p *p2p.Peer[T,P], rw p2p.MsgReadWriter) error {
 			/*
 			* 1. wait for the eth protocol to create and register an eth peer.
 			* 2. get the associate eth peer that was registered by he "eth" protocol.
@@ -744,7 +744,7 @@ func (h *handler) makeQuorumConsensusProtocol(protoName string, version uint, le
 					p.Log().Debug("consensus subprotocol retrieved eth peer from peerset", "ethPeer.id", p2pPeerId, "ProtoName", protoName)
 					// add the rw protocol for the quorum subprotocol to the eth peer.
 					ethPeer.AddConsensusProtoRW(rw)
-					peer := eth.NewPeer(version, p, rw, h.txpool)
+					peer := eth.NewPeer[T,P](version, p, rw, h.txpool)
 					return h.handleConsensusLoop(peer, rw, nil)
 				}
 				p.Log().Error("consensus subprotocol retrieved nil eth peer from peerset", "ethPeer.id", p2pPeerId)
@@ -754,17 +754,17 @@ func (h *handler) makeQuorumConsensusProtocol(protoName string, version uint, le
 			}
 		},
 		NodeInfo: func() interface{} {
-			return eth.NodeInfoFunc(backend.Chain(), network)
+			return eth.NodeInfoFunc[T,P](backend.Chain(), network)
 		},
 		PeerInfo: func(id enode.ID) interface{} {
 			return backend.PeerInfo(id)
 		},
-		Attributes:     []enr.Entry{eth.CurrentENREntry(backend.Chain())},
+		Attributes:     []enr.Entry{eth.CurrentENREntry[T,P](backend.Chain())},
 		DialCandidates: dnsdisc,
 	}
 }
 
-func (h *handler) handleConsensusLoop(p *eth.Peer, protoRW p2p.MsgReadWriter, fallThroughBackend eth.Backend) error {
+func (h *handler[T,P]) handleConsensusLoop(p *eth.Peer[T,P], protoRW p2p.MsgReadWriter, fallThroughBackend eth.Backend[T,P]) error {
 	// Handle incoming messages until the connection is torn down
 	for {
 		if err := h.handleConsensus(p, protoRW, fallThroughBackend); err != nil {
@@ -781,7 +781,7 @@ func (h *handler) handleConsensusLoop(p *eth.Peer, protoRW p2p.MsgReadWriter, fa
 }
 
 // This is a no-op because the eth handleMsg main loop handle ibf message as well.
-func (h *handler) handleConsensus(p *eth.Peer, protoRW p2p.MsgReadWriter, fallThroughBackend eth.Backend) error {
+func (h *handler[T,P]) handleConsensus(p *eth.Peer[T,P], protoRW p2p.MsgReadWriter, fallThroughBackend eth.Backend[T,P]) error {
 	// Read the next message from the remote peer (in protoRW), and ensure it's fully consumed
 	msg, err := protoRW.ReadMsg()
 	if err != nil {
@@ -804,17 +804,17 @@ func (h *handler) handleConsensus(p *eth.Peer, protoRW p2p.MsgReadWriter, fallTh
 	if fallThroughBackend != nil {
 		var handlers = map[uint64]eth.MsgHandler[T,P]{
 			// old 64 messages
-			GetBlockHeadersMsg: handleGetBlockHeaders,
-			BlockHeadersMsg:    handleBlockHeaders,
-			GetBlockBodiesMsg:  handleGetBlockBodies,
-			BlockBodiesMsg:     handleBlockBodies,
-			NewBlockHashesMsg:  handleNewBlockhashes,
-			NewBlockMsg:        handleNewBlock,
-			TransactionsMsg:    handleTransactions,
+			eth.GetBlockHeadersMsg: eth.HandleGetBlockHeaders[T,P],
+			eth.BlockHeadersMsg:    eth.HandleBlockHeaders[T,P],
+			eth.GetBlockBodiesMsg:  eth.HandleGetBlockBodies[T,P],
+			eth.BlockBodiesMsg:     eth.HandleBlockBodies[T,P],
+			eth.NewBlockHashesMsg:  eth.HandleNewBlockhashes[T,P],
+			eth.NewBlockMsg:        eth.HandleNewBlock[T,P],
+			eth.TransactionsMsg:    eth.HandleTransactions[T,P],
 			// New eth65 messages
-			NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
-			GetPooledTransactionsMsg:      handleGetPooledTransactions,
-			PooledTransactionsMsg:         handlePooledTransactions,
+			eth.NewPooledTransactionHashesMsg: eth.HandleNewPooledTransactionHashes[T,P],
+			eth.GetPooledTransactionsMsg:      eth.HandleGetPooledTransactions[T,P],
+			eth.PooledTransactionsMsg:         eth.HandlePooledTransactions[T,P],
 		}
 
 		p.Log().Trace("Message not handled by legacy sub-protocol", "msg", msg.Code)
@@ -828,10 +828,10 @@ func (h *handler) handleConsensus(p *eth.Peer, protoRW p2p.MsgReadWriter, fallTh
 	return nil
 }
 
-func (h *handler) handleConsensusMsg(p *eth.Peer, msg p2p.Msg) (bool, error) {
-	if handler, ok := h.engine.(consensus.Handler); ok {
+func (h *handler[T,P]) handleConsensusMsg(p *eth.Peer[T,P], msg p2p.Msg) (bool, error) {
+	if handler, ok := h.engine.(consensus.Handler[P]); ok {
 		pubKey := p.Node().Pubkey()
-		addr := crypto.PubkeyToAddress(*pubKey)
+		addr := crypto.PubkeyToAddress(pubKey)
 		handled, err := handler.HandleMsg(addr, msg)
 		return handled, err
 	}
@@ -841,26 +841,26 @@ func (h *handler) handleConsensusMsg(p *eth.Peer, msg p2p.Msg) (bool, error) {
 // makeLegacyProtocol is basically a copy of the eth makeProtocol, but for legacy subprotocols, e.g. "istanbul/99" "istabnul/64"
 // If support legacy subprotocols is removed, remove this and associated code as well.
 // If quorum is using a legacy protocol then the "eth" subprotocol should not be available.
-func (h *handler) makeLegacyProtocol(protoName string, version uint, length uint64, backend eth.Backend, network uint64, dnsdisc enode.Iterator) p2p.Protocol {
+func (h *handler[T,P]) makeLegacyProtocol(protoName string, version uint, length uint64, backend eth.Backend[T,P], network uint64, dnsdisc enode.Iterator[P]) p2p.Protocol[T,P] {
 	log.Debug("registering a legacy protocol ", "protoName", protoName, "version", version)
-	return p2p.Protocol{
+	return p2p.Protocol[T,P]{
 		Name:    protoName,
 		Version: version,
 		Length:  length,
-		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-			peer := eth.NewPeer(version, p, rw, h.txpool)
-			return h.runEthPeer(peer, func(peer *eth.Peer) error {
+		Run: func(p *p2p.Peer[T,P], rw p2p.MsgReadWriter) error {
+			peer := eth.NewPeer[T,P](version, p, rw, h.txpool)
+			return h.runEthPeer(peer, func(peer *eth.Peer[T,P]) error {
 				// We pass through the backend so that we can 'handle' messages that we can't handle
 				return h.handleConsensusLoop(peer, rw, backend)
 			})
 		},
 		NodeInfo: func() interface{} {
-			return eth.NodeInfoFunc(backend.Chain(), network)
+			return eth.NodeInfoFunc[T,P](backend.Chain(), network)
 		},
 		PeerInfo: func(id enode.ID) interface{} {
 			return backend.PeerInfo(id)
 		},
-		Attributes:     []enr.Entry{eth.CurrentENREntry(backend.Chain())},
+		Attributes:     []enr.Entry{eth.CurrentENREntry[T,P](backend.Chain())},
 		DialCandidates: dnsdisc,
 	}
 }

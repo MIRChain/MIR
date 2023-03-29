@@ -23,14 +23,15 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // lockedHash and preprepare are for round change when lock exists,
 // we need to keep a reference of preprepare in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, lockedHash common.Hash, preprepare *istanbul.Preprepare, pendingRequest *istanbul.Request, hasBadProposal func(hash common.Hash) bool) *roundState {
-	return &roundState{
+func newRoundState[P crypto.PublicKey] (view *istanbul.View, validatorSet istanbul.ValidatorSet, lockedHash common.Hash, preprepare *istanbul.Preprepare[P], pendingRequest *istanbul.Request, hasBadProposal func(hash common.Hash) bool) *roundState[P] {
+	return &roundState[P]{
 		round:          view.Round,
 		sequence:       view.Sequence,
 		Preprepare:     preprepare,
@@ -44,10 +45,10 @@ func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, lock
 }
 
 // roundState stores the consensus state
-type roundState struct {
+type roundState [P crypto.PublicKey] struct {
 	round          *big.Int
 	sequence       *big.Int
-	Preprepare     *istanbul.Preprepare
+	Preprepare     *istanbul.Preprepare[P]
 	Prepares       *messageSet
 	Commits        *messageSet
 	lockedHash     common.Hash
@@ -57,7 +58,7 @@ type roundState struct {
 	hasBadProposal func(hash common.Hash) bool
 }
 
-func (s *roundState) GetPrepareOrCommitSize() int {
+func (s *roundState[P]) GetPrepareOrCommitSize() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -72,7 +73,7 @@ func (s *roundState) GetPrepareOrCommitSize() int {
 	return result
 }
 
-func (s *roundState) Subject() *istanbul.Subject {
+func (s *roundState[P]) Subject() *istanbul.Subject {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -89,14 +90,14 @@ func (s *roundState) Subject() *istanbul.Subject {
 	}
 }
 
-func (s *roundState) SetPreprepare(preprepare *istanbul.Preprepare) {
+func (s *roundState[P]) SetPreprepare(preprepare *istanbul.Preprepare[P]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.Preprepare = preprepare
 }
 
-func (s *roundState) Proposal() istanbul.Proposal {
+func (s *roundState[P]) Proposal() istanbul.Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -107,35 +108,35 @@ func (s *roundState) Proposal() istanbul.Proposal {
 	return nil
 }
 
-func (s *roundState) SetRound(r *big.Int) {
+func (s *roundState[P]) SetRound(r *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.round = new(big.Int).Set(r)
 }
 
-func (s *roundState) Round() *big.Int {
+func (s *roundState[P]) Round() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return s.round
 }
 
-func (s *roundState) SetSequence(seq *big.Int) {
+func (s *roundState[P]) SetSequence(seq *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.sequence = seq
 }
 
-func (s *roundState) Sequence() *big.Int {
+func (s *roundState[P]) Sequence() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return s.sequence
 }
 
-func (s *roundState) LockHash() {
+func (s *roundState[P]) LockHash() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -144,14 +145,14 @@ func (s *roundState) LockHash() {
 	}
 }
 
-func (s *roundState) UnlockHash() {
+func (s *roundState[P]) UnlockHash() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.lockedHash = common.Hash{}
 }
 
-func (s *roundState) IsHashLocked() bool {
+func (s *roundState[P]) IsHashLocked() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -161,7 +162,7 @@ func (s *roundState) IsHashLocked() bool {
 	return !s.hasBadProposal(s.GetLockedHash())
 }
 
-func (s *roundState) GetLockedHash() common.Hash {
+func (s *roundState[P]) GetLockedHash() common.Hash {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -171,11 +172,11 @@ func (s *roundState) GetLockedHash() common.Hash {
 // The DecodeRLP method should read one value from the given
 // Stream. It is not forbidden to read less or more, but it might
 // be confusing.
-func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
+func (s *roundState[P]) DecodeRLP(stream *rlp.Stream) error {
 	var ss struct {
 		Round          *big.Int
 		Sequence       *big.Int
-		Preprepare     *istanbul.Preprepare
+		Preprepare     *istanbul.Preprepare[P]
 		Prepares       *messageSet
 		Commits        *messageSet
 		lockedHash     common.Hash
@@ -205,7 +206,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 // not verified at the moment, but a future version might. It is
 // recommended to write only a single value but writing multiple
 // values or no value at all is also permitted.
-func (s *roundState) EncodeRLP(w io.Writer) error {
+func (s *roundState[P]) EncodeRLP(w io.Writer) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

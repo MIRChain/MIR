@@ -78,7 +78,7 @@ type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Handlers
 	txPool             *core.TxPool[P]
 	blockchain         *core.BlockChain[P]
-	handler            *handler
+	handler            *handler[T,P]
 	ethDialCandidates  enode.Iterator[P]
 	snapDialCandidates enode.Iterator[P]
 
@@ -100,7 +100,7 @@ type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	etherbase common.Address
 
 	networkID     uint64
-	netRPCService *ethapi.PublicNetAPI
+	netRPCService *ethapi.PublicNetAPI[T,P]
 
 	p2pServer *p2p.Server[T,P]
 
@@ -108,7 +108,7 @@ type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	// Quorum - consensus as eth-service (e.g. raft)
 	consensusServicePendingLogsFeed *event.Feed
-	qlightServerHandler             *handler
+	qlightServerHandler             *handler[T,P]
 	qlightP2pServer                 *p2p.Server[T,P]
 	qlightTokenHolder               *qlight.TokenHolder
 }
@@ -334,7 +334,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		if err != nil {
 			return nil, err
 		}
-		if eth.handler, err = newQLightClientHandler(&handlerConfig{
+		if eth.handler, err = newQLightClientHandler[T,P](&handlerConfig[P]{
 			Database:           chainDb,
 			Chain:              eth.blockchain,
 			TxPool:             eth.txPool,
@@ -357,7 +357,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		}
 		eth.blockchain.SetPrivateStateRootHashValidator(clientCache)
 	} else {
-		if eth.handler, err = newHandler(&handlerConfig{
+		if eth.handler, err = newHandler[T,P](&handlerConfig[P]{
 			Database:          chainDb,
 			Chain:             eth.blockchain,
 			TxPool:            eth.txPool,
@@ -378,7 +378,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 				_, authManager, _ := stack.GetSecuritySupports()
 				return authManager
 			}
-			if eth.qlightServerHandler, err = newQLightServerHandler(&handlerConfig{
+			if eth.qlightServerHandler, err = newQLightServerHandler[T,P](&handlerConfig[P]{
 				Database:                 chainDb,
 				Chain:                    eth.blockchain,
 				TxPool:                   eth.txPool,
@@ -466,7 +466,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.Miner.GasPrice
 	}
-	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
+	eth.APIBackend.gpo = gasprice.NewOracle[P](eth.APIBackend, gpoParams)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient[T,P](dnsdisc.Config{})
@@ -539,7 +539,7 @@ func (s *Ethereum[T,P]) QLightClientAPIs() []rpc.API {
 // APIs return the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Ethereum[T,P]) APIs() []rpc.API {
-	apis := ethapi.GetAPIs(s.APIBackend)
+	apis := ethapi.GetAPIs[T,P](s.APIBackend)
 
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
@@ -764,7 +764,7 @@ func (s *Ethereum[T,P]) EventMux() *event.TypeMux           { return s.eventMux 
 func (s *Ethereum[T,P]) Engine() consensus.Engine[P]           { return s.engine }
 func (s *Ethereum[T,P]) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum[T,P]) IsListening() bool                  { return true } // Always listening
-func (s *Ethereum[T,P]) Downloader() *downloader.Downloader { return s.handler.downloader }
+func (s *Ethereum[T,P]) Downloader() *downloader.Downloader[T,P] { return s.handler.downloader }
 func (s *Ethereum[T,P]) Synced() bool                       { return atomic.LoadUint32(&s.handler.acceptTxs) == 1 }
 func (s *Ethereum[T,P]) ArchiveMode() bool                  { return s.config.NoPruning }
 func (s *Ethereum[T,P]) BloomIndexer() *core.ChainIndexer[P]   { return s.bloomIndexer }
@@ -784,19 +784,19 @@ func (s *Ethereum[T,P]) BloomIndexer() *core.ChainIndexer[P]   { return s.bloomI
 // network protocols to start.
 func (s *Ethereum[T,P]) Protocols() []p2p.Protocol[T,P] {
 	if s.config.QuorumLightClient.Enabled() {
-		protos := qlightproto.MakeProtocolsClient((*qlightClientHandler)(s.handler), s.networkID, s.ethDialCandidates)
+		protos := qlightproto.MakeProtocolsClient[T,P]((*qlightClientHandler[T,P])(s.handler), s.networkID, s.ethDialCandidates)
 		return protos
 	}
 
-	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates)
+	protos := eth.MakeProtocols[T,P]((*ethHandler[T,P])(s.handler), s.networkID, s.ethDialCandidates)
 	if s.config.SnapshotCache > 0 {
-		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
+		protos = append(protos, snap.MakeProtocols[T,P]((*snapHandler[T,P])(s.handler), s.snapDialCandidates)...)
 	}
 
 	// /Quorum
 	// add additional quorum consensus protocol if set and if not set to "eth", e.g. istanbul
 	if quorumConsensusProtocolName != "" && quorumConsensusProtocolName != eth.ProtocolName {
-		quorumProtos := s.quorumConsensusProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates)
+		quorumProtos := s.quorumConsensusProtocols((*ethHandler[T,P])(s.handler), s.networkID, s.ethDialCandidates)
 		protos = append(protos, quorumProtos...)
 	}
 	// /end Quorum
@@ -805,7 +805,7 @@ func (s *Ethereum[T,P]) Protocols() []p2p.Protocol[T,P] {
 }
 
 func (s *Ethereum[T,P]) QProtocols() []p2p.Protocol[T,P] {
-	protos := qlightproto.MakeProtocolsServer((*qlightServerHandler)(s.qlightServerHandler), s.networkID, s.ethDialCandidates)
+	protos := qlightproto.MakeProtocolsServer[T,P]((*qlightServerHandler[T,P])(s.qlightServerHandler), s.networkID, s.ethDialCandidates)
 	return protos
 }
 

@@ -22,7 +22,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 )
 
-func (c *core) handleFinalCommitted() error {
+func (c *core[P]) handleFinalCommitted() error {
 	logger := c.logger.New("state", c.state)
 	logger.Trace("Received a final committed proposal")
 

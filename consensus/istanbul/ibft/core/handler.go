@@ -24,7 +24,7 @@ import (
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start() error {
+func (c *core[P]) Start() error {
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
 	c.subscribeEvents()
@@ -38,7 +38,7 @@ func (c *core) Start() error {
 }
 
 // Stop implements core.Engine.Stop
-func (c *core) Stop() error {
+func (c *core[P]) Stop() error {
 	c.stopTimer()
 	c.unsubscribeEvents()
 
@@ -49,7 +49,7 @@ func (c *core) Stop() error {
 // ----------------------------------------------------------------------------
 
 // Subscribe both internal and external events
-func (c *core) subscribeEvents() {
+func (c *core[P]) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events
 		istanbul.RequestEvent{},
@@ -66,13 +66,13 @@ func (c *core) subscribeEvents() {
 }
 
 // Unsubscribe all events
-func (c *core) unsubscribeEvents() {
+func (c *core[P]) unsubscribeEvents() {
 	c.events.Unsubscribe()
 	c.timeoutSub.Unsubscribe()
 	c.finalCommittedSub.Unsubscribe()
 }
 
-func (c *core) handleEvents() {
+func (c *core[P]) handleEvents() {
 	// Clear state
 	defer func() {
 		c.current = nil
@@ -131,11 +131,11 @@ func (c *core) handleEvents() {
 }
 
 // sendEvent sends events to mux
-func (c *core) sendEvent(ev interface{}) {
+func (c *core[P]) sendEvent(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }
 
-func (c *core) handleMsg(payload []byte) error {
+func (c *core[P]) handleMsg(payload []byte) error {
 	logger := c.logger.New()
 
 	// Decode message and check its signature
@@ -155,7 +155,7 @@ func (c *core) handleMsg(payload []byte) error {
 	return c.handleCheckedMsg(msg, src)
 }
 
-func (c *core) handleCheckedMsg(msg *ibfttypes.Message, src istanbul.Validator) error {
+func (c *core[P]) handleCheckedMsg(msg *ibfttypes.Message, src istanbul.Validator) error {
 	logger := c.logger.New("address", c.address, "from", src)
 
 	// Store the message if it's a future message
@@ -187,7 +187,7 @@ func (c *core) handleCheckedMsg(msg *ibfttypes.Message, src istanbul.Validator) 
 	return istanbulcommon.ErrInvalidMessage
 }
 
-func (c *core) handleTimeoutMsg() {
+func (c *core[P]) handleTimeoutMsg() {
 	// If we're not waiting for round change yet, we can try to catch up
 	// the max round with F+1 round change message. We only need to catch up
 	// if the max round is larger than current round.

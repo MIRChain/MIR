@@ -27,7 +27,7 @@ import (
 // It
 // - creates a PREPARE message
 // - broadcast PREPARE message to other validators
-func (c *core) broadcastPrepare() {
+func (c *core[P]) broadcastPrepare() {
 	logger := c.currentLogger(true, nil)
 
 	// Create PREPARE message from the current proposal
@@ -70,7 +70,7 @@ func (c *core) broadcastPrepare() {
 // - validates PREPARE message digest matches the current block proposal
 // - accumulates valid PREPARE message until reaching quorum
 // - when quorum is reached update states to "Prepared" and broadcast COMMIT
-func (c *core) handlePrepare(prepare *qbfttypes.Prepare) error {
+func (c *core[P]) handlePrepare(prepare *qbfttypes.Prepare) error {
 	logger := c.currentLogger(true, prepare).New()
 
 	logger.Info("QBFT: handle PREPARE message", "prepares.count", c.current.QBFTPrepares.Size(), "quorum", c.QuorumSize())

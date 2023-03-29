@@ -34,10 +34,11 @@ import (
 	chainParams "github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Register adds catalyst APIs to the node.
-func Register(stack *node.Node, backend *eth.Ethereum) error {
+func Register[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend *eth.Ethereum[T,P]) error {
 	chainconfig := backend.BlockChain().Config()
 	if chainconfig.CatalystBlock == nil {
 		return errors.New("catalystBlock is not set in genesis config")
@@ -57,37 +58,37 @@ func Register(stack *node.Node, backend *eth.Ethereum) error {
 	return nil
 }
 
-type consensusAPI struct {
-	eth *eth.Ethereum
+type consensusAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	eth *eth.Ethereum[T,P]
 }
 
-func newConsensusAPI(eth *eth.Ethereum) *consensusAPI {
-	return &consensusAPI{eth: eth}
+func newConsensusAPI[T crypto.PrivateKey, P crypto.PublicKey](eth *eth.Ethereum[T,P]) *consensusAPI[T,P] {
+	return &consensusAPI[T,P]{eth: eth}
 }
 
 // blockExecutionEnv gathers all the data required to execute
 // a block, either when assembling it or when inserting it.
-type blockExecutionEnv struct {
-	chain   *core.BlockChain
+type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	chain   *core.BlockChain[P]
 	state   *state.StateDB
 	tcount  int
 	gasPool *core.GasPool
 
 	header   *types.Header
-	txs      []*types.Transaction
-	receipts []*types.Receipt
+	txs      []*types.Transaction[P]
+	receipts []*types.Receipt[P]
 
 	// Quorum
 	privateStateRepo  mps.PrivateStateRepository
 	privateState      *state.StateDB
 	forceNonParty     bool
 	isInnerPrivateTxn bool
-	privateReceipts   []*types.Receipt
+	privateReceipts   []*types.Receipt[P]
 }
 
-func (env *blockExecutionEnv) commitTransaction(tx *types.Transaction, coinbase common.Address) error {
+func (env *blockExecutionEnv[T,P]) commitTransaction(tx *types.Transaction[P], coinbase common.Address) error {
 	vmconfig := *env.chain.GetVMConfig()
-	receipt, privateReceipt, err := core.ApplyTransaction(env.chain.Config(), env.chain, &coinbase, env.gasPool, env.state, env.privateState, env.header, tx, &env.header.GasUsed, vmconfig, env.forceNonParty, env.privateStateRepo, env.isInnerPrivateTxn)
+	receipt, privateReceipt, err := core.ApplyTransaction[P](env.chain.Config(), env.chain, &coinbase, env.gasPool, env.state, env.privateState, env.header, tx, &env.header.GasUsed, vmconfig, env.forceNonParty, env.privateStateRepo, env.isInnerPrivateTxn)
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func (env *blockExecutionEnv) commitTransaction(tx *types.Transaction, coinbase 
 	return nil
 }
 
-func (api *consensusAPI) makeEnv(parent *types.Block, header *types.Header) (*blockExecutionEnv, error) {
+func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Header) (*blockExecutionEnv[T,P], error) {
 	state, mpsr, err := api.eth.BlockChain().StateAt(parent.Root())
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func (api *consensusAPI) makeEnv(parent *types.Block, header *types.Header) (*bl
 	if err != nil {
 		return nil, err
 	}
-	env := &blockExecutionEnv{
+	env := &blockExecutionEnv[T,P]{
 		chain:   api.eth.BlockChain(),
 		state:   state,
 		header:  header,
@@ -119,7 +120,7 @@ func (api *consensusAPI) makeEnv(parent *types.Block, header *types.Header) (*bl
 
 // AssembleBlock creates a new block, inserts it into the chain, and returns the "execution
 // data" required for eth2 clients to process the new block.
-func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableData, error) {
+func (api *consensusAPI[T,P]) AssembleBlock(params assembleBlockParams) (*executableData, error) {
 	log.Info("Producing block", "parentHash", params.ParentHash)
 
 	bc := api.eth.BlockChain()
@@ -169,9 +170,9 @@ func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableD
 	}
 
 	var (
-		signer       = types.MakeSigner(bc.Config(), header.Number)
+		signer       = types.MakeSigner[P](bc.Config(), header.Number)
 		txHeap       = types.NewTransactionsByPriceAndNonce(signer, pending)
-		transactions []*types.Transaction
+		transactions []*types.Transaction[P]
 	)
 	for {
 		if env.gasPool.Gas() < chainParams.TxGas {
@@ -239,7 +240,7 @@ func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableD
 	}, nil
 }
 
-func encodeTransactions(txs []*types.Transaction) [][]byte {
+func encodeTransactions[P crypto.PublicKey](txs []*types.Transaction[P]) [][]byte {
 	var enc = make([][]byte, len(txs))
 	for i, tx := range txs {
 		enc[i], _ = tx.MarshalBinary()
@@ -247,10 +248,10 @@ func encodeTransactions(txs []*types.Transaction) [][]byte {
 	return enc
 }
 
-func decodeTransactions(enc [][]byte) ([]*types.Transaction, error) {
-	var txs = make([]*types.Transaction, len(enc))
+func decodeTransactions[P crypto.PublicKey](enc [][]byte) ([]*types.Transaction[P], error) {
+	var txs = make([]*types.Transaction[P], len(enc))
 	for i, encTx := range enc {
-		var tx types.Transaction
+		var tx types.Transaction[P]
 		if err := tx.UnmarshalBinary(encTx); err != nil {
 			return nil, fmt.Errorf("invalid transaction %d: %v", i, err)
 		}
@@ -259,8 +260,8 @@ func decodeTransactions(enc [][]byte) ([]*types.Transaction, error) {
 	return txs, nil
 }
 
-func insertBlockParamsToBlock(params executableData) (*types.Block, error) {
-	txs, err := decodeTransactions(params.Transactions)
+func insertBlockParamsToBlock[P crypto.PublicKey](params executableData) (*types.Block[P], error) {
+	txs, err := decodeTransactions[P](params.Transactions)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +273,7 @@ func insertBlockParamsToBlock(params executableData) (*types.Block, error) {
 		UncleHash:   types.EmptyUncleHash,
 		Coinbase:    params.Miner,
 		Root:        params.StateRoot,
-		TxHash:      types.DeriveSha(types.Transactions(txs), trie.NewStackTrie(nil)),
+		TxHash:      types.DeriveSha(types.Transactions[P](txs), trie.NewStackTrie(nil)),
 		ReceiptHash: params.ReceiptRoot,
 		Bloom:       types.BytesToBloom(params.LogsBloom),
 		Difficulty:  big.NewInt(1),
@@ -281,19 +282,19 @@ func insertBlockParamsToBlock(params executableData) (*types.Block, error) {
 		GasUsed:     params.GasUsed,
 		Time:        params.Timestamp,
 	}
-	block := types.NewBlockWithHeader(header).WithBody(txs, nil /* uncles */)
+	block := types.NewBlockWithHeader[P](header).WithBody(txs, nil /* uncles */)
 	return block, nil
 }
 
 // NewBlock creates an Eth1 block, inserts it in the chain, and either returns true,
 // or false + an error. This is a bit redundant for go, but simplifies things on the
 // eth2 side.
-func (api *consensusAPI) NewBlock(params executableData) (*newBlockResponse, error) {
+func (api *consensusAPI[T,P]) NewBlock(params executableData) (*newBlockResponse, error) {
 	parent := api.eth.BlockChain().GetBlockByHash(params.ParentHash)
 	if parent == nil {
 		return &newBlockResponse{false}, fmt.Errorf("could not find parent %x", params.ParentHash)
 	}
-	block, err := insertBlockParamsToBlock(params)
+	block, err := insertBlockParamsToBlock[P](params)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +304,7 @@ func (api *consensusAPI) NewBlock(params executableData) (*newBlockResponse, err
 }
 
 // Used in tests to add a the list of transactions from a block to the tx pool.
-func (api *consensusAPI) addBlockTxs(block *types.Block) error {
+func (api *consensusAPI[T,P]) addBlockTxs(block *types.Block[P]) error {
 	for _, tx := range block.Transactions() {
 		api.eth.TxPool().AddLocal(tx)
 	}
@@ -312,11 +313,11 @@ func (api *consensusAPI) addBlockTxs(block *types.Block) error {
 
 // FinalizeBlock is called to mark a block as synchronized, so
 // that data that is no longer needed can be removed.
-func (api *consensusAPI) FinalizeBlock(blockHash common.Hash) (*genericResponse, error) {
+func (api *consensusAPI[T,P]) FinalizeBlock(blockHash common.Hash) (*genericResponse, error) {
 	return &genericResponse{true}, nil
 }
 
 // SetHead is called to perform a force choice.
-func (api *consensusAPI) SetHead(newHead common.Hash) (*genericResponse, error) {
+func (api *consensusAPI[T,P]) SetHead(newHead common.Hash) (*genericResponse, error) {
 	return &genericResponse{true}, nil
 }

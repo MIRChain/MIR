@@ -42,7 +42,7 @@ var (
 // return errInvalidMessage if the message is invalid
 // return errFutureMessage if the message view is larger than current view
 // return errOldMessage if the message view is smaller than current view
-func (c *core) checkMessage(msgCode uint64, view *istanbul.View) error {
+func (c *core[P]) checkMessage(msgCode uint64, view *istanbul.View) error {
 	if view == nil || view.Sequence == nil || view.Round == nil {
 		return errInvalidMessage
 	}
@@ -104,7 +104,7 @@ func (c *core) checkMessage(msgCode uint64, view *istanbul.View) error {
 // addToBacklog allows to postpone the processing of future messages
 
 // it adds the message to backlog which is read on every state change
-func (c *core) addToBacklog(msg qbfttypes.QBFTMessage) {
+func (c *core[P]) addToBacklog(msg qbfttypes.QBFTMessage) {
 	logger := c.currentLogger(true, msg)
 
 	src := msg.Source()
@@ -131,7 +131,7 @@ func (c *core) addToBacklog(msg qbfttypes.QBFTMessage) {
 // the event channel so main handler loop can handle it
 
 // It is called on every state change
-func (c *core) processBacklog() {
+func (c *core[P]) processBacklog() {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 

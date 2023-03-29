@@ -8,17 +8,18 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-type Preprepare struct {
+type Preprepare [P crypto.PublicKey] struct {
 	CommonPayload
 	Proposal                  istanbul.Proposal
 	JustificationRoundChanges []*SignedRoundChangePayload
 	JustificationPrepares     []*Prepare
 }
 
-func NewPreprepare(sequence *big.Int, round *big.Int, proposal istanbul.Proposal) *Preprepare {
-	return &Preprepare{
+func NewPreprepare[P crypto.PublicKey](sequence *big.Int, round *big.Int, proposal istanbul.Proposal) *Preprepare[P] {
+	return &Preprepare[P]{
 		CommonPayload: CommonPayload{
 			code:     PreprepareCode,
 			Sequence: sequence,
@@ -28,7 +29,7 @@ func NewPreprepare(sequence *big.Int, round *big.Int, proposal istanbul.Proposal
 	}
 }
 
-func (m *Preprepare) EncodePayloadForSigning() ([]byte, error) {
+func (m *Preprepare[P]) EncodePayloadForSigning() ([]byte, error) {
 	return rlp.EncodeToBytes(
 		[]interface{}{
 			m.Code(),
@@ -36,7 +37,7 @@ func (m *Preprepare) EncodePayloadForSigning() ([]byte, error) {
 		})
 }
 
-func (m *Preprepare) EncodeRLP(w io.Writer) error {
+func (m *Preprepare[P]) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(
 		w,
 		[]interface{}{
@@ -51,13 +52,13 @@ func (m *Preprepare) EncodeRLP(w io.Writer) error {
 		})
 }
 
-func (m *Preprepare) DecodeRLP(stream *rlp.Stream) error {
+func (m *Preprepare[P]) DecodeRLP(stream *rlp.Stream) error {
 	var message struct {
 		SignedPayload struct {
 			Payload struct {
 				Sequence *big.Int
 				Round    *big.Int
-				Proposal *types.Block
+				Proposal *types.Block[P]
 			}
 			Signature []byte
 		}
@@ -79,6 +80,6 @@ func (m *Preprepare) DecodeRLP(stream *rlp.Stream) error {
 	return nil
 }
 
-func (m *Preprepare) String() string {
+func (m *Preprepare[P]) String() string {
 	return fmt.Sprintf("code: %d, sequence: %d, round: %d, proposal: %v", m.code, m.Sequence, m.Round, m.Proposal.Hash().Hex())
 }
