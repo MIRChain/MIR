@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 type ValidationInfo struct {
@@ -66,7 +67,7 @@ func (v *ValidationMessages) getWarnings() error {
 }
 
 // SendTxArgs represents the arguments to submit a transaction
-type SendTxArgs struct {
+type SendTxArgs [P crypto.PublicKey] struct {
 	From     common.MixedcaseAddress  `json:"from"`
 	To       *common.MixedcaseAddress `json:"to"`
 	Gas      hexutil.Uint64           `json:"gas"`
@@ -85,7 +86,7 @@ type SendTxArgs struct {
 	IsPrivate bool `json:"isPrivate,omitempty"`
 }
 
-func (args SendTxArgs) String() string {
+func (args SendTxArgs[P]) String() string {
 	s, err := json.Marshal(args)
 	if err == nil {
 		return string(s)
@@ -93,7 +94,7 @@ func (args SendTxArgs) String() string {
 	return err.Error()
 }
 
-func (args *SendTxArgs) toTransaction() (tx *types.Transaction[P]) {
+func (args *SendTxArgs[P]) toTransaction() (tx *types.Transaction[P]) {
 	var input []byte
 	if args.Data != nil {
 		input = *args.Data
@@ -127,7 +128,7 @@ func (args *SendTxArgs) toTransaction() (tx *types.Transaction[P]) {
 			AccessList: *args.AccessList,
 		}
 	}
-	tx = types.NewTx(data)
+	tx = types.NewTx[P](data)
 	if args.IsPrivate {
 		tx.SetPrivate()
 	}
@@ -135,6 +136,6 @@ func (args *SendTxArgs) toTransaction() (tx *types.Transaction[P]) {
 }
 
 // Quorum
-func (args SendTxArgs) isPrivacyMarker() bool {
+func (args SendTxArgs[P]) isPrivacyMarker() bool {
 	return args.To != nil && args.To.Address() == common.QuorumPrivacyPrecompileContractAddress()
 }

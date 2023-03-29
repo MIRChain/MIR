@@ -63,7 +63,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/graphql"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/internal/flags"
-	"github.com/pavelkrolevets/MIR-pro/les"
+	// "github.com/pavelkrolevets/MIR-pro/les"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/metrics/exp"

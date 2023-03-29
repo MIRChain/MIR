@@ -9,14 +9,15 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
 // chainReader contains methods to access local blockchain
-type chainReader interface {
-	consensus.ChainReader
+type chainReader [P crypto.PublicKey] interface {
+	consensus.ChainReader[P]
 	CurrentBlock() *types.Block[P]
-	GetReceiptsByHash(hash common.Hash) types.Receipts
+	GetReceiptsByHash(hash common.Hash) types.Receipts[P]
 }
 
 // UpgradeDB performs the following database operations to enable MPS support
@@ -24,13 +25,13 @@ type chainReader interface {
 // 2. Construct and persist trie of root hashes of existing private states
 // 3. Update new mapping: block header root -> trie of private states root
 // 4. Once upgrade is complete update the ChainConfig.isMPS to true
-func UpgradeDB(db ethdb.Database, chain chainReader) error {
+func UpgradeDB[P crypto.PublicKey](db ethdb.Database, chain chainReader[P]) error {
 	currentBlockNumber := uint64(chain.CurrentBlock().Number().Int64())
 	genesisHeader := chain.GetHeaderByNumber(0)
 
 	privateStatesTrieRoot := rawdb.GetPrivateStatesTrieRoot(db, genesisHeader.Root)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(db, nil, nil, false)
-	mpsRepo, err := NewMultiplePrivateStateRepository(db, state.NewDatabase(db), privateStatesTrieRoot, privateCacheProvider)
+	mpsRepo, err := NewMultiplePrivateStateRepository[P](db, state.NewDatabase(db), privateStatesTrieRoot, privateCacheProvider)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func UpgradeDB(db ethdb.Database, chain chainReader) error {
 				emptyState.CreateAccount(accountAddress)
 				emptyState.SetNonce(accountAddress, 1)
 
-				emptyReceipt := &types.Receipt{
+				emptyReceipt := &types.Receipt[P]{
 					PostState:         receipt.PostState,
 					Status:            1,
 					CumulativeGasUsed: receipt.CumulativeGasUsed,
@@ -70,8 +71,8 @@ func UpgradeDB(db ethdb.Database, chain chainReader) error {
 					BlockNumber:       receipt.BlockNumber,
 					TransactionIndex:  receipt.TransactionIndex,
 				}
-				emptyReceipt.Bloom = types.CreateBloom(types.Receipts{emptyReceipt})
-				emptyReceipt.PSReceipts = map[types.PrivateStateIdentifier]*types.Receipt{
+				emptyReceipt.Bloom = types.CreateBloom(types.Receipts[P]{emptyReceipt})
+				emptyReceipt.PSReceipts = map[types.PrivateStateIdentifier]*types.Receipt[P]{
 					types.DefaultPrivateStateIdentifier: receipt,
 					types.EmptyPrivateStateIdentifier:   emptyReceipt}
 				receipts[txIdx] = emptyReceipt

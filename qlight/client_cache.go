@@ -21,7 +21,7 @@ type clientCache struct {
 }
 
 func NewClientCache(db ethdb.Database) (PrivateClientCache, error) {
-	cachingTXManager, ok := private.P.(*qlightptm.CachingProxyTxManager)
+	cachingTXManager, ok := private.Ptm.(*qlightptm.CachingProxyTxManager)
 	if !ok {
 		return nil, fmt.Errorf("unable to initialize txCache")
 	}

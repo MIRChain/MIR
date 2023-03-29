@@ -41,6 +41,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -51,17 +52,17 @@ var (
 // LightChain represents a canonical chain that by default only handles block
 // headers, downloading block bodies and receipts on demand through an ODR
 // interface. It only does header validation during chain insertion.
-type LightChain struct {
-	hc            *core.HeaderChain
+type LightChain [P crypto.PublicKey] struct {
+	hc            *core.HeaderChain[P]
 	indexerConfig *IndexerConfig
 	chainDb       ethdb.Database
-	engine        consensus.Engine
-	odr           OdrBackend
+	engine        consensus.Engine[P]
+	odr           OdrBackend[P]
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	scope         event.SubscriptionScope
-	genesisBlock  *types.Block
+	genesisBlock  *types.Block[P]
 
 	bodyCache    *lru.Cache // Cache for the most recent block bodies
 	bodyRLPCache *lru.Cache // Cache for the most recent block bodies in RLP encoded format
@@ -83,12 +84,12 @@ type LightChain struct {
 // NewLightChain returns a fully initialised light chain using information
 // available in the database. It initialises the default Ethereum header
 // validator.
-func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.Engine, checkpoint *params.TrustedCheckpoint) (*LightChain, error) {
+func NewLightChain[P crypto.PublicKey](odr OdrBackend[P], config *params.ChainConfig, engine consensus.Engine[P], checkpoint *params.TrustedCheckpoint) (*LightChain[P], error) {
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
 
-	bc := &LightChain{
+	bc := &LightChain[P]{
 		chainDb:       odr.Database(),
 		indexerConfig: odr.IndexerConfig(),
 		odr:           odr,
@@ -124,7 +125,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 	return bc, nil
 }
 
-func NewMultitenantLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.Engine, checkpoint *params.TrustedCheckpoint) (*LightChain, error) {
+func NewMultitenantLightChain[P crypto.PublicKey](odr OdrBackend[P], config *params.ChainConfig, engine consensus.Engine[P], checkpoint *params.TrustedCheckpoint) (*LightChain[P], error) {
 	bc, err := NewLightChain(odr, config, engine, checkpoint)
 	if err != nil {
 		return nil, err
@@ -134,7 +135,7 @@ func NewMultitenantLightChain(odr OdrBackend, config *params.ChainConfig, engine
 }
 
 // AddTrustedCheckpoint adds a trusted checkpoint to the blockchain
-func (lc *LightChain) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
+func (lc *LightChain[P]) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
 	if lc.odr.ChtIndexer() != nil {
 		StoreChtRoot(lc.chainDb, cp.SectionIndex, cp.SectionHead, cp.CHTRoot)
 		lc.odr.ChtIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
@@ -149,23 +150,23 @@ func (lc *LightChain) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
 	log.Info("Added trusted checkpoint", "block", (cp.SectionIndex+1)*lc.indexerConfig.ChtSize-1, "hash", cp.SectionHead)
 }
 
-func (lc *LightChain) getProcInterrupt() bool {
+func (lc *LightChain[P]) getProcInterrupt() bool {
 	return atomic.LoadInt32(&lc.procInterrupt) == 1
 }
 
 // Odr returns the ODR backend of the chain
-func (lc *LightChain) Odr() OdrBackend {
+func (lc *LightChain[P]) Odr() OdrBackend[P] {
 	return lc.odr
 }
 
 // HeaderChain returns the underlying header chain.
-func (lc *LightChain) HeaderChain() *core.HeaderChain {
+func (lc *LightChain[P]) HeaderChain() *core.HeaderChain[P] {
 	return lc.hc
 }
 
 // loadLastState loads the last known chain state from the database. This method
 // assumes that the chain manager mutex is held.
-func (lc *LightChain) loadLastState() error {
+func (lc *LightChain[P]) loadLastState() error {
 	if head := rawdb.ReadHeadHeaderHash(lc.chainDb); head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		lc.Reset()
@@ -187,7 +188,7 @@ func (lc *LightChain) loadLastState() error {
 
 // SetHead rewinds the local chain to a new head. Everything above the new
 // head will be deleted and the new one set.
-func (lc *LightChain) SetHead(head uint64) error {
+func (lc *LightChain[P]) SetHead(head uint64) error {
 	lc.chainmu.Lock()
 	defer lc.chainmu.Unlock()
 
@@ -196,18 +197,18 @@ func (lc *LightChain) SetHead(head uint64) error {
 }
 
 // GasLimit returns the gas limit of the current HEAD block.
-func (lc *LightChain) GasLimit() uint64 {
+func (lc *LightChain[P]) GasLimit() uint64 {
 	return lc.hc.CurrentHeader().GasLimit
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.
-func (lc *LightChain) Reset() {
+func (lc *LightChain[P]) Reset() {
 	lc.ResetWithGenesisBlock(lc.genesisBlock)
 }
 
 // ResetWithGenesisBlock purges the entire blockchain, restoring it to the
 // specified genesis state.
-func (lc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
+func (lc *LightChain[P]) ResetWithGenesisBlock(genesis *types.Block[P]) {
 	// Dump the entire block chain and purge the caches
 	lc.SetHead(0)
 
@@ -230,30 +231,30 @@ func (lc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 // Accessors
 
 // Engine retrieves the light chain's consensus engine.
-func (lc *LightChain) Engine() consensus.Engine { return lc.engine }
+func (lc *LightChain[P]) Engine() consensus.Engine[P] { return lc.engine }
 
 // Genesis returns the genesis block
-func (lc *LightChain) Genesis() *types.Block {
+func (lc *LightChain[P]) Genesis() *types.Block[P] {
 	return lc.genesisBlock
 }
 
-func (lc *LightChain) StateCache() state.Database {
+func (lc *LightChain[P]) StateCache() state.Database {
 	panic("not implemented")
 }
 
 // GetBody retrieves a block body (transactions and uncles) from the database
 // or ODR service by hash, caching it if found.
-func (lc *LightChain) GetBody(ctx context.Context, hash common.Hash) (*types.Body, error) {
+func (lc *LightChain[P]) GetBody(ctx context.Context, hash common.Hash) (*types.Body[P], error) {
 	// Short circuit if the body's already in the cache, retrieve otherwise
 	if cached, ok := lc.bodyCache.Get(hash); ok {
-		body := cached.(*types.Body)
+		body := cached.(*types.Body[P])
 		return body, nil
 	}
 	number := lc.hc.GetBlockNumber(hash)
 	if number == nil {
 		return nil, errors.New("unknown block")
 	}
-	body, err := GetBody(ctx, lc.odr, hash, *number)
+	body, err := GetBody[P](ctx, lc.odr, hash, *number)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,7 @@ func (lc *LightChain) GetBody(ctx context.Context, hash common.Hash) (*types.Bod
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database or
 // ODR service by hash, caching it if found.
-func (lc *LightChain) GetBodyRLP(ctx context.Context, hash common.Hash) (rlp.RawValue, error) {
+func (lc *LightChain[P]) GetBodyRLP(ctx context.Context, hash common.Hash) (rlp.RawValue, error) {
 	// Short circuit if the body's already in the cache, retrieve otherwise
 	if cached, ok := lc.bodyRLPCache.Get(hash); ok {
 		return cached.(rlp.RawValue), nil
@@ -284,19 +285,19 @@ func (lc *LightChain) GetBodyRLP(ctx context.Context, hash common.Hash) (rlp.Raw
 
 // HasBlock checks if a block is fully present in the database or not, caching
 // it if present.
-func (lc *LightChain) HasBlock(hash common.Hash, number uint64) bool {
+func (lc *LightChain[P]) HasBlock(hash common.Hash, number uint64) bool {
 	blk, _ := lc.GetBlock(NoOdr, hash, number)
 	return blk != nil
 }
 
 // GetBlock retrieves a block from the database or ODR service by hash and number,
 // caching it if found.
-func (lc *LightChain) GetBlock(ctx context.Context, hash common.Hash, number uint64) (*types.Block, error) {
+func (lc *LightChain[P]) GetBlock(ctx context.Context, hash common.Hash, number uint64) (*types.Block[P], error) {
 	// Short circuit if the block's already in the cache, retrieve otherwise
 	if block, ok := lc.blockCache.Get(hash); ok {
-		return block.(*types.Block), nil
+		return block.(*types.Block[P]), nil
 	}
-	block, err := GetBlock(ctx, lc.odr, hash, number)
+	block, err := GetBlock[P](ctx, lc.odr, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +308,7 @@ func (lc *LightChain) GetBlock(ctx context.Context, hash common.Hash, number uin
 
 // GetBlockByHash retrieves a block from the database or ODR service by hash,
 // caching it if found.
-func (lc *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (lc *LightChain[P]) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error) {
 	number := lc.hc.GetBlockNumber(hash)
 	if number == nil {
 		return nil, errors.New("unknown block")
@@ -317,7 +318,7 @@ func (lc *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*ty
 
 // GetBlockByNumber retrieves a block from the database or ODR service by
 // number, caching it (associated with its hash) if found.
-func (lc *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
+func (lc *LightChain[P]) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block[P], error) {
 	hash, err := GetCanonicalHash(ctx, lc.odr, number)
 	if hash == (common.Hash{}) || err != nil {
 		return nil, err
@@ -327,7 +328,7 @@ func (lc *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*typ
 
 // Stop stops the blockchain service. If any imports are currently in progress
 // it will abort them using the procInterrupt.
-func (lc *LightChain) Stop() {
+func (lc *LightChain[P]) Stop() {
 	if !atomic.CompareAndSwapInt32(&lc.running, 0, 1) {
 		return
 	}
@@ -340,13 +341,13 @@ func (lc *LightChain) Stop() {
 // StopInsert interrupts all insertion methods, causing them to return
 // errInsertionInterrupted as soon as possible. Insertion is permanently disabled after
 // calling this method.
-func (lc *LightChain) StopInsert() {
+func (lc *LightChain[P]) StopInsert() {
 	atomic.StoreInt32(&lc.procInterrupt, 1)
 }
 
 // Rollback is designed to remove a chain of links from the database that aren't
 // certain enough to be valid.
-func (lc *LightChain) Rollback(chain []common.Hash) {
+func (lc *LightChain[P]) Rollback(chain []common.Hash) {
 	lc.chainmu.Lock()
 	defer lc.chainmu.Unlock()
 
@@ -370,15 +371,15 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 
 // postChainEvents iterates over the events generated by a chain insertion and
 // posts them into the event feed.
-func (lc *LightChain) postChainEvents(events []interface{}) {
+func (lc *LightChain[P]) postChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case core.ChainEvent:
+		case core.ChainEvent[P]:
 			if lc.CurrentHeader().Hash() == ev.Hash {
-				lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: ev.Block})
+				lc.chainHeadFeed.Send(core.ChainHeadEvent[P]{Block: ev.Block})
 			}
 			lc.chainFeed.Send(ev)
-		case core.ChainSideEvent:
+		case core.ChainSideEvent[P]:
 			lc.chainSideFeed.Send(ev)
 		}
 	}
@@ -395,7 +396,7 @@ func (lc *LightChain) postChainEvents(events []interface{}) {
 //
 // In the case of a light chain, InsertHeaderChain also creates and posts light
 // chain events when necessary.
-func (lc *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (lc *LightChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
 	if atomic.LoadInt32(&lc.disableCheckFreq) == 1 {
 		checkFreq = 0
 	}
@@ -420,13 +421,13 @@ func (lc *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	var (
 		events     = make([]interface{}, 0, 1)
 		lastHeader = chain[len(chain)-1]
-		block      = types.NewBlockWithHeader(lastHeader)
+		block      = types.NewBlockWithHeader[P](lastHeader)
 	)
 	switch status {
 	case core.CanonStatTy:
-		events = append(events, core.ChainEvent{Block: block, Hash: block.Hash()})
+		events = append(events, core.ChainEvent[P]{Block: block, Hash: block.Hash()})
 	case core.SideStatTy:
-		events = append(events, core.ChainSideEvent{Block: block})
+		events = append(events, core.ChainSideEvent[P]{Block: block})
 	}
 	lc.postChainEvents(events)
 
@@ -435,25 +436,25 @@ func (lc *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (lc *LightChain) CurrentHeader() *types.Header {
+func (lc *LightChain[P]) CurrentHeader() *types.Header {
 	return lc.hc.CurrentHeader()
 }
 
 // GetTd retrieves a block's total difficulty in the canonical chain from the
 // database by hash and number, caching it if found.
-func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
+func (lc *LightChain[P]) GetTd(hash common.Hash, number uint64) *big.Int {
 	return lc.hc.GetTd(hash, number)
 }
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the
 // database by hash, caching it if found.
-func (lc *LightChain) GetTdByHash(hash common.Hash) *big.Int {
+func (lc *LightChain[P]) GetTdByHash(hash common.Hash) *big.Int {
 	return lc.hc.GetTdByHash(hash)
 }
 
 // GetHeaderByNumberOdr retrieves the total difficult from the database or
 // network by hash and number, caching it (associated with its hash) if found.
-func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uint64) *big.Int {
+func (lc *LightChain[P]) GetTdOdr(ctx context.Context, hash common.Hash, number uint64) *big.Int {
 	td := lc.GetTd(hash, number)
 	if td != nil {
 		return td
@@ -464,30 +465,30 @@ func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uin
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (lc *LightChain) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (lc *LightChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
 	return lc.hc.GetHeader(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (lc *LightChain) GetHeaderByHash(hash common.Hash) *types.Header {
+func (lc *LightChain[P]) GetHeaderByHash(hash common.Hash) *types.Header {
 	return lc.hc.GetHeaderByHash(hash)
 }
 
 // HasHeader checks if a block header is present in the database or not, caching
 // it if present.
-func (lc *LightChain) HasHeader(hash common.Hash, number uint64) bool {
+func (lc *LightChain[P]) HasHeader(hash common.Hash, number uint64) bool {
 	return lc.hc.HasHeader(hash, number)
 }
 
 // GetCanonicalHash returns the canonical hash for a given block number
-func (bc *LightChain) GetCanonicalHash(number uint64) common.Hash {
+func (bc *LightChain[P]) GetCanonicalHash(number uint64) common.Hash {
 	return bc.hc.GetCanonicalHash(number)
 }
 
 // GetBlockHashesFromHash retrieves a number of block hashes starting at a given
 // hash, fetching towards the genesis block.
-func (lc *LightChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
+func (lc *LightChain[P]) GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
 	return lc.hc.GetBlockHashesFromHash(hash, max)
 }
 
@@ -496,19 +497,19 @@ func (lc *LightChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []com
 // number of blocks to be individually checked before we reach the canonical chain.
 //
 // Note: ancestor == 0 returns the same block, 1 returns its parent and so on.
-func (lc *LightChain) GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
+func (lc *LightChain[P]) GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
 	return lc.hc.GetAncestor(hash, number, ancestor, maxNonCanonical)
 }
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (lc *LightChain) GetHeaderByNumber(number uint64) *types.Header {
+func (lc *LightChain[P]) GetHeaderByNumber(number uint64) *types.Header {
 	return lc.hc.GetHeaderByNumber(number)
 }
 
 // GetHeaderByNumberOdr retrieves a block header from the database or network
 // by number, caching it (associated with its hash) if found.
-func (lc *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {
+func (lc *LightChain[P]) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {
 	if header := lc.hc.GetHeaderByNumber(number); header != nil {
 		return header, nil
 	}
@@ -516,14 +517,14 @@ func (lc *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (
 }
 
 // Config retrieves the header chain's chain configuration.
-func (lc *LightChain) Config() *params.ChainConfig { return lc.hc.Config() }
+func (lc *LightChain[P]) Config() *params.ChainConfig { return lc.hc.Config() }
 
 // SyncCheckpoint fetches the checkpoint point block header according to
 // the checkpoint provided by the remote peer.
 //
 // Note if we are running the clique, fetches the last epoch snapshot header
 // which covered by checkpoint.
-func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.TrustedCheckpoint) bool {
+func (lc *LightChain[P]) SyncCheckpoint(ctx context.Context, checkpoint *params.TrustedCheckpoint) bool {
 	// Ensure the remote checkpoint head is ahead of us
 	head := lc.CurrentHeader().Number.Uint64()
 
@@ -552,62 +553,62 @@ func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.Tru
 
 // LockChain locks the chain mutex for reading so that multiple canonical hashes can be
 // retrieved while it is guaranteed that they belong to the same version of the chain
-func (lc *LightChain) LockChain() {
+func (lc *LightChain[P]) LockChain() {
 	lc.chainmu.RLock()
 }
 
 // UnlockChain unlocks the chain mutex
-func (lc *LightChain) UnlockChain() {
+func (lc *LightChain[P]) UnlockChain() {
 	lc.chainmu.RUnlock()
 }
 
 // SubscribeChainEvent registers a subscription of ChainEvent.
-func (lc *LightChain) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+func (lc *LightChain[P]) SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription {
 	return lc.scope.Track(lc.chainFeed.Subscribe(ch))
 }
 
 // SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (lc *LightChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (lc *LightChain[P]) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription {
 	return lc.scope.Track(lc.chainHeadFeed.Subscribe(ch))
 }
 
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (lc *LightChain) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
+func (lc *LightChain[P]) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent[P]) event.Subscription {
 	return lc.scope.Track(lc.chainSideFeed.Subscribe(ch))
 }
 
 // SubscribeLogsEvent implements the interface of filters.Backend
 // LightChain does not send logs events, so return an empty subscription.
-func (lc *LightChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (lc *LightChain[P]) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return lc.scope.Track(new(event.Feed).Subscribe(ch))
 }
 
 // SubscribeRemovedLogsEvent implements the interface of filters.Backend
 // LightChain does not send core.RemovedLogsEvent, so return an empty subscription.
-func (lc *LightChain) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+func (lc *LightChain[P]) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent[P]) event.Subscription {
 	return lc.scope.Track(new(event.Feed).Subscribe(ch))
 }
 
 // DisableCheckFreq disables header validation. This is used for ultralight mode.
-func (lc *LightChain) DisableCheckFreq() {
+func (lc *LightChain[P]) DisableCheckFreq() {
 	atomic.StoreInt32(&lc.disableCheckFreq, 1)
 }
 
 // EnableCheckFreq enables header validation.
-func (lc *LightChain) EnableCheckFreq() {
+func (lc *LightChain[P]) EnableCheckFreq() {
 	atomic.StoreInt32(&lc.disableCheckFreq, 0)
 }
 
-func (lc *LightChain) SupportsMultitenancy(context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
+func (lc *LightChain[P]) SupportsMultitenancy(context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
 	return nil, lc.isMultitenant
 }
 
 // QuorumConfig retrieves the Quorum chain's configuration
-func (lc *LightChain) QuorumConfig() *core.QuorumChainConfig { return &core.QuorumChainConfig{} }
+func (lc *LightChain[P]) QuorumConfig() *core.QuorumChainConfig { return &core.QuorumChainConfig{} }
 
 // PrivateStateManager returns the private state manager
-func (lc *LightChain) PrivateStateManager() mps.PrivateStateManager { return nil }
+func (lc *LightChain[P]) PrivateStateManager() mps.PrivateStateManager[P] { return nil }
 
 // CheckAndSetPrivateState updates the private state as a part contract state extension
-func (lc *LightChain) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {
+func (lc *LightChain[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {
 }

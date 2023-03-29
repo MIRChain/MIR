@@ -146,7 +146,7 @@ const (
 type blockChain [P crypto.PublicKey] interface {
 	CurrentBlock() *types.Block[P]
 	GetBlock(hash common.Hash, number uint64) *types.Block[P]
-	StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository, error)
+	StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[P]) event.Subscription
 }

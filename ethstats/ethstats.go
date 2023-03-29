@@ -39,7 +39,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	ethproto "github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
 	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/les"
+	// "github.com/pavelkrolevets/MIR-pro/les"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/miner"
 	"github.com/pavelkrolevets/MIR-pro/node"

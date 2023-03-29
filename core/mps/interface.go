@@ -9,13 +9,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // PrivateStateManager interface separates
-type PrivateStateManager interface {
+type PrivateStateManager [P crypto.PublicKey] interface {
 	PrivateStateMetadataResolver
 	// StateRepository returns repository corresponding to a block hash
-	StateRepository(blockHash common.Hash) (PrivateStateRepository, error)
+	StateRepository(blockHash common.Hash) (PrivateStateRepository[P], error)
 	// CheckAt verifies if there's a state being managed at a block hash
 	CheckAt(blockHash common.Hash) error
 	// TrieDB returns the trie database
@@ -34,15 +35,15 @@ type PrivateStateMetadataResolver interface {
 
 // PrivateStateRepository abstracts how we handle private state(s) including
 // retrieving from and peristing private states to the underlying database
-type PrivateStateRepository interface {
+type PrivateStateRepository [P crypto.PublicKey] interface {
 	PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error)
 	StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error)
 	CommitAndWrite(isEIP158 bool, block *types.Block[P]) error
 	Commit(isEIP158 bool, block *types.Block[P]) error
-	Copy() PrivateStateRepository
+	Copy() PrivateStateRepository[P]
 	Reset() error
 	DefaultState() (*state.StateDB, error)
 	DefaultStateMetadata() *PrivateStateMetadata
 	IsMPS() bool
-	MergeReceipts(pub, priv types.Receipts) types.Receipts
+	MergeReceipts(pub, priv types.Receipts[P]) types.Receipts[P]
 }

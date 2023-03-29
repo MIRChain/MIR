@@ -221,7 +221,7 @@ type BlockChain [P crypto.PublicKey] struct {
 	setPrivateState func([]*types.Log, *state.StateDB, types.PrivateStateIdentifier) // Function to check extension and set private state
 
 	// privateStateManager manages private state(s) for this blockchain
-	privateStateManager           mps.PrivateStateManager
+	privateStateManager           mps.PrivateStateManager[P]
 	privateStateRootHashValidator qlight.PrivateStateRootHashValidator
 	// End Quorum
 }
@@ -274,7 +274,7 @@ func NewBlockChain[P crypto.PublicKey](db ethdb.Database, cacheConfig *CacheConf
 	privateStateCacheProvider := privatecache.NewPrivateCacheProvider(db, &trie.Config{Cache: cacheConfig.TrieCleanLimit,
 		Preimages: cacheConfig.Preimages}, bc.stateCache, quorumChainConfig.privateTrieCacheEnabled)
 	// Quorum: attempt to initialize PSM
-	if bc.privateStateManager, err = newPrivateStateManager(bc.db, privateStateCacheProvider, chainConfig.IsMPS); err != nil {
+	if bc.privateStateManager, err = newPrivateStateManager[P](bc.db, privateStateCacheProvider, chainConfig.IsMPS); err != nil {
 		return nil, err
 	}
 	bc.hc, err = NewHeaderChain[P](db, chainConfig, engine, bc.insertStopped)
@@ -449,11 +449,11 @@ func NewMultitenantBlockChain[P crypto.PublicKey](db ethdb.Database, cacheConfig
 	return bc, err
 }
 
-func (bc *BlockChain[P]) PrivateStateManager() mps.PrivateStateManager {
+func (bc *BlockChain[P]) PrivateStateManager() mps.PrivateStateManager[P] {
 	return bc.privateStateManager
 }
 
-func (bc *BlockChain[P]) SetPrivateStateManager(psm mps.PrivateStateManager) {
+func (bc *BlockChain[P]) SetPrivateStateManager(psm mps.PrivateStateManager[P]) {
 	bc.privateStateManager = psm
 }
 
@@ -759,7 +759,7 @@ func (bc *BlockChain[P]) Processor() Processor[P] {
 }
 
 // State returns a new mutable state based on the current HEAD block.
-func (bc *BlockChain[P]) State() (*state.StateDB, mps.PrivateStateRepository, error) {
+func (bc *BlockChain[P]) State() (*state.StateDB, mps.PrivateStateRepository[P], error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
@@ -797,7 +797,7 @@ func (bc *BlockChain[P]) StateAtPSI(root common.Hash, psi types.PrivateStateIden
 // StateAt returns a new mutable public state and a new mutable private state repo
 // based on a particular point in time. The returned private state repo can be used
 // to obtain a mutable private state for a given PSI
-func (bc *BlockChain[P]) StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository, error) {
+func (bc *BlockChain[P]) StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error) {
 	publicStateDb, publicStateDbErr := state.New(root, bc.stateCache, bc.snaps)
 	if publicStateDbErr != nil {
 		return nil, nil, publicStateDbErr
@@ -1585,7 +1585,7 @@ func (bc *BlockChain[P]) writeKnownBlock(block *types.Block[P]) error {
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain[P]) WriteBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain[P]) WriteBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
@@ -1621,7 +1621,7 @@ func (bc *BlockChain[P]) CommitBlockWithState(deleteEmptyObjects bool, state, pr
 
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
-func (bc *BlockChain[P]) writeBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain[P]) writeBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -2070,7 +2070,7 @@ func (bc *BlockChain[P]) insertChain(chain types.Blocks[P], verifySeals bool) (i
 					throwawayPrivateStateRepo := privateStateRepo.Copy()
 
 					// Quorum: add privateStateThrowaway argument
-					go func(start time.Time, followup *types.Block[P], throwaway *state.StateDB, privateStateThrowaway mps.PrivateStateRepository, interrupt *uint32) {
+					go func(start time.Time, followup *types.Block[P], throwaway *state.StateDB, privateStateThrowaway mps.PrivateStateRepository[P], interrupt *uint32) {
 						bc.prefetcher.Prefetch(followup, throwaway, throwawayPrivateStateRepo, bc.vmConfig, &followupInterrupt)
 
 						blockPrefetchExecuteTimer.Update(time.Since(start))

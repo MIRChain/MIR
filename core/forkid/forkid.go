@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -45,7 +46,7 @@ var (
 )
 
 // Blockchain defines all necessary method to build a forkID.
-type Blockchain interface {
+type Blockchain [P crypto.PublicKey] interface {
 	// Config retrieves the chain's fork configuration.
 	Config() *params.ChainConfig
 
@@ -85,7 +86,7 @@ func NewID(config *params.ChainConfig, genesis common.Hash, head uint64) ID {
 }
 
 // NewIDWithChain calculates the Ethereum fork ID from an existing chain instance.
-func NewIDWithChain(chain Blockchain) ID {
+func NewIDWithChain[P crypto.PublicKey](chain Blockchain[P]) ID {
 	return NewID(
 		chain.Config(),
 		chain.Genesis().Hash(),
@@ -95,7 +96,7 @@ func NewIDWithChain(chain Blockchain) ID {
 
 // NewFilter creates a filter that returns if a fork ID should be rejected or not
 // based on the local chain's status.
-func NewFilter(chain Blockchain) Filter {
+func NewFilter[P crypto.PublicKey](chain Blockchain[P]) Filter {
 	return newFilter(
 		chain.Config(),
 		chain.Genesis().Hash(),

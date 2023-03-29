@@ -7,6 +7,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/multitenancy"
 	"github.com/pavelkrolevets/MIR-pro/plugin/security"
@@ -14,16 +15,16 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
-type privateBlockDataResolverImpl struct {
-	privateStateManager mps.PrivateStateManager
+type privateBlockDataResolverImpl [P crypto.PublicKey] struct {
+	privateStateManager mps.PrivateStateManager[P]
 	ptm                 private.PrivateTransactionManager
 }
 
-func NewPrivateBlockDataResolver(privateStateManager mps.PrivateStateManager, ptm private.PrivateTransactionManager) PrivateBlockDataResolver {
-	return &privateBlockDataResolverImpl{privateStateManager: privateStateManager, ptm: ptm}
+func NewPrivateBlockDataResolver[P crypto.PublicKey](privateStateManager mps.PrivateStateManager[P], ptm private.PrivateTransactionManager) PrivateBlockDataResolver[P] {
+	return &privateBlockDataResolverImpl[P]{privateStateManager: privateStateManager, ptm: ptm}
 }
 
-func (p *privateBlockDataResolverImpl) PrepareBlockPrivateData(block *types.Block, psi string) (*BlockPrivateData, error) {
+func (p *privateBlockDataResolverImpl[P]) PrepareBlockPrivateData(block *types.Block[P], psi string) (*BlockPrivateData, error) {
 	PSI := types.PrivateStateIdentifier(psi)
 	var pvtTxs []PrivateTransactionData
 	psm, err := p.privateStateManager.ResolveForUserContext(rpc.WithPrivateStateIdentifier(context.Background(), PSI))
@@ -40,7 +41,7 @@ func (p *privateBlockDataResolverImpl) PrepareBlockPrivateData(block *types.Bloc
 				pvtTxs = append(pvtTxs, *ptd)
 			}
 
-			innerTx, _, _, _ := private.FetchPrivateTransactionWithPTM(tx.Data(), p.ptm)
+			innerTx, _, _, _ := private.FetchPrivateTransactionWithPTM[P](tx.Data(), p.ptm)
 			if innerTx != nil {
 				tx = innerTx
 			}
@@ -80,7 +81,7 @@ func (p *privateBlockDataResolverImpl) PrepareBlockPrivateData(block *types.Bloc
 	}, nil
 }
 
-func (p *privateBlockDataResolverImpl) fetchPrivateData(encryptedPayloadHash []byte, psm *mps.PrivateStateMetadata) (*PrivateTransactionData, error) {
+func (p *privateBlockDataResolverImpl[P]) fetchPrivateData(encryptedPayloadHash []byte, psm *mps.PrivateStateMetadata) (*PrivateTransactionData, error) {
 	txHash := common.BytesToEncryptedPayloadHash(encryptedPayloadHash)
 	_, _, privateTx, extra, err := p.ptm.Receive(txHash)
 	if err != nil {
@@ -116,22 +117,22 @@ func (p *privateBlockDataResolverImpl) fetchPrivateData(encryptedPayloadHash []b
 	return &ptd, nil
 }
 
-type authProviderImpl struct {
-	privateStateManager mps.PrivateStateManager
+type authProviderImpl [P crypto.PublicKey] struct {
+	privateStateManager mps.PrivateStateManager[P]
 	authManagerProvider AuthManagerProvider
 	authManager         security.AuthenticationManager
 	enabled             bool
 }
 
-func NewAuthProvider(privateStateManager mps.PrivateStateManager, authManagerProvider AuthManagerProvider) AuthProvider {
-	return &authProviderImpl{
+func NewAuthProvider[P crypto.PublicKey](privateStateManager mps.PrivateStateManager[P], authManagerProvider AuthManagerProvider) AuthProvider {
+	return &authProviderImpl[P]{
 		privateStateManager: privateStateManager,
 		authManagerProvider: authManagerProvider,
 		enabled:             false,
 	}
 }
 
-func (a *authProviderImpl) Initialize() error {
+func (a *authProviderImpl[P]) Initialize() error {
 	if a.authManagerProvider != nil {
 		a.authManager = a.authManagerProvider()
 		if a.authManager == nil {
@@ -146,7 +147,7 @@ func (a *authProviderImpl) Initialize() error {
 	return nil
 }
 
-func (a *authProviderImpl) Authorize(token string, psi string) error {
+func (a *authProviderImpl[P]) Authorize(token string, psi string) error {
 	if !a.enabled {
 		return nil
 	}

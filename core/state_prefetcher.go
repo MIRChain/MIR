@@ -58,7 +58,7 @@ func newStatePrefetcher[P crypto.PublicKey](config *params.ChainConfig, bc *Bloc
 // the transaction messages using the statedb, but any changes are discarded. The
 // only goal is to pre-cache transaction signatures and state trie nodes.
 // Quorum: Add privateStateDb argument
-func (p *statePrefetcher[P]) Prefetch(block *types.Block[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository, cfg vm.Config[P], interrupt *uint32) {
+func (p *statePrefetcher[P]) Prefetch(block *types.Block[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P], interrupt *uint32) {
 	var (
 		header  = block.Header()
 		gaspool = new(GasPool).AddGas(block.GasLimit())
@@ -131,7 +131,7 @@ func precacheTransaction[P crypto.PublicKey](config *params.ChainConfig, bc Chai
 
 // Quorum
 
-func (p *statePrefetcher[P]) prefetchMpsTransaction(block *types.Block[P], tx *types.Transaction[P], txIndex int, statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository, cfg vm.Config[P], interrupt *uint32) {
+func (p *statePrefetcher[P]) prefetchMpsTransaction(block *types.Block[P], tx *types.Transaction[P], txIndex int, statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P], interrupt *uint32) {
 	byzantium := p.config.IsByzantium(block.Number())
 	// Block precaching permitted to continue, execute the transaction
 	_, managedParties, _, _, err := private.Ptm.Receive(common.BytesToEncryptedPayloadHash(tx.Data()))
@@ -170,7 +170,7 @@ func (p *statePrefetcher[P]) prefetchMpsTransaction(block *types.Block[P], tx *t
 	p.pend.Wait()
 }
 
-func createInnerApply[P crypto.PublicKey](block *types.Block[P], tx *types.Transaction[P], txIndex int, statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository, cfg vm.Config[P], interrupt *uint32, p *statePrefetcher[P], privateStateDb *state.StateDB) func(innerTx *types.Transaction[P]) error {
+func createInnerApply[P crypto.PublicKey](block *types.Block[P], tx *types.Transaction[P], txIndex int, statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P], interrupt *uint32, p *statePrefetcher[P], privateStateDb *state.StateDB) func(innerTx *types.Transaction[P]) error {
 	return func(innerTx *types.Transaction[P]) error {
 		if !tx.IsPrivacyMarker() {
 			return nil

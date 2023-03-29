@@ -16,13 +16,13 @@ import (
 	"github.com/jpmorganchase/quorum-account-plugin-sdk-go/proto"
 )
 
-type service struct {
+type service [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	client      proto.AccountServiceClient
 	mu          sync.Mutex
 	isStreaming bool
 }
 
-func (g *service) Status(ctx context.Context) (string, error) {
+func (g *service[T,P]) Status(ctx context.Context) (string, error) {
 	resp, err := g.client.Status(ctx, &proto.StatusRequest{})
 	if err != nil {
 		return "", err
@@ -33,17 +33,17 @@ func (g *service) Status(ctx context.Context) (string, error) {
 	return resp.Status, err
 }
 
-func (g *service) Open(ctx context.Context, passphrase string) error {
+func (g *service[T,P]) Open(ctx context.Context, passphrase string) error {
 	_, err := g.client.Open(ctx, &proto.OpenRequest{Passphrase: passphrase})
 	return err
 }
 
-func (g *service) Close(ctx context.Context) error {
+func (g *service[T,P]) Close(ctx context.Context) error {
 	_, err := g.client.Close(ctx, &proto.CloseRequest{})
 	return err
 }
 
-func (g *service) Accounts(ctx context.Context) []accounts.Account {
+func (g *service[T,P]) Accounts(ctx context.Context) []accounts.Account {
 	resp, err := g.client.Accounts(ctx, &proto.AccountsRequest{})
 	if err != nil {
 		log.Error("unable to get accounts from plugin account store", "err", err)
@@ -57,7 +57,7 @@ func (g *service) Accounts(ctx context.Context) []accounts.Account {
 	return asAccounts(resp.Accounts)
 }
 
-func (g *service) Contains(ctx context.Context, account accounts.Account) bool {
+func (g *service[T,P]) Contains(ctx context.Context, account accounts.Account) bool {
 	resp, err := g.client.Contains(ctx, &proto.ContainsRequest{Address: account.Address.Bytes()})
 	if err != nil {
 		log.Error("unable to check contents of plugin account store", "err", err)
@@ -70,7 +70,7 @@ func (g *service) Contains(ctx context.Context, account accounts.Account) bool {
 	return resp.IsContained
 }
 
-func (g *service) Sign(ctx context.Context, account accounts.Account, toSign []byte) ([]byte, error) {
+func (g *service[T,P]) Sign(ctx context.Context, account accounts.Account, toSign []byte) ([]byte, error) {
 	resp, err := g.client.Sign(ctx, &proto.SignRequest{
 		Address: account.Address.Bytes(),
 		ToSign:  toSign,
@@ -85,7 +85,7 @@ func (g *service) Sign(ctx context.Context, account accounts.Account, toSign []b
 	return resp.Sig, nil
 }
 
-func (g *service) UnlockAndSign(ctx context.Context, account accounts.Account, toSign []byte, passphrase string) ([]byte, error) {
+func (g *service[T,P]) UnlockAndSign(ctx context.Context, account accounts.Account, toSign []byte, passphrase string) ([]byte, error) {
 	resp, err := g.client.UnlockAndSign(ctx, &proto.UnlockAndSignRequest{
 		Address:    account.Address.Bytes(),
 		ToSign:     toSign,
@@ -101,17 +101,17 @@ func (g *service) UnlockAndSign(ctx context.Context, account accounts.Account, t
 	return resp.Sig, nil
 }
 
-func (g *service) TimedUnlock(ctx context.Context, account accounts.Account, password string, duration time.Duration) error {
+func (g *service[T,P]) TimedUnlock(ctx context.Context, account accounts.Account, password string, duration time.Duration) error {
 	_, err := g.client.TimedUnlock(ctx, &proto.TimedUnlockRequest{Address: account.Address.Bytes(), Password: password, Duration: duration.Nanoseconds()})
 	return err
 }
 
-func (g *service) Lock(ctx context.Context, account accounts.Account) error {
+func (g *service[T,P]) Lock(ctx context.Context, account accounts.Account) error {
 	_, err := g.client.Lock(ctx, &proto.LockRequest{Address: account.Address.Bytes()})
 	return err
 }
 
-func (g *service) NewAccount(ctx context.Context, newAccountConfig interface{}) (accounts.Account, error) {
+func (g *service[T,P]) NewAccount(ctx context.Context, newAccountConfig interface{}) (accounts.Account, error) {
 	byt, err := json.Marshal(newAccountConfig)
 	if err != nil {
 		return accounts.Account{}, err
@@ -133,13 +133,13 @@ func (g *service) NewAccount(ctx context.Context, newAccountConfig interface{}) 
 	return acct, nil
 }
 
-func (g *service) ImportRawKey(ctx context.Context, rawKey string, newAccountConfig interface{}) (accounts.Account, error) {
+func (g *service[T,P]) ImportRawKey(ctx context.Context, rawKey string, newAccountConfig interface{}) (accounts.Account, error) {
 	byt, err := json.Marshal(newAccountConfig)
 	if err != nil {
 		return accounts.Account{}, err
 	}
 	// validate the rawKey
-	_, err = crypto.HexToECDSA(rawKey)
+	_, err = crypto.HexToECDSA[T](rawKey)
 	if err != nil {
 		return accounts.Account{}, err
 	}

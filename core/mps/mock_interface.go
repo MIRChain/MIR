@@ -8,38 +8,39 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gomock "github.com/golang/mock/gomock"
 	common "github.com/pavelkrolevets/MIR-pro/common"
 	state "github.com/pavelkrolevets/MIR-pro/core/state"
 	types "github.com/pavelkrolevets/MIR-pro/core/types"
 	trie "github.com/pavelkrolevets/MIR-pro/trie"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // MockPrivateStateManager is a mock of PrivateStateManager interface.
-type MockPrivateStateManager struct {
+type MockPrivateStateManager [P crypto.PublicKey] struct {
 	ctrl     *gomock.Controller
-	recorder *MockPrivateStateManagerMockRecorder
+	recorder *MockPrivateStateManagerMockRecorder[P]
 }
 
 // MockPrivateStateManagerMockRecorder is the mock recorder for MockPrivateStateManager.
-type MockPrivateStateManagerMockRecorder struct {
-	mock *MockPrivateStateManager
+type MockPrivateStateManagerMockRecorder [P crypto.PublicKey] struct {
+	mock *MockPrivateStateManager[P]
 }
 
 // NewMockPrivateStateManager creates a new mock instance.
-func NewMockPrivateStateManager(ctrl *gomock.Controller) *MockPrivateStateManager {
-	mock := &MockPrivateStateManager{ctrl: ctrl}
-	mock.recorder = &MockPrivateStateManagerMockRecorder{mock}
+func NewMockPrivateStateManager[P crypto.PublicKey](ctrl *gomock.Controller) *MockPrivateStateManager[P] {
+	mock := &MockPrivateStateManager[P]{ctrl: ctrl}
+	mock.recorder = &MockPrivateStateManagerMockRecorder[P]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockPrivateStateManager) EXPECT() *MockPrivateStateManagerMockRecorder {
+func (m *MockPrivateStateManager[P]) EXPECT() *MockPrivateStateManagerMockRecorder[P] {
 	return m.recorder
 }
 
 // CheckAt mocks base method.
-func (m *MockPrivateStateManager) CheckAt(blockHash common.Hash) error {
+func (m *MockPrivateStateManager[P]) CheckAt(blockHash common.Hash) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckAt", blockHash)
 	ret0, _ := ret[0].(error)
@@ -47,13 +48,13 @@ func (m *MockPrivateStateManager) CheckAt(blockHash common.Hash) error {
 }
 
 // CheckAt indicates an expected call of CheckAt.
-func (mr *MockPrivateStateManagerMockRecorder) CheckAt(blockHash interface{}) *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) CheckAt(blockHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAt", reflect.TypeOf((*MockPrivateStateManager)(nil).CheckAt), blockHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAt", reflect.TypeOf((*MockPrivateStateManager[P])(nil).CheckAt), blockHash)
 }
 
 // NotIncludeAny mocks base method.
-func (m *MockPrivateStateManager) NotIncludeAny(psm *PrivateStateMetadata, managedParties ...string) bool {
+func (m *MockPrivateStateManager[P]) NotIncludeAny(psm *PrivateStateMetadata, managedParties ...string) bool {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{psm}
 	for _, a := range managedParties {
@@ -65,14 +66,14 @@ func (m *MockPrivateStateManager) NotIncludeAny(psm *PrivateStateMetadata, manag
 }
 
 // NotIncludeAny indicates an expected call of NotIncludeAny.
-func (mr *MockPrivateStateManagerMockRecorder) NotIncludeAny(psm interface{}, managedParties ...interface{}) *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) NotIncludeAny(psm interface{}, managedParties ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{psm}, managedParties...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotIncludeAny", reflect.TypeOf((*MockPrivateStateManager)(nil).NotIncludeAny), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotIncludeAny", reflect.TypeOf((*MockPrivateStateManager[P])(nil).NotIncludeAny), varargs...)
 }
 
 // PSIs mocks base method.
-func (m *MockPrivateStateManager) PSIs() []types.PrivateStateIdentifier {
+func (m *MockPrivateStateManager[P]) PSIs() []types.PrivateStateIdentifier {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PSIs")
 	ret0, _ := ret[0].([]types.PrivateStateIdentifier)
@@ -80,13 +81,13 @@ func (m *MockPrivateStateManager) PSIs() []types.PrivateStateIdentifier {
 }
 
 // PSIs indicates an expected call of PSIs.
-func (mr *MockPrivateStateManagerMockRecorder) PSIs() *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) PSIs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PSIs", reflect.TypeOf((*MockPrivateStateManager)(nil).PSIs))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PSIs", reflect.TypeOf((*MockPrivateStateManager[P])(nil).PSIs))
 }
 
 // ResolveForManagedParty mocks base method.
-func (m *MockPrivateStateManager) ResolveForManagedParty(managedParty string) (*PrivateStateMetadata, error) {
+func (m *MockPrivateStateManager[P]) ResolveForManagedParty(managedParty string) (*PrivateStateMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveForManagedParty", managedParty)
 	ret0, _ := ret[0].(*PrivateStateMetadata)
@@ -95,13 +96,13 @@ func (m *MockPrivateStateManager) ResolveForManagedParty(managedParty string) (*
 }
 
 // ResolveForManagedParty indicates an expected call of ResolveForManagedParty.
-func (mr *MockPrivateStateManagerMockRecorder) ResolveForManagedParty(managedParty interface{}) *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) ResolveForManagedParty(managedParty interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForManagedParty", reflect.TypeOf((*MockPrivateStateManager)(nil).ResolveForManagedParty), managedParty)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForManagedParty", reflect.TypeOf((*MockPrivateStateManager[P])(nil).ResolveForManagedParty), managedParty)
 }
 
 // ResolveForUserContext mocks base method.
-func (m *MockPrivateStateManager) ResolveForUserContext(ctx context.Context) (*PrivateStateMetadata, error) {
+func (m *MockPrivateStateManager[P]) ResolveForUserContext(ctx context.Context) (*PrivateStateMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveForUserContext", ctx)
 	ret0, _ := ret[0].(*PrivateStateMetadata)
@@ -110,28 +111,28 @@ func (m *MockPrivateStateManager) ResolveForUserContext(ctx context.Context) (*P
 }
 
 // ResolveForUserContext indicates an expected call of ResolveForUserContext.
-func (mr *MockPrivateStateManagerMockRecorder) ResolveForUserContext(ctx interface{}) *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) ResolveForUserContext(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForUserContext", reflect.TypeOf((*MockPrivateStateManager)(nil).ResolveForUserContext), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForUserContext", reflect.TypeOf((*MockPrivateStateManager[P])(nil).ResolveForUserContext), ctx)
 }
 
 // StateRepository mocks base method.
-func (m *MockPrivateStateManager) StateRepository(blockHash common.Hash) (PrivateStateRepository, error) {
+func (m *MockPrivateStateManager[P]) StateRepository(blockHash common.Hash) (PrivateStateRepository[P], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateRepository", blockHash)
-	ret0, _ := ret[0].(PrivateStateRepository)
+	ret0, _ := ret[0].(PrivateStateRepository[P])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateRepository indicates an expected call of StateRepository.
-func (mr *MockPrivateStateManagerMockRecorder) StateRepository(blockHash interface{}) *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) StateRepository(blockHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateRepository", reflect.TypeOf((*MockPrivateStateManager)(nil).StateRepository), blockHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateRepository", reflect.TypeOf((*MockPrivateStateManager[P])(nil).StateRepository), blockHash)
 }
 
 // TrieDB mocks base method.
-func (m *MockPrivateStateManager) TrieDB() *trie.Database {
+func (m *MockPrivateStateManager[P]) TrieDB() *trie.Database {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TrieDB")
 	ret0, _ := ret[0].(*trie.Database)
@@ -139,9 +140,9 @@ func (m *MockPrivateStateManager) TrieDB() *trie.Database {
 }
 
 // TrieDB indicates an expected call of TrieDB.
-func (mr *MockPrivateStateManagerMockRecorder) TrieDB() *gomock.Call {
+func (mr *MockPrivateStateManagerMockRecorder[P]) TrieDB() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieDB", reflect.TypeOf((*MockPrivateStateManager)(nil).TrieDB))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieDB", reflect.TypeOf((*MockPrivateStateManager[P])(nil).TrieDB))
 }
 
 // MockPrivateStateMetadataResolver is a mock of PrivateStateMetadataResolver interface.
@@ -231,30 +232,30 @@ func (mr *MockPrivateStateMetadataResolverMockRecorder) ResolveForUserContext(ct
 }
 
 // MockPrivateStateRepository is a mock of PrivateStateRepository interface.
-type MockPrivateStateRepository struct {
+type MockPrivateStateRepository [P crypto.PublicKey]struct {
 	ctrl     *gomock.Controller
-	recorder *MockPrivateStateRepositoryMockRecorder
+	recorder *MockPrivateStateRepositoryMockRecorder[P]
 }
 
 // MockPrivateStateRepositoryMockRecorder is the mock recorder for MockPrivateStateRepository.
-type MockPrivateStateRepositoryMockRecorder struct {
-	mock *MockPrivateStateRepository
+type MockPrivateStateRepositoryMockRecorder [P crypto.PublicKey] struct {
+	mock *MockPrivateStateRepository[P]
 }
 
 // NewMockPrivateStateRepository creates a new mock instance.
-func NewMockPrivateStateRepository(ctrl *gomock.Controller) *MockPrivateStateRepository {
-	mock := &MockPrivateStateRepository{ctrl: ctrl}
-	mock.recorder = &MockPrivateStateRepositoryMockRecorder{mock}
+func NewMockPrivateStateRepository[P crypto.PublicKey](ctrl *gomock.Controller) *MockPrivateStateRepository[P] {
+	mock := &MockPrivateStateRepository[P]{ctrl: ctrl}
+	mock.recorder = &MockPrivateStateRepositoryMockRecorder[P]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockPrivateStateRepository) EXPECT() *MockPrivateStateRepositoryMockRecorder {
+func (m *MockPrivateStateRepository[P]) EXPECT() *MockPrivateStateRepositoryMockRecorder[P] {
 	return m.recorder
 }
 
 // Commit mocks base method.
-func (m *MockPrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
+func (m *MockPrivateStateRepository[P]) Commit(isEIP158 bool, block *types.Block[P]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", isEIP158, block)
 	ret0, _ := ret[0].(error)
@@ -262,13 +263,13 @@ func (m *MockPrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockPrivateStateRepositoryMockRecorder) Commit(isEIP158, block interface{}) *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) Commit(isEIP158, block interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockPrivateStateRepository)(nil).Commit), isEIP158, block)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).Commit), isEIP158, block)
 }
 
 // CommitAndWrite mocks base method.
-func (m *MockPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
+func (m *MockPrivateStateRepository[P]) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitAndWrite", isEIP158, block)
 	ret0, _ := ret[0].(error)
@@ -276,27 +277,27 @@ func (m *MockPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.
 }
 
 // CommitAndWrite indicates an expected call of CommitAndWrite.
-func (mr *MockPrivateStateRepositoryMockRecorder) CommitAndWrite(isEIP158, block interface{}) *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) CommitAndWrite(isEIP158, block interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitAndWrite", reflect.TypeOf((*MockPrivateStateRepository)(nil).CommitAndWrite), isEIP158, block)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitAndWrite", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).CommitAndWrite), isEIP158, block)
 }
 
 // Copy mocks base method.
-func (m *MockPrivateStateRepository) Copy() PrivateStateRepository {
+func (m *MockPrivateStateRepository[P]) Copy() PrivateStateRepository[P] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Copy")
-	ret0, _ := ret[0].(PrivateStateRepository)
+	ret0, _ := ret[0].(PrivateStateRepository[P])
 	return ret0
 }
 
 // Copy indicates an expected call of Copy.
-func (mr *MockPrivateStateRepositoryMockRecorder) Copy() *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) Copy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockPrivateStateRepository)(nil).Copy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).Copy))
 }
 
 // DefaultState mocks base method.
-func (m *MockPrivateStateRepository) DefaultState() (*state.StateDB, error) {
+func (m *MockPrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultState")
 	ret0, _ := ret[0].(*state.StateDB)
@@ -305,13 +306,13 @@ func (m *MockPrivateStateRepository) DefaultState() (*state.StateDB, error) {
 }
 
 // DefaultState indicates an expected call of DefaultState.
-func (mr *MockPrivateStateRepositoryMockRecorder) DefaultState() *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) DefaultState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultState", reflect.TypeOf((*MockPrivateStateRepository)(nil).DefaultState))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultState", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).DefaultState))
 }
 
 // DefaultStateMetadata mocks base method.
-func (m *MockPrivateStateRepository) DefaultStateMetadata() *PrivateStateMetadata {
+func (m *MockPrivateStateRepository[P]) DefaultStateMetadata() *PrivateStateMetadata {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultStateMetadata")
 	ret0, _ := ret[0].(*PrivateStateMetadata)
@@ -319,13 +320,13 @@ func (m *MockPrivateStateRepository) DefaultStateMetadata() *PrivateStateMetadat
 }
 
 // DefaultStateMetadata indicates an expected call of DefaultStateMetadata.
-func (mr *MockPrivateStateRepositoryMockRecorder) DefaultStateMetadata() *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) DefaultStateMetadata() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultStateMetadata", reflect.TypeOf((*MockPrivateStateRepository)(nil).DefaultStateMetadata))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultStateMetadata", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).DefaultStateMetadata))
 }
 
 // IsMPS mocks base method.
-func (m *MockPrivateStateRepository) IsMPS() bool {
+func (m *MockPrivateStateRepository[P]) IsMPS() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMPS")
 	ret0, _ := ret[0].(bool)
@@ -333,27 +334,27 @@ func (m *MockPrivateStateRepository) IsMPS() bool {
 }
 
 // IsMPS indicates an expected call of IsMPS.
-func (mr *MockPrivateStateRepositoryMockRecorder) IsMPS() *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) IsMPS() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMPS", reflect.TypeOf((*MockPrivateStateRepository)(nil).IsMPS))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMPS", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).IsMPS))
 }
 
 // MergeReceipts mocks base method.
-func (m *MockPrivateStateRepository) MergeReceipts(pub, priv types.Receipts) types.Receipts {
+func (m *MockPrivateStateRepository[P]) MergeReceipts(pub, priv types.Receipts[P]) types.Receipts[P] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MergeReceipts", pub, priv)
-	ret0, _ := ret[0].(types.Receipts)
+	ret0, _ := ret[0].(types.Receipts[P])
 	return ret0
 }
 
 // MergeReceipts indicates an expected call of MergeReceipts.
-func (mr *MockPrivateStateRepositoryMockRecorder) MergeReceipts(pub, priv interface{}) *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) MergeReceipts(pub, priv interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeReceipts", reflect.TypeOf((*MockPrivateStateRepository)(nil).MergeReceipts), pub, priv)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeReceipts", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).MergeReceipts), pub, priv)
 }
 
 // PrivateStateRoot mocks base method.
-func (m *MockPrivateStateRepository) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
+func (m *MockPrivateStateRepository[P]) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrivateStateRoot", psi)
 	ret0, _ := ret[0].(common.Hash)
@@ -362,13 +363,13 @@ func (m *MockPrivateStateRepository) PrivateStateRoot(psi types.PrivateStateIden
 }
 
 // PrivateStateRoot indicates an expected call of PrivateStateRoot.
-func (mr *MockPrivateStateRepositoryMockRecorder) PrivateStateRoot(psi interface{}) *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) PrivateStateRoot(psi interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrivateStateRoot", reflect.TypeOf((*MockPrivateStateRepository)(nil).PrivateStateRoot), psi)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrivateStateRoot", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).PrivateStateRoot), psi)
 }
 
 // Reset mocks base method.
-func (m *MockPrivateStateRepository) Reset() error {
+func (m *MockPrivateStateRepository[P]) Reset() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Reset")
 	ret0, _ := ret[0].(error)
@@ -376,13 +377,13 @@ func (m *MockPrivateStateRepository) Reset() error {
 }
 
 // Reset indicates an expected call of Reset.
-func (mr *MockPrivateStateRepositoryMockRecorder) Reset() *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) Reset() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockPrivateStateRepository)(nil).Reset))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).Reset))
 }
 
 // StatePSI mocks base method.
-func (m *MockPrivateStateRepository) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (m *MockPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatePSI", psi)
 	ret0, _ := ret[0].(*state.StateDB)
@@ -391,7 +392,7 @@ func (m *MockPrivateStateRepository) StatePSI(psi types.PrivateStateIdentifier) 
 }
 
 // StatePSI indicates an expected call of StatePSI.
-func (mr *MockPrivateStateRepositoryMockRecorder) StatePSI(psi interface{}) *gomock.Call {
+func (mr *MockPrivateStateRepositoryMockRecorder[P]) StatePSI(psi interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatePSI", reflect.TypeOf((*MockPrivateStateRepository)(nil).StatePSI), psi)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatePSI", reflect.TypeOf((*MockPrivateStateRepository[P])(nil).StatePSI), psi)
 }

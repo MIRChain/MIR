@@ -5,21 +5,22 @@ import (
 	"path"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // get plugin zip file from local or remote
-type Downloader struct {
-	pm *PluginManager
+type Downloader [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	pm *PluginManager[T,P]
 }
 
-func NewDownloader(pm *PluginManager) *Downloader {
-	return &Downloader{
+func NewDownloader[T crypto.PrivateKey, P crypto.PublicKey](pm *PluginManager[T,P]) *Downloader[T,P] {
+	return &Downloader[T,P]{
 		pm: pm,
 	}
 }
 
-func (d *Downloader) Download(definition *PluginDefinition) (string, error) {
+func (d *Downloader[T,P]) Download(definition *PluginDefinition) (string, error) {
 	// check if plugin is already in the local
 	pluginFile := path.Join(d.pm.pluginBaseDir, definition.DistFileName())
 	exist := common.FileExist(pluginFile)

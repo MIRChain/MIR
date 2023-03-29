@@ -6,6 +6,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/plugin/security"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
@@ -22,8 +23,8 @@ type PrivateClientCache interface {
 	CheckAndAddEmptyEntry(hash common.EncryptedPayloadHash)
 }
 
-type PrivateBlockDataResolver interface {
-	PrepareBlockPrivateData(block *types.Block, psi string) (*BlockPrivateData, error)
+type PrivateBlockDataResolver [P crypto.PublicKey]interface {
+	PrepareBlockPrivateData(block *types.Block[P], psi string) (*BlockPrivateData, error)
 }
 
 type AuthManagerProvider func() security.AuthenticationManager

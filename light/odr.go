@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
@@ -36,11 +37,11 @@ var NoOdr = context.Background()
 var ErrNoPeers = errors.New("no suitable peers available")
 
 // OdrBackend is an interface to a backend service that handles ODR retrievals type
-type OdrBackend interface {
+type OdrBackend [P crypto.PublicKey] interface {
 	Database() ethdb.Database
-	ChtIndexer() *core.ChainIndexer
-	BloomTrieIndexer() *core.ChainIndexer
-	BloomIndexer() *core.ChainIndexer
+	ChtIndexer() *core.ChainIndexer[P]
+	BloomTrieIndexer() *core.ChainIndexer[P]
+	BloomIndexer() *core.ChainIndexer[P]
 	Retrieve(ctx context.Context, req OdrRequest) error
 	RetrieveTxStatus(ctx context.Context, req *TxStatusRequest) error
 	IndexerConfig() *IndexerConfig
@@ -119,16 +120,16 @@ func (req *BlockRequest) StoreResult(db ethdb.Database) {
 }
 
 // ReceiptsRequest is the ODR request type for retrieving receipts.
-type ReceiptsRequest struct {
+type ReceiptsRequest[P crypto.PublicKey] struct {
 	Untrusted bool // Indicator whether the result retrieved is trusted or not
 	Hash      common.Hash
 	Number    uint64
 	Header    *types.Header
-	Receipts  types.Receipts
+	Receipts  types.Receipts[P]
 }
 
 // StoreResult stores the retrieved data in local database
-func (req *ReceiptsRequest) StoreResult(db ethdb.Database) {
+func (req *ReceiptsRequest[P]) StoreResult(db ethdb.Database) {
 	if !req.Untrusted {
 		rawdb.WriteReceipts(db, req.Hash, req.Number, req.Receipts)
 	}

@@ -11,13 +11,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/account"
-	"github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
-	"github.com/pavelkrolevets/MIR-pro/plugin/qlight"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/hashicorp/go-plugin"
 	"github.com/naoina/toml"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	// "github.com/pavelkrolevets/MIR-pro/plugin/account"
+	// "github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
+	// "github.com/pavelkrolevets/MIR-pro/plugin/qlight"
+	// "github.com/pavelkrolevets/MIR-pro/plugin/security"
+	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 const (
@@ -29,61 +30,61 @@ const (
 
 var (
 	// define additional plugins being supported here
-	pluginProviders = map[PluginInterfaceName]pluginProvider{
-		HelloWorldPluginInterfaceName: {
-			apiProviderFunc: func(ns string, pm *PluginManager) ([]rpc.API, error) {
-				template := new(HelloWorldPluginTemplate)
-				if err := pm.GetPluginTemplate(HelloWorldPluginInterfaceName, template); err != nil {
-					return nil, err
-				}
-				service, err := template.Get()
-				if err != nil {
-					return nil, err
-				}
-				return []rpc.API{{
-					Namespace: ns,
-					Version:   "1.0.0",
-					Service:   service,
-					Public:    true,
-				}}, nil
-			},
-			pluginSet: plugin.PluginSet{
-				helloworld.ConnectorName: &helloworld.PluginConnector{},
-			},
-		},
-		SecurityPluginInterfaceName: {
-			pluginSet: plugin.PluginSet{
-				security.TLSConfigurationConnectorName: &security.TLSConfigurationSourcePluginConnector{},
-				security.AuthenticationConnectorName:   &security.AuthenticationManagerPluginConnector{},
-			},
-		},
-		AccountPluginInterfaceName: {
-			apiProviderFunc: func(ns string, pm *PluginManager) ([]rpc.API, error) {
-				f := new(ReloadableAccountServiceFactory)
-				if err := pm.GetPluginTemplate(AccountPluginInterfaceName, f); err != nil {
-					return nil, err
-				}
-				service, err := f.Create()
-				if err != nil {
-					return nil, err
-				}
-				return []rpc.API{{
-					Namespace: ns,
-					Version:   "1.0.0",
-					Service:   account.NewCreator(service),
-					Public:    true,
-				}}, nil
-			},
-			pluginSet: plugin.PluginSet{
-				account.ConnectorName: &account.PluginConnector{},
-			},
-		},
-		QLightTokenManagerPluginInterfaceName: {
-			pluginSet: plugin.PluginSet{
-				qlight.ConnectorName: &qlight.PluginConnector{},
-			},
-		},
-	}
+	// pluginProviders = map[PluginInterfaceName]pluginProvider{
+	// 	HelloWorldPluginInterfaceName: {
+	// 		apiProviderFunc: func(ns string, pm *PluginManager) ([]rpc.API, error) {
+	// 			template := new(HelloWorldPluginTemplate)
+	// 			if err := pm.GetPluginTemplate(HelloWorldPluginInterfaceName, template); err != nil {
+	// 				return nil, err
+	// 			}
+	// 			service, err := template.Get()
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			return []rpc.API{{
+	// 				Namespace: ns,
+	// 				Version:   "1.0.0",
+	// 				Service:   service,
+	// 				Public:    true,
+	// 			}}, nil
+	// 		},
+	// 		pluginSet: plugin.PluginSet{
+	// 			helloworld.ConnectorName: &helloworld.PluginConnector{},
+	// 		},
+	// 	},
+	// 	SecurityPluginInterfaceName: {
+	// 		pluginSet: plugin.PluginSet{
+	// 			security.TLSConfigurationConnectorName: &security.TLSConfigurationSourcePluginConnector{},
+	// 			security.AuthenticationConnectorName:   &security.AuthenticationManagerPluginConnector{},
+	// 		},
+	// 	},
+	// 	AccountPluginInterfaceName: {
+	// 		apiProviderFunc: func(ns string, pm *PluginManager) ([]rpc.API, error) {
+	// 			f := new(ReloadableAccountServiceFactory)
+	// 			if err := pm.GetPluginTemplate(AccountPluginInterfaceName, f); err != nil {
+	// 				return nil, err
+	// 			}
+	// 			service, err := f.Create()
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			return []rpc.API{{
+	// 				Namespace: ns,
+	// 				Version:   "1.0.0",
+	// 				Service:   account.NewCreator(service),
+	// 				Public:    true,
+	// 			}}, nil
+	// 		},
+	// 		pluginSet: plugin.PluginSet{
+	// 			account.ConnectorName: &account.PluginConnector{},
+	// 		},
+	// 	},
+	// 	QLightTokenManagerPluginInterfaceName: {
+	// 		pluginSet: plugin.PluginSet{
+	// 			qlight.ConnectorName: &qlight.PluginConnector{},
+	// 		},
+	// 	},
+	// }
 
 	// this is the place holder for future solution of the plugin central
 	quorumPluginCentralConfiguration = &PluginCentralConfiguration{
@@ -96,15 +97,15 @@ var (
 	}
 )
 
-type pluginProvider struct {
+type pluginProvider [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// this allows exposing plugin interfaces to geth RPC API automatically.
 	// nil value implies that plugin won't expose its methods to geth RPC API
-	apiProviderFunc rpcAPIProviderFunc
+	apiProviderFunc rpcAPIProviderFunc[T,P]
 	// contains connectors being registered to the plugin library
 	pluginSet plugin.PluginSet
 }
 
-type rpcAPIProviderFunc func(ns string, pm *PluginManager) ([]rpc.API, error)
+type rpcAPIProviderFunc[T crypto.PrivateKey, P crypto.PublicKey] func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error)
 type Version string
 
 // This is to describe a plugin

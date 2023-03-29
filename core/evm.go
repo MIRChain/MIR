@@ -48,7 +48,7 @@ type ChainContext [P crypto.PublicKey] interface {
 	QuorumConfig() *QuorumChainConfig
 
 	// PrivateStateManager returns the private state manager
-	PrivateStateManager() mps.PrivateStateManager
+	PrivateStateManager() mps.PrivateStateManager[P]
 
 	// CheckAndSetPrivateState updates the private state as a part contract state extension
 	CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier)

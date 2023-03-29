@@ -34,33 +34,33 @@ var (
 	sha3Nil = crypto.Keccak256Hash(nil)
 )
 
-func NewState(ctx context.Context, head *types.Header, odr OdrBackend) *state.StateDB {
+func NewState[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) *state.StateDB {
 	state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr), nil)
 	return state
 }
 
-func NewStateDatabase(ctx context.Context, head *types.Header, odr OdrBackend) state.Database {
-	return &odrDatabase{ctx, StateTrieID(head), odr}
+func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) state.Database {
+	return &odrDatabase[P]{ctx, StateTrieID(head), odr}
 }
 
-type odrDatabase struct {
+type odrDatabase [P crypto.PublicKey] struct {
 	ctx     context.Context
 	id      *TrieID
-	backend OdrBackend
+	backend OdrBackend[P]
 }
 
-func (db *odrDatabase) OpenTrie(root common.Hash) (state.Trie, error) {
-	return &odrTrie{db: db, id: db.id}, nil
+func (db *odrDatabase[P]) OpenTrie(root common.Hash) (state.Trie, error) {
+	return &odrTrie[P]{db: db, id: db.id}, nil
 }
 
-func (db *odrDatabase) OpenStorageTrie(addrHash, root common.Hash) (state.Trie, error) {
-	return &odrTrie{db: db, id: StorageTrieID(db.id, addrHash, root)}, nil
+func (db *odrDatabase[P]) OpenStorageTrie(addrHash, root common.Hash) (state.Trie, error) {
+	return &odrTrie[P]{db: db, id: StorageTrieID(db.id, addrHash, root)}, nil
 }
 
-func (db *odrDatabase) CopyTrie(t state.Trie) state.Trie {
+func (db *odrDatabase[P]) CopyTrie(t state.Trie) state.Trie {
 	switch t := t.(type) {
-	case *odrTrie:
-		cpy := &odrTrie{db: t.db, id: t.id}
+	case *odrTrie[P]:
+		cpy := &odrTrie[P]{db: t.db, id: t.id}
 		if t.trie != nil {
 			cpytrie := *t.trie
 			cpy.trie = &cpytrie
@@ -71,7 +71,7 @@ func (db *odrDatabase) CopyTrie(t state.Trie) state.Trie {
 	}
 }
 
-func (db *odrDatabase) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
+func (db *odrDatabase[P]) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
 	if codeHash == sha3Nil {
 		return nil, nil
 	}
@@ -86,12 +86,12 @@ func (db *odrDatabase) ContractCode(addrHash, codeHash common.Hash) ([]byte, err
 	return req.Data, err
 }
 
-func (db *odrDatabase) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
+func (db *odrDatabase[P]) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
 	code, err := db.ContractCode(addrHash, codeHash)
 	return len(code), err
 }
 
-func (db *odrDatabase) TrieDB() *trie.Database {
+func (db *odrDatabase[P]) TrieDB() *trie.Database {
 	return nil
 }
 
@@ -110,17 +110,17 @@ func (pml *stubAccountExtraDataLinker) Link(_, _ common.Hash) error {
 	return nil
 }
 
-func (db *odrDatabase) AccountExtraDataLinker() rawdb.AccountExtraDataLinker {
+func (db *odrDatabase[P]) AccountExtraDataLinker() rawdb.AccountExtraDataLinker {
 	return newAccountExtraDataLinkerStub()
 }
 
-type odrTrie struct {
-	db   *odrDatabase
+type odrTrie [P crypto.PublicKey] struct {
+	db   *odrDatabase[P]
 	id   *TrieID
 	trie *trie.Trie
 }
 
-func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
+func (t *odrTrie[P]) TryGet(key []byte) ([]byte, error) {
 	key = crypto.Keccak256(key)
 	var res []byte
 	err := t.do(key, func() (err error) {
@@ -130,49 +130,49 @@ func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
 	return res, err
 }
 
-func (t *odrTrie) TryUpdate(key, value []byte) error {
+func (t *odrTrie[P]) TryUpdate(key, value []byte) error {
 	key = crypto.Keccak256(key)
 	return t.do(key, func() error {
 		return t.trie.TryUpdate(key, value)
 	})
 }
 
-func (t *odrTrie) TryDelete(key []byte) error {
+func (t *odrTrie[P]) TryDelete(key []byte) error {
 	key = crypto.Keccak256(key)
 	return t.do(key, func() error {
 		return t.trie.TryDelete(key)
 	})
 }
 
-func (t *odrTrie) Commit(onleaf trie.LeafCallback) (common.Hash, error) {
+func (t *odrTrie[P]) Commit(onleaf trie.LeafCallback) (common.Hash, error) {
 	if t.trie == nil {
 		return t.id.Root, nil
 	}
 	return t.trie.Commit(onleaf)
 }
 
-func (t *odrTrie) Hash() common.Hash {
+func (t *odrTrie[P]) Hash() common.Hash {
 	if t.trie == nil {
 		return t.id.Root
 	}
 	return t.trie.Hash()
 }
 
-func (t *odrTrie) NodeIterator(startkey []byte) trie.NodeIterator {
+func (t *odrTrie[P]) NodeIterator(startkey []byte) trie.NodeIterator {
 	return newNodeIterator(t, startkey)
 }
 
-func (t *odrTrie) GetKey(sha []byte) []byte {
+func (t *odrTrie[P]) GetKey(sha []byte) []byte {
 	return nil
 }
 
-func (t *odrTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error {
+func (t *odrTrie[P]) Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error {
 	return errors.New("not implemented, needs client/server interface split")
 }
 
 // do tries and retries to execute a function until it returns with no error or
 // an error type other than MissingNodeError
-func (t *odrTrie) do(key []byte, fn func() error) error {
+func (t *odrTrie[P]) do(key []byte, fn func() error) error {
 	for {
 		var err error
 		if t.trie == nil {
@@ -191,14 +191,14 @@ func (t *odrTrie) do(key []byte, fn func() error) error {
 	}
 }
 
-type nodeIterator struct {
+type nodeIterator [P crypto.PublicKey]  struct {
 	trie.NodeIterator
-	t   *odrTrie
+	t   *odrTrie[P]
 	err error
 }
 
-func newNodeIterator(t *odrTrie, startkey []byte) trie.NodeIterator {
-	it := &nodeIterator{t: t}
+func newNodeIterator[P crypto.PublicKey] (t *odrTrie[P], startkey []byte) trie.NodeIterator {
+	it := &nodeIterator[P]{t: t}
 	// Open the actual non-ODR trie if that hasn't happened yet.
 	if t.trie == nil {
 		it.do(func() error {
@@ -216,7 +216,7 @@ func newNodeIterator(t *odrTrie, startkey []byte) trie.NodeIterator {
 	return it
 }
 
-func (it *nodeIterator) Next(descend bool) bool {
+func (it *nodeIterator[P]) Next(descend bool) bool {
 	var ok bool
 	it.do(func() error {
 		ok = it.NodeIterator.Next(descend)
@@ -226,7 +226,7 @@ func (it *nodeIterator) Next(descend bool) bool {
 }
 
 // do runs fn and attempts to fill in missing nodes by retrieving.
-func (it *nodeIterator) do(fn func() error) {
+func (it *nodeIterator[P]) do(fn func() error) {
 	var lasthash common.Hash
 	for {
 		it.err = fn()
@@ -246,7 +246,7 @@ func (it *nodeIterator) do(fn func() error) {
 	}
 }
 
-func (it *nodeIterator) Error() error {
+func (it *nodeIterator[P]) Error() error {
 	if it.err != nil {
 		return it.err
 	}

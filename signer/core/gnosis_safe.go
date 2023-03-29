@@ -7,12 +7,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // GnosisSafeTx is a type to parse the safe-tx returned by the relayer,
 // it also conforms to the API required by the Gnosis Safe tx relay service.
 // See 'SafeMultisigTransaction' on https://safe-transaction.mainnet.gnosis.io/
-type GnosisSafeTx struct {
+type GnosisSafeTx [P crypto.PublicKey] struct {
 	// These fields are only used on output
 	Signature  hexutil.Bytes           `json:"signature"`
 	SafeTxHash common.Hash             `json:"contractTransactionHash"`
@@ -33,7 +34,7 @@ type GnosisSafeTx struct {
 }
 
 // ToTypedData converts the tx to a EIP-712 Typed Data structure for signing
-func (tx *GnosisSafeTx) ToTypedData() TypedData {
+func (tx *GnosisSafeTx[P]) ToTypedData() TypedData {
 	var data hexutil.Bytes
 	if tx.Data != nil {
 		data = *tx.Data
@@ -76,8 +77,8 @@ func (tx *GnosisSafeTx) ToTypedData() TypedData {
 
 // ArgsForValidation returns a SendTxArgs struct, which can be used for the
 // common validations, e.g. look up 4byte destinations
-func (tx *GnosisSafeTx) ArgsForValidation() *SendTxArgs {
-	args := &SendTxArgs{
+func (tx *GnosisSafeTx[P]) ArgsForValidation() *SendTxArgs[P] {
+	args := &SendTxArgs[P]{
 		From:     tx.Safe,
 		To:       &tx.To,
 		Gas:      hexutil.Uint64(tx.SafeTxGas.Uint64()),

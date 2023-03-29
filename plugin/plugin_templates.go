@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/plugin/account"
 	"github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
@@ -13,11 +14,11 @@ import (
 )
 
 // a template that returns the hello world plugin instance
-type HelloWorldPluginTemplate struct {
-	*basePlugin
+type HelloWorldPluginTemplate [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*basePlugin[T,P]
 }
 
-func (p *HelloWorldPluginTemplate) Get() (helloworld.PluginHelloWorld, error) {
+func (p *HelloWorldPluginTemplate[T,P]) Get() (helloworld.PluginHelloWorld, error) {
 	return &helloworld.ReloadablePluginHelloWorld{
 		DeferFunc: func() (helloworld.PluginHelloWorld, error) {
 			raw, err := p.dispense(helloworld.ConnectorName)
@@ -29,14 +30,14 @@ func (p *HelloWorldPluginTemplate) Get() (helloworld.PluginHelloWorld, error) {
 	}, nil
 }
 
-type SecurityPluginTemplate struct {
-	*basePlugin
+type SecurityPluginTemplate [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*basePlugin[T,P]
 }
 
 // TLSConfigurationSource returns an implementation of security.TLSConfigurationSource which could be nil
 // in case the plugin doesn't implement the corresponding service. In order to verify that, it attempts
 // to make a call and inspect the error.
-func (sp *SecurityPluginTemplate) TLSConfigurationSource() (security.TLSConfigurationSource, error) {
+func (sp *SecurityPluginTemplate[T,P]) TLSConfigurationSource() (security.TLSConfigurationSource, error) {
 	raw, err := sp.dispense(security.TLSConfigurationConnectorName)
 	if err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func (sp *SecurityPluginTemplate) TLSConfigurationSource() (security.TLSConfigur
 // The deferred implementation delegates to the actual implemenation (which is the plugin client).
 //
 // The disabled implementation allows no authentication verification.
-func (sp *SecurityPluginTemplate) AuthenticationManager() (security.AuthenticationManager, error) {
+func (sp *SecurityPluginTemplate[T,P]) AuthenticationManager() (security.AuthenticationManager, error) {
 	deferFunc := func() (security.AuthenticationManager, error) {
 		raw, err := sp.dispense(security.AuthenticationConnectorName)
 		if err != nil {
@@ -80,11 +81,11 @@ func (sp *SecurityPluginTemplate) AuthenticationManager() (security.Authenticati
 	return security.NewDeferredAuthenticationManager(deferFunc), nil
 }
 
-type ReloadableAccountServiceFactory struct {
-	*basePlugin
+type ReloadableAccountServiceFactory [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*basePlugin[T,P]
 }
 
-func (f *ReloadableAccountServiceFactory) Create() (account.Service, error) {
+func (f *ReloadableAccountServiceFactory[T,P]) Create() (account.Service, error) {
 	am := &account.ReloadableService{
 		DispenseFunc: func() (account.Service, error) {
 			raw, err := f.dispense(account.ConnectorName)
@@ -98,11 +99,11 @@ func (f *ReloadableAccountServiceFactory) Create() (account.Service, error) {
 	return am, nil
 }
 
-type QLightTokenManagerPluginTemplate struct {
-	*basePlugin
+type QLightTokenManagerPluginTemplate [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*basePlugin[T,P]
 }
 
-func (p *QLightTokenManagerPluginTemplate) Get() (qlight.PluginTokenManager, error) {
+func (p *QLightTokenManagerPluginTemplate[T,P]) Get() (qlight.PluginTokenManager, error) {
 	return &qlight.ReloadablePluginTokenManager{
 		DeferFunc: func() (qlight.PluginTokenManager, error) {
 			raw, err := p.dispense(qlight.ConnectorName)
@@ -114,7 +115,7 @@ func (p *QLightTokenManagerPluginTemplate) Get() (qlight.PluginTokenManager, err
 	}, nil
 }
 
-func (p *QLightTokenManagerPluginTemplate) ManagedPlugin() managedPlugin {
+func (p *QLightTokenManagerPluginTemplate[T,P]) ManagedPlugin() managedPlugin {
 	return p
 }
 
@@ -126,5 +127,5 @@ type QLightTokenManagerPluginTemplateInterface interface {
 }
 
 //go:generate mockgen -source=plugin_templates.go -destination plugin_templates_mockery.go -package plugin
-var _ QLightTokenManagerPluginTemplateInterface = &QLightTokenManagerPluginTemplate{}
+// var _ QLightTokenManagerPluginTemplateInterface = &QLightTokenManagerPluginTemplate{}
 var _ QLightTokenManagerPluginTemplateInterface = &MockQLightTokenManagerPluginTemplateInterface{}

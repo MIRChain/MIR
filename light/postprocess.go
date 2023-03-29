@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -129,10 +130,10 @@ func StoreChtRoot(db ethdb.Database, sectionIdx uint64, sectionHead, root common
 }
 
 // ChtIndexerBackend implements core.ChainIndexerBackend.
-type ChtIndexerBackend struct {
+type ChtIndexerBackend [P crypto.PublicKey] struct {
 	disablePruning       bool
 	diskdb, trieTable    ethdb.Database
-	odr                  OdrBackend
+	odr                  OdrBackend[P]
 	triedb               *trie.Database
 	trieset              mapset.Set
 	section, sectionSize uint64
@@ -141,9 +142,9 @@ type ChtIndexerBackend struct {
 }
 
 // NewChtIndexer creates a Cht chain indexer
-func NewChtIndexer(db ethdb.Database, odr OdrBackend, size, confirms uint64, disablePruning bool) *core.ChainIndexer {
+func NewChtIndexer[P crypto.PublicKey](db ethdb.Database, odr OdrBackend[P], size, confirms uint64, disablePruning bool) *core.ChainIndexer[P] {
 	trieTable := rawdb.NewTable(db, ChtTablePrefix)
-	backend := &ChtIndexerBackend{
+	backend := &ChtIndexerBackend[P]{
 		diskdb:         db,
 		odr:            odr,
 		trieTable:      trieTable,
@@ -152,12 +153,12 @@ func NewChtIndexer(db ethdb.Database, odr OdrBackend, size, confirms uint64, dis
 		sectionSize:    size,
 		disablePruning: disablePruning,
 	}
-	return core.NewChainIndexer(db, rawdb.NewTable(db, "chtIndexV2-"), backend, size, confirms, time.Millisecond*100, "cht")
+	return core.NewChainIndexer[P](db, rawdb.NewTable(db, "chtIndexV2-"), backend, size, confirms, time.Millisecond*100, "cht")
 }
 
 // fetchMissingNodes tries to retrieve the last entry of the latest trusted CHT from the
 // ODR backend in order to be able to add new entries and calculate subsequent root hashes
-func (c *ChtIndexerBackend) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
+func (c *ChtIndexerBackend[P]) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
 	batch := c.trieTable.NewBatch()
 	r := &ChtRequest{ChtRoot: root, ChtNum: section - 1, BlockNum: section*c.sectionSize - 1, Config: c.odr.IndexerConfig()}
 	for {
@@ -181,7 +182,7 @@ func (c *ChtIndexerBackend) fetchMissingNodes(ctx context.Context, section uint6
 }
 
 // Reset implements core.ChainIndexerBackend
-func (c *ChtIndexerBackend) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
+func (c *ChtIndexerBackend[P]) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
 	var root common.Hash
 	if section > 0 {
 		root = GetChtRoot(c.diskdb, section-1, lastSectionHead)
@@ -200,7 +201,7 @@ func (c *ChtIndexerBackend) Reset(ctx context.Context, section uint64, lastSecti
 }
 
 // Process implements core.ChainIndexerBackend
-func (c *ChtIndexerBackend) Process(ctx context.Context, header *types.Header) error {
+func (c *ChtIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
 	hash, num := header.Hash(), header.Number.Uint64()
 	c.lastHash = hash
 
@@ -216,7 +217,7 @@ func (c *ChtIndexerBackend) Process(ctx context.Context, header *types.Header) e
 }
 
 // Commit implements core.ChainIndexerBackend
-func (c *ChtIndexerBackend) Commit() error {
+func (c *ChtIndexerBackend[P]) Commit() error {
 	root, err := c.trie.Commit(nil)
 	if err != nil {
 		return err
@@ -256,7 +257,7 @@ func (c *ChtIndexerBackend) Commit() error {
 // PruneSections implements core.ChainIndexerBackend which deletes all
 // chain data(except hash<->number mappings) older than the specified
 // threshold.
-func (c *ChtIndexerBackend) Prune(threshold uint64) error {
+func (c *ChtIndexerBackend[P]) Prune(threshold uint64) error {
 	// Short circuit if the light pruning is disabled.
 	if c.disablePruning {
 		return nil
@@ -319,12 +320,12 @@ func StoreBloomTrieRoot(db ethdb.Database, sectionIdx uint64, sectionHead, root 
 }
 
 // BloomTrieIndexerBackend implements core.ChainIndexerBackend
-type BloomTrieIndexerBackend struct {
+type BloomTrieIndexerBackend [P crypto.PublicKey] struct {
 	disablePruning    bool
 	diskdb, trieTable ethdb.Database
 	triedb            *trie.Database
 	trieset           mapset.Set
-	odr               OdrBackend
+	odr               OdrBackend[P]
 	section           uint64
 	parentSize        uint64
 	size              uint64
@@ -334,9 +335,9 @@ type BloomTrieIndexerBackend struct {
 }
 
 // NewBloomTrieIndexer creates a BloomTrie chain indexer
-func NewBloomTrieIndexer(db ethdb.Database, odr OdrBackend, parentSize, size uint64, disablePruning bool) *core.ChainIndexer {
+func NewBloomTrieIndexer[P crypto.PublicKey](db ethdb.Database, odr OdrBackend[P], parentSize, size uint64, disablePruning bool) *core.ChainIndexer[P] {
 	trieTable := rawdb.NewTable(db, BloomTrieTablePrefix)
-	backend := &BloomTrieIndexerBackend{
+	backend := &BloomTrieIndexerBackend[P]{
 		diskdb:         db,
 		odr:            odr,
 		trieTable:      trieTable,
@@ -348,12 +349,12 @@ func NewBloomTrieIndexer(db ethdb.Database, odr OdrBackend, parentSize, size uin
 	}
 	backend.bloomTrieRatio = size / parentSize
 	backend.sectionHeads = make([]common.Hash, backend.bloomTrieRatio)
-	return core.NewChainIndexer(db, rawdb.NewTable(db, "bltIndex-"), backend, size, 0, time.Millisecond*100, "bloomtrie")
+	return core.NewChainIndexer[P](db, rawdb.NewTable(db, "bltIndex-"), backend, size, 0, time.Millisecond*100, "bloomtrie")
 }
 
 // fetchMissingNodes tries to retrieve the last entries of the latest trusted bloom trie from the
 // ODR backend in order to be able to add new entries and calculate subsequent root hashes
-func (b *BloomTrieIndexerBackend) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
+func (b *BloomTrieIndexerBackend[P]) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
 	indexCh := make(chan uint, types.BloomBitLength)
 	type res struct {
 		nodes *NodeSet
@@ -398,7 +399,7 @@ func (b *BloomTrieIndexerBackend) fetchMissingNodes(ctx context.Context, section
 }
 
 // Reset implements core.ChainIndexerBackend
-func (b *BloomTrieIndexerBackend) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
+func (b *BloomTrieIndexerBackend[P]) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
 	var root common.Hash
 	if section > 0 {
 		root = GetBloomTrieRoot(b.diskdb, section-1, lastSectionHead)
@@ -416,7 +417,7 @@ func (b *BloomTrieIndexerBackend) Reset(ctx context.Context, section uint64, las
 }
 
 // Process implements core.ChainIndexerBackend
-func (b *BloomTrieIndexerBackend) Process(ctx context.Context, header *types.Header) error {
+func (b *BloomTrieIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
 	num := header.Number.Uint64() - b.section*b.size
 	if (num+1)%b.parentSize == 0 {
 		b.sectionHeads[num/b.parentSize] = header.Hash()
@@ -425,7 +426,7 @@ func (b *BloomTrieIndexerBackend) Process(ctx context.Context, header *types.Hea
 }
 
 // Commit implements core.ChainIndexerBackend
-func (b *BloomTrieIndexerBackend) Commit() error {
+func (b *BloomTrieIndexerBackend[P]) Commit() error {
 	var compSize, decompSize uint64
 
 	for i := uint(0); i < types.BloomBitLength; i++ {
@@ -494,7 +495,7 @@ func (b *BloomTrieIndexerBackend) Commit() error {
 
 // Prune implements core.ChainIndexerBackend which deletes all
 // bloombits which older than the specified threshold.
-func (b *BloomTrieIndexerBackend) Prune(threshold uint64) error {
+func (b *BloomTrieIndexerBackend[P]) Prune(threshold uint64) error {
 	// Short circuit if the light pruning is disabled.
 	if b.disablePruning {
 		return nil

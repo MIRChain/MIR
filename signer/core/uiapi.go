@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"reflect"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
@@ -38,21 +39,21 @@ import (
 // requests pre-approved.
 // NB: It's very important that these methods are not ever exposed on the external service
 // registry.
-type UIServerAPI struct {
-	extApi *SignerAPI
-	am     *accounts.Manager
+type UIServerAPI [T crypto.PrivateKey, P crypto.PublicKey]struct {
+	extApi *SignerAPI[T,P]
+	am     *accounts.Manager[P]
 }
 
 // NewUIServerAPI creates a new UIServerAPI
-func NewUIServerAPI(extapi *SignerAPI) *UIServerAPI {
-	return &UIServerAPI{extapi, extapi.am}
+func NewUIServerAPI[T crypto.PrivateKey, P crypto.PublicKey](extapi *SignerAPI[T,P]) *UIServerAPI[T,P] {
+	return &UIServerAPI[T,P]{extapi, extapi.am}
 }
 
 // List available accounts. As opposed to the external API definition, this method delivers
 // the full Account object and not only Address.
 // Example call
 // {"jsonrpc":"2.0","method":"clef_listAccounts","params":[], "id":4}
-func (s *UIServerAPI) ListAccounts(ctx context.Context) ([]accounts.Account, error) {
+func (s *UIServerAPI[T,P]) ListAccounts(ctx context.Context) ([]accounts.Account, error) {
 	var accs []accounts.Account
 	for _, wallet := range s.am.Wallets() {
 		accs = append(accs, wallet.Accounts()...)
@@ -72,7 +73,7 @@ type rawWallet struct {
 // ListWallets will return a list of wallets that clef manages
 // Example call
 // {"jsonrpc":"2.0","method":"clef_listWallets","params":[], "id":5}
-func (s *UIServerAPI) ListWallets() []rawWallet {
+func (s *UIServerAPI[T,P]) ListWallets() []rawWallet {
 	wallets := make([]rawWallet, 0) // return [] instead of nil if empty
 	for _, wallet := range s.am.Wallets() {
 		status, failure := wallet.Status()
@@ -94,7 +95,7 @@ func (s *UIServerAPI) ListWallets() []rawWallet {
 // it for later reuse.
 // Example call
 // {"jsonrpc":"2.0","method":"clef_deriveAccount","params":["ledger://","m/44'/60'/0'", false], "id":6}
-func (s *UIServerAPI) DeriveAccount(url string, path string, pin *bool) (accounts.Account, error) {
+func (s *UIServerAPI[T,P]) DeriveAccount(url string, path string, pin *bool) (accounts.Account, error) {
 	wallet, err := s.am.Wallet(url)
 	if err != nil {
 		return accounts.Account{}, err
@@ -110,16 +111,16 @@ func (s *UIServerAPI) DeriveAccount(url string, path string, pin *bool) (account
 }
 
 // fetchKeystore retrieves the encrypted keystore from the account manager.
-func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
-	return am.Backends(reflect.TypeOf(&reflect.KeyStore{}))[0].(*keystore.KeyStore)
+func fetchKeystore[T crypto.PrivateKey, P crypto.PublicKey](am *accounts.Manager[P]) *keystore.KeyStore[T,P] {
+	return am.Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
 }
 
 // ImportRawKey stores the given hex encoded ECDSA key into the key directory,
 // encrypting it with the passphrase.
 // Example call (should fail on password too short)
 // {"jsonrpc":"2.0","method":"clef_importRawKey","params":["1111111111111111111111111111111111111111111111111111111111111111","test"], "id":6}
-func (s *UIServerAPI) ImportRawKey(privkey string, password string) (accounts.Account, error) {
-	key, err := crypto.HexToECDSA(privkey)
+func (s *UIServerAPI[T,P]) ImportRawKey(privkey string, password string) (accounts.Account, error) {
+	key, err := crypto.HexToECDSA[T](privkey)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -127,7 +128,7 @@ func (s *UIServerAPI) ImportRawKey(privkey string, password string) (accounts.Ac
 		return accounts.Account{}, fmt.Errorf("password requirements not met: %v", err)
 	}
 	// No error
-	return fetchKeystore(s.am).ImportECDSA(key, password)
+	return fetchKeystore[T,P](s.am).ImportECDSA(key, password)
 }
 
 // OpenWallet initiates a hardware wallet opening procedure, establishing a USB
@@ -136,7 +137,7 @@ func (s *UIServerAPI) ImportRawKey(privkey string, password string) (accounts.Ac
 // Trezor PIN matrix challenge).
 // Example
 // {"jsonrpc":"2.0","method":"clef_openWallet","params":["ledger://",""], "id":6}
-func (s *UIServerAPI) OpenWallet(url string, passphrase *string) error {
+func (s *UIServerAPI[T,P]) OpenWallet(url string, passphrase *string) error {
 	wallet, err := s.am.Wallet(url)
 	if err != nil {
 		return err
@@ -151,14 +152,14 @@ func (s *UIServerAPI) OpenWallet(url string, passphrase *string) error {
 // ChainId returns the chainid in use for Eip-155 replay protection
 // Example call
 // {"jsonrpc":"2.0","method":"clef_chainId","params":[], "id":8}
-func (s *UIServerAPI) ChainId() math.HexOrDecimal64 {
+func (s *UIServerAPI[T,P]) ChainId() math.HexOrDecimal64 {
 	return (math.HexOrDecimal64)(s.extApi.chainID.Uint64())
 }
 
 // SetChainId sets the chain id to use when signing transactions.
 // Example call to set Ropsten:
 // {"jsonrpc":"2.0","method":"clef_setChainId","params":["3"], "id":8}
-func (s *UIServerAPI) SetChainId(id math.HexOrDecimal64) math.HexOrDecimal64 {
+func (s *UIServerAPI[T,P]) SetChainId(id math.HexOrDecimal64) math.HexOrDecimal64 {
 	s.extApi.chainID = new(big.Int).SetUint64(uint64(id))
 	return s.ChainId()
 }
@@ -166,7 +167,7 @@ func (s *UIServerAPI) SetChainId(id math.HexOrDecimal64) math.HexOrDecimal64 {
 // Export returns encrypted private key associated with the given address in web3 keystore format.
 // Example
 // {"jsonrpc":"2.0","method":"clef_export","params":["0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a"], "id":4}
-func (s *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.RawMessage, error) {
+func (s *UIServerAPI[T,P]) Export(ctx context.Context, addr common.Address) (json.RawMessage, error) {
 	// Look up the wallet containing the requested signer
 	wallet, err := s.am.Find(accounts.Account{Address: addr})
 	if err != nil {
@@ -183,8 +184,8 @@ func (s *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.Raw
 // decryption it will encrypt the key with the given newPassphrase and store it in the keystore.
 // Example (the address in question has privkey `11...11`):
 // {"jsonrpc":"2.0","method":"clef_import","params":[{"address":"19e7e376e7c213b7e7e7e46cc70a5dd086daff2a","crypto":{"cipher":"aes-128-ctr","ciphertext":"33e4cd3756091d037862bb7295e9552424a391a6e003272180a455ca2a9fb332","cipherparams":{"iv":"b54b263e8f89c42bb219b6279fba5cce"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"e4ca94644fd30569c1b1afbbc851729953c92637b7fe4bb9840bbb31ffbc64a5"},"mac":"f4092a445c2b21c0ef34f17c9cd0d873702b2869ec5df4439a0c2505823217e7"},"id":"216c7eac-e8c1-49af-a215-fa0036f29141","version":3},"test","yaddayadda"], "id":4}
-func (api *UIServerAPI) Import(ctx context.Context, keyJSON json.RawMessage, oldPassphrase, newPassphrase string) (accounts.Account, error) {
-	be := api.am.Backends(reflect.TypeOf(&keystore.KeyStore{}))
+func (api *UIServerAPI[T,P]) Import(ctx context.Context, keyJSON json.RawMessage, oldPassphrase, newPassphrase string) (accounts.Account, error) {
+	be := api.am.Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))
 
 	if len(be) == 0 {
 		return accounts.Account{}, errors.New("password based accounts not supported")
@@ -192,7 +193,7 @@ func (api *UIServerAPI) Import(ctx context.Context, keyJSON json.RawMessage, old
 	if err := ValidatePasswordFormat(newPassphrase); err != nil {
 		return accounts.Account{}, fmt.Errorf("password requirements not met: %v", err)
 	}
-	return be[0].(*keystore.KeyStore).Import(keyJSON, oldPassphrase, newPassphrase)
+	return be[0].(*keystore.KeyStore[T,P]).Import(keyJSON, oldPassphrase, newPassphrase)
 }
 
 // New creates a new password protected Account. The private key is protected with
@@ -201,7 +202,7 @@ func (api *UIServerAPI) Import(ctx context.Context, keyJSON json.RawMessage, old
 // This method is the same as New on the external API, the difference being that
 // this implementation does not ask for confirmation, since it's initiated by
 // the user
-func (api *UIServerAPI) New(ctx context.Context) (common.Address, error) {
+func (api *UIServerAPI[T,P]) New(ctx context.Context) (common.Address, error) {
 	return api.extApi.newAccount()
 }
 

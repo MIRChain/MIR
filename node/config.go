@@ -30,8 +30,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts/external"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
-	"github.com/pavelkrolevets/MIR-pro/accounts/scwallet"
-	"github.com/pavelkrolevets/MIR-pro/accounts/usbwallet"
+	// "github.com/pavelkrolevets/MIR-pro/accounts/scwallet"
+	// "github.com/pavelkrolevets/MIR-pro/accounts/usbwallet"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
@@ -516,7 +516,7 @@ func (c *Config[T,P]) IsPermissionEnabled() bool {
 	return true
 }
 
-func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T,P]) (*accounts.Manager, string, error) {
+func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T,P]) (*accounts.Manager[P], string, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 	var ephemeral string
 	if keydir == "" {
@@ -532,10 +532,10 @@ func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T
 		return nil, "", err
 	}
 	// Assemble the account manager and supported backends
-	var backends []accounts.Backend
+	var backends []accounts.Backend[P]
 	if len(conf.ExternalSigner) > 0 {
 		log.Info("Using external signer", "url", conf.ExternalSigner)
-		if extapi, err := external.NewExternalBackend(conf.ExternalSigner); err == nil {
+		if extapi, err := external.NewExternalBackend[P](conf.ExternalSigner); err == nil {
 			backends = append(backends, extapi)
 		} else {
 			return nil, "", fmt.Errorf("error connecting to external signer: %v", err)
@@ -546,38 +546,38 @@ func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T
 		// If/when we implement some form of lockfile for USB and keystore wallets,
 		// we can have both, but it's very confusing for the user to see the same
 		// accounts in both externally and locally, plus very racey.
-		backends = append(backends, keystore.NewKeyStore(keydir, scryptN, scryptP))
-		if conf.USB {
-			// Start a USB hub for Ledger hardware wallets
-			if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
-			} else {
-				backends = append(backends, ledgerhub)
-			}
-			// Start a USB hub for Trezor hardware wallets (HID version)
-			if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
-			} else {
-				backends = append(backends, trezorhub)
-			}
-			// Start a USB hub for Trezor hardware wallets (WebUSB version)
-			if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
-			} else {
-				backends = append(backends, trezorhub)
-			}
-		}
-		if len(conf.SmartCardDaemonPath) > 0 {
-			// Start a smart card hub
-			if schub, err := scwallet.NewHub(conf.SmartCardDaemonPath, scwallet.Scheme, keydir); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
-			} else {
-				backends = append(backends, schub)
-			}
-		}
+		backends = append(backends, keystore.NewKeyStore[T,P](keydir, scryptN, scryptP))
+		// if conf.USB {
+		// 	// Start a USB hub for Ledger hardware wallets
+		// 	if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
+		// 		log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
+		// 	} else {
+		// 		backends = append(backends, ledgerhub)
+		// 	}
+		// 	// Start a USB hub for Trezor hardware wallets (HID version)
+		// 	if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
+		// 		log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
+		// 	} else {
+		// 		backends = append(backends, trezorhub)
+		// 	}
+		// 	// Start a USB hub for Trezor hardware wallets (WebUSB version)
+		// 	if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
+		// 		log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
+		// 	} else {
+		// 		backends = append(backends, trezorhub)
+		// 	}
+		// }
+		// if len(conf.SmartCardDaemonPath) > 0 {
+		// 	// Start a smart card hub
+		// 	if schub, err := scwallet.NewHub(conf.SmartCardDaemonPath, scwallet.Scheme, keydir); err != nil {
+		// 		log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
+		// 	} else {
+		// 		backends = append(backends, schub)
+		// 	}
+		// }
 		if conf.Plugins != nil {
 			if _, ok := conf.Plugins.Providers[plugin.AccountPluginInterfaceName]; ok {
-				pluginBackend := pluggable.NewBackend()
+				pluginBackend := pluggable.NewBackend[P]()
 				backends = append(backends, pluginBackend)
 			}
 		}

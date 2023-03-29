@@ -8,6 +8,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
@@ -21,7 +22,7 @@ type StateRootProviderFunc func(isEIP158 bool) (common.Hash, error)
 // MultiplePrivateStateRepository manages a number of state DB objects
 // identified by their types.PrivateStateIdentifier. It also maintains a trie
 // of private states whose root hash is mapped with a block hash.
-type MultiplePrivateStateRepository struct {
+type MultiplePrivateStateRepository [P crypto.PublicKey] struct {
 	db ethdb.Database
 	// trie of private states cache
 	repoCache            state.Database
@@ -38,12 +39,12 @@ type MultiplePrivateStateRepository struct {
 	managedStates map[types.PrivateStateIdentifier]*managedState
 }
 
-func NewMultiplePrivateStateRepository(db ethdb.Database, cache state.Database, privateStatesTrieRoot common.Hash, privateCacheProvider privatecache.Provider) (*MultiplePrivateStateRepository, error) {
+func NewMultiplePrivateStateRepository[P crypto.PublicKey](db ethdb.Database, cache state.Database, privateStatesTrieRoot common.Hash, privateCacheProvider privatecache.Provider) (*MultiplePrivateStateRepository[P], error) {
 	tr, err := cache.OpenTrie(privateStatesTrieRoot)
 	if err != nil {
 		return nil, err
 	}
-	repo := &MultiplePrivateStateRepository{
+	repo := &MultiplePrivateStateRepository[P]{
 		db:                   db,
 		repoCache:            cache,
 		privateCacheProvider: privateCacheProvider,
@@ -85,19 +86,19 @@ func (ms *managedState) calPrivateStateRoot(isEIP158 bool) (common.Hash, error) 
 	return privateRoot, nil
 }
 
-func (mpsr *MultiplePrivateStateRepository) DefaultState() (*state.StateDB, error) {
+func (mpsr *MultiplePrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
 	return mpsr.StatePSI(EmptyPrivateStateMetadata.ID)
 }
 
-func (mpsr *MultiplePrivateStateRepository) DefaultStateMetadata() *PrivateStateMetadata {
+func (mpsr *MultiplePrivateStateRepository[P]) DefaultStateMetadata() *PrivateStateMetadata {
 	return EmptyPrivateStateMetadata
 }
 
-func (mpsr *MultiplePrivateStateRepository) IsMPS() bool {
+func (mpsr *MultiplePrivateStateRepository[P]) IsMPS() bool {
 	return true
 }
 
-func (mpsr *MultiplePrivateStateRepository) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
+func (mpsr *MultiplePrivateStateRepository[P]) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
 	privateStateRoot, err := mpsr.trie.TryGet([]byte(psi))
 	if err != nil {
 		return common.Hash{}, err
@@ -105,7 +106,7 @@ func (mpsr *MultiplePrivateStateRepository) PrivateStateRoot(psi types.PrivateSt
 	return common.BytesToHash(privateStateRoot), nil
 }
 
-func (mpsr *MultiplePrivateStateRepository) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (mpsr *MultiplePrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
 	mpsr.mux.Lock()
 	ms, found := mpsr.managedStates[psi]
 	mpsr.mux.Unlock()
@@ -149,7 +150,7 @@ func (mpsr *MultiplePrivateStateRepository) StatePSI(psi types.PrivateStateIdent
 	return stateDB, nil
 }
 
-func (mpsr *MultiplePrivateStateRepository) Reset() error {
+func (mpsr *MultiplePrivateStateRepository[P]) Reset() error {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	for psi, managedState := range mpsr.managedStates {
@@ -171,7 +172,7 @@ func (mpsr *MultiplePrivateStateRepository) Reset() error {
 }
 
 // CommitAndWrite commits all private states, updates the trie of private states, writes to disk
-func (mpsr *MultiplePrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
+func (mpsr *MultiplePrivateStateRepository[P]) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	// commit each managed state
@@ -208,7 +209,7 @@ func (mpsr *MultiplePrivateStateRepository) CommitAndWrite(isEIP158 bool, block 
 }
 
 // Commit commits all private states, updates the trie of private states only
-func (mpsr *MultiplePrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
+func (mpsr *MultiplePrivateStateRepository[P]) Commit(isEIP158 bool, block *types.Block[P]) error {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	for psi, managedState := range mpsr.managedStates {
@@ -237,14 +238,14 @@ func (mpsr *MultiplePrivateStateRepository) Commit(isEIP158 bool, block *types.B
 	return err
 }
 
-func (mpsr *MultiplePrivateStateRepository) Copy() PrivateStateRepository {
+func (mpsr *MultiplePrivateStateRepository[P]) Copy() PrivateStateRepository[P] {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
 	managedStatesCopy := make(map[types.PrivateStateIdentifier]*managedState)
 	for key, value := range mpsr.managedStates {
 		managedStatesCopy[key] = value.Copy()
 	}
-	return &MultiplePrivateStateRepository{
+	return &MultiplePrivateStateRepository[P]{
 		db:                   mpsr.db,
 		repoCache:            mpsr.repoCache,
 		privateCacheProvider: mpsr.privateCacheProvider,
@@ -260,8 +261,8 @@ func (mpsr *MultiplePrivateStateRepository) Copy() PrivateStateRepository {
 // Each entry for a private receipt will actually consist of a copy of a dummy auxiliary receipt,
 // which holds the real private receipts for each PSI under PSReceipts[].
 // Note that we also add a private receipt for the "empty" PSI.
-func (mpsr *MultiplePrivateStateRepository) MergeReceipts(pub, priv types.Receipts) types.Receipts {
-	m := make(map[common.Hash]*types.Receipt)
+func (mpsr *MultiplePrivateStateRepository[P]) MergeReceipts(pub, priv types.Receipts[P]) types.Receipts[P] {
+	m := make(map[common.Hash]*types.Receipt[P])
 	for _, receipt := range pub {
 		m[receipt.TxHash] = receipt
 	}
@@ -271,14 +272,14 @@ func (mpsr *MultiplePrivateStateRepository) MergeReceipts(pub, priv types.Receip
 			// this is a PMT receipt - no merging required as it already has the relevant PSReceipts set
 			continue
 		}
-		publicReceipt.PSReceipts = make(map[types.PrivateStateIdentifier]*types.Receipt)
+		publicReceipt.PSReceipts = make(map[types.PrivateStateIdentifier]*types.Receipt[P])
 		publicReceipt.PSReceipts[EmptyPrivateStateMetadata.ID] = receipt
 		for psi, psReceipt := range receipt.PSReceipts {
 			publicReceipt.PSReceipts[psi] = psReceipt
 		}
 	}
 
-	ret := make(types.Receipts, len(pub))
+	ret := make(types.Receipts[P], len(pub))
 	for idx, pubReceipt := range pub {
 		ret[idx] = m[pubReceipt.TxHash]
 	}

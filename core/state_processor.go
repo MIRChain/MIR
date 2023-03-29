@@ -66,7 +66,7 @@ func NewStateProcessor[P crypto.PublicKey](config *params.ChainConfig, bc *Block
 // 1. On original single private state (SPS) design
 // 2. On multiple private states (MPS) design
 // 3. Contract extension callback (p.bc.CheckAndSetPrivateState)
-func (p *StateProcessor[P]) Process(block *types.Block[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository, cfg vm.Config[P]) (types.Receipts[P], types.Receipts[P], []*types.Log, uint64, error) {
+func (p *StateProcessor[P]) Process(block *types.Block[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P]) (types.Receipts[P], types.Receipts[P], []*types.Log, uint64, error) {
 
 	var (
 		receipts types.Receipts[P]
@@ -154,7 +154,7 @@ func (p *StateProcessor[P]) Process(block *types.Block[P], statedb *state.StateD
 }
 
 // Quorum
-func HandlePrivateReceipt[P crypto.PublicKey](receipt *types.Receipt[P], privateReceipt *types.Receipt[P], mpsReceipt *types.Receipt[P], tx *types.Transaction[P], privateStateDB *state.StateDB, privateStateRepo mps.PrivateStateRepository, bc *BlockChain[P]) (*types.Receipt[P], []*types.Log) {
+func HandlePrivateReceipt[P crypto.PublicKey](receipt *types.Receipt[P], privateReceipt *types.Receipt[P], mpsReceipt *types.Receipt[P], tx *types.Transaction[P], privateStateDB *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], bc *BlockChain[P]) (*types.Receipt[P], []*types.Log) {
 	var (
 		privateLogs []*types.Log
 	)
@@ -207,7 +207,7 @@ func PrivateStateDBForTxn[P crypto.PublicKey](isQuorum bool, tx *types.Transacti
 // handling MPS scenario for a private transaction
 //
 // handleMPS returns the auxiliary receipt and not the standard receipt
-func handleMPS[P crypto.PublicKey](ti int, tx *types.Transaction[P], gp *GasPool, usedGas *uint64, cfg vm.Config[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository, config *params.ChainConfig, bc ChainContext[P], header *types.Header, applyOnPartiesOnly bool, isInnerPrivateTxn bool) (mpsReceipt *types.Receipt[P], err error) {
+func handleMPS[P crypto.PublicKey](ti int, tx *types.Transaction[P], gp *GasPool, usedGas *uint64, cfg vm.Config[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], config *params.ChainConfig, bc ChainContext[P], header *types.Header, applyOnPartiesOnly bool, isInnerPrivateTxn bool) (mpsReceipt *types.Receipt[P], err error) {
 	if tx.IsPrivate() && privateStateRepo != nil && privateStateRepo.IsMPS() {
 		publicStateDBFactory := func() *state.StateDB {
 			db := statedb.Copy()
@@ -239,7 +239,7 @@ func handleMPS[P crypto.PublicKey](ti int, tx *types.Transaction[P], gp *GasPool
 // The originalGP gas pool will not be modified
 func ApplyTransactionOnMPS[P crypto.PublicKey](config *params.ChainConfig, bc ChainContext[P], author *common.Address, originalGP *GasPool,
 	publicStateDBFactory func() *state.StateDB, privateStateDBFactory func(psi types.PrivateStateIdentifier) (*state.StateDB, error),
-	header *types.Header, tx *types.Transaction[P], usedGas *uint64, cfg vm.Config[P], privateStateRepo mps.PrivateStateRepository,
+	header *types.Header, tx *types.Transaction[P], usedGas *uint64, cfg vm.Config[P], privateStateRepo mps.PrivateStateRepository[P],
 	applyOnPartiesOnly bool, isInnerPrivateTxn bool) (*types.Receipt[P], error) {
 
 	mpsReceipt := &types.Receipt[P]{
@@ -302,7 +302,7 @@ func ApplyTransactionOnMPS[P crypto.PublicKey](config *params.ChainConfig, bc Ch
 
 // /Quorum
 
-func applyTransaction[P crypto.PublicKey](msg types.Message, config *params.ChainConfig, bc ChainContext[P], author *common.Address, gp *GasPool, statedb, privateStateDB *state.StateDB, header *types.Header, tx *types.Transaction[P], usedGas *uint64, evm *vm.EVM[P], cfg vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository) (*types.Receipt[P], *types.Receipt[P], error) {
+func applyTransaction[P crypto.PublicKey](msg types.Message, config *params.ChainConfig, bc ChainContext[P], author *common.Address, gp *GasPool, statedb, privateStateDB *state.StateDB, header *types.Header, tx *types.Transaction[P], usedGas *uint64, evm *vm.EVM[P], cfg vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P]) (*types.Receipt[P], *types.Receipt[P], error) {
 	// Create a new context to be used in the EVM environment.
 
 	// Quorum
@@ -400,7 +400,7 @@ func applyTransaction[P crypto.PublicKey](msg types.Message, config *params.Chai
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainContext[P], author *common.Address, gp *GasPool, statedb, privateStateDB *state.StateDB, header *types.Header, tx *types.Transaction[P], usedGas *uint64, cfg vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository, isInnerPrivateTxn bool) (*types.Receipt[P], *types.Receipt[P], error) {
+func ApplyTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainContext[P], author *common.Address, gp *GasPool, statedb, privateStateDB *state.StateDB, header *types.Header, tx *types.Transaction[P], usedGas *uint64, cfg vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], isInnerPrivateTxn bool) (*types.Receipt[P], *types.Receipt[P], error) {
 	// Quorum - decide the privateStateDB to use
 	privateStateDbToUse := PrivateStateDBForTxn(config.IsQuorum, tx, statedb, privateStateDB)
 	// End Quorum
@@ -443,7 +443,7 @@ func ApplyTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainCo
 // ApplyInnerTransaction is called from within the Quorum precompile for privacy marker transactions.
 // It's a call back which essentially duplicates the logic in Process(),
 // in this case to process the actual private transaction.
-func ApplyInnerTransaction[P crypto.PublicKey](bc ChainContext[P], author *common.Address, gp *GasPool, stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], usedGas *uint64, evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository, vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func ApplyInnerTransaction[P crypto.PublicKey](bc ChainContext[P], author *common.Address, gp *GasPool, stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], usedGas *uint64, evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	// this should never happen, but added as sanity check
 	if !innerTx.IsPrivate() {
 		return errors.New("attempt to process non-private transaction from within ApplyInnerTransaction()")

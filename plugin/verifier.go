@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
@@ -25,7 +26,7 @@ func NewNonVerifier() *NonVerifier {
 	return &NonVerifier{}
 }
 
-func NewVerifier(pm *PluginManager, localVerify bool, publicKey string) (Verifier, error) {
+func NewVerifier[T crypto.PrivateKey, P crypto.PublicKey](pm *PluginManager[T,P], localVerify bool, publicKey string) (Verifier, error) {
 	log.Debug("using verifier", "local", localVerify)
 	pluginBaseDir := pm.pluginBaseDir
 	centralClient := pm.centralClient

@@ -22,16 +22,17 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
-type AuditLogger struct {
+type AuditLogger [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	log log.Logger
-	api ExternalAPI
+	api ExternalAPI[T,P]
 }
 
-func (l *AuditLogger) List(ctx context.Context) ([]common.Address, error) {
+func (l *AuditLogger[T,P]) List(ctx context.Context) ([]common.Address, error) {
 	l.log.Info("List", "type", "request", "metadata", MetadataFromContext(ctx).String())
 	res, e := l.api.List(ctx)
 	l.log.Info("List", "type", "response", "data", res)
@@ -39,11 +40,11 @@ func (l *AuditLogger) List(ctx context.Context) ([]common.Address, error) {
 	return res, e
 }
 
-func (l *AuditLogger) New(ctx context.Context) (common.Address, error) {
+func (l *AuditLogger[T,P]) New(ctx context.Context) (common.Address, error) {
 	return l.api.New(ctx)
 }
 
-func (l *AuditLogger) SignTransaction(ctx context.Context, args SendTxArgs, methodSelector *string) (*ethapi.SignTransactionResult, error) {
+func (l *AuditLogger[T,P]) SignTransaction(ctx context.Context, args SendTxArgs[P], methodSelector *string) (*ethapi.SignTransactionResult[P], error) {
 	sel := "<nil>"
 	if methodSelector != nil {
 		sel = *methodSelector
@@ -61,7 +62,7 @@ func (l *AuditLogger) SignTransaction(ctx context.Context, args SendTxArgs, meth
 	return res, e
 }
 
-func (l *AuditLogger) SignData(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (hexutil.Bytes, error) {
+func (l *AuditLogger[T,P]) SignData(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (hexutil.Bytes, error) {
 	marshalledData, _ := json.Marshal(data) // can ignore error, marshalling what we just unmarshalled
 	l.log.Info("SignData", "type", "request", "metadata", MetadataFromContext(ctx).String(),
 		"addr", addr.String(), "data", marshalledData, "content-type", contentType)
@@ -70,7 +71,7 @@ func (l *AuditLogger) SignData(ctx context.Context, contentType string, addr com
 	return b, e
 }
 
-func (l *AuditLogger) SignGnosisSafeTx(ctx context.Context, addr common.MixedcaseAddress, gnosisTx GnosisSafeTx, methodSelector *string) (*GnosisSafeTx, error) {
+func (l *AuditLogger[T,P]) SignGnosisSafeTx(ctx context.Context, addr common.MixedcaseAddress, gnosisTx GnosisSafeTx[P], methodSelector *string) (*GnosisSafeTx[P], error) {
 	sel := "<nil>"
 	if methodSelector != nil {
 		sel = *methodSelector
@@ -88,7 +89,7 @@ func (l *AuditLogger) SignGnosisSafeTx(ctx context.Context, addr common.Mixedcas
 	return res, e
 }
 
-func (l *AuditLogger) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, data TypedData) (hexutil.Bytes, error) {
+func (l *AuditLogger[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, data TypedData) (hexutil.Bytes, error) {
 	l.log.Info("SignTypedData", "type", "request", "metadata", MetadataFromContext(ctx).String(),
 		"addr", addr.String(), "data", data)
 	b, e := l.api.SignTypedData(ctx, addr, data)
@@ -96,7 +97,7 @@ func (l *AuditLogger) SignTypedData(ctx context.Context, addr common.MixedcaseAd
 	return b, e
 }
 
-func (l *AuditLogger) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
+func (l *AuditLogger[T,P]) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
 	l.log.Info("EcRecover", "type", "request", "metadata", MetadataFromContext(ctx).String(),
 		"data", common.Bytes2Hex(data), "sig", common.Bytes2Hex(sig))
 	b, e := l.api.EcRecover(ctx, data, sig)
@@ -104,7 +105,7 @@ func (l *AuditLogger) EcRecover(ctx context.Context, data hexutil.Bytes, sig hex
 	return b, e
 }
 
-func (l *AuditLogger) Version(ctx context.Context) (string, error) {
+func (l *AuditLogger[T,P]) Version(ctx context.Context) (string, error) {
 	l.log.Info("Version", "type", "request", "metadata", MetadataFromContext(ctx).String())
 	data, err := l.api.Version(ctx)
 	l.log.Info("Version", "type", "response", "data", data, "error", err)
@@ -112,7 +113,7 @@ func (l *AuditLogger) Version(ctx context.Context) (string, error) {
 
 }
 
-func NewAuditLogger(path string, api ExternalAPI) (*AuditLogger, error) {
+func NewAuditLogger[T crypto.PrivateKey, P crypto.PublicKey](path string, api ExternalAPI[T,P]) (*AuditLogger[T,P], error) {
 	l := log.New("api", "signer")
 	handler, err := log.FileHandler(path, log.LogfmtFormat())
 	if err != nil {
@@ -120,5 +121,5 @@ func NewAuditLogger(path string, api ExternalAPI) (*AuditLogger, error) {
 	}
 	l.SetHandler(handler)
 	l.Info("Configured", "audit log", path)
-	return &AuditLogger{l, api}, nil
+	return &AuditLogger[T,P]{l, api}, nil
 }

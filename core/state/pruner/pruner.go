@@ -75,7 +75,7 @@ var (
 // the whole pruning work. It's recommended to run this offline tool
 // periodically in order to release the disk usage and improve the
 // disk read performance to some extent.
-type Pruner struct {
+type Pruner [P crypto.PublicKey] struct {
 	db            ethdb.Database
 	stateBloom    *stateBloom
 	datadir       string
@@ -85,8 +85,8 @@ type Pruner struct {
 }
 
 // NewPruner creates the pruner instance.
-func NewPruner(db ethdb.Database, datadir, trieCachePath string, bloomSize uint64) (*Pruner, error) {
-	headBlock := rawdb.ReadHeadBlock(db)
+func NewPruner[P crypto.PublicKey](db ethdb.Database, datadir, trieCachePath string, bloomSize uint64) (*Pruner[P], error) {
+	headBlock := rawdb.ReadHeadBlock[P](db)
 	if headBlock == nil {
 		return nil, errors.New("Failed to load head block")
 	}
@@ -103,7 +103,7 @@ func NewPruner(db ethdb.Database, datadir, trieCachePath string, bloomSize uint6
 	if err != nil {
 		return nil, err
 	}
-	return &Pruner{
+	return &Pruner[P]{
 		db:            db,
 		stateBloom:    stateBloom,
 		datadir:       datadir,
@@ -232,7 +232,7 @@ func prune(snaptree *snapshot.Tree, root common.Hash, maindb ethdb.Database, sta
 // Prune deletes all historical state nodes except the nodes belong to the
 // specified state version. If user doesn't specify the state version, use
 // the bottom-most snapshot diff layer as the target.
-func (p *Pruner) Prune(root common.Hash) error {
+func (p *Pruner[P]) Prune(root common.Hash) error {
 	// If the state bloom filter is already committed previously,
 	// reuse it for pruning instead of generating a new one. It's
 	// mandatory because a part of state may already be deleted,
@@ -242,7 +242,7 @@ func (p *Pruner) Prune(root common.Hash) error {
 		return err
 	}
 	if stateBloomRoot != (common.Hash{}) {
-		return RecoverPruning(p.datadir, p.db, p.trieCachePath)
+		return RecoverPruning[P](p.datadir, p.db, p.trieCachePath)
 	}
 	// If the target state root is not specified, use the HEAD-127 as the
 	// target. The reason for picking it is:
@@ -323,7 +323,7 @@ func (p *Pruner) Prune(root common.Hash) error {
 	}
 	// Traverse the genesis, put all genesis state entries into the
 	// bloom filter too.
-	if err := extractGenesis(p.db, p.stateBloom); err != nil {
+	if err := extractGenesis[P](p.db, p.stateBloom); err != nil {
 		return err
 	}
 	filterName := bloomFilterName(p.datadir, root)
@@ -343,7 +343,7 @@ func (p *Pruner) Prune(root common.Hash) error {
 // pruning can be resumed. What's more if the bloom filter is constructed, the
 // pruning **has to be resumed**. Otherwise a lot of dangling nodes may be left
 // in the disk.
-func RecoverPruning(datadir string, db ethdb.Database, trieCachePath string) error {
+func RecoverPruning[P crypto.PublicKey](datadir string, db ethdb.Database, trieCachePath string) error {
 	stateBloomPath, stateBloomRoot, err := findBloomFilter(datadir)
 	if err != nil {
 		return err
@@ -351,7 +351,7 @@ func RecoverPruning(datadir string, db ethdb.Database, trieCachePath string) err
 	if stateBloomPath == "" {
 		return nil // nothing to recover
 	}
-	headBlock := rawdb.ReadHeadBlock(db)
+	headBlock := rawdb.ReadHeadBlock[P](db)
 	if headBlock == nil {
 		return errors.New("Failed to load head block")
 	}
@@ -402,12 +402,12 @@ func RecoverPruning(datadir string, db ethdb.Database, trieCachePath string) err
 
 // extractGenesis loads the genesis state and commits all the state entries
 // into the given bloomfilter.
-func extractGenesis(db ethdb.Database, stateBloom *stateBloom) error {
+func extractGenesis[P crypto.PublicKey](db ethdb.Database, stateBloom *stateBloom) error {
 	genesisHash := rawdb.ReadCanonicalHash(db, 0)
 	if genesisHash == (common.Hash{}) {
 		return errors.New("missing genesis hash")
 	}
-	genesis := rawdb.ReadBlock(db, genesisHash, 0)
+	genesis := rawdb.ReadBlock[P](db, genesisHash, 0)
 	if genesis == nil {
 		return errors.New("missing genesis block")
 	}

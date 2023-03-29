@@ -8,13 +8,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // DefaultPrivateStateRepository acts as the single private state in the original
 // Quorum design.
-type DefaultPrivateStateRepository struct {
+type DefaultPrivateStateRepository [P crypto.PublicKey] struct {
 	db ethdb.Database
 	// cache of stateDB
 	stateCache           state.Database
@@ -24,7 +25,7 @@ type DefaultPrivateStateRepository struct {
 	root    common.Hash
 }
 
-func NewDefaultPrivateStateRepository(db ethdb.Database, cache state.Database, privateCacheProvider privatecache.Provider, previousBlockHash common.Hash) (*DefaultPrivateStateRepository, error) {
+func NewDefaultPrivateStateRepository[P crypto.PublicKey](db ethdb.Database, cache state.Database, privateCacheProvider privatecache.Provider, previousBlockHash common.Hash) (*DefaultPrivateStateRepository[P], error) {
 	root := rawdb.GetPrivateStateRoot(db, previousBlockHash)
 
 	statedb, err := state.New(root, cache, nil)
@@ -32,7 +33,7 @@ func NewDefaultPrivateStateRepository(db ethdb.Database, cache state.Database, p
 		return nil, err
 	}
 
-	return &DefaultPrivateStateRepository{
+	return &DefaultPrivateStateRepository[P]{
 		db:                   db,
 		stateCache:           cache,
 		privateCacheProvider: privateCacheProvider,
@@ -41,38 +42,38 @@ func NewDefaultPrivateStateRepository(db ethdb.Database, cache state.Database, p
 	}, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository) DefaultState() (*state.StateDB, error) {
+func (dpsr *DefaultPrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
 	if dpsr == nil {
 		return nil, fmt.Errorf("nil instance")
 	}
 	return dpsr.stateDB, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository) DefaultStateMetadata() *PrivateStateMetadata {
+func (dpsr *DefaultPrivateStateRepository[P]) DefaultStateMetadata() *PrivateStateMetadata {
 	return DefaultPrivateStateMetadata
 }
 
-func (dpsr *DefaultPrivateStateRepository) IsMPS() bool {
+func (dpsr *DefaultPrivateStateRepository[P]) IsMPS() bool {
 	return false
 }
 
-func (dpsr *DefaultPrivateStateRepository) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
+func (dpsr *DefaultPrivateStateRepository[P]) PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error) {
 	return dpsr.root, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (dpsr *DefaultPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
 	if psi != types.DefaultPrivateStateIdentifier {
 		return nil, fmt.Errorf("only the 'private' psi is supported by the default private state manager")
 	}
 	return dpsr.stateDB, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository) Reset() error {
+func (dpsr *DefaultPrivateStateRepository[P]) Reset() error {
 	return dpsr.stateDB.Reset(dpsr.root)
 }
 
 // CommitAndWrite commits the private state and writes to disk
-func (dpsr *DefaultPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
+func (dpsr *DefaultPrivateStateRepository[P]) CommitAndWrite(isEIP158 bool, block *types.Block[P]) error {
 	privateRoot, err := dpsr.stateDB.Commit(isEIP158)
 	if err != nil {
 		return err
@@ -88,14 +89,14 @@ func (dpsr *DefaultPrivateStateRepository) CommitAndWrite(isEIP158 bool, block *
 }
 
 // Commit commits the private state only
-func (dpsr *DefaultPrivateStateRepository) Commit(isEIP158 bool, block *types.Block[P]) error {
+func (dpsr *DefaultPrivateStateRepository[P]) Commit(isEIP158 bool, block *types.Block[P]) error {
 	var err error
 	dpsr.root, err = dpsr.stateDB.Commit(isEIP158)
 	return err
 }
 
-func (dpsr *DefaultPrivateStateRepository) Copy() PrivateStateRepository {
-	return &DefaultPrivateStateRepository{
+func (dpsr *DefaultPrivateStateRepository[P]) Copy() PrivateStateRepository[P] {
+	return &DefaultPrivateStateRepository[P]{
 		db:                   dpsr.db,
 		stateCache:           dpsr.stateCache,
 		privateCacheProvider: dpsr.privateCacheProvider,
@@ -108,8 +109,8 @@ func (dpsr *DefaultPrivateStateRepository) Copy() PrivateStateRepository {
 // private receipts, return a new slice where the default for each location is
 // the public receipt but we take the private receipt in each place we have
 // one.
-func (dpsr *DefaultPrivateStateRepository) MergeReceipts(pub, priv types.Receipts) types.Receipts {
-	m := make(map[common.Hash]*types.Receipt)
+func (dpsr *DefaultPrivateStateRepository[P]) MergeReceipts(pub, priv types.Receipts[P]) types.Receipts[P] {
+	m := make(map[common.Hash]*types.Receipt[P])
 	for _, receipt := range pub {
 		m[receipt.TxHash] = receipt
 	}
@@ -117,7 +118,7 @@ func (dpsr *DefaultPrivateStateRepository) MergeReceipts(pub, priv types.Receipt
 		m[receipt.TxHash] = receipt
 	}
 
-	ret := make(types.Receipts, 0, len(pub))
+	ret := make(types.Receipts[P], 0, len(pub))
 	for _, pubReceipt := range pub {
 		ret = append(ret, m[pubReceipt.TxHash])
 	}

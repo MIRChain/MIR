@@ -7,8 +7,14 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/pavelkrolevets/MIR-pro/plugin/account"
+	"github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
+	"github.com/pavelkrolevets/MIR-pro/plugin/qlight"
+	"github.com/pavelkrolevets/MIR-pro/plugin/security"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
@@ -23,16 +29,16 @@ type PluginManagerInterface interface {
 }
 
 //go:generate mockgen -source=service.go -destination plugin_manager_mockery.go -package plugin
-var _ PluginManagerInterface = &PluginManager{}
+// var _ PluginManagerInterface = &PluginManager{}
 var _ PluginManagerInterface = &MockPluginManagerInterface{}
 
 // this implements geth service
-type PluginManager struct {
+type PluginManager [T crypto.PrivateKey, P crypto.PublicKey]  struct {
 	nodeName           string // geth node name
 	pluginBaseDir      string // base directory for all the plugins
 	verifier           Verifier
 	centralClient      *CentralClient
-	downloader         *Downloader
+	downloader         *Downloader[T,P]
 	settings           *Settings
 	mux                sync.Mutex                            // control concurrent access to plugins cache
 	plugins            map[PluginInterfaceName]managedPlugin // lazy load the actual plugin templates
@@ -42,7 +48,7 @@ type PluginManager struct {
 
 // this is called after PluginManager service has been successfully started
 // See node/node.go#Start()
-func (s *PluginManager) APIs() []rpc.API {
+func (s *PluginManager[T,P]) APIs() []rpc.API {
 	return append([]rpc.API{
 		{
 			Namespace: "admin",
@@ -53,7 +59,7 @@ func (s *PluginManager) APIs() []rpc.API {
 	}, s.delegateAPIs()...)
 }
 
-func (s *PluginManager) Start() (err error) {
+func (s *PluginManager[T,P]) Start() (err error) {
 	initializedPluginsCount := len(s.initializedPlugins)
 	if initializedPluginsCount == 0 {
 		log.Info("No plugins to initialise")
@@ -82,7 +88,7 @@ func (s *PluginManager) Start() (err error) {
 	return
 }
 
-func (s *PluginManager) getPlugin(name PluginInterfaceName) (managedPlugin, bool) {
+func (s *PluginManager[T,P]) getPlugin(name PluginInterfaceName) (managedPlugin, bool) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	p, ok := s.plugins[name] // check if it's been used before
@@ -93,7 +99,7 @@ func (s *PluginManager) getPlugin(name PluginInterfaceName) (managedPlugin, bool
 }
 
 // Check if a plugin is enabled/setup
-func (s *PluginManager) IsEnabled(name PluginInterfaceName) bool {
+func (s *PluginManager[T,P]) IsEnabled(name PluginInterfaceName) bool {
 	if s == nil {
 		return false
 	}
@@ -103,7 +109,7 @@ func (s *PluginManager) IsEnabled(name PluginInterfaceName) bool {
 
 // store the plugin instance to the value of the pointer v and cache it
 // this function makes sure v value will never be nil
-func (s *PluginManager) GetPluginTemplate(name PluginInterfaceName, v managedPlugin) error {
+func (s *PluginManager[T,P]) GetPluginTemplate(name PluginInterfaceName, v managedPlugin) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return fmt.Errorf("invalid argument value, expected a pointer but got %s", reflect.TypeOf(v))
@@ -132,7 +138,7 @@ func (s *PluginManager) GetPluginTemplate(name PluginInterfaceName, v managedPlu
 		// the first field in the plugin template object is the basePlugin
 		// it indicates that the plugin template "extends" basePlugin
 		basePluginField := rv.Elem().FieldByName("basePlugin")
-		if !basePluginField.IsValid() || basePluginField.Type() != basePluginPointerType {
+		if !basePluginField.IsValid() || basePluginField.Type() != reflect.TypeOf(&basePlugin[T,P]{}) {
 			panic("plugin template must extend *basePlugin")
 		}
 		// need to have write access to the unexported field in the target object
@@ -147,7 +153,7 @@ func (s *PluginManager) GetPluginTemplate(name PluginInterfaceName, v managedPlu
 	return nil
 }
 
-func (s *PluginManager) Stop() error {
+func (s *PluginManager[T,P]) Stop() error {
 	initializedPluginsCount := len(s.initializedPlugins)
 	log.Info("Stopping all plugins", "count", initializedPluginsCount)
 	allErrors := make([]error, 0)
@@ -167,7 +173,7 @@ func (s *PluginManager) Stop() error {
 }
 
 // Provide details of current plugins being used
-func (s *PluginManager) PluginsInfo() interface{} {
+func (s *PluginManager[T,P]) PluginsInfo() interface{} {
 	info := make(map[PluginInterfaceName]interface{})
 	if len(s.initializedPlugins) == 0 {
 		return info
@@ -181,8 +187,8 @@ func (s *PluginManager) PluginsInfo() interface{} {
 }
 
 // AddAccountPluginToBackend adds the account plugin to the provided account backend
-func (s *PluginManager) AddAccountPluginToBackend(b *pluggable.Backend) error {
-	v := new(ReloadableAccountServiceFactory)
+func (s *PluginManager[T,P]) AddAccountPluginToBackend(b *pluggable.Backend[P]) error {
+	v := new(ReloadableAccountServiceFactory[T,P])
 	if err := s.GetPluginTemplate(AccountPluginInterfaceName, v); err != nil {
 		return err
 	}
@@ -196,7 +202,7 @@ func (s *PluginManager) AddAccountPluginToBackend(b *pluggable.Backend) error {
 	return nil
 }
 
-func (s *PluginManager) Reload(name PluginInterfaceName) (bool, error) {
+func (s *PluginManager[T,P]) Reload(name PluginInterfaceName) (bool, error) {
 	p, ok := s.getPlugin(name)
 	if !ok {
 		return false, fmt.Errorf("no such plugin provider: %s", name)
@@ -209,7 +215,63 @@ func (s *PluginManager) Reload(name PluginInterfaceName) (bool, error) {
 }
 
 // this is to configure delegate APIs call to the plugins
-func (s *PluginManager) delegateAPIs() []rpc.API {
+func (s *PluginManager[T,P]) delegateAPIs() []rpc.API {
+	var pluginProviders = map[PluginInterfaceName]pluginProvider[T,P]{
+		HelloWorldPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error) {
+				template := new(HelloWorldPluginTemplate[T,P])
+				if err := pm.GetPluginTemplate(HelloWorldPluginInterfaceName, template); err != nil {
+					return nil, err
+				}
+				service, err := template.Get()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   service,
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				helloworld.ConnectorName: &helloworld.PluginConnector{},
+			},
+		},
+		SecurityPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				security.TLSConfigurationConnectorName: &security.TLSConfigurationSourcePluginConnector{},
+				security.AuthenticationConnectorName:   &security.AuthenticationManagerPluginConnector{},
+			},
+		},
+		AccountPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error) {
+				f := new(ReloadableAccountServiceFactory[T,P])
+				if err := pm.GetPluginTemplate(AccountPluginInterfaceName, f); err != nil {
+					return nil, err
+				}
+				service, err := f.Create()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   account.NewCreator(service),
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				account.ConnectorName: &account.PluginConnector[T,P]{},
+			},
+		},
+		QLightTokenManagerPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				qlight.ConnectorName: &qlight.PluginConnector{},
+			},
+		},
+	}
+
 	apis := make([]rpc.API, 0)
 	for _, p := range s.initializedPlugins {
 		interfaceName, _ := p.Info()
@@ -228,8 +290,64 @@ func (s *PluginManager) delegateAPIs() []rpc.API {
 	return apis
 }
 
-func NewPluginManager(nodeName string, settings *Settings, skipVerify bool, localVerify bool, publicKey string) (*PluginManager, error) {
-	pm := &PluginManager{
+func NewPluginManager[T crypto.PrivateKey, P crypto.PublicKey](nodeName string, settings *Settings, skipVerify bool, localVerify bool, publicKey string) (*PluginManager[T,P], error) {
+	var pluginProviders = map[PluginInterfaceName]pluginProvider[T,P]{
+		HelloWorldPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error) {
+				template := new(HelloWorldPluginTemplate[T,P])
+				if err := pm.GetPluginTemplate(HelloWorldPluginInterfaceName, template); err != nil {
+					return nil, err
+				}
+				service, err := template.Get()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   service,
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				helloworld.ConnectorName: &helloworld.PluginConnector{},
+			},
+		},
+		SecurityPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				security.TLSConfigurationConnectorName: &security.TLSConfigurationSourcePluginConnector{},
+				security.AuthenticationConnectorName:   &security.AuthenticationManagerPluginConnector{},
+			},
+		},
+		AccountPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error) {
+				f := new(ReloadableAccountServiceFactory[T,P])
+				if err := pm.GetPluginTemplate(AccountPluginInterfaceName, f); err != nil {
+					return nil, err
+				}
+				service, err := f.Create()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   account.NewCreator(service),
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				account.ConnectorName: &account.PluginConnector[T,P]{},
+			},
+		},
+		QLightTokenManagerPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				qlight.ConnectorName: &qlight.PluginConnector{},
+			},
+		},
+	}
+	
+	pm := &PluginManager[T,P]{
 		nodeName:           nodeName,
 		pluginBaseDir:      settings.BaseDir.String(),
 		centralClient:      NewPluginCentralClient(settings.CentralConfig),
@@ -264,8 +382,8 @@ func NewPluginManager(nodeName string, settings *Settings, skipVerify bool, loca
 	return pm, nil
 }
 
-func NewEmptyPluginManager() *PluginManager {
-	return &PluginManager{
+func NewEmptyPluginManager[T crypto.PrivateKey, P crypto.PublicKey]() *PluginManager[T,P] {
+	return &PluginManager[T,P]{
 		plugins: make(map[PluginInterfaceName]managedPlugin),
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
@@ -17,7 +18,7 @@ import (
 //
 // If isMPS is true, it also does the validation to make sure
 // the target private.PrivateTransactionManager supports MPS
-func newPrivateStateManager(db ethdb.Database, privateCacheProvider privatecache.Provider, isMPS bool) (mps.PrivateStateManager, error) {
+func newPrivateStateManager [P crypto.PublicKey](db ethdb.Database, privateCacheProvider privatecache.Provider, isMPS bool) (mps.PrivateStateManager[P], error) {
 	if isMPS {
 		// validation
 		if !private.Ptm.HasFeature(engine.MultiplePrivateStates) {
@@ -54,9 +55,9 @@ func newPrivateStateManager(db ethdb.Database, privateCacheProvider privatecache
 				}
 			}
 		}
-		return newMultiplePrivateStateManager(db, privateCacheProvider, residentGroupByKey, privacyGroupById)
+		return newMultiplePrivateStateManager[P](db, privateCacheProvider, residentGroupByKey, privacyGroupById)
 	} else {
-		return newDefaultPrivateStateManager(db, privateCacheProvider), nil
+		return newDefaultPrivateStateManager[P](db, privateCacheProvider), nil
 	}
 }
 
