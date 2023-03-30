@@ -29,6 +29,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/console/prompt"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -37,7 +39,7 @@ import (
 
 var (
 	removedbCommand = cli.Command{
-		Action:    utils.MigrateFlags(removeDB),
+		Action:    utils.MigrateFlags(removeDB[nist.PrivateKey, nist.PublicKey]),
 		Name:      "removedb",
 		Usage:     "Remove blockchain and state databases",
 		ArgsUsage: "",
@@ -65,7 +67,7 @@ Remove blockchain and state databases`,
 		},
 	}
 	dbInspectCmd = cli.Command{
-		Action:    utils.MigrateFlags(inspect),
+		Action:    utils.MigrateFlags(inspect[nist.PrivateKey, nist.PublicKey]),
 		Name:      "inspect",
 		ArgsUsage: "<prefix> <start>",
 		Flags: []cli.Flag{
@@ -81,7 +83,7 @@ Remove blockchain and state databases`,
 		Description: `This commands iterates the entire database. If the optional 'prefix' and 'start' arguments are provided, then the iteration is limited to the given subset of data.`,
 	}
 	dbStatCmd = cli.Command{
-		Action: utils.MigrateFlags(dbStats),
+		Action: utils.MigrateFlags(dbStats[nist.PrivateKey, nist.PublicKey]),
 		Name:   "stats",
 		Usage:  "Print leveldb statistics",
 		Flags: []cli.Flag{
@@ -95,7 +97,7 @@ Remove blockchain and state databases`,
 		},
 	}
 	dbCompactCmd = cli.Command{
-		Action: utils.MigrateFlags(dbCompact),
+		Action: utils.MigrateFlags(dbCompact[nist.PrivateKey, nist.PublicKey]),
 		Name:   "compact",
 		Usage:  "Compact leveldb database. WARNING: May take a very long time",
 		Flags: []cli.Flag{
@@ -114,7 +116,7 @@ WARNING: This operation may take a very long time to finish, and may cause datab
 corruption if it is aborted during execution'!`,
 	}
 	dbGetCmd = cli.Command{
-		Action:    utils.MigrateFlags(dbGet),
+		Action:    utils.MigrateFlags(dbGet[nist.PrivateKey, nist.PublicKey]),
 		Name:      "get",
 		Usage:     "Show the value of a database key",
 		ArgsUsage: "<hex-encoded key>",
@@ -130,7 +132,7 @@ corruption if it is aborted during execution'!`,
 		Description: "This command looks up the specified database key from the database.",
 	}
 	dbDeleteCmd = cli.Command{
-		Action:    utils.MigrateFlags(dbDelete),
+		Action:    utils.MigrateFlags(dbDelete[nist.PrivateKey, nist.PublicKey]),
 		Name:      "delete",
 		Usage:     "Delete a database key (WARNING: may corrupt your database)",
 		ArgsUsage: "<hex-encoded key>",
@@ -147,7 +149,7 @@ corruption if it is aborted during execution'!`,
 WARNING: This is a low-level operation which may cause database corruption!`,
 	}
 	dbPutCmd = cli.Command{
-		Action:    utils.MigrateFlags(dbPut),
+		Action:    utils.MigrateFlags(dbPut[nist.PrivateKey, nist.PublicKey]),
 		Name:      "put",
 		Usage:     "Set the value of a database key (WARNING: may corrupt your database)",
 		ArgsUsage: "<hex-encoded key> <hex-encoded value>",
@@ -164,7 +166,7 @@ WARNING: This is a low-level operation which may cause database corruption!`,
 WARNING: This is a low-level operation which may cause database corruption!`,
 	}
 	dbGetSlotsCmd = cli.Command{
-		Action:    utils.MigrateFlags(dbDumpTrie),
+		Action:    utils.MigrateFlags(dbDumpTrie[nist.PrivateKey, nist.PublicKey]),
 		Name:      "dumptrie",
 		Usage:     "Show the storage key/values of a given storage trie",
 		ArgsUsage: "<hex-encoded storage trie root> <hex-encoded start (optional)> <int max elements (optional)>",
@@ -180,7 +182,7 @@ WARNING: This is a low-level operation which may cause database corruption!`,
 		Description: "This command looks up the specified database key from the database.",
 	}
 	dbDumpFreezerIndex = cli.Command{
-		Action:    utils.MigrateFlags(freezerInspect),
+		Action:    utils.MigrateFlags(freezerInspect[nist.PrivateKey, nist.PublicKey]),
 		Name:      "freezer-index",
 		Usage:     "Dump out the index of a given freezer type",
 		ArgsUsage: "<type> <start (int)> <end (int)>",
@@ -197,8 +199,8 @@ WARNING: This is a low-level operation which may cause database corruption!`,
 	}
 )
 
-func removeDB(ctx *cli.Context) error {
-	stack, config := makeConfigNode(ctx)
+func removeDB[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, config := makeConfigNode[T,P](ctx)
 
 	// Remove the full node state database
 	path := stack.ResolvePath("chaindata")
@@ -257,7 +259,7 @@ func confirmAndRemoveDB(database string, kind string) {
 	}
 }
 
-func inspect(ctx *cli.Context) error {
+func inspect[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	var (
 		prefix []byte
 		start  []byte
@@ -279,7 +281,7 @@ func inspect(ctx *cli.Context) error {
 			start = d
 		}
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -301,8 +303,8 @@ func showLeveldbStats(db ethdb.Stater) {
 	}
 }
 
-func dbStats(ctx *cli.Context) error {
-	stack, _ := makeConfigNode(ctx)
+func dbStats[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -312,8 +314,8 @@ func dbStats(ctx *cli.Context) error {
 	return nil
 }
 
-func dbCompact(ctx *cli.Context) error {
-	stack, _ := makeConfigNode(ctx)
+func dbCompact[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -333,11 +335,11 @@ func dbCompact(ctx *cli.Context) error {
 }
 
 // dbGet shows the value of a given database key
-func dbGet(ctx *cli.Context) error {
+func dbGet[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -358,11 +360,11 @@ func dbGet(ctx *cli.Context) error {
 }
 
 // dbDelete deletes a key from the database
-func dbDelete(ctx *cli.Context) error {
+func dbDelete[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -385,11 +387,11 @@ func dbDelete(ctx *cli.Context) error {
 }
 
 // dbPut overwrite a value in the database
-func dbPut(ctx *cli.Context) error {
+func dbPut[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 2 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -419,11 +421,11 @@ func dbPut(ctx *cli.Context) error {
 }
 
 // dbDumpTrie shows the key-value slots of a given storage trie
-func dbDumpTrie(ctx *cli.Context) error {
+func dbDumpTrie[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() < 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -468,7 +470,7 @@ func dbDumpTrie(ctx *cli.Context) error {
 	return it.Err
 }
 
-func freezerInspect(ctx *cli.Context) error {
+func freezerInspect[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	var (
 		start, end    int64
 		disableSnappy bool
@@ -496,7 +498,7 @@ func freezerInspect(ctx *cli.Context) error {
 		log.Info("Could read count param", "error", err)
 		return err
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 	path := filepath.Join(stack.ResolvePath("chaindata"), "ancient")
 	log.Info("Opening freezer", "location", path, "name", kind)

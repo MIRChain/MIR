@@ -19,7 +19,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -336,7 +336,7 @@ func (pm *ProtocolManager[T,P]) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) 
 		log.Info(chainExtensionMessage, "hash", pm.blockchain.CurrentBlock().Hash())
 	} else {
 		// added for permissions changes to indicate node sync up has started
-		core.SetSyncStatus()
+		// core.SetSyncStatus()
 		log.Info("blockchain is caught up; no need to synchronize")
 	}
 
@@ -349,7 +349,7 @@ func (pm *ProtocolManager[T,P]) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) 
 
 func (pm *ProtocolManager[T,P]) syncBlockchainUntil(hash common.Hash) {
 	pm.mu.RLock()
-	peerMap := make(map[uint16]*Peer, len(pm.peers))
+	peerMap := make(map[uint16]*Peer[P], len(pm.peers))
 	for raftId, peer := range pm.peers {
 		peerMap[raftId] = peer
 	}
@@ -372,10 +372,10 @@ func (pm *ProtocolManager[T,P]) syncBlockchainUntil(hash common.Hash) {
 	}
 }
 
-func (pm *ProtocolManager[T,P]) logNewlyAcceptedTransactions(preSyncHead *types.Block) {
+func (pm *ProtocolManager[T,P]) logNewlyAcceptedTransactions(preSyncHead *types.Block[P]) {
 	newHead := pm.blockchain.CurrentBlock()
 	numBlocks := newHead.NumberU64() - preSyncHead.NumberU64()
-	blocks := make([]*types.Block, numBlocks)
+	blocks := make([]*types.Block[P], numBlocks)
 	currBlock := newHead
 	blocksSeen := 0
 	for currBlock.Hash() != preSyncHead.Hash() {

@@ -22,17 +22,18 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // chainRetriever is used by the unconfirmed block set to verify whether a previously
 // mined block is part of the canonical chain or not.
-type chainRetriever interface {
+type chainRetriever [P crypto.PublicKey] interface {
 	// GetHeaderByNumber retrieves the canonical header associated with a block number.
 	GetHeaderByNumber(number uint64) *types.Header
 
 	// GetBlockByNumber retrieves the canonical block associated with a block number.
-	GetBlockByNumber(number uint64) *types.Block
+	GetBlockByNumber(number uint64) *types.Block[P]
 }
 
 // unconfirmedBlock is a small collection of metadata about a locally mined block
@@ -46,23 +47,23 @@ type unconfirmedBlock struct {
 // have not yet reached enough maturity to guarantee chain inclusion. It is
 // used by the miner to provide logs to the user when a previously mined block
 // has a high enough guarantee to not be reorged out of the canonical chain.
-type unconfirmedBlocks struct {
-	chain  chainRetriever // Blockchain to verify canonical status through
+type unconfirmedBlocks [P crypto.PublicKey] struct {
+	chain  chainRetriever[P] // Blockchain to verify canonical status through
 	depth  uint           // Depth after which to discard previous blocks
 	blocks *ring.Ring     // Block infos to allow canonical chain cross checks
 	lock   sync.Mutex     // Protects the fields from concurrent access
 }
 
 // newUnconfirmedBlocks returns new data structure to track currently unconfirmed blocks.
-func newUnconfirmedBlocks(chain chainRetriever, depth uint) *unconfirmedBlocks {
-	return &unconfirmedBlocks{
+func newUnconfirmedBlocks[P crypto.PublicKey](chain chainRetriever[P], depth uint) *unconfirmedBlocks[P] {
+	return &unconfirmedBlocks[P]{
 		chain: chain,
 		depth: depth,
 	}
 }
 
 // Insert adds a new block to the set of unconfirmed ones.
-func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
+func (set *unconfirmedBlocks[P]) Insert(index uint64, hash common.Hash) {
 	// If a new block was mined locally, shift out any old enough blocks
 	set.Shift(index)
 
@@ -88,7 +89,7 @@ func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
 // Shift drops all unconfirmed blocks from the set which exceed the unconfirmed sets depth
 // allowance, checking them against the canonical chain for inclusion or staleness
 // report.
-func (set *unconfirmedBlocks) Shift(height uint64) {
+func (set *unconfirmedBlocks[P]) Shift(height uint64) {
 	set.lock.Lock()
 	defer set.lock.Unlock()
 

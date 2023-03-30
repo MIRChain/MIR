@@ -33,6 +33,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/private"
@@ -43,7 +45,7 @@ import (
 
 var (
 	initCommand = cli.Command{
-		Action:    utils.MigrateFlags(initGenesis),
+		Action:    utils.MigrateFlags(initGenesis[nist.PrivateKey, nist.PublicKey]),
 		Name:      "init",
 		Usage:     "Bootstrap and initialize a new genesis block",
 		ArgsUsage: "<genesisPath>",
@@ -59,7 +61,7 @@ participating.
 It expects the genesis file as argument.`,
 	}
 	dumpGenesisCommand = cli.Command{
-		Action:    utils.MigrateFlags(dumpGenesis),
+		Action:    utils.MigrateFlags(dumpGenesis[nist.PublicKey]),
 		Name:      "dumpgenesis",
 		Usage:     "Dumps genesis block JSON configuration to stdout",
 		ArgsUsage: "",
@@ -75,7 +77,7 @@ It expects the genesis file as argument.`,
 The dumpgenesis command dumps the genesis block configuration in JSON format to stdout.`,
 	}
 	importCommand = cli.Command{
-		Action:    utils.MigrateFlags(importChain),
+		Action:    utils.MigrateFlags(importChain[nist.PrivateKey, nist.PublicKey]),
 		Name:      "import",
 		Usage:     "Import a blockchain file",
 		ArgsUsage: "<filename> (<filename 2> ... <filename N>) ",
@@ -108,7 +110,7 @@ If only one file is used, import error will result in failure. If several files 
 processing will proceed even if an individual RLP-file import failure occurs.`,
 	}
 	mpsdbUpgradeCommand = cli.Command{
-		Action:    utils.MigrateFlags(mpsdbUpgrade),
+		Action:    utils.MigrateFlags(mpsdbUpgrade[nist.PrivateKey, nist.PublicKey]),
 		Name:      "mpsdbupgrade",
 		Usage:     "Upgrade a standalone DB to an MPS DB",
 		ArgsUsage: "",
@@ -122,7 +124,7 @@ If true, exits displaying an error message that the DB is already MPS.`,
 		Category: "BLOCKCHAIN COMMANDS",
 	}
 	exportCommand = cli.Command{
-		Action:    utils.MigrateFlags(exportChain),
+		Action:    utils.MigrateFlags(exportChain[nist.PrivateKey, nist.PublicKey]),
 		Name:      "export",
 		Usage:     "Export blockchain into file",
 		ArgsUsage: "<filename> [<blockNumFirst> <blockNumLast>]",
@@ -140,7 +142,7 @@ if already existing. If the file ends with .gz, the output will
 be gzipped.`,
 	}
 	importPreimagesCommand = cli.Command{
-		Action:    utils.MigrateFlags(importPreimages),
+		Action:    utils.MigrateFlags(importPreimages[nist.PrivateKey, nist.PublicKey]),
 		Name:      "import-preimages",
 		Usage:     "Import the preimage database from an RLP stream",
 		ArgsUsage: "<datafile>",
@@ -154,7 +156,7 @@ be gzipped.`,
 	The import-preimages command imports hash preimages from an RLP encoded stream.`,
 	}
 	exportPreimagesCommand = cli.Command{
-		Action:    utils.MigrateFlags(exportPreimages),
+		Action:    utils.MigrateFlags(exportPreimages[nist.PrivateKey, nist.PublicKey]),
 		Name:      "export-preimages",
 		Usage:     "Export the preimage database into an RLP stream",
 		ArgsUsage: "<dumpfile>",
@@ -168,7 +170,7 @@ be gzipped.`,
 The export-preimages command export hash preimages to an RLP encoded stream`,
 	}
 	dumpCommand = cli.Command{
-		Action:    utils.MigrateFlags(dump),
+		Action:    utils.MigrateFlags(dump[nist.PrivateKey, nist.PublicKey]),
 		Name:      "dump",
 		Usage:     "Dump a specific block from storage",
 		ArgsUsage: "[<blockHash> | <blockNum>]...",
@@ -208,7 +210,7 @@ func getIsQuorum(file io.Reader) bool {
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
-func initGenesis(ctx *cli.Context) error {
+func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Make sure we have a valid genesis JSON
 	genesisPath := ctx.Args().First()
 	if len(genesisPath) == 0 {
@@ -220,7 +222,7 @@ func initGenesis(ctx *cli.Context) error {
 	}
 	defer file.Close()
 
-	genesis := new(core.Genesis)
+	genesis := new(core.Genesis[P])
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
@@ -258,7 +260,7 @@ func initGenesis(ctx *cli.Context) error {
 	// End Quorum
 
 	// Open and initialise both full and light databases
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	for _, name := range []string{"chaindata", "lightchaindata"} {
@@ -276,11 +278,11 @@ func initGenesis(ctx *cli.Context) error {
 	return nil
 }
 
-func dumpGenesis(ctx *cli.Context) error {
+func dumpGenesis[P crypto.PublicKey](ctx *cli.Context) error {
 	// TODO(rjl493456442) support loading from the custom datadir
-	genesis := utils.MakeGenesis(ctx)
+	genesis := utils.MakeGenesis[P](ctx)
 	if genesis == nil {
-		genesis = core.DefaultGenesisBlock()
+		genesis = core.DefaultGenesisBlock[P]()
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(genesis); err != nil {
 		utils.Fatalf("could not encode genesis")
@@ -288,7 +290,7 @@ func dumpGenesis(ctx *cli.Context) error {
 	return nil
 }
 
-func importChain(ctx *cli.Context) error {
+func importChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
@@ -297,7 +299,7 @@ func importChain(ctx *cli.Context) error {
 	// Start system runtime metrics collection
 	go metrics.CollectProcessMetrics(3 * time.Second)
 
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	chain, db := utils.MakeChain(ctx, stack, true)
@@ -324,13 +326,13 @@ func importChain(ctx *cli.Context) error {
 	var importErr error
 
 	if len(ctx.Args()) == 1 {
-		if err := utils.ImportChain(chain, ctx.Args().First()); err != nil {
+		if err := utils.ImportChain[T,P](chain, ctx.Args().First()); err != nil {
 			importErr = err
 			log.Error("Import error", "err", err)
 		}
 	} else {
 		for _, arg := range ctx.Args() {
-			if err := utils.ImportChain(chain, arg); err != nil {
+			if err := utils.ImportChain[T,P](chain, arg); err != nil {
 				importErr = err
 				log.Error("Import error", "file", arg, "err", err)
 			}
@@ -367,12 +369,12 @@ func importChain(ctx *cli.Context) error {
 	return importErr
 }
 
-func mpsdbUpgrade(ctx *cli.Context) error {
-	stack, _ := makeConfigNode(ctx)
+func mpsdbUpgrade[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	// initialise the tx manager with the dummy tx mgr
-	private.P = &notinuse.DBUpgradePrivateTransactionManager{}
+	private.Ptm = &notinuse.DBUpgradePrivateTransactionManager{}
 
 	chain, db := utils.MakeChain(ctx, stack, true)
 
@@ -383,15 +385,15 @@ func mpsdbUpgrade(ctx *cli.Context) error {
 	currentBlockNumber := chain.CurrentBlock().Number().Int64()
 	fmt.Printf("Current block number %v\n", currentBlockNumber)
 
-	return mps.UpgradeDB(db, chain)
+	return mps.UpgradeDB[P](db, chain)
 }
 
-func exportChain(ctx *cli.Context) error {
+func exportChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	chain, _ := utils.MakeChain(ctx, stack, true)
@@ -425,12 +427,12 @@ func exportChain(ctx *cli.Context) error {
 }
 
 // importPreimages imports preimage data from the specified file.
-func importPreimages(ctx *cli.Context) error {
+func importPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -444,12 +446,12 @@ func importPreimages(ctx *cli.Context) error {
 }
 
 // exportPreimages dumps the preimage data to specified json file in streaming way.
-func exportPreimages(ctx *cli.Context) error {
+func exportPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -462,8 +464,8 @@ func exportPreimages(ctx *cli.Context) error {
 	return nil
 }
 
-func dump(ctx *cli.Context) error {
-	stack, _ := makeConfigNode(ctx)
+func dump[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, _ := makeConfigNode[T,P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)

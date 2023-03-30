@@ -204,7 +204,7 @@ func (api *ExternalSigner[P]) SignTx(account accounts.Account, tx *types.Transac
 		t := common.NewMixedcaseAddress(*tx.To())
 		to = &t
 	}
-	args := &core.SendTxArgs{
+	args := &core.SendTxArgs[P]{
 		Data:     &data,
 		Nonce:    hexutil.Uint64(tx.Nonce()),
 		Value:    hexutil.Big(*tx.Value()),

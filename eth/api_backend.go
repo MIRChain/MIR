@@ -41,7 +41,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/miner"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	pcore "github.com/pavelkrolevets/MIR-pro/permission/core"
+	// pcore "github.com/pavelkrolevets/MIR-pro/permission/core"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
@@ -338,9 +338,9 @@ func (b *EthAPIBackend[T,P]) SubscribeLogsEvent(ch chan<- []*types.Log) event.Su
 func (b *EthAPIBackend[T,P]) SendTx(ctx context.Context, signedTx *types.Transaction[P]) error {
 	// validation for node need to happen here and cannot be done as a part of
 	// validateTx in tx_pool.go as tx_pool validation will happen in every node
-	if b.hexNodeId != "" && !pcore.ValidateNodeForTxn[P](b.hexNodeId, signedTx.From()) {
-		return errors.New("cannot send transaction from this node")
-	}
+	// if b.hexNodeId != "" && !pcore.ValidateNodeForTxn[P](b.hexNodeId, signedTx.From()) {
+	// 	return errors.New("cannot send transaction from this node")
+	// }
 	return b.eth.txPool.AddLocal(signedTx)
 }
 
@@ -444,7 +444,7 @@ func (b *EthAPIBackend[T,P]) CurrentHeader() *types.Header {
 	return b.eth.blockchain.CurrentHeader()
 }
 
-func (b *EthAPIBackend[T,P]) Miner() *miner.Miner {
+func (b *EthAPIBackend[T,P]) Miner() *miner.Miner[T,P] {
 	return b.eth.Miner()
 }
 
@@ -452,11 +452,11 @@ func (b *EthAPIBackend[T,P]) StartMining(threads int) error {
 	return b.eth.StartMining(threads)
 }
 
-func (b *EthAPIBackend[T,P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository, error) {
+func (b *EthAPIBackend[T,P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error) {
 	return b.eth.stateAtBlock(block, reexec, base, checkLive)
 }
 
-func (b *EthAPIBackend[T,P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository, error) {
+func (b *EthAPIBackend[T,P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
 	return b.eth.stateAtTransaction(ctx, block, txIndex, reexec)
 }
 

@@ -18,7 +18,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"flag"
 	"fmt"
 	"net"
@@ -26,6 +25,9 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -46,7 +48,8 @@ func main() {
 		verbosity   = flag.Int("verbosity", int(log.LvlInfo), "log verbosity (0-5)")
 		vmodule     = flag.String("vmodule", "", "log verbosity pattern")
 
-		nodeKey *ecdsa.PrivateKey
+		cryptoType     = flag.String("crypto", "nist", "type of crypto to use")
+		// nodeKey *ecdsa.PrivateKey
 		err     error
 	)
 	flag.Parse()
@@ -56,13 +59,35 @@ func main() {
 	glogger.Vmodule(*vmodule)
 	log.Root().SetHandler(glogger)
 
+	if *cryptoType == "nist" {
+		runNode[nist.PrivateKey, nist.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+	} else if *cryptoType == "gost" {
+		runNode[gost3410.PrivateKey, gost3410.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+	} else if *cryptoType == "csp"{
+		runNode[csp.Cert, csp.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+	}
+	select {}
+}
+
+func printNotice[P crypto.PublicKey](nodeKey P, addr net.UDPAddr) {
+	if addr.IP.IsUnspecified() {
+		addr.IP = net.IP{127, 0, 0, 1}
+	}
+	n := enode.NewV4[P](nodeKey, addr.IP, 0, addr.Port)
+	fmt.Println(n.URLv4())
+	fmt.Println("Note: you're using cmd/bootnode, a developer tool.")
+	fmt.Println("We recommend using a regular node as bootstrap node for production deployments.")
+}
+
+func runNode[T crypto.PrivateKey, P crypto.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict *string, writeAddr, runv5 *bool, err error){
+	var nodeKey T
 	natm, err := nat.Parse(*natdesc)
 	if err != nil {
 		utils.Fatalf("-nat: %v", err)
 	}
 	switch {
 	case *genKey != "":
-		nodeKey, err = crypto.GenerateKey()
+		nodeKey, err = crypto.GenerateKey[T]()
 		if err != nil {
 			utils.Fatalf("could not generate key: %v", err)
 		}
@@ -77,20 +102,27 @@ func main() {
 	case *nodeKeyFile != "" && *nodeKeyHex != "":
 		utils.Fatalf("Options -nodekey and -nodekeyhex are mutually exclusive")
 	case *nodeKeyFile != "":
-		if nodeKey, err = crypto.LoadECDSA(*nodeKeyFile); err != nil {
+		if nodeKey, err = crypto.LoadECDSA[T](*nodeKeyFile); err != nil {
 			utils.Fatalf("-nodekey: %v", err)
 		}
 	case *nodeKeyHex != "":
-		if nodeKey, err = crypto.HexToECDSA(*nodeKeyHex); err != nil {
+		if nodeKey, err = crypto.HexToECDSA[T](*nodeKeyHex); err != nil {
 			utils.Fatalf("-nodekeyhex: %v", err)
 		}
 	}
-
+	var pub P
+	switch t:=any(&nodeKey).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
 	if *writeAddr {
-		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+		fmt.Printf("%x\n", crypto.FromECDSAPub(pub)[1:])
 		os.Exit(0)
 	}
-
 	var restrictList *netutil.Netlist
 	if *netrestrict != "" {
 		restrictList, err = netutil.ParseNetlist(*netrestrict)
@@ -117,12 +149,10 @@ func main() {
 			realaddr = &net.UDPAddr{IP: ext, Port: realaddr.Port}
 		}
 	}
-
-	printNotice(&nodeKey.PublicKey, *realaddr)
-
-	db, _ := enode.OpenDB("")
+	printNotice(pub, *realaddr)
+	db, _ := enode.OpenDB[P]("")
 	ln := enode.NewLocalNode(db, nodeKey)
-	cfg := discover.Config{
+	cfg := discover.Config[T,P]{
 		PrivateKey:  nodeKey,
 		NetRestrict: restrictList,
 	}
@@ -135,16 +165,4 @@ func main() {
 			utils.Fatalf("%v", err)
 		}
 	}
-
-	select {}
-}
-
-func printNotice(nodeKey *ecdsa.PublicKey, addr net.UDPAddr) {
-	if addr.IP.IsUnspecified() {
-		addr.IP = net.IP{127, 0, 0, 1}
-	}
-	n := enode.NewV4(nodeKey, addr.IP, 0, addr.Port)
-	fmt.Println(n.URLv4())
-	fmt.Println("Note: you're using cmd/bootnode, a developer tool.")
-	fmt.Println("We recommend using a regular node as bootstrap node for production deployments.")
 }

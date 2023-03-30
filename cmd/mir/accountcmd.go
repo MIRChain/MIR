@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -47,7 +48,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 				Name:      "import",
 				Usage:     "Import Ethereum presale wallet",
 				ArgsUsage: "<keyFile>",
-				Action:    utils.MigrateFlags(importWallet),
+				Action:    utils.MigrateFlags(importWallet[nist.PrivateKey, nist.PublicKey]),
 				Category:  "ACCOUNT COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -93,7 +94,7 @@ Make sure you backup your keys regularly.`,
 			{
 				Name:   "list",
 				Usage:  "Print summary of existing accounts",
-				Action: utils.MigrateFlags(accountList),
+				Action: utils.MigrateFlags(accountList[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
@@ -104,7 +105,7 @@ Print a short summary of all accounts`,
 			{
 				Name:   "new",
 				Usage:  "Create a new account",
-				Action: utils.MigrateFlags(accountCreate),
+				Action: utils.MigrateFlags(accountCreate[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
@@ -129,7 +130,7 @@ password to file or expose in any other way.
 			{
 				Name:      "update",
 				Usage:     "Update an existing account",
-				Action:    utils.MigrateFlags(accountUpdate),
+				Action:    utils.MigrateFlags(accountUpdate[nist.PrivateKey, nist.PublicKey]),
 				ArgsUsage: "<address>",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -158,7 +159,7 @@ changing your password is only possible interactively.
 			{
 				Name:   "import",
 				Usage:  "Import a private key into a new account",
-				Action: utils.MigrateFlags(accountImport),
+				Action: utils.MigrateFlags(accountImport[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
@@ -193,8 +194,8 @@ nodes.
 	}
 )
 
-func accountList(ctx *cli.Context) error {
-	stack, _ := makeConfigNode(ctx)
+func accountList[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	stack, _ := makeConfigNode[T,P](ctx)
 	var index int
 	for _, wallet := range stack.AccountManager().Wallets() {
 		for _, account := range wallet.Accounts() {
@@ -206,7 +207,7 @@ func accountList(ctx *cli.Context) error {
 }
 
 // tries unlocking the specified account a few times.
-func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []string) (accounts.Account, string) {
+func unlockAccount[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T,P], address string, i int, passwords []string) (accounts.Account, string) {
 	account, err := utils.MakeAddress(ks, address)
 	if err != nil {
 		utils.Fatalf("Could not list accounts: %v", err)
@@ -234,7 +235,7 @@ func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []str
 	return accounts.Account{}, ""
 }
 
-func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrError, auth string) accounts.Account {
+func ambiguousAddrRecovery[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T,P], err *keystore.AmbiguousAddrError, auth string) accounts.Account {
 	fmt.Printf("Multiple key files exist for address %x:\n", err.Addr)
 	for _, a := range err.Matches {
 		fmt.Println("  ", a.URL)
@@ -261,8 +262,8 @@ func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrErr
 }
 
 // accountCreate creates a new account into the keystore defined by the CLI flags.
-func accountCreate(ctx *cli.Context) error {
-	cfg := gethConfig{Node: defaultNodeConfig()}
+func accountCreate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	cfg := gethConfig[T,P]{Node: defaultNodeConfig[T,P]()}
 	// Load config file.
 	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 		if err := loadConfig(file, &cfg); err != nil {
@@ -278,7 +279,7 @@ func accountCreate(ctx *cli.Context) error {
 
 	password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-	account, err := keystore.StoreKey(keydir, password, scryptN, scryptP)
+	account, err := keystore.StoreKey[T,P](keydir, password, scryptN, scryptP)
 
 	if err != nil {
 		utils.Fatalf("Failed to create account: %v", err)
@@ -300,7 +301,7 @@ func accountUpdate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 		utils.Fatalf("No accounts specified to update")
 	}
 	stack, _ := makeConfigNode[T,P](ctx)
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
 
 	for _, addr := range ctx.Args() {
 		account, oldPassword := unlockAccount(ks, addr, 0, nil)
@@ -312,7 +313,7 @@ func accountUpdate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 	return nil
 }
 
-func importWallet(ctx *cli.Context) error {
+func importWallet[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	keyfile := ctx.Args().First()
 	if len(keyfile) == 0 {
 		utils.Fatalf("keyfile must be given as argument")
@@ -322,10 +323,10 @@ func importWallet(ctx *cli.Context) error {
 		utils.Fatalf("Could not read wallet file: %v", err)
 	}
 
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
 
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
 	acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
 	if err != nil {
 		utils.Fatalf("%v", err)
@@ -334,19 +335,19 @@ func importWallet(ctx *cli.Context) error {
 	return nil
 }
 
-func accountImport(ctx *cli.Context) error {
+func accountImport[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	keyfile := ctx.Args().First()
 	if len(keyfile) == 0 {
 		utils.Fatalf("keyfile must be given as argument")
 	}
-	key, err := crypto.LoadECDSA(keyfile)
+	key, err := crypto.LoadECDSA[T](keyfile)
 	if err != nil {
 		utils.Fatalf("Failed to load the private key: %v", err)
 	}
-	stack, _ := makeConfigNode(ctx)
+	stack, _ := makeConfigNode[T,P](ctx)
 	passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
 	acct, err := ks.ImportECDSA(key, passphrase)
 	if err != nil {
 		utils.Fatalf("Could not create the account: %v", err)

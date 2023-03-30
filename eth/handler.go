@@ -90,7 +90,7 @@ type txPool [P crypto.PublicKey] interface {
 
 // handlerConfig is the collection of initialization parameters to create a full
 // node network handler.
-type handlerConfig [P crypto.PublicKey] struct {
+type handlerConfig [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	Database   ethdb.Database            // Database for direct sync insertions
 	Chain      *core.BlockChain[P]          // Blockchain to serve data from
 	TxPool     txPool[P]                    // Transaction pool to propagate from
@@ -110,10 +110,10 @@ type handlerConfig [P crypto.PublicKey] struct {
 	// client
 	psi                string
 	privateClientCache qlight.PrivateClientCache
-	tokenHolder        *qlight.TokenHolder
+	tokenHolder        *qlight.TokenHolder[T,P]
 	// server
 	authProvider             qlight.AuthProvider
-	privateBlockDataResolver qlight.PrivateBlockDataResolver
+	privateBlockDataResolver qlight.PrivateBlockDataResolver[P]
 }
 
 type handler [T crypto.PrivateKey, P crypto.PublicKey] struct {
@@ -156,7 +156,7 @@ type handler [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Quorum
 	raftMode    bool
 	engine      consensus.Engine[P]
-	tokenHolder *qlight.TokenHolder
+	tokenHolder *qlight.TokenHolder[T,P]
 
 	// Test fields or hooks
 	broadcastTxAnnouncesOnly bool // Testing field, disable transaction propagation
@@ -167,18 +167,18 @@ type handler [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	privateClientCache qlight.PrivateClientCache
 	// server
 	authProvider             qlight.AuthProvider
-	privateBlockDataResolver qlight.PrivateBlockDataResolver
+	privateBlockDataResolver qlight.PrivateBlockDataResolver[P]
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
-func newHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[P]) (*handler[T,P], error) {
+func newHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T,P]) (*handler[T,P], error) {
 	// Create the protocol manager with the base fields
 	if config.EventMux == nil {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
 	h := &handler[T,P]{
 		networkID:  config.Network,
-		forkFilter: forkid.NewFilter(config.Chain),
+		forkFilter: forkid.NewFilter[P](config.Chain),
 		eventMux:   config.EventMux,
 		database:   config.Database,
 		txpool:     config.TxPool,
@@ -680,7 +680,7 @@ func (h *handler[T,P]) getConsensusAlgorithm() string {
 		switch h.engine.(type) {
 		case consensus.Istanbul[P]:
 			consensusAlgo = "istanbul"
-		case *clique.Clique:
+		case *clique.Clique[P]:
 			consensusAlgo = "clique"
 		case *ethash.Ethash[P]:
 			consensusAlgo = "ethash"

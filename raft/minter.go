@@ -17,7 +17,6 @@
 package raft
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -32,8 +31,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -47,31 +44,31 @@ var (
 )
 
 // Current state information for building the next block
-type work struct {
+type work [P crypto.PublicKey] struct {
 	config       *params.ChainConfig
 	publicState  *state.StateDB
 	privateState *state.StateDB
-	Block        *types.Block
+	Block        *types.Block[P]
 	header       *types.Header
 }
 
-type minter [T crypto.PrivateKey]  struct {
+type minter [T crypto.PrivateKey, P crypto.PublicKey]  struct {
 	config           *params.ChainConfig
 	mu               sync.Mutex
 	mux              *event.TypeMux
-	eth              *RaftService[T]
-	chain            *core.BlockChain
+	eth              *RaftService[T,P]
+	chain            *core.BlockChain[P]
 	chainDb          ethdb.Database
 	coinbase         common.Address
 	minting          int32 // Atomic status counter
 	shouldMine       *channels.RingChannel
 	blockTime        time.Duration
-	speculativeChain *speculativeChain
+	speculativeChain *speculativeChain[P]
 
-	invalidRaftOrderingChan chan InvalidRaftOrdering
-	chainHeadChan           chan core.ChainHeadEvent
+	invalidRaftOrderingChan chan InvalidRaftOrdering[P]
+	chainHeadChan           chan core.ChainHeadEvent[P]
 	chainHeadSub            event.Subscription
-	txPreChan               chan core.NewTxsEvent
+	txPreChan               chan core.NewTxsEvent[P]
 	txPreSub                event.Subscription
 }
 
@@ -80,8 +77,8 @@ type extraSeal struct {
 	Signature []byte // Signature of the block minter
 }
 
-func newMinter[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](config *params.ChainConfig, eth *RaftService[T], blockTime time.Duration, etherbase common.Address) *minter[T] {
-	minter := &minter[T]{
+func newMinter[T crypto.PrivateKey, P crypto.PublicKey](config *params.ChainConfig, eth *RaftService[T,P], blockTime time.Duration, etherbase common.Address) *minter[T,P] {
+	minter := &minter[T,P]{
 		config:           config,
 		eth:              eth,
 		mux:              eth.EventMux(),
@@ -89,12 +86,12 @@ func newMinter[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](config *par
 		chain:            eth.BlockChain(),
 		shouldMine:       channels.NewRingChannel(1),
 		blockTime:        blockTime,
-		speculativeChain: newSpeculativeChain(),
+		speculativeChain: newSpeculativeChain[P](),
 		coinbase:         etherbase, //Quorum
 
-		invalidRaftOrderingChan: make(chan InvalidRaftOrdering, 1),
-		chainHeadChan:           make(chan core.ChainHeadEvent, core.GetChainHeadChannleSize()),
-		txPreChan:               make(chan core.NewTxsEvent, 4096),
+		invalidRaftOrderingChan: make(chan InvalidRaftOrdering[P], 1),
+		chainHeadChan:           make(chan core.ChainHeadEvent[P], core.GetChainHeadChannleSize()),
+		txPreChan:               make(chan core.NewTxsEvent[P], 4096),
 	}
 
 	minter.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(minter.chainHeadChan)
@@ -108,12 +105,12 @@ func newMinter[T ecdsa.PrivateKey | gost3410.PrivateKey | csp.Cert ](config *par
 	return minter
 }
 
-func (minter *minter[T]) start() {
+func (minter *minter[T,P]) start() {
 	atomic.StoreInt32(&minter.minting, 1)
 	minter.requestMinting()
 }
 
-func (minter *minter[T]) stop() {
+func (minter *minter[T,P]) stop() {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
@@ -124,20 +121,20 @@ func (minter *minter[T]) stop() {
 // Notify the minting loop that minting should occur, if it's not already been
 // requested. Due to the use of a RingChannel, this function is idempotent if
 // called multiple times before the minting occurs.
-func (minter *minter[T]) requestMinting() {
+func (minter *minter[T,P]) requestMinting() {
 	minter.shouldMine.In() <- struct{}{}
 }
 
-type AddressTxes map[common.Address]types.Transactions
+type AddressTxes[P crypto.PublicKey] map[common.Address]types.Transactions[P]
 
-func (minter *minter[T]) updateSpeculativeChainPerNewHead(newHeadBlock *types.Block) {
+func (minter *minter[T,P]) updateSpeculativeChainPerNewHead(newHeadBlock *types.Block[P]) {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
 	minter.speculativeChain.accept(newHeadBlock)
 }
 
-func (minter *minter[T]) updateSpeculativeChainPerInvalidOrdering(headBlock *types.Block, invalidBlock *types.Block) {
+func (minter *minter[T,P]) updateSpeculativeChainPerInvalidOrdering(headBlock *types.Block[P], invalidBlock *types.Block[P]) {
 	invalidHash := invalidBlock.Hash()
 
 	log.Info("Handling InvalidRaftOrdering", "invalid block", invalidHash, "current head", headBlock.Hash())
@@ -155,7 +152,7 @@ func (minter *minter[T]) updateSpeculativeChainPerInvalidOrdering(headBlock *typ
 	minter.speculativeChain.unwindFrom(invalidHash, headBlock)
 }
 
-func (minter *minter[T]) eventLoop() {
+func (minter *minter[T,P]) eventLoop() {
 	defer minter.chainHeadSub.Unsubscribe()
 	defer minter.txPreSub.Unsubscribe()
 
@@ -232,7 +229,7 @@ func throttle(rate time.Duration, f func()) func() {
 //   1. A block is guaranteed to be minted within `blockTime` of being
 //      requested.
 //   2. We never mint a block more frequently than `blockTime`.
-func (minter *minter[T]) mintingLoop() {
+func (minter *minter[T,P]) mintingLoop() {
 	throttledMintNewBlock := throttle(minter.blockTime, func() {
 		if atomic.LoadInt32(&minter.minting) == 1 {
 			minter.mintNewBlock()
@@ -244,7 +241,7 @@ func (minter *minter[T]) mintingLoop() {
 	}
 }
 
-func generateNanoTimestamp(parent *types.Block) (tstamp int64) {
+func generateNanoTimestamp[P crypto.PublicKey](parent *types.Block[P]) (tstamp int64) {
 	parentTime := int64(parent.Time())
 	tstamp = time.Now().UnixNano()
 
@@ -257,7 +254,7 @@ func generateNanoTimestamp(parent *types.Block) (tstamp int64) {
 }
 
 // Assumes mu is held.
-func (minter *minter[T]) createWork() *work {
+func (minter *minter[T,P]) createWork() *work[P] {
 	parent := minter.speculativeChain.head
 	parentNumber := parent.Number()
 	tstamp := generateNanoTimestamp(parent)
@@ -291,7 +288,7 @@ func (minter *minter[T]) createWork() *work {
 		panic(fmt.Sprint("failed to get default private state: ", err))
 	}
 
-	return &work{
+	return &work[P]{
 		config:       minter.config,
 		publicState:  publicState,
 		privateState: defaultPrivateState,
@@ -299,18 +296,18 @@ func (minter *minter[T]) createWork() *work {
 	}
 }
 
-func (minter *minter[T]) getTransactions() *types.TransactionsByPriceAndNonce {
+func (minter *minter[T,P]) getTransactions() *types.TransactionsByPriceAndNonce[P] {
 	allAddrTxes, err := minter.eth.TxPool().Pending()
 	if err != nil { // TODO: handle
 		panic(err)
 	}
 	addrTxes := minter.speculativeChain.withoutProposedTxes(allAddrTxes)
-	signer := types.MakeSigner(minter.chain.Config(), minter.chain.CurrentBlock().Number())
+	signer := types.MakeSigner[P](minter.chain.Config(), minter.chain.CurrentBlock().Number())
 	return types.NewTransactionsByPriceAndNonce(signer, addrTxes)
 }
 
 // Sends-off events asynchronously.
-func (minter *minter[T]) firePendingBlockEvents(logs []*types.Log) {
+func (minter *minter[T,P]) firePendingBlockEvents(logs []*types.Log) {
 	// Copy logs before we mutate them, adding a block hash.
 	copiedLogs := make([]*types.Log, len(logs))
 	for i, l := range logs {
@@ -324,7 +321,7 @@ func (minter *minter[T]) firePendingBlockEvents(logs []*types.Log) {
 	}()
 }
 
-func (minter *minter[T]) mintNewBlock() {
+func (minter *minter[T,P]) mintNewBlock() {
 	minter.mu.Lock()
 	defer minter.mu.Unlock()
 
@@ -373,17 +370,17 @@ func (minter *minter[T]) mintNewBlock() {
 
 	minter.speculativeChain.extend(block)
 
-	minter.mux.Post(core.NewMinedBlockEvent{Block: block})
+	minter.mux.Post(core.NewMinedBlockEvent[P]{Block: block})
 
 	elapsed := time.Since(time.Unix(0, int64(header.Time)))
 	log.Info("🔨  Mined block", "number", block.Number(), "hash", fmt.Sprintf("%x", block.Hash().Bytes()[:4]), "elapsed", elapsed)
 }
 
-func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc *core.BlockChain) (types.Transactions, types.Receipts, types.Receipts, []*types.Log) {
+func (env *work[P]) commitTransactions(txes *types.TransactionsByPriceAndNonce[P], bc *core.BlockChain[P]) (types.Transactions[P], types.Receipts[P], types.Receipts[P], []*types.Log) {
 	var allLogs []*types.Log
-	var committedTxes types.Transactions
-	var publicReceipts types.Receipts
-	var privateReceipts types.Receipts
+	var committedTxes types.Transactions[P]
+	var publicReceipts types.Receipts[P]
+	var privateReceipts types.Receipts[P]
 
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	txCount := 0
@@ -421,15 +418,15 @@ func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc 
 	return committedTxes, publicReceipts, privateReceipts, allLogs
 }
 
-func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (*types.Receipt, *types.Receipt, error) {
+func (env *work[P]) commitTransaction(tx *types.Transaction[P], bc *core.BlockChain[P], gp *core.GasPool) (*types.Receipt[P], *types.Receipt[P], error) {
 	publicSnapshot := env.publicState.Snapshot()
 	privateSnapshot := env.privateState.Snapshot()
 
 	var author *common.Address
-	var vmConf vm.Config
+	var vmConf vm.Config[P]
 	txnStart := time.Now()
 	// Note that raft minter doesn't care about private state etc, hence can pass forceNonParty=true and privateStateRepo=nil
-	publicReceipt, privateReceipt, err := core.ApplyTransaction(env.config, bc, author, gp, env.publicState, env.privateState, env.header, tx, &env.header.GasUsed, vmConf, false, nil, false)
+	publicReceipt, privateReceipt, err := core.ApplyTransaction[P](env.config, bc, author, gp, env.publicState, env.privateState, env.header, tx, &env.header.GasUsed, vmConf, false, nil, false)
 	if err != nil {
 		env.publicState.RevertToSnapshot(publicSnapshot)
 		env.privateState.RevertToSnapshot(privateSnapshot)
@@ -441,7 +438,7 @@ func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, g
 	return publicReceipt, privateReceipt, nil
 }
 
-func (minter *minter[T]) buildExtraSeal(headerHash common.Hash) []byte {
+func (minter *minter[T,P]) buildExtraSeal(headerHash common.Hash) []byte {
 	//Sign the headerHash
 	nodeKey := minter.eth.nodeKey
 	sig, err := crypto.Sign(headerHash.Bytes(), nodeKey)

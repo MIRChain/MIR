@@ -41,7 +41,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
 )
 
 const (
@@ -1059,9 +1059,9 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 		}
 
 		if srv.isNodePermissionedFunc == nil {
-			if !core.IsNodePermissioned[P](nodeId, currentNode, srv.DataDir, direction) {
-				return newPeerError(errPermissionDenied, "id=%s…%s %s id=%s…%s", currentNode[:4], currentNode[len(currentNode)-4:], direction, nodeId[:4], nodeId[len(nodeId)-4:])
-			}
+			// if !core.IsNodePermissioned[P](nodeId, currentNode, srv.DataDir, direction) {
+			// 	return newPeerError(errPermissionDenied, "id=%s…%s %s id=%s…%s", currentNode[:4], currentNode[len(currentNode)-4:], direction, nodeId[:4], nodeId[len(nodeId)-4:])
+			// }
 		} else if !srv.isNodePermissionedFunc(node, nodeId, currentNode, srv.DataDir, direction) {
 			return newPeerError(errPermissionDenied, "id=%s…%s %s id=%s…%s", currentNode[:4], currentNode[len(currentNode)-4:], direction, nodeId[:4], nodeId[len(nodeId)-4:])
 		}

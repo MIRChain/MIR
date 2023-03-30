@@ -45,6 +45,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/gorilla/websocket"
 )
 
@@ -61,32 +62,32 @@ const (
 )
 
 // backend encompasses the bare-minimum functionality needed for ethstats reporting
-type backend interface {
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
-	SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription
+type backend [T crypto.PrivateKey, P crypto.PublicKey]  interface {
+	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription
+	SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent[P]) event.Subscription
 	CurrentHeader() *types.Header
 	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
 	GetTd(ctx context.Context, hash common.Hash) *big.Int
 	Stats() (pending int, queued int)
-	Downloader() *downloader.Downloader
+	Downloader() *downloader.Downloader[T,P]
 }
 
 // fullNodeBackend encompasses the functionality necessary for a full node
 // reporting to ethstats
-type fullNodeBackend interface {
-	backend
-	Miner() *miner.Miner
-	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
-	CurrentBlock() *types.Block
+type fullNodeBackend [T crypto.PrivateKey, P crypto.PublicKey] interface {
+	backend[T,P]
+	Miner() *miner.Miner[T,P]
+	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
+	CurrentBlock() *types.Block[P]
 	SuggestPrice(ctx context.Context) (*big.Int, error)
 }
 
 // Service implements an Ethereum netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
-type Service struct {
-	server  *p2p.Server // Peer-to-peer server to retrieve networking infos
-	backend backend
-	engine  consensus.Engine // Consensus engine to retrieve variadic block fields
+type Service [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	server  *p2p.Server[T,P] // Peer-to-peer server to retrieve networking infos
+	backend backend[T,P]
+	engine  consensus.Engine[P] // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -145,14 +146,14 @@ func (w *connWrapper) Close() error {
 }
 
 // New returns a monitoring service ready for stats reporting.
-func New(node *node.Node, backend backend, engine consensus.Engine, url string) error {
+func New[T crypto.PrivateKey, P crypto.PublicKey](node *node.Node[T,P], backend backend[T,P], engine consensus.Engine[P], url string) error {
 	// Parse the netstats connection url
 	re := regexp.MustCompile("([^:@]*)(:([^@]*))?@(.+)")
 	parts := re.FindStringSubmatch(url)
 	if len(parts) != 5 {
 		return fmt.Errorf("invalid netstats url: \"%s\", should be nodename:secret@host:port", url)
 	}
-	ethstats := &Service{
+	ethstats := &Service[T,P]{
 		backend: backend,
 		engine:  engine,
 		server:  node.Server(),
@@ -168,11 +169,11 @@ func New(node *node.Node, backend backend, engine consensus.Engine, url string) 
 }
 
 // Start implements node.Lifecycle, starting up the monitoring and reporting daemon.
-func (s *Service) Start() error {
+func (s *Service[T,P]) Start() error {
 	// Subscribe to chain events to execute updates on
-	chainHeadCh := make(chan core.ChainHeadEvent, chainHeadChanSize)
+	chainHeadCh := make(chan core.ChainHeadEvent[P], chainHeadChanSize)
 	s.headSub = s.backend.SubscribeChainHeadEvent(chainHeadCh)
-	txEventCh := make(chan core.NewTxsEvent, txChanSize)
+	txEventCh := make(chan core.NewTxsEvent[P], txChanSize)
 	s.txSub = s.backend.SubscribeNewTxsEvent(txEventCh)
 	go s.loop(chainHeadCh, txEventCh)
 
@@ -181,7 +182,7 @@ func (s *Service) Start() error {
 }
 
 // Stop implements node.Lifecycle, terminating the monitoring and reporting daemon.
-func (s *Service) Stop() error {
+func (s *Service[T,P]) Stop() error {
 	s.headSub.Unsubscribe()
 	s.txSub.Unsubscribe()
 	log.Info("Stats daemon stopped")
@@ -190,11 +191,11 @@ func (s *Service) Stop() error {
 
 // loop keeps trying to connect to the netstats server, reporting chain events
 // until termination.
-func (s *Service) loop(chainHeadCh chan core.ChainHeadEvent, txEventCh chan core.NewTxsEvent) {
+func (s *Service[T,P]) loop(chainHeadCh chan core.ChainHeadEvent[P], txEventCh chan core.NewTxsEvent[P]) {
 	// Start a goroutine that exhausts the subscriptions to avoid events piling up
 	var (
 		quitCh = make(chan struct{})
-		headCh = make(chan *types.Block, 1)
+		headCh = make(chan *types.Block[P], 1)
 		txCh   = make(chan struct{}, 1)
 	)
 	go func() {
@@ -331,7 +332,7 @@ func (s *Service) loop(chainHeadCh chan core.ChainHeadEvent, txEventCh chan core
 // from the network socket. If any of them match an active request, it forwards
 // it, if they themselves are requests it initiates a reply, and lastly it drops
 // unknown packets.
-func (s *Service) readLoop(conn *connWrapper) {
+func (s *Service[T,P]) readLoop(conn *connWrapper) {
 	// If the read loop exists, close the connection
 	defer conn.Close()
 
@@ -440,7 +441,7 @@ type authMsg struct {
 }
 
 // login tries to authorize the client at the remote server.
-func (s *Service) login(conn *connWrapper) error {
+func (s *Service[T,P]) login(conn *connWrapper) error {
 	// Construct and send the login authentication
 	infos := s.server.NodeInfo()
 
@@ -453,9 +454,10 @@ func (s *Service) login(conn *connWrapper) error {
 	p := s.engine.Protocol()
 	if info := infos.Protocols[p.Name]; info != nil {
 		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
-	} else {
-		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
 	}
+	// } else {
+	// 	network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
+	// }
 	auth := &authMsg{
 		ID: s.node,
 		Info: nodeInfo{
@@ -489,7 +491,7 @@ func (s *Service) login(conn *connWrapper) error {
 // report collects all possible data to report and send it to the stats server.
 // This should only be used on reconnects or rarely to avoid overloading the
 // server. Use the individual methods for reporting subscribed events.
-func (s *Service) report(conn *connWrapper) error {
+func (s *Service[T,P]) report(conn *connWrapper) error {
 	if err := s.reportLatency(conn); err != nil {
 		return err
 	}
@@ -507,7 +509,7 @@ func (s *Service) report(conn *connWrapper) error {
 
 // reportLatency sends a ping request to the server, measures the RTT time and
 // finally sends a latency update.
-func (s *Service) reportLatency(conn *connWrapper) error {
+func (s *Service[T,P]) reportLatency(conn *connWrapper) error {
 	// Send the current time to the ethstats server
 	start := time.Now()
 
@@ -576,7 +578,7 @@ func (s uncleStats) MarshalJSON() ([]byte, error) {
 }
 
 // reportBlock retrieves the current chain head and reports it to the stats server.
-func (s *Service) reportBlock(conn *connWrapper, block *types.Block) error {
+func (s *Service[T,P]) reportBlock(conn *connWrapper, block *types.Block[P]) error {
 	// Gather the block details from the header or block chain
 	details := s.assembleBlockStats(block)
 
@@ -595,7 +597,7 @@ func (s *Service) reportBlock(conn *connWrapper, block *types.Block) error {
 
 // assembleBlockStats retrieves any required metadata to report a single block
 // and assembles the block stats. If block is nil, the current head is processed.
-func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
+func (s *Service[T,P]) assembleBlockStats(block *types.Block[P]) *blockStats {
 	// Gather the block infos from the local blockchain
 	var (
 		header *types.Header
@@ -605,7 +607,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	)
 
 	// check if backend is a full node
-	fullBackend, ok := s.backend.(fullNodeBackend)
+	fullBackend, ok := s.backend.(fullNodeBackend[T,P])
 	if ok {
 		if block == nil {
 			block = fullBackend.CurrentBlock()
@@ -651,7 +653,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 
 // reportHistory retrieves the most recent batch of blocks and reports it to the
 // stats server.
-func (s *Service) reportHistory(conn *connWrapper, list []uint64) error {
+func (s *Service[T,P]) reportHistory(conn *connWrapper, list []uint64) error {
 	// Figure out the indexes that need reporting
 	indexes := make([]uint64, 0, historyUpdateRange)
 	if len(list) > 0 {
@@ -671,14 +673,14 @@ func (s *Service) reportHistory(conn *connWrapper, list []uint64) error {
 	// Gather the batch of blocks to report
 	history := make([]*blockStats, len(indexes))
 	for i, number := range indexes {
-		fullBackend, ok := s.backend.(fullNodeBackend)
+		fullBackend, ok := s.backend.(fullNodeBackend[T,P])
 		// Retrieve the next block if it's known to us
-		var block *types.Block
+		var block *types.Block[P]
 		if ok {
 			block, _ = fullBackend.BlockByNumber(context.Background(), rpc.BlockNumber(number)) // TODO ignore error here ?
 		} else {
 			if header, _ := s.backend.HeaderByNumber(context.Background(), rpc.BlockNumber(number)); header != nil {
-				block = types.NewBlockWithHeader(header)
+				block = types.NewBlockWithHeader[P](header)
 			}
 		}
 		// If we do have the block, add to the history and continue
@@ -713,7 +715,7 @@ type pendStats struct {
 
 // reportPending retrieves the current number of pending transactions and reports
 // it to the stats server.
-func (s *Service) reportPending(conn *connWrapper) error {
+func (s *Service[T,P]) reportPending(conn *connWrapper) error {
 	// Retrieve the pending count from the local blockchain
 	pending, _ := s.backend.Stats()
 	// Assemble the transaction stats and send it to the server
@@ -744,7 +746,7 @@ type nodeStats struct {
 
 // reportStats retrieves various stats about the node at the networking and
 // mining layer and reports it to the stats server.
-func (s *Service) reportStats(conn *connWrapper) error {
+func (s *Service[T,P]) reportStats(conn *connWrapper) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
 		mining   bool
@@ -753,7 +755,7 @@ func (s *Service) reportStats(conn *connWrapper) error {
 		gasprice int
 	)
 	// check if backend is a full node
-	fullBackend, ok := s.backend.(fullNodeBackend)
+	fullBackend, ok := s.backend.(fullNodeBackend[T,P])
 	if ok {
 		mining = fullBackend.Miner().Mining()
 		hashrate = int(fullBackend.Miner().Hashrate())

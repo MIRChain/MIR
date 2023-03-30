@@ -30,6 +30,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/console"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/plugin/security"
@@ -43,7 +45,7 @@ var (
 	rpcClientFlags = []cli.Flag{utils.RPCClientToken, utils.RPCClientTLSCert, utils.RPCClientTLSCaCert, utils.RPCClientTLSCipherSuites, utils.RPCClientTLSInsecureSkipVerify}
 
 	consoleCommand = cli.Command{
-		Action:   utils.MigrateFlags(localConsole),
+		Action:   utils.MigrateFlags(localConsole[nist.PrivateKey, nist.PublicKey]),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
 		Flags:    append(append(nodeFlags, rpcFlags...), consoleFlags...),
@@ -55,7 +57,7 @@ See https://geth.ethereum.org/docs/interface/javascript-console.`,
 	}
 
 	attachCommand = cli.Command{
-		Action:    utils.MigrateFlags(remoteConsole),
+		Action:    utils.MigrateFlags(remoteConsole[nist.PrivateKey, nist.PublicKey]),
 		Name:      "attach",
 		Usage:     "Start an interactive JavaScript environment (connect to node)",
 		ArgsUsage: "[endpoint]",
@@ -69,7 +71,7 @@ This command allows to open a console on a running geth node.`,
 	}
 
 	javascriptCommand = cli.Command{
-		Action:    utils.MigrateFlags(ephemeralConsole),
+		Action:    utils.MigrateFlags(ephemeralConsole[nist.PrivateKey, nist.PublicKey]),
 		Name:      "js",
 		Usage:     "Execute the specified JavaScript files",
 		ArgsUsage: "<jsfile> [jsfile...]",
@@ -151,10 +153,10 @@ func readTLSClientConfig(endpoint string, ctx *cli.Context) (*tls.Config, bool, 
 
 // localConsole starts a new geth node, attaching a JavaScript console to it at the
 // same time.
-func localConsole(ctx *cli.Context) error {
+func localConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	stack, backend := makeFullNode(ctx)
+	stack, backend := makeFullNode[T,P](ctx)
 	startNode(ctx, stack, backend)
 	defer stack.Close()
 
@@ -190,7 +192,7 @@ func localConsole(ctx *cli.Context) error {
 
 // remoteConsole will connect to a remote geth instance, attaching a JavaScript
 // console to it.
-func remoteConsole(ctx *cli.Context) error {
+func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Attach to a remotely running geth instance and start the JavaScript console
 	endpoint := ctx.Args().First()
 	if endpoint == "" {
@@ -218,7 +220,7 @@ func remoteConsole(ctx *cli.Context) error {
 		}
 		endpoint = fmt.Sprintf("%s/geth.ipc", path)
 	}
-	client, err := dialRPC(endpoint, ctx)
+	client, err := dialRPC[T,P](endpoint, ctx)
 	if err != nil {
 		utils.Fatalf("Unable to attach to remote geth: %v", err)
 	}
@@ -255,9 +257,9 @@ func remoteConsole(ctx *cli.Context) error {
 // 1. Custom TLS configuration
 // 2. Access Token awareness via rpc.HttpCredentialsProviderFunc
 // 3. PSI awareness from environment variable and endpoint query param
-func dialRPC(endpoint string, ctx *cli.Context) (*rpc.Client, error) {
+func dialRPC[T crypto.PrivateKey, P crypto.PublicKey](endpoint string, ctx *cli.Context) (*rpc.Client, error) {
 	if endpoint == "" {
-		endpoint = node.DefaultIPCEndpoint(clientIdentifier)
+		endpoint = node.DefaultIPCEndpoint[T,P](clientIdentifier)
 	} else if strings.HasPrefix(endpoint, "rpc:") || strings.HasPrefix(endpoint, "ipc:") {
 		// Backwards compatibility with geth < 1.5 which required
 		// these prefixes.
@@ -313,9 +315,9 @@ func dialRPC(endpoint string, ctx *cli.Context) (*rpc.Client, error) {
 // ephemeralConsole starts a new geth node, attaches an ephemeral JavaScript
 // console to it, executes each of the files specified as arguments and tears
 // everything down.
-func ephemeralConsole(ctx *cli.Context) error {
+func ephemeralConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	stack, backend := makeFullNode(ctx)
+	stack, backend := makeFullNode[T,P](ctx)
 	startNode(ctx, stack, backend)
 	defer stack.Close()
 

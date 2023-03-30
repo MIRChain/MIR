@@ -37,7 +37,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
 	"github.com/pavelkrolevets/MIR-pro/trie"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
@@ -392,7 +392,7 @@ func (d *Downloader[T,P]) synchronise(id string, hash common.Hash, td *big.Int, 
 
 	// Quorum
 	// changes for permissions. added set sync status to indicate permissions that node sync has started
-	core.SetSyncStatus()
+	// core.SetSyncStatus()
 
 	defer atomic.StoreInt32(&d.synchronising, 0)
 

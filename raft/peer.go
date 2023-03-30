@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -33,7 +34,7 @@ type ClusterInfo struct {
 	NodeActive bool   `json:"nodeActive"`
 }
 
-func newAddress(raftId uint16, raftPort int, node *enode.Node, useDns bool) *Address {
+func newAddress[P crypto.PublicKey](raftId uint16, raftPort int, node *enode.Node[P], useDns bool) *Address {
 	// derive 64 byte nodeID from 128 byte enodeID
 	id, err := enode.RaftHexID(node.EnodeID())
 	if err != nil {
@@ -60,9 +61,9 @@ func newAddress(raftId uint16, raftPort int, node *enode.Node, useDns bool) *Add
 }
 
 // A peer that we're connected to via both raft's http transport, and ethereum p2p
-type Peer struct {
+type Peer [P crypto.PublicKey] struct {
 	address *Address    // For raft transport
-	p2pNode *enode.Node // For ethereum transport
+	p2pNode *enode.Node[P] // For ethereum transport
 }
 
 // RLP Address encoding, for transport over raft and storage in LevelDB.

@@ -26,6 +26,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -33,7 +34,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 type ProtocolManager [T crypto.PrivateKey, P crypto.PublicKey] struct {
@@ -55,7 +55,7 @@ type ProtocolManager [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	// Remote peer state (protected by mu vs concurrent access via JS)
 	leader       uint16
-	peers        map[uint16]*Peer
+	peers        map[uint16]*Peer[P]
 	removedPeers mapset.Set // *Permanently removed* peers
 
 	// P2P transport
@@ -63,16 +63,16 @@ type ProtocolManager [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	useDns    bool
 
 	// Blockchain services
-	blockchain *core.BlockChain
-	downloader *downloader.Downloader
-	minter     *minter[T]
+	blockchain *core.BlockChain[P]
+	downloader *downloader.Downloader[T,P]
+	minter     *minter[T,P]
 
 	// Blockchain events
 	eventMux      *event.TypeMux
 	minedBlockSub *event.TypeMuxSubscription
 
 	// Raft proposal events
-	blockProposalC      chan *types.Block      // for mined blocks to raft
+	blockProposalC      chan *types.Block[P]      // for mined blocks to raft
 	confChangeProposalC chan raftpb.ConfChange // for config changes from js console to raft
 
 	// Raft transport
@@ -101,20 +101,20 @@ var errNoLeaderElected = errors.New("no leader is currently elected")
 // Public interface
 //
 
-func NewProtocolManager[T crypto.PrivateKey, P crypto.PublicKey](raftId uint16, raftPort uint16, blockchain *core.BlockChain, mux *event.TypeMux, bootstrapNodes []*enode.Node[P], joinExisting bool, raftLogDir string, minter *minter[T], downloader *downloader.Downloader, useDns bool, p2pServer *p2p.Server[T,P]) (*ProtocolManager[T,P], error) {
+func NewProtocolManager[T crypto.PrivateKey, P crypto.PublicKey](raftId uint16, raftPort uint16, blockchain *core.BlockChain[P], mux *event.TypeMux, bootstrapNodes []*enode.Node[P], joinExisting bool, raftLogDir string, minter *minter[T,P], downloader *downloader.Downloader[T,P], useDns bool, p2pServer *p2p.Server[T,P]) (*ProtocolManager[T,P], error) {
 	waldir := fmt.Sprintf("%s/raft-wal", raftLogDir)
 	snapdir := fmt.Sprintf("%s/raft-snap", raftLogDir)
 	quorumRaftDbLoc := fmt.Sprintf("%s/quorum-raft-state", raftLogDir)
 
 	manager := &ProtocolManager[T,P]{
 		bootstrapNodes:      bootstrapNodes,
-		peers:               make(map[uint16]*Peer),
+		peers:               make(map[uint16]*Peer[P]),
 		leader:              uint16(etcdRaft.None),
 		removedPeers:        mapset.NewSet(),
 		joinExisting:        joinExisting,
 		blockchain:          blockchain,
 		eventMux:            mux,
-		blockProposalC:      make(chan *types.Block, 10),
+		blockProposalC:      make(chan *types.Block[P], 10),
 		confChangeProposalC: make(chan raftpb.ConfChange),
 		httpstopc:           make(chan struct{}),
 		httpdonec:           make(chan struct{}),
@@ -143,7 +143,7 @@ func NewProtocolManager[T crypto.PrivateKey, P crypto.PublicKey](raftId uint16, 
 func (pm *ProtocolManager[T,P]) Start() {
 	log.Info("starting raft protocol handler")
 
-	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
+	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent[P]{})
 	pm.startRaft()
 	// update raft peers info to p2p server
 	pm.p2pServer.SetCheckPeerInRaft(pm.peerExist)
@@ -489,7 +489,7 @@ func (pm *ProtocolManager[T,P]) startRaft() {
 			emptyEntries := make([]int, 0, len(entries))
 			for idx, entry := range entries {
 				if entry.Type == raftpb.EntryNormal {
-					var block types.Block
+					var block types.Block[P]
 					if err := rlp.DecodeBytes(entry.Data, &block); err == io.EOF {
 						emptyEntries = append(emptyEntries, idx)
 						continue
@@ -503,7 +503,7 @@ func (pm *ProtocolManager[T,P]) startRaft() {
 						// and the block number is greater than current chain head
 						if thisBlockHeadNum := thisBlockHead.Number(); thisBlockHeadNum.Cmp(currentChainHead) > 0 {
 							// insert the block only if its already seen
-							blocks := []*types.Block{&block}
+							blocks := []*types.Block[P]{&block}
 							if _, err := pm.blockchain.InsertChain(blocks); err != nil {
 								log.Error("error inserting the block into the chain", "number", block.NumberU64(), "hash", block.Hash(), "err", err)
 							}
@@ -711,7 +711,7 @@ func (pm *ProtocolManager[T,P]) handleRoleChange(roleC <-chan interface{}) {
 func (pm *ProtocolManager[T,P]) minedBroadcastLoop() {
 	for obj := range pm.minedBlockSub.Chan() {
 		switch ev := obj.Data.(type) {
-		case core.NewMinedBlockEvent:
+		case core.NewMinedBlockEvent[P]:
 			select {
 			case pm.blockProposalC <- ev.Block:
 			case <-pm.quitSync:
@@ -813,10 +813,10 @@ func (pm *ProtocolManager[T,P]) addPeer(address *Address) {
 
 	// Add raft transport connection:
 	pm.transport.AddPeer(raftTypes.ID(raftId), []string{pm.raftUrl(address)})
-	pm.peers[raftId] = &Peer{address, p2pNode}
+	pm.peers[raftId] = &Peer[P]{address, p2pNode}
 }
 
-func (pm *ProtocolManager[T,P]) disconnectFromPeer(raftId uint16, peer *Peer) {
+func (pm *ProtocolManager[T,P]) disconnectFromPeer(raftId uint16, peer *Peer[P]) {
 	pm.p2pServer.RemovePeer(peer.p2pNode)
 	pm.transport.RemovePeer(raftTypes.ID(raftId))
 }
@@ -881,7 +881,7 @@ func (pm *ProtocolManager[T,P]) eventLoop() {
 					if len(entry.Data) == 0 {
 						break
 					}
-					var block types.Block
+					var block types.Block[P]
 					err := rlp.DecodeBytes(entry.Data, &block)
 					if err != nil {
 						log.Error("error decoding block", "err", err)
@@ -1025,17 +1025,17 @@ func (pm *ProtocolManager[T,P]) makeInitialRaftPeers() (raftPeers []etcdRaft.Pee
 	return
 }
 
-func blockExtendsChain(block *types.Block, chain *core.BlockChain) bool {
+func blockExtendsChain[P crypto.PublicKey](block *types.Block[P], chain *core.BlockChain[P]) bool {
 	return block.ParentHash() == chain.CurrentBlock().Hash()
 }
 
-func (pm *ProtocolManager[T,P]) applyNewChainHead(block *types.Block) bool {
+func (pm *ProtocolManager[T,P]) applyNewChainHead(block *types.Block[P]) bool {
 	if !blockExtendsChain(block, pm.blockchain) {
 		headBlock := pm.blockchain.CurrentBlock()
 
 		log.Info("Non-extending block", "block", block.Hash(), "parent", block.ParentHash(), "head", headBlock.Hash())
 
-		pm.minter.invalidRaftOrderingChan <- InvalidRaftOrdering{headBlock: headBlock, invalidBlock: block}
+		pm.minter.invalidRaftOrderingChan <- InvalidRaftOrdering[P]{headBlock: headBlock, invalidBlock: block}
 	} else {
 		if existingBlock := pm.blockchain.GetBlockByHash(block.Hash()); nil == existingBlock {
 			if err := pm.blockchain.Validator().ValidateBody(block); err != nil {
@@ -1047,7 +1047,7 @@ func (pm *ProtocolManager[T,P]) applyNewChainHead(block *types.Block) bool {
 			log.EmitCheckpoint(log.TxAccepted, "tx", tx.Hash().Hex())
 		}
 
-		_, err := pm.blockchain.InsertChain([]*types.Block{block})
+		_, err := pm.blockchain.InsertChain([]*types.Block[P]{block})
 
 		if err != nil {
 			if err == core.ErrAbortBlocksProcessing {

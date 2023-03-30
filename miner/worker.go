@@ -33,6 +33,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -80,8 +81,8 @@ const (
 )
 
 // environment is the worker's current environment and holds all of the current state information.
-type environment struct {
-	signer types.Signer
+type environment [P crypto.PublicKey] struct {
+	signer types.Signer[P]
 
 	state     *state.StateDB // apply state changes here
 	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
@@ -91,25 +92,25 @@ type environment struct {
 	gasPool   *core.GasPool  // available gas used to pack transactions
 
 	header   *types.Header
-	txs      []*types.Transaction
-	receipts []*types.Receipt
+	txs      []*types.Transaction[P]
+	receipts []*types.Receipt[P]
 
 	// Quorum
-	privateReceipts  []*types.Receipt
-	privateStateRepo mps.PrivateStateRepository
+	privateReceipts  []*types.Receipt[P]
+	privateStateRepo mps.PrivateStateRepository[P]
 	// End Quorum
 }
 
 // task contains all information for consensus engine sealing and result submitting.
-type task struct {
-	receipts  []*types.Receipt
+type task [P crypto.PublicKey] struct {
+	receipts  []*types.Receipt[P]
 	state     *state.StateDB
-	block     *types.Block
+	block     *types.Block[P]
 	createdAt time.Time
 
 	// Quorum
-	privateReceipts  []*types.Receipt
-	privateStateRepo mps.PrivateStateRepository
+	privateReceipts  []*types.Receipt[P]
+	privateStateRepo mps.PrivateStateRepository[P]
 	// End Quorum
 }
 
@@ -134,48 +135,48 @@ type intervalAdjust struct {
 
 // worker is the main object which takes care of submitting new work to consensus engine
 // and gathering the sealing result.
-type worker struct {
+type worker [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	config      *Config
 	chainConfig *params.ChainConfig
-	engine      consensus.Engine
-	eth         Backend
-	chain       *core.BlockChain
+	engine      consensus.Engine[P]
+	eth         Backend[T,P]
+	chain       *core.BlockChain[P]
 
 	// Feeds
 	pendingLogsFeed event.Feed
 
 	// Subscriptions
 	mux          *event.TypeMux
-	txsCh        chan core.NewTxsEvent
+	txsCh        chan core.NewTxsEvent[P]
 	txsSub       event.Subscription
-	chainHeadCh  chan core.ChainHeadEvent
+	chainHeadCh  chan core.ChainHeadEvent[P]
 	chainHeadSub event.Subscription
-	chainSideCh  chan core.ChainSideEvent
+	chainSideCh  chan core.ChainSideEvent[P]
 	chainSideSub event.Subscription
 
 	// Channels
 	newWorkCh          chan *newWorkReq
-	taskCh             chan *task
-	resultCh           chan *types.Block
+	taskCh             chan *task[P]
+	resultCh           chan *types.Block[P]
 	startCh            chan struct{}
 	exitCh             chan struct{}
 	resubmitIntervalCh chan time.Duration
 	resubmitAdjustCh   chan *intervalAdjust
 
-	current      *environment                 // An environment for current running cycle.
-	localUncles  map[common.Hash]*types.Block // A set of side blocks generated locally as the possible uncle blocks.
-	remoteUncles map[common.Hash]*types.Block // A set of side blocks as the possible uncle blocks.
-	unconfirmed  *unconfirmedBlocks           // A set of locally mined blocks pending canonicalness confirmations.
+	current      *environment[P]                 // An environment for current running cycle.
+	localUncles  map[common.Hash]*types.Block[P] // A set of side blocks generated locally as the possible uncle blocks.
+	remoteUncles map[common.Hash]*types.Block[P] // A set of side blocks as the possible uncle blocks.
+	unconfirmed  *unconfirmedBlocks[P]           // A set of locally mined blocks pending canonicalness confirmations.
 
 	mu       sync.RWMutex // The lock used to protect the coinbase and extra fields
 	coinbase common.Address
 	extra    []byte
 
 	pendingMu    sync.RWMutex
-	pendingTasks map[common.Hash]*task
+	pendingTasks map[common.Hash]*task[P]
 
 	snapshotMu    sync.RWMutex // The lock used to protect the block snapshot and state snapshot
-	snapshotBlock *types.Block
+	snapshotBlock *types.Block[P]
 	snapshotState *state.StateDB
 
 	// atomic status counters
@@ -190,17 +191,17 @@ type worker struct {
 	noempty uint32
 
 	// External functions
-	isLocalBlock func(block *types.Block) bool // Function used to determine whether the specified block is mined by local miner.
+	isLocalBlock func(block *types.Block[P]) bool // Function used to determine whether the specified block is mined by local miner.
 
 	// Test hooks
-	newTaskHook  func(*task)                        // Method to call upon receiving a new sealing task.
-	skipSealHook func(*task) bool                   // Method to decide whether skipping the sealing.
+	newTaskHook  func(*task[P])                        // Method to call upon receiving a new sealing task.
+	skipSealHook func(*task[P]) bool                   // Method to decide whether skipping the sealing.
 	fullTaskHook func()                             // Method to call before pushing the full sealing task.
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 }
 
-func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
-	worker := &worker{
+func newWorker[T crypto.PrivateKey, P crypto.PublicKey](config *Config, chainConfig *params.ChainConfig, engine consensus.Engine[P], eth Backend[T,P], mux *event.TypeMux, isLocalBlock func(*types.Block[P]) bool, init bool) *worker[T,P] {
+	worker := &worker[T,P]{
 		config:             config,
 		chainConfig:        chainConfig,
 		engine:             engine,
@@ -208,22 +209,22 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		mux:                mux,
 		chain:              eth.BlockChain(),
 		isLocalBlock:       isLocalBlock,
-		localUncles:        make(map[common.Hash]*types.Block),
-		remoteUncles:       make(map[common.Hash]*types.Block),
-		unconfirmed:        newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
-		pendingTasks:       make(map[common.Hash]*task),
-		txsCh:              make(chan core.NewTxsEvent, txChanSize),
-		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
+		localUncles:        make(map[common.Hash]*types.Block[P]),
+		remoteUncles:       make(map[common.Hash]*types.Block[P]),
+		unconfirmed:        newUnconfirmedBlocks[P](eth.BlockChain(), miningLogAtDepth),
+		pendingTasks:       make(map[common.Hash]*task[P]),
+		txsCh:              make(chan core.NewTxsEvent[P], txChanSize),
+		chainHeadCh:        make(chan core.ChainHeadEvent[P], chainHeadChanSize),
+		chainSideCh:        make(chan core.ChainSideEvent[P], chainSideChanSize),
 		newWorkCh:          make(chan *newWorkReq),
-		taskCh:             make(chan *task),
-		resultCh:           make(chan *types.Block, resultQueueSize),
+		taskCh:             make(chan *task[P]),
+		resultCh:           make(chan *types.Block[P], resultQueueSize),
 		exitCh:             make(chan struct{}),
 		startCh:            make(chan struct{}, 1),
 		resubmitIntervalCh: make(chan time.Duration),
 		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
-	if _, ok := engine.(consensus.Istanbul); ok || !chainConfig.IsQuorum || chainConfig.Clique != nil {
+	if _, ok := engine.(consensus.Istanbul[P]); ok || !chainConfig.IsQuorum || chainConfig.Clique != nil {
 		// Subscribe NewTxsEvent for tx pool
 		worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 		// Subscribe events for blockchain
@@ -250,36 +251,36 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 }
 
 // setEtherbase sets the etherbase used to initialize the block coinbase field.
-func (w *worker) setEtherbase(addr common.Address) {
+func (w *worker[T,P]) setEtherbase(addr common.Address) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.coinbase = addr
 }
 
 // setExtra sets the content used to initialize the block extra field.
-func (w *worker) setExtra(extra []byte) {
+func (w *worker[T,P]) setExtra(extra []byte) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.extra = extra
 }
 
 // setRecommitInterval updates the interval for miner sealing work recommitting.
-func (w *worker) setRecommitInterval(interval time.Duration) {
+func (w *worker[T,P]) setRecommitInterval(interval time.Duration) {
 	w.resubmitIntervalCh <- interval
 }
 
 // disablePreseal disables pre-sealing mining feature
-func (w *worker) disablePreseal() {
+func (w *worker[T,P]) disablePreseal() {
 	atomic.StoreUint32(&w.noempty, 1)
 }
 
 // enablePreseal enables pre-sealing mining feature
-func (w *worker) enablePreseal() {
+func (w *worker[T,P]) enablePreseal() {
 	atomic.StoreUint32(&w.noempty, 0)
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending(psi types.PrivateStateIdentifier) (*types.Block, *state.StateDB, *state.StateDB) {
+func (w *worker[T,P]) pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB, *state.StateDB) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
@@ -295,7 +296,7 @@ func (w *worker) pending(psi types.PrivateStateIdentifier) (*types.Block, *state
 }
 
 // pendingBlock returns pending block.
-func (w *worker) pendingBlock() *types.Block {
+func (w *worker[T,P]) pendingBlock() *types.Block[P] {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
@@ -303,10 +304,10 @@ func (w *worker) pendingBlock() *types.Block {
 }
 
 // start sets the running status as 1 and triggers new work submitting.
-func (w *worker) start() {
+func (w *worker[T,P]) start() {
 	atomic.StoreInt32(&w.running, 1)
-	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
-		istanbul.Start(w.chain, w.chain.CurrentBlock, rawdb.HasBadBlock)
+	if istanbul, ok := w.engine.(consensus.Istanbul[P]); ok {
+		istanbul.Start(w.chain, w.chain.CurrentBlock, rawdb.HasBadBlock[P])
 	} else {
 		log.Warn("no start of engine", "engine", w.engine)
 	}
@@ -314,21 +315,21 @@ func (w *worker) start() {
 }
 
 // stop sets the running status as 0.
-func (w *worker) stop() {
-	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
+func (w *worker[T,P]) stop() {
+	if istanbul, ok := w.engine.(consensus.Istanbul[P]); ok {
 		istanbul.Stop()
 	}
 	atomic.StoreInt32(&w.running, 0)
 }
 
 // isRunning returns an indicator whether worker is running or not.
-func (w *worker) isRunning() bool {
+func (w *worker[T,P]) isRunning() bool {
 	return atomic.LoadInt32(&w.running) == 1
 }
 
 // close terminates all background threads maintained by the worker.
 // Note the worker does not support being closed multiple times.
-func (w *worker) close() {
+func (w *worker[T,P]) close() {
 	if w.current != nil && w.current.state != nil {
 		w.current.state.StopPrefetcher()
 	}
@@ -359,7 +360,7 @@ func recalcRecommit(minRecommit, prev time.Duration, target float64, inc bool) t
 }
 
 // newWorkLoop is a standalone goroutine to submit new mining work upon received events.
-func (w *worker) newWorkLoop(recommit time.Duration) {
+func (w *worker[T,P]) newWorkLoop(recommit time.Duration) {
 	var (
 		interrupt   *int32
 		minRecommit = recommit // minimal resubmit interval specified by user.
@@ -403,7 +404,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(false, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
-			if h, ok := w.engine.(consensus.Handler); ok {
+			if h, ok := w.engine.(consensus.Handler[P]); ok {
 				h.NewChainHead()
 			}
 			clearPending(head.Block.NumberU64())
@@ -459,7 +460,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 }
 
 // mainLoop is a standalone goroutine to regenerate the sealing task based on the received event.
-func (w *worker) mainLoop() {
+func (w *worker[T,P]) mainLoop() {
 	defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
@@ -523,7 +524,7 @@ func (w *worker) mainLoop() {
 				coinbase := w.coinbase
 				w.mu.RUnlock()
 
-				txs := make(map[common.Address]types.Transactions)
+				txs := make(map[common.Address]types.Transactions[P])
 				for _, tx := range ev.Txs {
 					acc, _ := types.Sender(w.current.signer, tx)
 					txs[acc] = append(txs[acc], tx)
@@ -561,7 +562,7 @@ func (w *worker) mainLoop() {
 
 // taskLoop is a standalone goroutine to fetch sealing task from the generator and
 // push them to consensus engine.
-func (w *worker) taskLoop() {
+func (w *worker[T,P]) taskLoop() {
 	var (
 		stopCh chan struct{}
 		prev   common.Hash
@@ -608,7 +609,7 @@ func (w *worker) taskLoop() {
 
 // resultLoop is a standalone goroutine to handle sealing result submitting
 // and flush relative data to the database.
-func (w *worker) resultLoop() {
+func (w *worker[T,P]) resultLoop() {
 	for {
 		select {
 		case block := <-w.resultCh:
@@ -633,8 +634,8 @@ func (w *worker) resultLoop() {
 			}
 			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
 			var (
-				pubReceipts = make([]*types.Receipt, len(task.receipts))
-				prvReceipts = make([]*types.Receipt, len(task.privateReceipts))
+				pubReceipts = make([]*types.Receipt[P], len(task.receipts))
+				prvReceipts = make([]*types.Receipt[P], len(task.privateReceipts))
 				logs        []*types.Log
 			)
 			offset := len(task.receipts)
@@ -644,7 +645,7 @@ func (w *worker) resultLoop() {
 				receipt.BlockNumber = block.Number()
 				receipt.TransactionIndex = uint(i)
 
-				pubReceipts[i] = new(types.Receipt)
+				pubReceipts[i] = new(types.Receipt[P])
 				*pubReceipts[i] = *receipt
 				// Update the block hash in all logs since it is now available and not when the
 				// receipt/log of individual transactions were created.
@@ -679,7 +680,7 @@ func (w *worker) resultLoop() {
 				receipt.BlockNumber = block.Number()
 				receipt.TransactionIndex = uint(i + offset)
 
-				prvReceipts[i] = new(types.Receipt)
+				prvReceipts[i] = new(types.Receipt[P])
 				*prvReceipts[i] = *receipt
 				// Update the block hash in all logs since it is now available and not when the
 				// receipt/log of individual transactions were created.
@@ -724,7 +725,7 @@ func (w *worker) resultLoop() {
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// Broadcast the block and announce chain insertion event
-			w.mux.Post(core.NewMinedBlockEvent{Block: block})
+			w.mux.Post(core.NewMinedBlockEvent[P]{Block: block})
 
 			// Insert the block into the set of pending ones to resultLoop for confirmations
 			w.unconfirmed.Insert(block.NumberU64(), block.Hash())
@@ -736,7 +737,7 @@ func (w *worker) resultLoop() {
 }
 
 // makeCurrent creates a new environment for the current cycle.
-func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
+func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header) error {
 	// Retrieve the parent state to execute on top and start a prefetcher for
 	// the miner to speed block sealing up a bit
 	publicState, privateStateRepo, err := w.chain.StateAt(parent.Root())
@@ -745,8 +746,8 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 	}
 	publicState.StartPrefetcher("miner")
 
-	env := &environment{
-		signer:    types.MakeSigner(w.chainConfig, header.Number),
+	env := &environment[P]{
+		signer:    types.MakeSigner[P](w.chainConfig, header.Number),
 		state:     publicState,
 		ancestors: mapset.NewSet(),
 		family:    mapset.NewSet(),
@@ -776,7 +777,7 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 }
 
 // commitUncle adds the given block to uncle block set, returns error if failed to add.
-func (w *worker) commitUncle(env *environment, uncle *types.Header) error {
+func (w *worker[T,P]) commitUncle(env *environment[P], uncle *types.Header) error {
 	hash := uncle.Hash()
 	if env.uncles.Contains(hash) {
 		return errors.New("uncle not unique")
@@ -796,7 +797,7 @@ func (w *worker) commitUncle(env *environment, uncle *types.Header) error {
 
 // updateSnapshot updates pending snapshot block and state.
 // Note this function assumes the current variable is thread safe.
-func (w *worker) updateSnapshot() {
+func (w *worker[T,P]) updateSnapshot() {
 	w.snapshotMu.Lock()
 	defer w.snapshotMu.Unlock()
 
@@ -827,7 +828,7 @@ func (w *worker) updateSnapshot() {
 	w.snapshotState = w.current.state.Copy()
 }
 
-func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
+func (w *worker[T,P]) commitTransaction(tx *types.Transaction[P], coinbase common.Address) ([]*types.Log, error) {
 	workerEnv := w.current
 	publicStateDB := workerEnv.state
 	snap := publicStateDB.Snapshot()
@@ -847,7 +848,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 	privateStateDB.Prepare(tx.Hash(), common.Hash{}, workerEnv.tcount)
 	publicStateDB.Prepare(tx.Hash(), common.Hash{}, workerEnv.tcount)
 	privateStateSnaphots[privateStateRepo.DefaultStateMetadata().ID] = privateStateDB.Snapshot()
-	receipt, privateReceipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, workerEnv.gasPool, publicStateDB, privateStateDB, workerEnv.header, tx, &workerEnv.header.GasUsed, *w.chain.GetVMConfig(), privateStateRepo.IsMPS(), privateStateRepo, false)
+	receipt, privateReceipt, err := core.ApplyTransaction[P](w.chainConfig, w.chain, &coinbase, workerEnv.gasPool, publicStateDB, privateStateDB, workerEnv.header, tx, &workerEnv.header.GasUsed, *w.chain.GetVMConfig(), privateStateRepo.IsMPS(), privateStateRepo, false)
 	if err != nil {
 		publicStateDB.RevertToSnapshot(snap)
 		w.revertToPrivateStateSnapshots(privateStateSnaphots)
@@ -870,7 +871,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 	return logs, nil
 }
 
-func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
+func (w *worker[T,P]) commitTransactions(txs *types.TransactionsByPriceAndNonce[P], coinbase common.Address, interrupt *int32) bool {
 	// Short circuit if current is nil
 	if w.current == nil {
 		return true
@@ -989,7 +990,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
-func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
+func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -1046,7 +1047,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 	// Accumulate the uncles for the current block
 	uncles := make([]*types.Header, 0, 2)
-	commitUncles := func(blocks map[common.Hash]*types.Block) {
+	commitUncles := func(blocks map[common.Hash]*types.Block[P]) {
 		// Clean up stale uncle blocks first
 		for hash, uncle := range blocks {
 			if uncle.NumberU64()+staleThreshold <= header.Number.Uint64() {
@@ -1089,7 +1090,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Split the pending transactions into locals and remotes
-	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
+	localTxs, remoteTxs := make(map[common.Address]types.Transactions[P]), pending
 	for _, account := range w.eth.TxPool().Locals() {
 		if txs := remoteTxs[account]; len(txs) > 0 {
 			delete(remoteTxs, account)
@@ -1113,7 +1114,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
+func (w *worker[T,P]) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	privateReceipts := copyReceipts(w.current.privateReceipts) // Quorum
@@ -1129,7 +1130,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			interval()
 		}
 		select {
-		case w.taskCh <- &task{receipts: receipts, privateReceipts: privateReceipts, state: s, privateStateRepo: psrCopy, block: block, createdAt: time.Now()}:
+		case w.taskCh <- &task[P]{receipts: receipts, privateReceipts: privateReceipts, state: s, privateStateRepo: psrCopy, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
 			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(uncles), "txs", w.current.tcount,
@@ -1147,8 +1148,8 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 }
 
 // copyReceipts makes a deep copy of the given receipts.
-func copyReceipts(receipts []*types.Receipt) []*types.Receipt {
-	result := make([]*types.Receipt, len(receipts))
+func copyReceipts[P crypto.PublicKey](receipts []*types.Receipt[P]) []*types.Receipt[P] {
+	result := make([]*types.Receipt[P], len(receipts))
 	for i, l := range receipts {
 		cpy := *l
 		result[i] = &cpy
@@ -1157,7 +1158,7 @@ func copyReceipts(receipts []*types.Receipt) []*types.Receipt {
 }
 
 // postSideBlock fires a side chain event, only use it for testing.
-func (w *worker) postSideBlock(event core.ChainSideEvent) {
+func (w *worker[T,P]) postSideBlock(event core.ChainSideEvent[P]) {
 	select {
 	case w.chainSideCh <- event:
 	case <-w.exitCh:
@@ -1165,7 +1166,7 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 }
 
 // totalFees computes total consumed fees in ETH. Block transactions and receipts have to have the same order.
-func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
+func totalFees[P crypto.PublicKey](block *types.Block[P], receipts []*types.Receipt[P]) *big.Float {
 	feesWei := new(big.Int)
 	for i, tx := range block.Transactions() {
 		feesWei.Add(feesWei, new(big.Int).Mul(new(big.Int).SetUint64(receipts[i].GasUsed), tx.GasPrice()))
@@ -1176,7 +1177,7 @@ func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
 // Quorum
 //
 // revertToPrivateStateSnapshots attempts to revert all private states to the provided snapshots
-func (w *worker) revertToPrivateStateSnapshots(snapshots map[types.PrivateStateIdentifier]int) {
+func (w *worker[T,P]) revertToPrivateStateSnapshots(snapshots map[types.PrivateStateIdentifier]int) {
 	for psi, snapshot := range snapshots {
 		privateState, err := w.current.privateStateRepo.StatePSI(psi)
 		if err == nil {
@@ -1195,7 +1196,7 @@ func (w *worker) revertToPrivateStateSnapshots(snapshots map[types.PrivateStateI
 // handleMPS returns the auxiliary receipt and the non-nil snapshots.
 //
 // Caller must check for error and reverts private states.
-func (w *worker) handleMPS(tx *types.Transaction, coinbase common.Address, applyOnPartyOnly bool) (mpsReceipt *types.Receipt, privateStateSnaphots map[types.PrivateStateIdentifier]int, err error) {
+func (w *worker[T,P]) handleMPS(tx *types.Transaction[P], coinbase common.Address, applyOnPartyOnly bool) (mpsReceipt *types.Receipt[P], privateStateSnaphots map[types.PrivateStateIdentifier]int, err error) {
 	workerEnv := w.current
 	privateStateRepo := workerEnv.privateStateRepo
 	// make sure we don't return NIL map
@@ -1215,7 +1216,7 @@ func (w *worker) handleMPS(tx *types.Transaction, coinbase common.Address, apply
 			privateStateSnaphots[psi] = db.Snapshot()
 			return db, nil
 		}
-		mpsReceipt, err = core.ApplyTransactionOnMPS(w.chainConfig, w.chain, &coinbase, workerEnv.gasPool, publicStateDBFactory, privateStateDBFactory, workerEnv.header, tx, &workerEnv.header.GasUsed, *w.chain.GetVMConfig(), privateStateRepo, applyOnPartyOnly, false)
+		mpsReceipt, err = core.ApplyTransactionOnMPS[P](w.chainConfig, w.chain, &coinbase, workerEnv.gasPool, publicStateDBFactory, privateStateDBFactory, workerEnv.header, tx, &workerEnv.header.GasUsed, *w.chain.GetVMConfig(), privateStateRepo, applyOnPartyOnly, false)
 	}
 	return
 }

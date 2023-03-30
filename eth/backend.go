@@ -69,11 +69,11 @@ import (
 
 // Config contains the configuration options of the ETH protocol.
 // Deprecated: use ethconfig.Config instead.
-type Config = ethconfig.Config
+// type Config[P crypto.PublicKey] ethconfig.Config[P]
 
 // Ethereum implements the Ethereum full node service.
 type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	config *ethconfig.Config
+	config *ethconfig.Config[P]
 
 	// Handlers
 	txPool             *core.TxPool[P]
@@ -95,7 +95,7 @@ type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	APIBackend *EthAPIBackend[T,P]
 
-	miner     *miner.Miner
+	miner     *miner.Miner[T,P]
 	gasPrice  *big.Int
 	etherbase common.Address
 
@@ -110,12 +110,12 @@ type Ethereum [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	consensusServicePendingLogsFeed *event.Feed
 	qlightServerHandler             *handler[T,P]
 	qlightP2pServer                 *p2p.Server[T,P]
-	qlightTokenHolder               *qlight.TokenHolder
+	qlightTokenHolder               *qlight.TokenHolder[T,P]
 }
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config *ethconfig.Config) (*Ethereum[T,P], error) {
+func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config *ethconfig.Config[P]) (*Ethereum[T,P], error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -124,8 +124,8 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
 	if config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(common.Big0) <= 0 {
-		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults.Miner.GasPrice)
-		config.Miner.GasPrice = new(big.Int).Set(ethconfig.Defaults.Miner.GasPrice)
+		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults[P]().Miner.GasPrice)
+		config.Miner.GasPrice = new(big.Int).Set(ethconfig.Defaults[P]().Miner.GasPrice)
 	}
 	if config.NoPruning && config.TrieDirtyCache > 0 {
 		if config.SnapshotCache > 0 {
@@ -153,7 +153,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	if err := pruner.RecoverPruning(stack.ResolvePath(""), chainDb, stack.ResolvePath(config.TrieCleanCacheJournal)); err != nil {
+	if err := pruner.RecoverPruning[P](stack.ResolvePath(""), chainDb, stack.ResolvePath(config.TrieCleanCacheJournal)); err != nil {
 		log.Error("Failed to recover state", "error", err)
 	}
 	if chainConfig.IsQuorum {
@@ -316,14 +316,14 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 				eth.qlightTokenHolder.SetCurrentToken(eth.config.QuorumLightClient.TokenValue)
 			case "none":
 				log.Warn("Starting qlight client with auth token enabled but without a token management strategy. This is for development purposes only.")
-				eth.qlightTokenHolder, err = qlight.NewTokenHolder(config.QuorumLightClient.PSI, nil)
+				eth.qlightTokenHolder, err = qlight.NewTokenHolder[T,P](config.QuorumLightClient.PSI, nil)
 				if err != nil {
 					return nil, fmt.Errorf("new token holder: %w", err)
 				}
 				eth.qlightTokenHolder.SetCurrentToken(eth.config.QuorumLightClient.TokenValue)
 			case "external":
 				log.Info("Starting qlight client with auth token enabled and `external` token management strategy.")
-				eth.qlightTokenHolder, err = qlight.NewTokenHolder(config.QuorumLightClient.PSI, nil)
+				eth.qlightTokenHolder, err = qlight.NewTokenHolder[T,P](config.QuorumLightClient.PSI, nil)
 				if err != nil {
 					return nil, fmt.Errorf("new token holder: %w", err)
 				}
@@ -334,7 +334,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		if err != nil {
 			return nil, err
 		}
-		if eth.handler, err = newQLightClientHandler[T,P](&handlerConfig[P]{
+		if eth.handler, err = newQLightClientHandler[T,P](&handlerConfig[T,P]{
 			Database:           chainDb,
 			Chain:              eth.blockchain,
 			TxPool:             eth.txPool,
@@ -357,7 +357,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		}
 		eth.blockchain.SetPrivateStateRootHashValidator(clientCache)
 	} else {
-		if eth.handler, err = newHandler[T,P](&handlerConfig[P]{
+		if eth.handler, err = newHandler[T,P](&handlerConfig[T,P]{
 			Database:          chainDb,
 			Chain:             eth.blockchain,
 			TxPool:            eth.txPool,
@@ -378,7 +378,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 				_, authManager, _ := stack.GetSecuritySupports()
 				return authManager
 			}
-			if eth.qlightServerHandler, err = newQLightServerHandler[T,P](&handlerConfig[P]{
+			if eth.qlightServerHandler, err = newQLightServerHandler[T,P](&handlerConfig[T,P]{
 				Database:                 chainDb,
 				Chain:                    eth.blockchain,
 				TxPool:                   eth.txPool,
@@ -398,7 +398,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 		}
 	}
 
-	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
+	eth.miner = miner.New[T,P](eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData, eth.blockchain.Config().IsQuorum))
 	key := stack.GetNodeKey()
 	var pub P
@@ -530,7 +530,7 @@ func (s *Ethereum[T,P]) QLightClientAPIs() []rpc.API {
 		{
 			Namespace: "qlight",
 			Version:   "1.0",
-			Service:   qlight.NewPrivateQLightAPI(s.handler.peers, s.APIBackend.proxyClient),
+			Service:   qlight.NewPrivateQLightAPI[T,P](s.handler.peers, s.APIBackend.proxyClient),
 			Public:    false,
 		},
 	}
@@ -669,7 +669,7 @@ func (s *Ethereum[T,P]) shouldPreserve(block *types.Block[P]) bool {
 	// is A, F and G sign the block of round5 and reject the block of opponents
 	// and in the round6, the last available signer B is offline, the whole
 	// network is stuck.
-	if _, ok := s.engine.(*clique.Clique); ok {
+	if _, ok := s.engine.(*clique.Clique[P]); ok {
 		return false
 	}
 	return s.isLocalBlock(block)
@@ -723,7 +723,7 @@ func (s *Ethereum[T,P]) StartMining(threads int) error {
 			log.Error("Cannot start mining without etherbase", "err", err)
 			return fmt.Errorf("etherbase missing: %v", err)
 		}
-		if clique, ok := s.engine.(*clique.Clique); ok {
+		if clique, ok := s.engine.(*clique.Clique[P]); ok {
 			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 			if wallet == nil || err != nil {
 				log.Error("Etherbase account unavailable locally", "err", err)
@@ -755,7 +755,7 @@ func (s *Ethereum[T,P]) StopMining() {
 }
 
 func (s *Ethereum[T,P]) IsMining() bool      { return s.miner.Mining() }
-func (s *Ethereum[T,P]) Miner() *miner.Miner { return s.miner }
+func (s *Ethereum[T,P]) Miner() *miner.Miner[T,P] { return s.miner }
 
 func (s *Ethereum[T,P]) AccountManager() *accounts.Manager[P]  { return s.accountManager }
 func (s *Ethereum[T,P]) BlockChain() *core.BlockChain[P]      { return s.blockchain }
@@ -892,7 +892,7 @@ func (s *Ethereum[T,P]) SubscribePendingLogs(ch chan<- []*types.Log) event.Subsc
 
 // NotifyRegisteredPluginService will ask to refresh the plugin service
 // (Quorum)
-func (s *Ethereum[T,P]) NotifyRegisteredPluginService(pluginManager *plugin.PluginManager) error {
+func (s *Ethereum[T,P]) NotifyRegisteredPluginService(pluginManager *plugin.PluginManager[T,P]) error {
 	if s.qlightTokenHolder == nil {
 		return nil
 	}

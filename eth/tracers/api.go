@@ -70,8 +70,8 @@ type Backend [P crypto.PublicKey] interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine[P]
 	ChainDb() ethdb.Database
-	StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository, error)
-	StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository, error)
+	StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error)
+	StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error)
 
 	// Quorum
 	GetBlockchain() *core.BlockChain[P]
@@ -123,7 +123,7 @@ func (context *chainContext[P]) QuorumConfig() *core.QuorumChainConfig {
 	return &core.QuorumChainConfig{}
 }
 
-func (context *chainContext[P]) PrivateStateManager() mps.PrivateStateManager {
+func (context *chainContext[P]) PrivateStateManager() mps.PrivateStateManager[P] {
 	return context.api.backend.GetBlockchain().PrivateStateManager()
 }
 
@@ -229,7 +229,7 @@ type blockTraceTask [P crypto.PublicKey] struct {
 	results []*txTraceResult // Trace results procudes by the task
 	// Quorum
 	privateStateDb   *state.StateDB
-	privateStateRepo mps.PrivateStateRepository
+	privateStateRepo mps.PrivateStateRepository[P]
 }
 
 // blockTraceResult represets the results of tracing a single block when an entire
@@ -242,12 +242,12 @@ type blockTraceResult struct {
 
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
-type txTraceTask struct {
+type txTraceTask [P crypto.PublicKey] struct {
 	statedb *state.StateDB // Intermediate state prepped for tracing
 	index   int            // Transaction offset in the block
 	// Quorum
 	privateStateDb   *state.StateDB
-	privateStateRepo mps.PrivateStateRepository
+	privateStateRepo mps.PrivateStateRepository[P]
 }
 
 // TraceChain returns the structured logs created during the execution of EVM
@@ -353,7 +353,7 @@ func (api *API[P]) traceChain(ctx context.Context, start, end *types.Block[P], c
 			parent  common.Hash
 			statedb *state.StateDB
 			// Quorum
-			privateStateRepo mps.PrivateStateRepository
+			privateStateRepo mps.PrivateStateRepository[P]
 			privateState     *state.StateDB
 		)
 		// Ensure everything is properly cleaned up on any exit path
@@ -586,7 +586,7 @@ func (api *API[P]) traceBlock(ctx context.Context, block *types.Block[P], config
 		results = make([]*txTraceResult, len(txs))
 
 		pend = new(sync.WaitGroup)
-		jobs = make(chan *txTraceTask, len(txs))
+		jobs = make(chan *txTraceTask[P], len(txs))
 	)
 	threads := runtime.NumCPU()
 	if threads > len(txs) {
@@ -622,7 +622,7 @@ func (api *API[P]) traceBlock(ctx context.Context, block *types.Block[P], config
 	var failed error
 	for i, tx := range txs {
 		// Send the trace task over for execution
-		jobs <- &txTraceTask{
+		jobs <- &txTraceTask[P]{
 			statedb: statedb.Copy(),
 			index:   i,
 			// Quorum
@@ -928,7 +928,7 @@ func (api *API[P]) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrO
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API[P]) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext[P], vmctx vm.BlockContext, statedb, privateStateDb *state.StateDB, privateStateRepo mps.PrivateStateRepository, config *TraceConfig) (interface{}, error) {
+func (api *API[P]) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext[P], vmctx vm.BlockContext, statedb, privateStateDb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer    vm.Tracer[P]
@@ -1049,7 +1049,7 @@ func (api *API[P]) clearMessageDataIfNonParty(msg types.Message, psm *mps.Privat
 	return msg
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository, vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

@@ -79,7 +79,7 @@ type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	receipts []*types.Receipt[P]
 
 	// Quorum
-	privateStateRepo  mps.PrivateStateRepository
+	privateStateRepo  mps.PrivateStateRepository[P]
 	privateState      *state.StateDB
 	forceNonParty     bool
 	isInnerPrivateTxn bool

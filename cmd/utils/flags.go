@@ -18,7 +18,6 @@
 package utils
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	godebug "runtime/debug"
 	"strconv"
 	"strings"
@@ -51,6 +51,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
@@ -59,10 +61,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/ethclient"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethstats"
-	"github.com/pavelkrolevets/MIR-pro/extension"
+
+	// "github.com/pavelkrolevets/MIR-pro/extension"
 	"github.com/pavelkrolevets/MIR-pro/graphql"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/internal/flags"
+
 	// "github.com/pavelkrolevets/MIR-pro/les"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
@@ -75,8 +79,9 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/permission"
-	"github.com/pavelkrolevets/MIR-pro/permission/core/types"
+
+	// "github.com/pavelkrolevets/MIR-pro/permission"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core/types"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/raft"
@@ -1114,23 +1119,23 @@ func MakeDataDir(ctx *cli.Context) string {
 // setNodeKey creates a node key from set command line flags, either loading it
 // from a file or as a specified hex value. If neither flags were provided, this
 // method returns nil and an emphemeral key is to be generated.
-func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
+func setNodeKey[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	var (
 		hex  = ctx.GlobalString(NodeKeyHexFlag.Name)
 		file = ctx.GlobalString(NodeKeyFileFlag.Name)
-		key  *ecdsa.PrivateKey
+		key  T
 		err  error
 	)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", NodeKeyFileFlag.Name, NodeKeyHexFlag.Name)
 	case file != "":
-		if key, err = crypto.LoadECDSA(file); err != nil {
+		if key, err = crypto.LoadECDSA[T](file); err != nil {
 			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
 		}
 		cfg.PrivateKey = key
 	case hex != "":
-		if key, err = crypto.HexToECDSA(hex); err != nil {
+		if key, err = crypto.HexToECDSA[T](hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
 		cfg.PrivateKey = key
@@ -1138,7 +1143,7 @@ func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
 }
 
 // setNodeUserIdent creates the user identifier from CLI flags.
-func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
+func setNodeUserIdent[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	if identity := ctx.GlobalString(IdentityFlag.Name); len(identity) > 0 {
 		cfg.UserIdent = identity
 	}
@@ -1146,7 +1151,7 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 
 // setBootstrapNodes creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
-func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
+func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	urls := params.MainnetBootnodes
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
@@ -1163,10 +1168,10 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		return // already set, don't apply defaults.
 	}
 
-	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
+	cfg.BootstrapNodes = make([]*enode.Node[P], 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse(enode.ValidSchemes, url)
+			node, err := enode.Parse[P](enode.ValidSchemes, url)
 			if err != nil {
 				log.Crit("Bootstrap URL invalid", "enode", url, "err", err)
 				continue
@@ -1178,7 +1183,7 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 
 // setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
-func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
+func setBootstrapNodesV5[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	urls := params.V5Bootnodes
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
@@ -1187,10 +1192,10 @@ func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
 		return // already set, don't apply defaults.
 	}
 
-	cfg.BootstrapNodesV5 = make([]*enode.Node, 0, len(urls))
+	cfg.BootstrapNodesV5 = make([]*enode.Node[P], 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse(enode.ValidSchemes, url)
+			node, err := enode.Parse[P](enode.ValidSchemes, url)
 			if err != nil {
 				log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 				continue
@@ -1202,14 +1207,14 @@ func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
 
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
-func setListenAddress(ctx *cli.Context, cfg *p2p.Config) {
+func setListenAddress[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	if ctx.GlobalIsSet(ListenPortFlag.Name) {
 		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ListenPortFlag.Name))
 	}
 }
 
 // setNAT creates a port mapper from command line flags.
-func setNAT(ctx *cli.Context, cfg *p2p.Config) {
+func setNAT[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	if ctx.GlobalIsSet(NATFlag.Name) {
 		natif, err := nat.Parse(ctx.GlobalString(NATFlag.Name))
 		if err != nil {
@@ -1233,7 +1238,7 @@ func SplitAndTrim(input string) (ret []string) {
 
 // setHTTP creates the HTTP RPC listener interface string from the set
 // command line flags, returning empty if the HTTP endpoint is disabled.
-func setHTTP(ctx *cli.Context, cfg *node.Config) {
+func setHTTP[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	if ctx.GlobalBool(LegacyRPCEnabledFlag.Name) && cfg.HTTPHost == "" {
 		log.Warn("The flag --rpc is deprecated and will be removed in the future, please use --http")
 		cfg.HTTPHost = "127.0.0.1"
@@ -1291,7 +1296,7 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 
 // setGraphQL creates the GraphQL listener interface string from the set
 // command line flags, returning empty if the GraphQL endpoint is disabled.
-func setGraphQL(ctx *cli.Context, cfg *node.Config) {
+func setGraphQL[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	if ctx.GlobalIsSet(GraphQLCORSDomainFlag.Name) {
 		cfg.GraphQLCors = SplitAndTrim(ctx.GlobalString(GraphQLCORSDomainFlag.Name))
 	}
@@ -1302,7 +1307,7 @@ func setGraphQL(ctx *cli.Context, cfg *node.Config) {
 
 // setWS creates the WebSocket RPC listener interface string from the set
 // command line flags, returning empty if the HTTP endpoint is disabled.
-func setWS(ctx *cli.Context, cfg *node.Config) {
+func setWS[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	if ctx.GlobalBool(WSEnabledFlag.Name) && cfg.WSHost == "" {
 		cfg.WSHost = "127.0.0.1"
 		if ctx.GlobalIsSet(WSListenAddrFlag.Name) {
@@ -1328,7 +1333,7 @@ func setWS(ctx *cli.Context, cfg *node.Config) {
 
 // setIPC creates an IPC path configuration from the set command line flags,
 // returning an empty string if IPC was explicitly disabled, or the set path.
-func setIPC(ctx *cli.Context, cfg *node.Config) {
+func setIPC[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	CheckExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
 	switch {
 	case ctx.GlobalBool(IPCDisabledFlag.Name):
@@ -1339,39 +1344,39 @@ func setIPC(ctx *cli.Context, cfg *node.Config) {
 }
 
 // setLes configures the les server and ultra light client settings from the command line flags.
-func setLes(ctx *cli.Context, cfg *ethconfig.Config) {
-	if ctx.GlobalIsSet(LightServeFlag.Name) {
-		cfg.LightServ = ctx.GlobalInt(LightServeFlag.Name)
-	}
-	if ctx.GlobalIsSet(LightIngressFlag.Name) {
-		cfg.LightIngress = ctx.GlobalInt(LightIngressFlag.Name)
-	}
-	if ctx.GlobalIsSet(LightEgressFlag.Name) {
-		cfg.LightEgress = ctx.GlobalInt(LightEgressFlag.Name)
-	}
-	if ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
-		cfg.LightPeers = ctx.GlobalInt(LightMaxPeersFlag.Name)
-	}
-	if ctx.GlobalIsSet(UltraLightServersFlag.Name) {
-		cfg.UltraLightServers = strings.Split(ctx.GlobalString(UltraLightServersFlag.Name), ",")
-	}
-	if ctx.GlobalIsSet(UltraLightFractionFlag.Name) {
-		cfg.UltraLightFraction = ctx.GlobalInt(UltraLightFractionFlag.Name)
-	}
-	if cfg.UltraLightFraction <= 0 && cfg.UltraLightFraction > 100 {
-		log.Error("Ultra light fraction is invalid", "had", cfg.UltraLightFraction, "updated", ethconfig.Defaults.UltraLightFraction)
-		cfg.UltraLightFraction = ethconfig.Defaults.UltraLightFraction
-	}
-	if ctx.GlobalIsSet(UltraLightOnlyAnnounceFlag.Name) {
-		cfg.UltraLightOnlyAnnounce = ctx.GlobalBool(UltraLightOnlyAnnounceFlag.Name)
-	}
-	if ctx.GlobalIsSet(LightNoPruneFlag.Name) {
-		cfg.LightNoPrune = ctx.GlobalBool(LightNoPruneFlag.Name)
-	}
-	if ctx.GlobalIsSet(LightNoSyncServeFlag.Name) {
-		cfg.LightNoSyncServe = ctx.GlobalBool(LightNoSyncServeFlag.Name)
-	}
-}
+// func setLes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[T,P]) {
+// 	if ctx.GlobalIsSet(LightServeFlag.Name) {
+// 		cfg.LightServ = ctx.GlobalInt(LightServeFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(LightIngressFlag.Name) {
+// 		cfg.LightIngress = ctx.GlobalInt(LightIngressFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(LightEgressFlag.Name) {
+// 		cfg.LightEgress = ctx.GlobalInt(LightEgressFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
+// 		cfg.LightPeers = ctx.GlobalInt(LightMaxPeersFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(UltraLightServersFlag.Name) {
+// 		cfg.UltraLightServers = strings.Split(ctx.GlobalString(UltraLightServersFlag.Name), ",")
+// 	}
+// 	if ctx.GlobalIsSet(UltraLightFractionFlag.Name) {
+// 		cfg.UltraLightFraction = ctx.GlobalInt(UltraLightFractionFlag.Name)
+// 	}
+// 	if cfg.UltraLightFraction <= 0 && cfg.UltraLightFraction > 100 {
+// 		log.Error("Ultra light fraction is invalid", "had", cfg.UltraLightFraction, "updated", ethconfig.Defaults.UltraLightFraction)
+// 		cfg.UltraLightFraction = ethconfig.Defaults.UltraLightFraction
+// 	}
+// 	if ctx.GlobalIsSet(UltraLightOnlyAnnounceFlag.Name) {
+// 		cfg.UltraLightOnlyAnnounce = ctx.GlobalBool(UltraLightOnlyAnnounceFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(LightNoPruneFlag.Name) {
+// 		cfg.LightNoPrune = ctx.GlobalBool(LightNoPruneFlag.Name)
+// 	}
+// 	if ctx.GlobalIsSet(LightNoSyncServeFlag.Name) {
+// 		cfg.LightNoSyncServe = ctx.GlobalBool(LightNoSyncServeFlag.Name)
+// 	}
+// }
 
 // MakeDatabaseHandles raises out the number of allowed file handles per process
 // for Geth and returns half of the allowance to assign to the database.
@@ -1389,7 +1394,7 @@ func MakeDatabaseHandles() int {
 
 // MakeAddress converts an account specified directly as a hex encoded string or
 // a key index in the key store to an internal account representation.
-func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error) {
+func MakeAddress[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T,P], account string) (accounts.Account, error) {
 	// If the specified account is a valid address, return it
 	if common.IsHexAddress(account) {
 		return accounts.Account{Address: common.HexToAddress(account)}, nil
@@ -1414,7 +1419,7 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 
 // setEtherbase retrieves the etherbase either from the directly specified
 // command line flags or from the keystore if CLI indexed.
-func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *ethconfig.Config) {
+func setEtherbase[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, ks *keystore.KeyStore[T,P], cfg *ethconfig.Config[P]) {
 	// Extract the current etherbase
 	var etherbase string
 	if ctx.GlobalIsSet(MinerEtherbaseFlag.Name) {
@@ -1452,7 +1457,7 @@ func MakePasswordList(ctx *cli.Context) []string {
 	return lines
 }
 
-func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+func SetP2PConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	setNodeKey(ctx, cfg)
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
@@ -1525,7 +1530,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
-func SetQP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+func SetQP2PConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	setNodeKey(ctx, cfg)
 	//setNAT(ctx, cfg)
 	cfg.NAT = nil
@@ -1555,7 +1560,7 @@ func SetQP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
-func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
+func SetNodeConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	SetP2PConfig(ctx, &cfg.P2P)
 	if cfg.QP2P != nil {
 		SetQP2PConfig(ctx, cfg.QP2P)
@@ -1602,7 +1607,7 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
-func setSmartCard(ctx *cli.Context, cfg *node.Config) {
+func setSmartCard[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	// Skip enabling smartcards if no path is set
 	path := ctx.GlobalString(SmartCardDaemonPathFlag.Name)
 	if path == "" {
@@ -1622,7 +1627,7 @@ func setSmartCard(ctx *cli.Context, cfg *node.Config) {
 	cfg.SmartCardDaemonPath = path
 }
 
-func setDataDir(ctx *cli.Context, cfg *node.Config) {
+func setDataDir[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	switch {
 	case ctx.GlobalIsSet(DataDirFlag.Name):
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
@@ -1652,7 +1657,7 @@ func setDataDir(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
-func setRaftLogDir(ctx *cli.Context, cfg *node.Config) {
+func setRaftLogDir[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
 	if ctx.GlobalIsSet(RaftLogDirFlag.Name) {
 		cfg.RaftLogDir = ctx.GlobalString(RaftLogDirFlag.Name)
 	} else {
@@ -1663,7 +1668,7 @@ func setRaftLogDir(ctx *cli.Context, cfg *node.Config) {
 // Quorum
 //
 // Read plugin settings from --plugins flag. Overwrite settings defined in --config if any
-func SetPlugins(ctx *cli.Context, cfg *node.Config) error {
+func SetPlugins[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) error {
 	if ctx.GlobalIsSet(PluginSettingsFlag.Name) {
 		// validate flag combination
 		if ctx.GlobalBool(PluginSkipVerifyFlag.Name) && ctx.GlobalBool(PluginLocalVerifyFlag.Name) {
@@ -1763,7 +1768,7 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	}
 }
 
-func setEthash(ctx *cli.Context, cfg *ethconfig.Config) {
+func setEthash[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[P]) {
 	if ctx.GlobalIsSet(EthashCacheDirFlag.Name) {
 		cfg.Ethash.CacheDir = ctx.GlobalString(EthashCacheDirFlag.Name)
 	}
@@ -1818,7 +1823,7 @@ func setMiner(ctx *cli.Context, cfg *miner.Config) {
 	}
 }
 
-func setAuthorizationList(ctx *cli.Context, cfg *ethconfig.Config) {
+func setAuthorizationList[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[P]) {
 	authorizationList := ctx.GlobalString(AuthorizationListFlag.Name)
 	if authorizationList == "" {
 		authorizationList = ctx.GlobalString(DeprecatedAuthorizationListFlag.Name)
@@ -1848,7 +1853,7 @@ func setAuthorizationList(ctx *cli.Context, cfg *ethconfig.Config) {
 }
 
 // Quorum
-func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
+func setIstanbul[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[P]) {
 	if ctx.GlobalIsSet(IstanbulRequestTimeoutFlag.Name) {
 		log.Warn("WARNING: The flag --istanbul.requesttimeout is deprecated and will be removed in the future, please use ibft.requesttimeoutseconds on genesis file")
 		cfg.Istanbul.RequestTimeout = ctx.GlobalUint64(IstanbulRequestTimeoutFlag.Name)
@@ -1859,17 +1864,17 @@ func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
 	}
 }
 
-func setRaft(ctx *cli.Context, cfg *eth.Config) {
+func setRaft[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[P]) {
 	cfg.RaftMode = ctx.GlobalBool(RaftModeFlag.Name)
 }
 
-func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {
+func setQuorumConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *ethconfig.Config[P]) error {
 	cfg.EVMCallTimeOut = time.Duration(ctx.GlobalInt(EVMCallTimeOutFlag.Name)) * time.Second
 	cfg.QuorumChainConfig = core.NewQuorumChainConfig(ctx.GlobalBool(MultitenancyFlag.Name),
 		ctx.GlobalBool(RevertReasonFlag.Name), ctx.GlobalBool(QuorumEnablePrivacyMarker.Name),
 		ctx.GlobalBool(QuorumEnablePrivateTrieCache.Name))
-	setIstanbul(ctx, cfg)
-	setRaft(ctx, cfg)
+	setIstanbul[T,P](ctx, cfg)
+	setRaft[T,P](ctx, cfg)
 	return nil
 }
 
@@ -1914,108 +1919,108 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 	}
 }
 
-func SetQLightConfig(ctx *cli.Context, nodeCfg *node.Config, ethCfg *ethconfig.Config) {
-	if ctx.GlobalIsSet(QuorumLightServerFlag.Name) {
-		ethCfg.QuorumLightServer = ctx.GlobalBool(QuorumLightServerFlag.Name)
-	}
+// func SetQLightConfig(ctx *cli.Context, nodeCfg *node.Config[T,P], ethCfg *ethconfig.Config[T,P]) {
+// 	if ctx.GlobalIsSet(QuorumLightServerFlag.Name) {
+// 		ethCfg.QuorumLightServer = ctx.GlobalBool(QuorumLightServerFlag.Name)
+// 	}
 
-	if ethCfg.QuorumLightServer {
-		if nodeCfg.QP2P == nil {
-			nodeCfg.QP2P = &p2p.Config{
-				ListenAddr:  ":30305",
-				MaxPeers:    10,
-				NAT:         nil,
-				NoDial:      true,
-				NoDiscovery: true,
-			}
-			SetQP2PConfig(ctx, nodeCfg.QP2P)
-		}
-	} else {
-		nodeCfg.QP2P = nil
-	}
+// 	if ethCfg.QuorumLightServer {
+// 		if nodeCfg.QP2P == nil {
+// 			nodeCfg.QP2P = &p2p.Config{
+// 				ListenAddr:  ":30305",
+// 				MaxPeers:    10,
+// 				NAT:         nil,
+// 				NoDial:      true,
+// 				NoDiscovery: true,
+// 			}
+// 			SetQP2PConfig(ctx, nodeCfg.QP2P)
+// 		}
+// 	} else {
+// 		nodeCfg.QP2P = nil
+// 	}
 
-	ethCfg.QuorumLightClient = &ethconfig.QuorumLightClient{}
-	if ctx.GlobalIsSet(QuorumLightClientFlag.Name) {
-		ethCfg.QuorumLightClient.Use = ctx.GlobalBool(QuorumLightClientFlag.Name)
-	}
+// 	ethCfg.QuorumLightClient = &ethconfig.QuorumLightClient{}
+// 	if ctx.GlobalIsSet(QuorumLightClientFlag.Name) {
+// 		ethCfg.QuorumLightClient.Use = ctx.GlobalBool(QuorumLightClientFlag.Name)
+// 	}
 
-	if len(ethCfg.QuorumLightClient.PSI) == 0 {
-		ethCfg.QuorumLightClient.PSI = "private"
-	}
-	if ctx.GlobalIsSet(QuorumLightClientPSIFlag.Name) {
-		ethCfg.QuorumLightClient.PSI = ctx.GlobalString(QuorumLightClientPSIFlag.Name)
-	}
+// 	if len(ethCfg.QuorumLightClient.PSI) == 0 {
+// 		ethCfg.QuorumLightClient.PSI = "private"
+// 	}
+// 	if ctx.GlobalIsSet(QuorumLightClientPSIFlag.Name) {
+// 		ethCfg.QuorumLightClient.PSI = ctx.GlobalString(QuorumLightClientPSIFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientTokenEnabledFlag.Name) {
-		ethCfg.QuorumLightClient.TokenEnabled = ctx.GlobalBool(QuorumLightClientTokenEnabledFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientTokenEnabledFlag.Name) {
+// 		ethCfg.QuorumLightClient.TokenEnabled = ctx.GlobalBool(QuorumLightClientTokenEnabledFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientTokenValueFlag.Name) {
-		ethCfg.QuorumLightClient.TokenValue = ctx.GlobalString(QuorumLightClientTokenValueFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientTokenValueFlag.Name) {
+// 		ethCfg.QuorumLightClient.TokenValue = ctx.GlobalString(QuorumLightClientTokenValueFlag.Name)
+// 	}
 
-	if len(ethCfg.QuorumLightClient.TokenManagement) == 0 {
-		ethCfg.QuorumLightClient.TokenManagement = "client-security-plugin"
-	}
-	if ctx.GlobalIsSet(QuorumLightClientTokenManagementFlag.Name) {
-		ethCfg.QuorumLightClient.TokenManagement = ctx.GlobalString(QuorumLightClientTokenManagementFlag.Name)
-	}
-	if !isValidTokenManagement(ethCfg.QuorumLightClient.TokenManagement) {
-		Fatalf("Invalid value specified '%s' for flag '%s'.", ethCfg.QuorumLightClient.TokenManagement, QuorumLightClientTokenManagementFlag.Name)
-	}
+// 	if len(ethCfg.QuorumLightClient.TokenManagement) == 0 {
+// 		ethCfg.QuorumLightClient.TokenManagement = "client-security-plugin"
+// 	}
+// 	if ctx.GlobalIsSet(QuorumLightClientTokenManagementFlag.Name) {
+// 		ethCfg.QuorumLightClient.TokenManagement = ctx.GlobalString(QuorumLightClientTokenManagementFlag.Name)
+// 	}
+// 	if !isValidTokenManagement(ethCfg.QuorumLightClient.TokenManagement) {
+// 		Fatalf("Invalid value specified '%s' for flag '%s'.", ethCfg.QuorumLightClient.TokenManagement, QuorumLightClientTokenManagementFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientRPCTLSFlag.Name) {
-		ethCfg.QuorumLightClient.RPCTLS = ctx.GlobalBool(QuorumLightClientRPCTLSFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientRPCTLSFlag.Name) {
+// 		ethCfg.QuorumLightClient.RPCTLS = ctx.GlobalBool(QuorumLightClientRPCTLSFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientRPCTLSCACertFlag.Name) {
-		ethCfg.QuorumLightClient.RPCTLSCACert = ctx.GlobalString(QuorumLightClientRPCTLSCACertFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientRPCTLSCACertFlag.Name) {
+// 		ethCfg.QuorumLightClient.RPCTLSCACert = ctx.GlobalString(QuorumLightClientRPCTLSCACertFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientRPCTLSInsecureSkipVerifyFlag.Name) {
-		ethCfg.QuorumLightClient.RPCTLSInsecureSkipVerify = ctx.GlobalBool(QuorumLightClientRPCTLSInsecureSkipVerifyFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientRPCTLSInsecureSkipVerifyFlag.Name) {
+// 		ethCfg.QuorumLightClient.RPCTLSInsecureSkipVerify = ctx.GlobalBool(QuorumLightClientRPCTLSInsecureSkipVerifyFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientRPCTLSCertFlag.Name) && ctx.GlobalIsSet(QuorumLightClientRPCTLSKeyFlag.Name) {
-		ethCfg.QuorumLightClient.RPCTLSCert = ctx.GlobalString(QuorumLightClientRPCTLSCertFlag.Name)
-		ethCfg.QuorumLightClient.RPCTLSKey = ctx.GlobalString(QuorumLightClientRPCTLSKeyFlag.Name)
-	} else if ctx.GlobalIsSet(QuorumLightClientRPCTLSCertFlag.Name) {
-		Fatalf("'%s' specified without specifying '%s'", QuorumLightClientRPCTLSCertFlag.Name, QuorumLightClientRPCTLSKeyFlag.Name)
-	} else if ctx.GlobalIsSet(QuorumLightClientRPCTLSKeyFlag.Name) {
-		Fatalf("'%s' specified without specifying '%s'", QuorumLightClientRPCTLSKeyFlag.Name, QuorumLightClientRPCTLSCertFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientRPCTLSCertFlag.Name) && ctx.GlobalIsSet(QuorumLightClientRPCTLSKeyFlag.Name) {
+// 		ethCfg.QuorumLightClient.RPCTLSCert = ctx.GlobalString(QuorumLightClientRPCTLSCertFlag.Name)
+// 		ethCfg.QuorumLightClient.RPCTLSKey = ctx.GlobalString(QuorumLightClientRPCTLSKeyFlag.Name)
+// 	} else if ctx.GlobalIsSet(QuorumLightClientRPCTLSCertFlag.Name) {
+// 		Fatalf("'%s' specified without specifying '%s'", QuorumLightClientRPCTLSCertFlag.Name, QuorumLightClientRPCTLSKeyFlag.Name)
+// 	} else if ctx.GlobalIsSet(QuorumLightClientRPCTLSKeyFlag.Name) {
+// 		Fatalf("'%s' specified without specifying '%s'", QuorumLightClientRPCTLSKeyFlag.Name, QuorumLightClientRPCTLSCertFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientServerNodeRPCFlag.Name) {
-		ethCfg.QuorumLightClient.ServerNodeRPC = ctx.GlobalString(QuorumLightClientServerNodeRPCFlag.Name)
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientServerNodeRPCFlag.Name) {
+// 		ethCfg.QuorumLightClient.ServerNodeRPC = ctx.GlobalString(QuorumLightClientServerNodeRPCFlag.Name)
+// 	}
 
-	if ctx.GlobalIsSet(QuorumLightClientServerNodeFlag.Name) {
-		ethCfg.QuorumLightClient.ServerNode = ctx.GlobalString(QuorumLightClientServerNodeFlag.Name)
-		// This is already done in geth/config - before the node.New invocation (at which point the StaticNodes is already copied)
-		//stack.Config().P2P.StaticNodes = []*enode.Node{enode.MustParse(ethCfg.QuorumLightClientServerNode)}
-	}
+// 	if ctx.GlobalIsSet(QuorumLightClientServerNodeFlag.Name) {
+// 		ethCfg.QuorumLightClient.ServerNode = ctx.GlobalString(QuorumLightClientServerNodeFlag.Name)
+// 		// This is already done in geth/config - before the node.New invocation (at which point the StaticNodes is already copied)
+// 		//stack.Config().P2P.StaticNodes = []*enode.Node{enode.MustParse(ethCfg.QuorumLightClientServerNode)}
+// 	}
 
-	if ethCfg.QuorumLightClient.Enabled() {
-		if ctx.GlobalBool(MiningEnabledFlag.Name) {
-			Fatalf("QLight clients do not support mining")
-		}
-		if len(ethCfg.QuorumLightClient.ServerNode) == 0 {
-			Fatalf("Please specify the '%s' when running a qlight client.", QuorumLightClientServerNodeFlag.Name)
-		}
-		if len(ethCfg.QuorumLightClient.ServerNodeRPC) == 0 {
-			Fatalf("Please specify the '%s' when running a qlight client.", QuorumLightClientServerNodeRPCFlag.Name)
-		}
+// 	if ethCfg.QuorumLightClient.Enabled() {
+// 		if ctx.GlobalBool(MiningEnabledFlag.Name) {
+// 			Fatalf("QLight clients do not support mining")
+// 		}
+// 		if len(ethCfg.QuorumLightClient.ServerNode) == 0 {
+// 			Fatalf("Please specify the '%s' when running a qlight client.", QuorumLightClientServerNodeFlag.Name)
+// 		}
+// 		if len(ethCfg.QuorumLightClient.ServerNodeRPC) == 0 {
+// 			Fatalf("Please specify the '%s' when running a qlight client.", QuorumLightClientServerNodeRPCFlag.Name)
+// 		}
 
-		nodeCfg.P2P.StaticNodes = []*enode.Node{enode.MustParse(ethCfg.QuorumLightClient.ServerNode)}
-		log.Info("The node is configured to run as a qlight client. 'maxpeers' is overridden to `1` and the P2P listener is disabled.")
-		nodeCfg.P2P.MaxPeers = 1
-		// force the qlight client node to disable the local P2P listener
-		nodeCfg.P2P.ListenAddr = ""
-	}
-}
+// 		nodeCfg.P2P.StaticNodes = []*enode.Node{enode.MustParse(ethCfg.QuorumLightClient.ServerNode)}
+// 		log.Info("The node is configured to run as a qlight client. 'maxpeers' is overridden to `1` and the P2P listener is disabled.")
+// 		nodeCfg.P2P.MaxPeers = 1
+// 		// force the qlight client node to disable the local P2P listener
+// 		nodeCfg.P2P.ListenAddr = ""
+// 	}
+// }
 
 // SetEthConfig applies eth-related command line flags to the config.
-func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
+func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], cfg *ethconfig.Config[P]) {
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, RopstenFlag, RinkebyFlag, GoerliFlag, YoloV3Flag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
@@ -2027,17 +2032,17 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	if ctx.GlobalIsSet(LightServeFlag.Name) && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
 		log.Warn("LES server cannot serve old transaction status and cannot connect below les/4 protocol version if transaction lookup index is limited")
 	}
-	var ks *keystore.KeyStore
-	if keystores := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{})); len(keystores) > 0 {
-		ks = keystores[0].(*keystore.KeyStore)
+	var ks *keystore.KeyStore[T,P]
+	if keystores := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{})); len(keystores) > 0 {
+		ks = keystores[0].(*keystore.KeyStore[T,P])
 	}
 	setEtherbase(ctx, ks, cfg)
 	setGPO(ctx, &cfg.GPO, ctx.GlobalString(SyncModeFlag.Name) == "light")
 	setTxPool(ctx, &cfg.TxPool)
-	setEthash(ctx, cfg)
+	setEthash[T,P](ctx, cfg)
 	setMiner(ctx, &cfg.Miner)
-	setAuthorizationList(ctx, cfg)
-	setLes(ctx, cfg)
+	setAuthorizationList[T,P](ctx, cfg)
+	// setLes(ctx, cfg)
 
 	// Cap the cache allowance and tune the garbage collector
 	mem, err := gopsutil.VirtualMemory()
@@ -2060,7 +2065,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	godebug.SetGCPercent(int(gogc))
 
 	// Quorum
-	err = setQuorumConfig(ctx, cfg)
+	err = setQuorumConfig[T,P](ctx, cfg)
 	if err != nil {
 		Fatalf("Quorum configuration has an error: %v", err)
 	}
@@ -2177,31 +2182,31 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1
 		}
-		cfg.Genesis = core.DefaultGenesisBlock()
+		cfg.Genesis = core.DefaultGenesisBlock[P]()
 		SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
 	case ctx.GlobalBool(RopstenFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 3
 		}
-		cfg.Genesis = core.DefaultRopstenGenesisBlock()
+		cfg.Genesis = core.DefaultRopstenGenesisBlock[P]()
 		SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 4
 		}
-		cfg.Genesis = core.DefaultRinkebyGenesisBlock()
+		cfg.Genesis = core.DefaultRinkebyGenesisBlock[P]()
 		SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
 	case ctx.GlobalBool(GoerliFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 5
 		}
-		cfg.Genesis = core.DefaultGoerliGenesisBlock()
+		cfg.Genesis = core.DefaultGoerliGenesisBlock[P]()
 		SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
 	case ctx.GlobalBool(YoloV3Flag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = new(big.Int).SetBytes([]byte("yolov3x")).Uint64() // "yolov3x"
 		}
-		cfg.Genesis = core.DefaultYoloV3GenesisBlock()
+		cfg.Genesis = core.DefaultYoloV3GenesisBlock[P]()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1337
@@ -2235,7 +2240,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		log.Info("Using developer account", "address", developer.Address)
 
 		// Create a new developer genesis block or reuse existing one
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
+		cfg.Genesis = core.DeveloperGenesisBlock[P](uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
 		if ctx.GlobalIsSet(DataDirFlag.Name) {
 			// Check if we have an already initialized chain and fall back to
 			// that if so. Otherwise we need to generate a new genesis spec.
@@ -2257,7 +2262,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 
 // SetDNSDiscoveryDefaults configures DNS discovery with the given URL if
 // no URLs are set.
-func SetDNSDiscoveryDefaults(cfg *ethconfig.Config, genesis common.Hash) {
+func SetDNSDiscoveryDefaults[P crypto.PublicKey] (cfg *ethconfig.Config[P], genesis common.Hash) {
 	if cfg.EthDiscoveryURLs != nil {
 		return // already set through flags/config
 	}
@@ -2275,48 +2280,48 @@ func SetDNSDiscoveryDefaults(cfg *ethconfig.Config, genesis common.Hash) {
 // Quorum => returns also the ethereum service which is used by the raft service
 // The second return value is the full node instance, which may be nil if the
 // node is running as a light client.
-func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend, *eth.Ethereum) {
-	if cfg.SyncMode == downloader.LightSync {
-		backend, err := les.New(stack, cfg)
-		if err != nil {
-			Fatalf("Failed to register the Ethereum service: %v", err)
-		}
-		stack.RegisterAPIs(tracers.APIs(backend.ApiBackend))
-		return backend.ApiBackend, nil
-	}
+func RegisterEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], cfg *ethconfig.Config[P]) (ethapi.Backend[T,P], *eth.Ethereum[T,P]) {
+	// if cfg.SyncMode == downloader.LightSync {
+	// 	backend, err := les.New(stack, cfg)
+	// 	if err != nil {
+	// 		Fatalf("Failed to register the Ethereum service: %v", err)
+	// 	}
+	// 	stack.RegisterAPIs(tracers.APIs(backend.ApiBackend))
+	// 	return backend.ApiBackend, nil
+	// }
 
 	// Quorum
 	client, err := stack.Attach()
 	if err != nil {
 		Fatalf("Failed to attach to self: %v", err)
 	}
-	cfg.Istanbul.Client = ethclient.NewClient(client)
+	cfg.Istanbul.Client = ethclient.NewClient[P](client)
 	// End Quorum
 
 	backend, err := eth.New(stack, cfg)
 	if err != nil {
 		Fatalf("Failed to register the Ethereum service: %v", err)
 	}
-	if cfg.LightServ > 0 {
-		_, err := les.NewLesServer(stack, backend, cfg)
-		if err != nil {
-			Fatalf("Failed to create the LES server: %v", err)
-		}
-	}
-	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
+	// if cfg.LightServ > 0 {
+	// 	_, err := les.NewLesServer(stack, backend, cfg)
+	// 	if err != nil {
+	// 		Fatalf("Failed to create the LES server: %v", err)
+	// 	}
+	// }
+	stack.RegisterAPIs(tracers.APIs[P](backend.APIBackend))
 	return backend.APIBackend, backend
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
 // the given node.
-func RegisterEthStatsService(stack *node.Node, backend ethapi.Backend, url string) {
-	if err := ethstats.New(stack, backend, backend.Engine(), url); err != nil {
+func RegisterEthStatsService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend ethapi.Backend[T,P], url string) {
+	if err := ethstats.New[T,P](stack, backend, backend.Engine(), url); err != nil {
 		Fatalf("Failed to register the Ethereum Stats service: %v", err)
 	}
 }
 
 // RegisterGraphQLService is a utility function to construct a new service and register it against a node.
-func RegisterGraphQLService(stack *node.Node, backend ethapi.Backend, cfg node.Config) {
+func RegisterGraphQLService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend ethapi.Backend[T,P], cfg node.Config[T,P]) {
 	if err := graphql.New(stack, backend, cfg.GraphQLCors, cfg.GraphQLVirtualHosts); err != nil {
 		Fatalf("Failed to register the GraphQL service: %v", err)
 	}
@@ -2325,12 +2330,12 @@ func RegisterGraphQLService(stack *node.Node, backend ethapi.Backend, cfg node.C
 // Quorum
 //
 // Register plugin manager as a service in geth
-func RegisterPluginService(stack *node.Node, cfg *node.Config, skipVerify bool, localVerify bool, publicKey string) {
+func RegisterPluginService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], cfg *node.Config[T,P], skipVerify bool, localVerify bool, publicKey string) {
 	// ricardolyn: I can't adapt this Plugin Service construction to the new approach as there are circular dependencies between Node and Plugin
 	if err := cfg.ResolvePluginBaseDir(); err != nil {
 		Fatalf("plugins: unable to resolve plugin base dir due to %s", err)
 	}
-	pluginManager, err := plugin.NewPluginManager(cfg.UserIdent, cfg.Plugins, skipVerify, localVerify, publicKey)
+	pluginManager, err := plugin.NewPluginManager[T,P](cfg.UserIdent, cfg.Plugins, skipVerify, localVerify, publicKey)
 	if err != nil {
 		Fatalf("plugins: Failed to register the Plugins service: %v", err)
 	}
@@ -2341,20 +2346,20 @@ func RegisterPluginService(stack *node.Node, cfg *node.Config, skipVerify bool, 
 }
 
 // Configure smart-contract-based permissioning service
-func RegisterPermissionService(stack *node.Node, useDns bool, chainID *big.Int) {
-	permissionConfig, err := types.ParsePermissionConfig(stack.DataDir())
-	if err != nil {
-		Fatalf("loading of %s failed due to %v", params.PERMISSION_MODEL_CONFIG, err)
-	}
-	// start the permissions management service
-	_, err = permission.NewQuorumPermissionCtrl(stack, &permissionConfig, useDns, chainID)
-	if err != nil {
-		Fatalf("failed to load the permission contracts as given in %s due to %v", params.PERMISSION_MODEL_CONFIG, err)
-	}
-	log.Info("permission service registered")
-}
+// func RegisterPermissionService(stack *node.Node[T,P], useDns bool, chainID *big.Int) {
+// 	permissionConfig, err := types.ParsePermissionConfig(stack.DataDir())
+// 	if err != nil {
+// 		Fatalf("loading of %s failed due to %v", params.PERMISSION_MODEL_CONFIG, err)
+// 	}
+// 	// start the permissions management service
+// 	_, err = permission.NewQuorumPermissionCtrl(stack, &permissionConfig, useDns, chainID)
+// 	if err != nil {
+// 		Fatalf("failed to load the permission contracts as given in %s due to %v", params.PERMISSION_MODEL_CONFIG, err)
+// 	}
+// 	log.Info("permission service registered")
+// }
 
-func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Config, ethService *eth.Ethereum) {
+func RegisterRaftService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], ctx *cli.Context, nodeCfg *node.Config[T,P], ethService *eth.Ethereum[T,P]) {
 	blockTimeMillis := ctx.GlobalInt(RaftBlockTimeFlag.Name)
 	raftLogDir := nodeCfg.RaftLogDir // default value is set either 'datadir' or 'raftlogdir'
 	joinExistingId := ctx.GlobalInt(RaftJoinExistingFlag.Name)
@@ -2362,7 +2367,17 @@ func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Confi
 	raftPort := uint16(ctx.GlobalInt(RaftPortFlag.Name))
 
 	privkey := nodeCfg.NodeKey()
-	strId := enode.PubkeyToIDV4(&privkey.PublicKey).String()
+	// Mir
+	var pub P
+	switch t:=any(&privkey).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
+	strId := enode.PubkeyToIDV4(pub).String()
 	blockTimeNanos := time.Duration(blockTimeMillis) * time.Millisecond
 	peers := nodeCfg.StaticNodes()
 
@@ -2402,14 +2417,14 @@ func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Confi
 	log.Info("raft service registered")
 }
 
-func RegisterExtensionService(stack *node.Node, ethService *eth.Ethereum) {
-	_, err := extension.NewServicesFactory(stack, private.P, ethService)
-	if err != nil {
-		Fatalf("Failed to register the Extension service: %v", err)
-	}
+// func RegisterExtensionService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], ethService *eth.Ethereum[T,P]) {
+// 	_, err := extension.NewServicesFactory(stack, private.P, ethService)
+// 	if err != nil {
+// 		Fatalf("Failed to register the Extension service: %v", err)
+// 	}
 
-	log.Info("extension service registered")
-}
+// 	log.Info("extension service registered")
+// }
 
 func SetupMetrics(ctx *cli.Context) {
 	if metrics.Enabled {
@@ -2457,7 +2472,7 @@ func SplitTagsFlag(tagsFlag string) map[string]string {
 }
 
 // MakeChainDatabase open an LevelDB using the flags passed to the client and will hard crash if it fails.
-func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.Database {
+func MakeChainDatabase[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], readonly bool) ethdb.Database {
 	var (
 		cache   = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
 		handles = MakeDatabaseHandles()
@@ -2478,26 +2493,26 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 	return chainDb
 }
 
-func MakeGenesis(ctx *cli.Context) *core.Genesis {
-	var genesis *core.Genesis
+func MakeGenesis[P crypto.PublicKey](ctx *cli.Context) *core.Genesis[P] {
+	var genesis *core.Genesis[P]
 	switch {
 	case ctx.GlobalBool(MainnetFlag.Name):
-		genesis = core.DefaultGenesisBlock()
-	case ctx.GlobalBool(RopstenFlag.Name):
-		genesis = core.DefaultRopstenGenesisBlock()
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		genesis = core.DefaultRinkebyGenesisBlock()
-	case ctx.GlobalBool(GoerliFlag.Name):
-		genesis = core.DefaultGoerliGenesisBlock()
-	case ctx.GlobalBool(YoloV3Flag.Name):
-		genesis = core.DefaultYoloV3GenesisBlock()
+		genesis = core.DefaultGenesisBlock[P]()
+	// case ctx.GlobalBool(RopstenFlag.Name):
+	// 	genesis = core.DefaultRopstenGenesisBlock()
+	// case ctx.GlobalBool(RinkebyFlag.Name):
+	// 	genesis = core.DefaultRinkebyGenesisBlock()
+	// case ctx.GlobalBool(GoerliFlag.Name):
+	// 	genesis = core.DefaultGoerliGenesisBlock()
+	// case ctx.GlobalBool(YoloV3Flag.Name):
+	// 	genesis = core.DefaultYoloV3GenesisBlock()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
 	}
 	return genesis
 }
 
-func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.BlockChain, chainDb ethdb.Database) {
+func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], useExist bool) (chain *core.BlockChain[P], chainDb ethdb.Database) {
 	var err error
 	var config *params.ChainConfig
 	chainDb = MakeChainDatabase(ctx, stack, false) // TODO(rjl493456442) support read-only database
@@ -2508,13 +2523,13 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 		}
 		config = rawdb.ReadChainConfig(chainDb, stored)
 	} else {
-		config, _, err = core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+		config, _, err = core.SetupGenesisBlock(chainDb, MakeGenesis[P](ctx))
 		if err != nil {
 			Fatalf("%v", err)
 		}
 	}
 
-	var engine consensus.Engine
+	var engine consensus.Engine[P]
 
 	client, err := stack.Attach()
 	if err != nil {
@@ -2532,7 +2547,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 		})
 	}
 	if config.Clique != nil {
-		engine = clique.New(config.Clique, chainDb)
+		engine = clique.New[P](config.Clique, chainDb)
 	} else if config.Istanbul != nil {
 		log.Warn("WARNING: The attribute config.istanbul is deprecated and will be removed in the future, please use config.ibft on genesis file")
 		// for IBFT
@@ -2544,14 +2559,14 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 		istanbulConfig.Ceil2Nby3Block = config.Istanbul.Ceil2Nby3Block
 		istanbulConfig.TestQBFTBlock = config.Istanbul.TestQBFTBlock
 		istanbulConfig.Transitions = config.Transitions
-		istanbulConfig.Client = ethclient.NewClient(client)
-		engine = istanbulBackend.New(istanbulConfig, stack.GetNodeKey(), chainDb)
+		istanbulConfig.Client = ethclient.NewClient[P](client)
+		engine = istanbulBackend.New[T,P](istanbulConfig, stack.GetNodeKey(), chainDb)
 	} else if config.IBFT != nil {
 		ibftConfig := setBFTConfig(config.IBFT.BFTConfig)
 		ibftConfig.TestQBFTBlock = nil
 		ibftConfig.Transitions = config.Transitions
-		ibftConfig.Client = ethclient.NewClient(client)
-		engine = istanbulBackend.New(ibftConfig, stack.GetNodeKey(), chainDb)
+		ibftConfig.Client = ethclient.NewClient[P](client)
+		engine = istanbulBackend.New[T,P](ibftConfig, stack.GetNodeKey(), chainDb)
 	} else if config.QBFT != nil {
 		qbftConfig := setBFTConfig(config.QBFT.BFTConfig)
 		qbftConfig.BlockReward = config.QBFT.BlockReward
@@ -2563,23 +2578,23 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 		qbftConfig.ValidatorContract = config.QBFT.ValidatorContractAddress
 		qbftConfig.ValidatorSelectionMode = config.QBFT.ValidatorSelectionMode
 		qbftConfig.Validators = config.QBFT.Validators
-		qbftConfig.Client = ethclient.NewClient(client)
-		engine = istanbulBackend.New(qbftConfig, stack.GetNodeKey(), chainDb)
+		qbftConfig.Client = ethclient.NewClient[P](client)
+		engine = istanbulBackend.New[T,P](qbftConfig, stack.GetNodeKey(), chainDb)
 	} else if config.IsQuorum {
 		// for Raft
-		engine = ethash.NewFullFaker()
+		engine = ethash.NewFullFaker[P]()
 	} else {
-		engine = ethash.NewFaker()
+		engine = ethash.NewFaker[P]()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New(ethash.Config{
-				CacheDir:         stack.ResolvePath(ethconfig.Defaults.Ethash.CacheDir),
-				CachesInMem:      ethconfig.Defaults.Ethash.CachesInMem,
-				CachesOnDisk:     ethconfig.Defaults.Ethash.CachesOnDisk,
-				CachesLockMmap:   ethconfig.Defaults.Ethash.CachesLockMmap,
-				DatasetDir:       stack.ResolvePath(ethconfig.Defaults.Ethash.DatasetDir),
-				DatasetsInMem:    ethconfig.Defaults.Ethash.DatasetsInMem,
-				DatasetsOnDisk:   ethconfig.Defaults.Ethash.DatasetsOnDisk,
-				DatasetsLockMmap: ethconfig.Defaults.Ethash.DatasetsLockMmap,
+			engine = ethash.New[P](ethash.Config{
+				CacheDir:         stack.ResolvePath(ethconfig.Defaults[P]().Ethash.CacheDir),
+				CachesInMem:      ethconfig.Defaults[P]().Ethash.CachesInMem,
+				CachesOnDisk:     ethconfig.Defaults[P]().Ethash.CachesOnDisk,
+				CachesLockMmap:   ethconfig.Defaults[P]().Ethash.CachesLockMmap,
+				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[P]().Ethash.DatasetDir),
+				DatasetsInMem:    ethconfig.Defaults[P]().Ethash.DatasetsInMem,
+				DatasetsOnDisk:   ethconfig.Defaults[P]().Ethash.DatasetsOnDisk,
+				DatasetsLockMmap: ethconfig.Defaults[P]().Ethash.DatasetsLockMmap,
 			}, nil, false)
 		}
 	}
@@ -2587,12 +2602,12 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
 	cache := &core.CacheConfig{
-		TrieCleanLimit:      ethconfig.Defaults.TrieCleanCache,
+		TrieCleanLimit:      ethconfig.Defaults[P]().TrieCleanCache,
 		TrieCleanNoPrefetch: ctx.GlobalBool(CacheNoPrefetchFlag.Name),
-		TrieDirtyLimit:      ethconfig.Defaults.TrieDirtyCache,
+		TrieDirtyLimit:      ethconfig.Defaults[P]().TrieDirtyCache,
 		TrieDirtyDisabled:   ctx.GlobalString(GCModeFlag.Name) == "archive",
-		TrieTimeLimit:       ethconfig.Defaults.TrieTimeout,
-		SnapshotLimit:       ethconfig.Defaults.SnapshotCache,
+		TrieTimeLimit:       ethconfig.Defaults[P]().TrieTimeout,
+		SnapshotLimit:       ethconfig.Defaults[P]().SnapshotCache,
 		Preimages:           ctx.GlobalBool(CachePreimagesFlag.Name),
 	}
 	if true || cache.TrieDirtyDisabled && !cache.Preimages { // TODO: Quorum; force preimages for contract extension and dump of states compatibility, until a fix is found
@@ -2608,7 +2623,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, useExist bool) (chain *core.B
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieDirtyLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
-	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
+	vmcfg := vm.Config[P]{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
 	// Quorum
 	var limit *uint64
@@ -2702,7 +2717,7 @@ func isValidTokenManagement(value string) bool {
 	return false
 }
 
-func getSignerCert(skid string) (csp.Cert) {
+func getSignerCert(skid string) (*csp.Cert) {
 	store, err := csp.SystemStore("My")
 	if err != nil {
 		Fatalf("Error setting CSP store: %s", err.Error())
@@ -2715,5 +2730,5 @@ func getSignerCert(skid string) (csp.Cert) {
 	if err != nil {
 		Fatalf("Error looking for cert in CSP store: %s", err.Error())
 	}
-	return crt
+	return &crt
 }

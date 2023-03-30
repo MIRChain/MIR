@@ -44,7 +44,7 @@ import (
 type Node [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	eventmux      *event.TypeMux
 	config        *Config[T,P]
-	accman        *accounts.Manager
+	accman        *accounts.Manager[P]
 	log           log.Logger
 	ephemKeystore string            // if non-empty, the key directory that will be removed by Stop
 	dirLock       fileutil.Releaser // prevents concurrent use of instance directory
@@ -65,7 +65,7 @@ type Node [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	databases map[*closeTrackingDB[T,P]]struct{} // All open databases
 
 	// Quorum
-	pluginManager *plugin.PluginManager // Manage all plugins for this node. If plugin is not enabled, an EmptyPluginManager is set.
+	pluginManager *plugin.PluginManager[T,P] // Manage all plugins for this node. If plugin is not enabled, an EmptyPluginManager is set.
 	// End Quorum
 }
 
@@ -112,7 +112,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey ] (conf *Config[T,P]) (*Node[T,
 		stop:          make(chan struct{}),
 		server:        &p2p.Server[T,P]{Config: conf.P2P},
 		databases:     make(map[*closeTrackingDB[T,P]]struct{}),
-		pluginManager: plugin.NewEmptyPluginManager(),
+		pluginManager: plugin.NewEmptyPluginManager[T,P](),
 	}
 	if conf.QP2P != nil {
 		node.qserver = &p2p.Server[T,P]{Config: *conf.QP2P}
@@ -608,7 +608,7 @@ func (n *Node[T,P]) InstanceDir() string {
 }
 
 // AccountManager retrieves the account manager used by the protocol stack.
-func (n *Node[T,P]) AccountManager() *accounts.Manager {
+func (n *Node[T,P]) AccountManager() *accounts.Manager[P] {
 	return n.accman
 }
 
@@ -735,7 +735,7 @@ func (n *Node[T,P]) closeDatabases() (errors []error) {
 // Quorum
 func (n *Node[T,P]) GetSecuritySupports() (tlsConfigSource security.TLSConfigurationSource, authManager security.AuthenticationManager, err error) {
 	if n.pluginManager.IsEnabled(plugin.SecurityPluginInterfaceName) {
-		sp := new(plugin.SecurityPluginTemplate)
+		sp := new(plugin.SecurityPluginTemplate[T,P])
 		if err = n.pluginManager.GetPluginTemplate(plugin.SecurityPluginInterfaceName, sp); err != nil {
 			return
 		}
@@ -768,14 +768,14 @@ func (n *Node[T,P]) GetNodeKey() T {
 // Quorum
 //
 // This can be used to inspect plugins used in the current node
-func (n *Node[T,P]) PluginManager() *plugin.PluginManager {
+func (n *Node[T,P]) PluginManager() *plugin.PluginManager[T,P] {
 	return n.pluginManager
 }
 
 // Quorum
 //
 // This can be used to set the plugin manager in the node (replacing the default Empty one)
-func (n *Node[T,P]) SetPluginManager(pm *plugin.PluginManager) {
+func (n *Node[T,P]) SetPluginManager(pm *plugin.PluginManager[T,P]) {
 	n.pluginManager = pm
 }
 

@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,7 +34,10 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/console/prompt"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
+
+	// "github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethclient"
 	"github.com/pavelkrolevets/MIR-pro/internal/debug"
@@ -42,7 +46,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/permission"
+
+	// "github.com/pavelkrolevets/MIR-pro/permission"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -270,7 +275,7 @@ var (
 
 func init() {
 	// Initialize the CLI app and start Mir
-	app.Action = mir
+	app.Action = mir[nist.PrivateKey, nist.PublicKey]
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2023 The go-ethereum and Mir Authors"
 	app.Commands = []cli.Command{
@@ -379,7 +384,7 @@ func prepare(ctx *cli.Context) {
 // mir is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
-func mir(ctx *cli.Context) error {
+func mir[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
@@ -407,7 +412,7 @@ func mir(ctx *cli.Context) error {
 	}
 
 	prepare(ctx)
-	stack, backend := makeFullNode(ctx)
+	stack, backend := makeFullNode[T,P](ctx)
 	defer stack.Close()
 
 	// Mir - check if signer cert is loaded
@@ -423,7 +428,7 @@ func mir(ctx *cli.Context) error {
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
-func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
+func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], backend ethapi.Backend[T,P]) {
 	log.DoEmitCheckpoints = ctx.GlobalBool(utils.EmitCheckpointsFlag.Name)
 	debug.Memsize.Add("node", stack)
 
@@ -437,7 +442,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 
 	// Now that the plugin manager has been started we register the account plugin with the corresponding account backend.  All other account management is disabled when using External Signer
 	if !ctx.IsSet(utils.ExternalSignerFlag.Name) && stack.PluginManager().IsEnabled(plugin.AccountPluginInterfaceName) {
-		b := stack.AccountManager().Backends(reflect.TypeOf(&pluggable.Backend[P]{}))[0].(*pluggable.Backend)
+		b := stack.AccountManager().Backends(reflect.TypeOf(&pluggable.Backend[P]{}))[0].(*pluggable.Backend[P])
 		if err := stack.PluginManager().AddAccountPluginToBackend(b); err != nil {
 			log.Error("failed to setup account plugin", "err", err)
 		}
@@ -447,7 +452,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	unlockAccounts(ctx, stack)
 
 	// Register wallet event handlers to open and auto-derive wallets
-	events := make(chan accounts.WalletEvent, 16)
+	events := make(chan accounts.WalletEvent[P], 16)
 	stack.AccountManager().Subscribe(events)
 
 	// Create a client to interact with local geth node.
@@ -455,7 +460,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	if err != nil {
 		utils.Fatalf("Failed to attach to self: %v", err)
 	}
-	ethClient := ethclient.NewClient(rpcClient)
+	ethClient := ethclient.NewClient[P](rpcClient)
 
 	// Quorum
 	if ctx.GlobalBool(utils.MultitenancyFlag.Name) && !stack.PluginManager().IsEnabled(plugin.SecurityPluginInterfaceName) {
@@ -523,18 +528,18 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	// Quorum
 	//
 	// checking if permissions is enabled and staring the permissions service
-	if stack.Config().EnableNodePermission {
-		stack.Server().SetIsNodePermissioned(permission.IsNodePermissioned)
-		if stack.IsPermissionEnabled() {
-			var permissionService *permission.PermissionCtrl
-			if err := stack.Lifecycle(&permissionService); err != nil {
-				utils.Fatalf("Permission service not runnning: %v", err)
-			}
-			if err := permissionService.AfterStart(); err != nil {
-				utils.Fatalf("Permission service post construct failure: %v", err)
-			}
-		}
-	}
+	// if stack.Config().EnableNodePermission {
+	// 	stack.Server().SetIsNodePermissioned(permission.IsNodePermissioned)
+	// 	if stack.IsPermissionEnabled() {
+	// 		var permissionService *permission.PermissionCtrl
+	// 		if err := stack.Lifecycle(&permissionService); err != nil {
+	// 			utils.Fatalf("Permission service not runnning: %v", err)
+	// 		}
+	// 		if err := permissionService.AfterStart(); err != nil {
+	// 			utils.Fatalf("Permission service post construct failure: %v", err)
+	// 		}
+	// 	}
+	// }
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
@@ -542,7 +547,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
-		ethBackend, ok := backend.(*eth.EthAPIBackend)
+		ethBackend, ok := backend.(*eth.EthAPIBackend[T,P])
 		if !ok {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
@@ -561,7 +566,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 }
 
 // unlockAccounts unlocks any account specifically requested.
-func unlockAccounts(ctx *cli.Context, stack *node.Node) {
+func unlockAccounts[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P]) {
 	var unlocks []string
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	for _, input := range inputs {
@@ -578,7 +583,7 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
 		utils.Fatalf("Account unlock with HTTP access is forbidden!")
 	}
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore{}))[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
 	passwords := utils.MakePasswordList(ctx)
 	for i, account := range unlocks {
 		unlockAccount(ks, account, i, passwords)

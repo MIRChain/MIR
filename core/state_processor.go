@@ -30,7 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
 	"github.com/pavelkrolevets/MIR-pro/private"
 )
 
@@ -106,11 +106,11 @@ func (p *StateProcessor[P]) Process(block *types.Block[P], statedb *state.StateD
 		privateStateDBToUse := PrivateStateDBForTxn(p.config.IsQuorum, tx, statedb, privateStateDB)
 
 		// Quorum - check for account permissions to execute the transaction
-		if core.IsV2Permission() {
-			if err := core.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
-			}
-		}
+		// if core.IsV2Permission() {
+		// 	if err := core.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
+		// 		return nil, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
+		// 	}
+		// }
 
 		if p.config.IsQuorum && !p.config.IsGasPriceEnabled(header.Number) && tx.GasPrice() != nil && tx.GasPrice().Cmp(common.Big0) > 0 {
 			return nil, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), ErrInvalidGasPrice)
@@ -406,11 +406,11 @@ func ApplyTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainCo
 	// End Quorum
 
 	// Quorum - check for account permissions to execute the transaction
-	if core.IsV2Permission() {
-		if err := core.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
-			return nil, nil, err
-		}
-	}
+	// if core.IsV2Permission() {
+	// 	if err := core.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// }
 
 	if config.IsQuorum && !config.IsGasPriceEnabled(header.Number) && tx.GasPrice() != nil && tx.GasPrice().Cmp(common.Big0) > 0 {
 		return nil, nil, ErrInvalidGasPrice

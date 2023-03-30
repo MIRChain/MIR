@@ -6,6 +6,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
@@ -18,15 +19,15 @@ import (
 // Additionally:
 // * clear state when we stop minting
 // * set the parent when we're not minting (so it's always current)
-type speculativeChain struct {
-	head                       *types.Block
+type speculativeChain [P crypto.PublicKey] struct {
+	head                       *types.Block[P]
 	unappliedBlocks            *lane.Deque
 	expectedInvalidBlockHashes mapset.Set // This is thread-safe. This set is referred to as our "guard" below.
 	proposedTxes               mapset.Set // This is thread-safe.
 }
 
-func newSpeculativeChain() *speculativeChain {
-	return &speculativeChain{
+func newSpeculativeChain[P crypto.PublicKey]() *speculativeChain[P] {
+	return &speculativeChain[P]{
 		head:                       nil,
 		unappliedBlocks:            lane.NewDeque(),
 		expectedInvalidBlockHashes: mapset.NewSet(),
@@ -34,7 +35,7 @@ func newSpeculativeChain() *speculativeChain {
 	}
 }
 
-func (chain *speculativeChain) clear(block *types.Block) {
+func (chain *speculativeChain[P]) clear(block *types.Block[P]) {
 	chain.head = block
 	chain.unappliedBlocks = lane.NewDeque()
 	chain.expectedInvalidBlockHashes.Clear()
@@ -42,7 +43,7 @@ func (chain *speculativeChain) clear(block *types.Block) {
 }
 
 // Append a new speculative block
-func (chain *speculativeChain) extend(block *types.Block) {
+func (chain *speculativeChain[P]) extend(block *types.Block[P]) {
 	chain.head = block
 	chain.recordProposedTransactions(block.Transactions())
 	chain.unappliedBlocks.Append(block)
@@ -51,16 +52,16 @@ func (chain *speculativeChain) extend(block *types.Block) {
 // Set the parent of the speculative chain
 //
 // Note: This is only called when not minter
-func (chain *speculativeChain) setHead(block *types.Block) {
+func (chain *speculativeChain[P]) setHead(block *types.Block[P]) {
 	chain.head = block
 }
 
 // Accept this block, removing it from the speculative chain
-func (chain *speculativeChain) accept(acceptedBlock *types.Block) {
+func (chain *speculativeChain[P]) accept(acceptedBlock *types.Block[P]) {
 	earliestProposedI := chain.unappliedBlocks.Shift()
-	var earliestProposed *types.Block
+	var earliestProposed *types.Block[P]
 	if nil != earliestProposedI {
-		earliestProposed = earliestProposedI.(*types.Block)
+		earliestProposed = earliestProposedI.(*types.Block[P])
 	}
 
 	// There are three possible scenarios:
@@ -83,7 +84,7 @@ func (chain *speculativeChain) accept(acceptedBlock *types.Block) {
 }
 
 // Remove all blocks in the chain from the specified one until the end
-func (chain *speculativeChain) unwindFrom(invalidHash common.Hash, headBlock *types.Block) {
+func (chain *speculativeChain[P]) unwindFrom(invalidHash common.Hash, headBlock *types.Block[P]) {
 
 	// check our "guard" to see if this is a (descendant) block we're
 	// expected to be ruled invalid. if we find it, remove from the guard
@@ -106,14 +107,14 @@ func (chain *speculativeChain) unwindFrom(invalidHash common.Hash, headBlock *ty
 			break
 		}
 
-		currBlock := currBlockI.(*types.Block)
+		currBlock := currBlockI.(*types.Block[P])
 
 		log.Info("Popped block from queue RHS.", "block", currBlock.Hash())
 
 		// Maintain invariant: the parent always points the last speculative block or the head of the blockchain
 		// if there are not speculative blocks.
 		if speculativeParentI := chain.unappliedBlocks.Last(); nil != speculativeParentI {
-			chain.head = speculativeParentI.(*types.Block)
+			chain.head = speculativeParentI.(*types.Block[P])
 		} else {
 			chain.head = headBlock
 		}
@@ -135,7 +136,7 @@ func (chain *speculativeChain) unwindFrom(invalidHash common.Hash, headBlock *ty
 // with the same transactions. This is necessary because the TX pool will keep
 // supplying us these transactions until they are in the chain (after having
 // flown through raft).
-func (chain *speculativeChain) recordProposedTransactions(txes types.Transactions) {
+func (chain *speculativeChain[P]) recordProposedTransactions(txes types.Transactions[P]) {
 	txHashIs := make([]interface{}, len(txes))
 	for i, tx := range txes {
 		txHashIs[i] = tx.Hash()
@@ -152,7 +153,7 @@ func (chain *speculativeChain) recordProposedTransactions(txes types.Transaction
 //
 // It's important to remove hashes from this blacklist (once we know we don't
 // need them in there anymore) so that it doesn't grow endlessly.
-func (chain *speculativeChain) removeProposedTxes(block *types.Block) {
+func (chain *speculativeChain[P]) removeProposedTxes(block *types.Block[P]) {
 	minedTxes := block.Transactions()
 	minedTxInterfaces := make([]interface{}, len(minedTxes))
 	for i, tx := range minedTxes {
@@ -168,11 +169,11 @@ func (chain *speculativeChain) removeProposedTxes(block *types.Block) {
 	}
 }
 
-func (chain *speculativeChain) withoutProposedTxes(addrTxes AddressTxes) AddressTxes {
-	newMap := make(AddressTxes)
+func (chain *speculativeChain[P]) withoutProposedTxes(addrTxes AddressTxes[P]) AddressTxes[P] {
+	newMap := make(AddressTxes[P])
 
 	for addr, txes := range addrTxes {
-		filteredTxes := make(types.Transactions, 0)
+		filteredTxes := make(types.Transactions[P], 0)
 		for _, tx := range txes {
 			if !chain.proposedTxes.Contains(tx.Hash()) {
 				filteredTxes = append(filteredTxes, tx)

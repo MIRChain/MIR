@@ -20,13 +20,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/graph-gophers/graphql-go"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/plugin/security"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/graph-gophers/graphql-go"
 )
 
 type handler struct {
@@ -60,7 +61,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // New constructs a new GraphQL service instance.
-func New(stack *node.Node, backend ethapi.Backend, cors, vhosts []string) error {
+func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend ethapi.Backend[T,P], cors, vhosts []string) error {
 	if backend == nil {
 		panic("missing backend")
 	}
@@ -70,8 +71,8 @@ func New(stack *node.Node, backend ethapi.Backend, cors, vhosts []string) error 
 
 // newHandler returns a new `http.Handler` that will answer GraphQL queries.
 // It additionally exports an interactive query browser on the / endpoint.
-func newHandler(stack *node.Node, backend ethapi.Backend, cors, vhosts []string) error {
-	q := Resolver{backend}
+func newHandler[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend ethapi.Backend[T,P], cors, vhosts []string) error {
+	q := Resolver[T,P]{backend}
 
 	s, err := graphql.ParseSchema(schema, &q)
 	if err != nil {
@@ -102,7 +103,7 @@ func newHandler(stack *node.Node, backend ethapi.Backend, cors, vhosts []string)
 	}
 	// need to obtain eth service in order to know if MPS is enabled
 	isMPS := false
-	var ethereum *eth.Ethereum
+	var ethereum *eth.Ethereum[T,P]
 	if err := stack.Lifecycle(&ethereum); err != nil {
 		log.Warn("Eth service is not ready yet", "error", err)
 	} else {

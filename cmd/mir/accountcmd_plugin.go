@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
@@ -31,7 +33,7 @@ var (
 			{
 				Name:   "list",
 				Usage:  "Print summary of existing 'account' plugin accounts",
-				Action: utils.MigrateFlags(listPluginAccountsCLIAction),
+				Action: utils.MigrateFlags(listPluginAccountsCLIAction[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.PluginSettingsFlag, // flag is used implicitly by makeConfigNode()
 					utils.PluginLocalVerifyFlag,
@@ -45,7 +47,7 @@ Print a short summary of all accounts for the given plugin settings`,
 			{
 				Name:   "new",
 				Usage:  "Create a new account using an 'account' plugin",
-				Action: utils.MigrateFlags(createPluginAccountCLIAction),
+				Action: utils.MigrateFlags(createPluginAccountCLIAction[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.PluginSettingsFlag,
 					utils.PluginLocalVerifyFlag,
@@ -67,7 +69,7 @@ For more info see the documentation for the particular 'account' plugin being us
 			{
 				Name:   "import",
 				Usage:  "Import a private key into a new account using an 'account' plugin",
-				Action: utils.MigrateFlags(importPluginAccountCLIAction),
+				Action: utils.MigrateFlags(importPluginAccountCLIAction[nist.PrivateKey, nist.PublicKey]),
 				Flags: []cli.Flag{
 					utils.PluginSettingsFlag,
 					utils.PluginLocalVerifyFlag,
@@ -101,11 +103,11 @@ the documentation for the particular 'account' plugin being used as it may suppo
 
 	// makeConfigNodeDelegate is a wrapper for the makeConfigNode function.
 	// It can be replaced with a stub for testing.
-	makeConfigNodeDelegate configNodeMaker = standardConfigNodeMaker{}
+	// makeConfigNodeDelegate configNodeMaker = standardConfigNodeMaker{}
 )
 
-func listPluginAccountsCLIAction(ctx *cli.Context) error {
-	accts, err := listPluginAccounts(ctx)
+func listPluginAccountsCLIAction[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	accts, err := listPluginAccounts[T,P](ctx)
 	if err != nil {
 		utils.Fatalf("%v", err)
 	}
@@ -119,12 +121,12 @@ func listPluginAccountsCLIAction(ctx *cli.Context) error {
 	return nil
 }
 
-func listPluginAccounts(ctx *cli.Context) ([]accounts.Account, error) {
+func listPluginAccounts[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) ([]accounts.Account, error) {
 	if !ctx.IsSet(utils.PluginSettingsFlag.Name) {
 		return []accounts.Account{}, fmt.Errorf("--%v required", utils.PluginSettingsFlag.Name)
 	}
 
-	p, err := setupAccountPluginForCLI(ctx)
+	p, err := setupAccountPluginForCLI[T,P](ctx)
 	if err != nil {
 		return []accounts.Account{}, err
 	}
@@ -137,8 +139,8 @@ func listPluginAccounts(ctx *cli.Context) ([]accounts.Account, error) {
 	return p.accounts(), nil
 }
 
-func createPluginAccountCLIAction(ctx *cli.Context) error {
-	account, err := createPluginAccount(ctx)
+func createPluginAccountCLIAction[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	account, err := createPluginAccount[T,P](ctx)
 	if err != nil {
 		utils.Fatalf("unable to create plugin-backed account: %v", err)
 	}
@@ -146,7 +148,7 @@ func createPluginAccountCLIAction(ctx *cli.Context) error {
 	return nil
 }
 
-func createPluginAccount(ctx *cli.Context) (accounts.Account, error) {
+func createPluginAccount[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (accounts.Account, error) {
 	if !ctx.IsSet(utils.PluginSettingsFlag.Name) || !ctx.IsSet(utils.AccountPluginNewAccountConfigFlag.Name) {
 		return accounts.Account{}, invalidPluginFlagsErr
 	}
@@ -156,7 +158,7 @@ func createPluginAccount(ctx *cli.Context) (accounts.Account, error) {
 		return accounts.Account{}, err
 	}
 
-	p, err := setupAccountPluginForCLI(ctx)
+	p, err := setupAccountPluginForCLI[T,P](ctx)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -169,8 +171,8 @@ func createPluginAccount(ctx *cli.Context) (accounts.Account, error) {
 	return p.NewAccount(newAcctCfg)
 }
 
-func importPluginAccountCLIAction(ctx *cli.Context) error {
-	account, err := importPluginAccount(ctx)
+func importPluginAccountCLIAction[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+	account, err := importPluginAccount[T,P](ctx)
 	if err != nil {
 		utils.Fatalf("unable to import key and create plugin-backed account: %v", err)
 	}
@@ -178,12 +180,12 @@ func importPluginAccountCLIAction(ctx *cli.Context) error {
 	return nil
 }
 
-func importPluginAccount(ctx *cli.Context) (accounts.Account, error) {
+func importPluginAccount[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (accounts.Account, error) {
 	keyfile := ctx.Args().First()
 	if len(keyfile) == 0 {
 		return accounts.Account{}, errors.New("keyfile must be given as argument")
 	}
-	key, err := crypto.LoadECDSA(keyfile)
+	key, err := crypto.LoadECDSA[T](keyfile)
 	if err != nil {
 		return accounts.Account{}, fmt.Errorf("Failed to load the private key: %v", err)
 	}
@@ -199,7 +201,7 @@ func importPluginAccount(ctx *cli.Context) (accounts.Account, error) {
 		return accounts.Account{}, err
 	}
 
-	p, err := setupAccountPluginForCLI(ctx)
+	p, err := setupAccountPluginForCLI[T,P](ctx)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -226,18 +228,18 @@ func getNewAccountConfigFromCLI(ctx *cli.Context) (map[string]interface{}, error
 	return *confMap, nil
 }
 
-type accountPlugin struct {
+type accountPlugin [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	pluggable.AccountCreator
-	am *accounts.Manager
-	pm *plugin.PluginManager
+	am *accounts.Manager[P]
+	pm *plugin.PluginManager[T,P]
 }
 
-func (c *accountPlugin) teardown() error {
+func (c *accountPlugin[T,P]) teardown() error {
 	return c.pm.Stop()
 }
 
-func (c *accountPlugin) accounts() []accounts.Account {
-	b := c.am.Backends(reflect.TypeOf(&pluggable.Backend{}))
+func (c *accountPlugin[T,P]) accounts() []accounts.Account {
+	b := c.am.Backends(reflect.TypeOf(&pluggable.Backend[P]{}))
 	if b == nil {
 		return []accounts.Account{}
 	}
@@ -261,8 +263,8 @@ func (c *accountPlugin) accounts() []accounts.Account {
 // This means that the plugin manager can be started without having to start the whole stack (P2P client, IPC interface, ...).
 // The purpose of this is to help prevent issues/conflicts if an existing node is already running on this host.
 //
-func setupAccountPluginForCLI(ctx *cli.Context) (*accountPlugin, error) {
-	stack, cfg := makeConfigNodeDelegate.makeConfigNode(ctx)
+func setupAccountPluginForCLI[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*accountPlugin[T,P], error) {
+	stack, cfg := makeConfigNode[T,P](ctx)
 
 	if cfg.Node.Plugins == nil {
 		return nil, errors.New("no plugin config provided")
@@ -274,7 +276,7 @@ func setupAccountPluginForCLI(ctx *cli.Context) (*accountPlugin, error) {
 		return nil, fmt.Errorf("unable to resolve plugin base dir due to %s", err)
 	}
 
-	pm, err := plugin.NewPluginManager(
+	pm, err := plugin.NewPluginManager[T,P](
 		cfg.Node.UserIdent,
 		cfg.Node.Plugins,
 		ctx.Bool(utils.PluginSkipVerifyFlag.Name),
@@ -288,12 +290,12 @@ func setupAccountPluginForCLI(ctx *cli.Context) (*accountPlugin, error) {
 		return nil, fmt.Errorf("unable to start plugin manager: %v", err)
 	}
 
-	b := stack.AccountManager().Backends(pluggable.BackendType)[0].(*pluggable.Backend)
+	b := stack.AccountManager().Backends(reflect.TypeOf(&pluggable.Backend[P]{}))[0].(*pluggable.Backend[P])
 	if err := pm.AddAccountPluginToBackend(b); err != nil {
 		return nil, fmt.Errorf("unable to load pluggable account backend: %v", err)
 	}
 
-	return &accountPlugin{
+	return &accountPlugin[T,P]{
 		AccountCreator: b,
 		am:             stack.AccountManager(),
 		pm:             pm,
@@ -311,13 +313,13 @@ func writePluginAccountToStdOut(account accounts.Account) {
 	fmt.Printf("- See the documentation for the plugin being used for more info.\n\n")
 }
 
-type configNodeMaker interface {
-	makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig)
+type configNodeMaker [T crypto.PrivateKey, P crypto.PublicKey] interface {
+	makeConfigNode(ctx *cli.Context) (*node.Node[T,P], gethConfig[T,P])
 }
 
 // standardConfigNodeMaker is a wrapper around the makeConfigNode function to enable mocking in testing
-type standardConfigNodeMaker struct{}
+type standardConfigNodeMaker [T crypto.PrivateKey, P crypto.PublicKey]struct{}
 
-func (f standardConfigNodeMaker) makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
-	return makeConfigNode(ctx)
+func (f standardConfigNodeMaker[T,P]) makeConfigNode(ctx *cli.Context) (*node.Node[T,P], gethConfig[T,P]) {
+	return makeConfigNode[T,P](ctx)
 }

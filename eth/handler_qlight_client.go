@@ -55,14 +55,14 @@ func (h *qlightClientHandler[T,P]) AcceptTxs() bool {
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
-func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[P]) (*handler[T,P], error) {
+func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T,P]) (*handler[T,P], error) {
 	// Create the protocol manager with the base fields
 	if config.EventMux == nil {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
 	h := &handler[T,P]{
 		networkID:          config.Network,
-		forkFilter:         forkid.NewFilter(config.Chain),
+		forkFilter:         forkid.NewFilter[P](config.Chain),
 		eventMux:           config.EventMux,
 		database:           config.Database,
 		txpool:             config.TxPool,

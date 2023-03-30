@@ -39,7 +39,7 @@ import (
 // are attempted to be reexecuted to generate the desired state. The optional
 // base layer statedb can be passed then it's regarded as the statedb of the
 // parent block.
-func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (statedb *state.StateDB, privateStateDB mps.PrivateStateRepository, err error) {
+func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (statedb *state.StateDB, privateStateDB mps.PrivateStateRepository[P], err error) {
 	var (
 		current  *types.Block[P]
 		database state.Database
@@ -165,7 +165,7 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository, error) {
+func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, nil, nil, errors.New("no transaction in genesis")
@@ -228,7 +228,7 @@ func (eth *Ethereum[T,P]) GetBlockchain() *core.BlockChain[P] {
 	return eth.BlockChain()
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository, vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

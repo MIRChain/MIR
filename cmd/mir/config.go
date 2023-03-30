@@ -29,29 +29,34 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/common/http"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/catalyst"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/extension/privacyExtension"
+	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/pavelkrolevets/MIR-pro/rpc"
+
+	// "github.com/pavelkrolevets/MIR-pro/extension/privacyExtension"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
+	"github.com/naoina/toml"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/pavelkrolevets/MIR-pro/qlight"
-	"github.com/naoina/toml"
 	"gopkg.in/urfave/cli.v1"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
 	dumpConfigCommand = cli.Command{
-		Action:      utils.MigrateFlags(dumpConfig),
+		Action:      utils.MigrateFlags(dumpConfig[nist.PrivateKey, nist.PublicKey]),
 		Name:        "dumpconfig",
 		Usage:       "Show configuration values",
 		ArgsUsage:   "",
@@ -88,7 +93,7 @@ type ethstatsConfig struct {
 }
 
 type gethConfig [T crypto.PrivateKey, P crypto.PublicKey]struct {
-	Eth      ethconfig.Config
+	Eth      ethconfig.Config[P]
 	Node     node.Config[T,P]
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
@@ -110,7 +115,21 @@ func loadConfig[T crypto.PrivateKey, P crypto.PublicKey](file string, cfg *gethC
 }
 
 func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,P] {
-	cfg := node.DefaultConfig
+	cfg := node.Config[T,P]{
+		DataDir:             node.DefaultDataDir(),
+		HTTPPort:            node.DefaultHTTPPort,
+		HTTPModules:         []string{"net", "web3"},
+		HTTPVirtualHosts:    []string{"localhost"},
+		HTTPTimeouts:        rpc.DefaultHTTPTimeouts,
+		WSPort:              node.DefaultWSPort,
+		WSModules:           []string{"net", "web3"},
+		GraphQLVirtualHosts: []string{"localhost"},
+		P2P: p2p.Config[T,P]{
+			ListenAddr: ":30303",
+			MaxPeers:   50,
+			NAT:        nat.Any(),
+		},
+	}
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
 	cfg.HTTPModules = append(cfg.HTTPModules, "eth")
@@ -120,16 +139,16 @@ func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,
 }
 
 // makeConfigNode loads geth configuration and creates a blank node instance.
-func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T], gethConfig[T,P]) {
+func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T,P], gethConfig[T,P]) {
 	// Quorum: Must occur before setQuorumConfig, as it needs an initialised PTM to be enabled
 	// 		   Extension Service and Multitenancy feature validation also depend on PTM availability
-	if err := quorumInitialisePrivacy(ctx); err != nil {
-		utils.Fatalf("Error initialising Private Transaction Manager: %s", err.Error())
-	}
+	// if err := quorumInitialisePrivacy(ctx); err != nil {
+	// 	utils.Fatalf("Error initialising Private Transaction Manager: %s", err.Error())
+	// }
 
 	// Load defaults.
 	cfg := gethConfig[T,P]{
-		Eth:     ethconfig.Defaults,
+		Eth:     *ethconfig.Defaults[P](),
 		Node:    defaultNodeConfig[T,P](),
 		Metrics: metrics.DefaultConfig,
 	}
@@ -143,7 +162,7 @@ func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (
 
 	// Apply flags.
 	utils.SetNodeConfig(ctx, &cfg.Node)
-	utils.SetQLightConfig(ctx, &cfg.Node, &cfg.Eth)
+	// utils.SetQLightConfig(ctx, &cfg.Node, &cfg.Eth)
 
 	stack, err := node.New[T](&cfg.Node)
 	if err != nil {
@@ -156,41 +175,41 @@ func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (
 	applyMetricConfig(ctx, &cfg)
 
 	// Quorum
-	if cfg.Eth.QuorumLightServer {
-		p2p.SetQLightTLSConfig(readQLightServerTLSConfig(ctx))
-		// permissioning for the qlight P2P server
-		stack.QServer().SetNewTransportFunc(p2p.NewQlightServerTransport)
-		if ctx.GlobalIsSet(utils.QuorumLightServerP2PPermissioningFlag.Name) {
-			prefix := "qlight"
-			if ctx.GlobalIsSet(utils.QuorumLightServerP2PPermissioningPrefixFlag.Name) {
-				prefix = ctx.GlobalString(utils.QuorumLightServerP2PPermissioningPrefixFlag.Name)
-			}
-			fbp := core.NewFileBasedPermissoningWithPrefix(prefix)
-			stack.QServer().SetIsNodePermissioned(fbp.IsNodePermissionedEnode)
-		}
-	}
-	if cfg.Eth.QuorumLightClient.Enabled() {
-		p2p.SetQLightTLSConfig(readQLightClientTLSConfig(ctx))
-		stack.Server().SetNewTransportFunc(p2p.NewQlightClientTransport)
-	}
+	// if cfg.Eth.QuorumLightServer {
+	// 	p2p.SetQLightTLSConfig(readQLightServerTLSConfig(ctx))
+	// 	// permissioning for the qlight P2P server
+	// 	stack.QServer().SetNewTransportFunc(p2p.NewQlightServerTransport)
+	// 	if ctx.GlobalIsSet(utils.QuorumLightServerP2PPermissioningFlag.Name) {
+	// 		prefix := "qlight"
+	// 		if ctx.GlobalIsSet(utils.QuorumLightServerP2PPermissioningPrefixFlag.Name) {
+	// 			prefix = ctx.GlobalString(utils.QuorumLightServerP2PPermissioningPrefixFlag.Name)
+	// 		}
+	// 		fbp := core.NewFileBasedPermissoningWithPrefix(prefix)
+	// 		stack.QServer().SetIsNodePermissioned(fbp.IsNodePermissionedEnode)
+	// 	}
+	// }
+	// if cfg.Eth.QuorumLightClient.Enabled() {
+	// 	p2p.SetQLightTLSConfig(readQLightClientTLSConfig(ctx))
+	// 	stack.Server().SetNewTransportFunc(p2p.NewQlightClientTransport)
+	// }
 	// End Quorum
 
 	// Mir set cert to config params
-	params.SetSignerCert()
+	// params.SetSignerCert()
 	return stack, cfg
 }
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.
-func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T], ethapi.Backend) {
+func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T,P], ethapi.Backend[T,P]) {
 	stack, cfg := makeConfigNode[T,P](ctx)
 	if ctx.GlobalIsSet(utils.OverrideBerlinFlag.Name) {
 		cfg.Eth.OverrideBerlin = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideBerlinFlag.Name))
 	}
 
 	// Quorum: Must occur before registering the extension service, as it needs an initialised PTM to be enabled
-	if err := quorumInitialisePrivacy(ctx); err != nil {
-		utils.Fatalf("Error initialising Private Transaction Manager: %s", err.Error())
-	}
+	// if err := quorumInitialisePrivacy(ctx); err != nil {
+	// 	utils.Fatalf("Error initialising Private Transaction Manager: %s", err.Error())
+	// }
 
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
 
@@ -216,17 +235,17 @@ func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*n
 		}
 	}
 
-	if cfg.Node.IsPermissionEnabled() {
-		utils.RegisterPermissionService(stack, ctx.Bool(utils.RaftDNSEnabledFlag.Name), backend.ChainConfig().ChainID)
-	}
+	// if cfg.Node.IsPermissionEnabled() {
+	// 	utils.RegisterPermissionService(stack, ctx.Bool(utils.RaftDNSEnabledFlag.Name), backend.ChainConfig().ChainID)
+	// }
 
 	if ctx.GlobalBool(utils.RaftModeFlag.Name) && !cfg.Eth.QuorumLightClient.Enabled() {
 		utils.RegisterRaftService(stack, ctx, &cfg.Node, eth)
 	}
 
-	if private.IsQuorumPrivacyEnabled() {
-		utils.RegisterExtensionService(stack, eth)
-	}
+	// if private.IsQuorumPrivacyEnabled() {
+	// 	utils.RegisterExtensionService(stack, eth)
+	// }
 	// End Quorum
 
 	// Configure GraphQL if requested
@@ -352,8 +371,8 @@ func readQLightServerTLSConfig(ctx *cli.Context) *tls.Config {
 }
 
 // quorumValidateEthService checks quorum features that depend on the ethereum service
-func quorumValidateEthService(stack *node.Node, isRaft bool) {
-	var ethereum *eth.Ethereum
+func quorumValidateEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], isRaft bool) {
+	var ethereum *eth.Ethereum[T,P]
 
 	err := stack.Lifecycle(&ethereum)
 	if err != nil {
@@ -366,7 +385,7 @@ func quorumValidateEthService(stack *node.Node, isRaft bool) {
 }
 
 // quorumValidateConsensus checks if a consensus was used. The node is killed if consensus was not used
-func quorumValidateConsensus(ethereum *eth.Ethereum, isRaft bool) {
+func quorumValidateConsensus[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P], isRaft bool) {
 	transitionAlgorithmOnBlockZero := false
 	ethereum.BlockChain().Config().GetTransitionValue(big.NewInt(0), func(transition params.Transition) {
 		transitionAlgorithmOnBlockZero = strings.EqualFold(transition.Algorithm, params.IBFT) || strings.EqualFold(transition.Algorithm, params.QBFT)
@@ -378,7 +397,7 @@ func quorumValidateConsensus(ethereum *eth.Ethereum, isRaft bool) {
 
 // quorumValidatePrivacyEnhancements checks if privacy enhancements are configured the transaction manager supports
 // the PrivacyEnhancements feature
-func quorumValidatePrivacyEnhancements(ethereum *eth.Ethereum) {
+func quorumValidatePrivacyEnhancements[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P]) {
 	privacyEnhancementsBlock := ethereum.BlockChain().Config().PrivacyEnhancementsBlock
 
 	for _, transition := range ethereum.BlockChain().Config().Transitions {
@@ -390,27 +409,27 @@ func quorumValidatePrivacyEnhancements(ethereum *eth.Ethereum) {
 
 	if privacyEnhancementsBlock != nil {
 		log.Info("Privacy enhancements is configured to be enabled from block ", "height", privacyEnhancementsBlock)
-		if !private.P.HasFeature(engine.PrivacyEnhancements) {
+		if !private.Ptm.HasFeature(engine.PrivacyEnhancements) {
 			utils.Fatalf("Cannot start quorum with privacy enhancements enabled while the transaction manager does not support it")
 		}
 	}
 }
 
 // configure and set up quorum transaction privacy
-func quorumInitialisePrivacy(ctx *cli.Context) error {
-	cfg, err := QuorumSetupPrivacyConfiguration(ctx)
-	if err != nil {
-		return err
-	}
+// func quorumInitialisePrivacy(ctx *cli.Context) error {
+// 	cfg, err := QuorumSetupPrivacyConfiguration(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = private.InitialiseConnection(cfg, ctx.GlobalIsSet(utils.QuorumLightClientFlag.Name))
-	if err != nil {
-		return err
-	}
-	privacyExtension.Init()
+// 	err = private.InitialiseConnection(cfg, ctx.GlobalIsSet(utils.QuorumLightClientFlag.Name))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	privacyExtension.Init()
 
-	return nil
-}
+// 	return nil
+// }
 
 // Get private transaction manager configuration
 func QuorumSetupPrivacyConfiguration(ctx *cli.Context) (http.Config, error) {

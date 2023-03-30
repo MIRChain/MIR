@@ -35,7 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	pcore "github.com/pavelkrolevets/MIR-pro/permission/core"
+	// pcore "github.com/pavelkrolevets/MIR-pro/permission/core"
 	"github.com/pavelkrolevets/MIR-pro/private"
 )
 
@@ -594,9 +594,9 @@ func (pool *TxPool[P]) validateTx(tx *types.Transaction[P], local bool) error {
 			return ErrEtherValueUnsupported
 		}
 		// Quorum - check if the sender account is authorized to perform the transaction
-		if err := pcore.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
-			return err
-		}
+		// if err := pcore.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
+		// 	return err
+		// }
 	}
 	if !pool.chainconfig.IsQuorum || pool.chainconfig.IsGasPriceEnabled(pool.chain.CurrentBlock().Header().Number) {
 		// Drop non-local transactions under our own minimal accepted gas price

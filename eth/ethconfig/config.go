@@ -59,43 +59,45 @@ var LightClientGPO = gasprice.Config{
 }
 
 // Defaults contains default settings for use on the Ethereum main net.
-var Defaults = Config[nist.PublicKey]{
-	// Quorum - make full sync the default sync mode in quorum (as opposed to upstream geth)
-	SyncMode: downloader.FullSync,
-	// End Quorum
-	Ethash: ethash.Config{
-		CacheDir:         "ethash",
-		CachesInMem:      2,
-		CachesOnDisk:     3,
-		CachesLockMmap:   false,
-		DatasetsInMem:    1,
-		DatasetsOnDisk:   2,
-		DatasetsLockMmap: false,
-	},
-	NetworkId:               1337,
-	TxLookupLimit:           2350000,
-	LightPeers:              100,
-	UltraLightFraction:      75,
-	DatabaseCache:           768,
-	TrieCleanCache:          154,
-	TrieCleanCacheJournal:   "triecache",
-	TrieCleanCacheRejournal: 60 * time.Minute,
-	TrieDirtyCache:          256,
-	TrieTimeout:             60 * time.Minute,
-	SnapshotCache:           102,
-	Miner: miner.Config{
-		GasFloor: params.DefaultMinGasLimit,
-		GasCeil:  params.GenesisGasLimit,
-		GasPrice: big.NewInt(params.GWei),
-		Recommit: 3 * time.Second,
-	},
-	TxPool:      core.DefaultTxPoolConfig,
-	RPCGasCap:   25000000,
-	GPO:         FullNodeGPO,
-	RPCTxFeeCap: 1, // 1 ether
+func Defaults[P crypto.PublicKey]() *Config[P] {
+		return &Config[P]{
+		// Quorum - make full sync the default sync mode in quorum (as opposed to upstream geth)
+		SyncMode: downloader.FullSync,
+		// End Quorum
+		Ethash: ethash.Config{
+			CacheDir:         "ethash",
+			CachesInMem:      2,
+			CachesOnDisk:     3,
+			CachesLockMmap:   false,
+			DatasetsInMem:    1,
+			DatasetsOnDisk:   2,
+			DatasetsLockMmap: false,
+		},
+		NetworkId:               1337,
+		TxLookupLimit:           2350000,
+		LightPeers:              100,
+		UltraLightFraction:      75,
+		DatabaseCache:           768,
+		TrieCleanCache:          154,
+		TrieCleanCacheJournal:   "triecache",
+		TrieCleanCacheRejournal: 60 * time.Minute,
+		TrieDirtyCache:          256,
+		TrieTimeout:             60 * time.Minute,
+		SnapshotCache:           102,
+		Miner: miner.Config{
+			GasFloor: params.DefaultMinGasLimit,
+			GasCeil:  params.GenesisGasLimit,
+			GasPrice: big.NewInt(params.GWei),
+			Recommit: 3 * time.Second,
+		},
+		TxPool:      core.DefaultTxPoolConfig,
+		RPCGasCap:   25000000,
+		GPO:         FullNodeGPO,
+		RPCTxFeeCap: 1, // 1 ether
 
-	// Quorum
-	Istanbul: *istanbul.DefaultConfig, // Quorum
+		// Quorum
+		Istanbul: *istanbul.DefaultConfig, // Quorum
+	}
 }
 
 func init() {
@@ -106,16 +108,16 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "darwin" {
-		Defaults.Ethash.DatasetDir = filepath.Join(home, "Library", "Ethash")
+		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "Library", "Ethash")
 	} else if runtime.GOOS == "windows" {
 		localappdata := os.Getenv("LOCALAPPDATA")
 		if localappdata != "" {
-			Defaults.Ethash.DatasetDir = filepath.Join(localappdata, "Ethash")
+			Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(localappdata, "Ethash")
 		} else {
-			Defaults.Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Ethash")
+			Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Ethash")
 		}
 	} else {
-		Defaults.Ethash.DatasetDir = filepath.Join(home, ".ethash")
+		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, ".ethash")
 	}
 }
 
@@ -235,7 +237,7 @@ func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
-		return clique.New(chainConfig.Clique, db)
+		return clique.New[P](chainConfig.Clique, db)
 	}
 	if len(chainConfig.Transitions) > 0 {
 		config.Istanbul.Transitions = chainConfig.Transitions

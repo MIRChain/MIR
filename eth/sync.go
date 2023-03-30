@@ -30,7 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/pavelkrolevets/MIR-pro/permission/core"
 )
 
 const (
@@ -269,7 +269,7 @@ func (cs *chainSyncer[T,P]) nextSyncOp() *chainSyncOp[T,P] {
 		// Quorum
 		// added for permissions changes to indicate node sync up has started
 		// if peer's TD is smaller than ours, no sync will happen
-		core.SetSyncStatus()
+		// core.SetSyncStatus()
 		return nil // We're in sync.
 	}
 	return op
