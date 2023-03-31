@@ -29,7 +29,7 @@ import (
 // ValidateTransaction does a number of checks on the supplied transaction, and
 // returns either a list of warnings, or an error (indicating that the transaction
 // should be immediately rejected).
-func (db *Database) ValidateTransaction(selector *string, tx *core.SendTxArgs) (*core.ValidationMessages, error) {
+func (db *Database[P]) ValidateTransaction(selector *string, tx *core.SendTxArgs[P]) (*core.ValidationMessages, error) {
 	messages := new(core.ValidationMessages)
 
 	// Prevent accidental erroneous usage of both 'input' and 'data' (show stopper)
@@ -80,7 +80,7 @@ func (db *Database) ValidateTransaction(selector *string, tx *core.SendTxArgs) (
 
 // ValidateCallData checks if the ABI call-data + method selector (if given) can
 // be parsed and seems to match.
-func (db *Database) ValidateCallData(selector *string, data []byte, messages *core.ValidationMessages) {
+func (db *Database[P]) ValidateCallData(selector *string, data []byte, messages *core.ValidationMessages) {
 	// If the data is empty, we have a plain value transfer, nothing more to do
 	if len(data) == 0 {
 		return

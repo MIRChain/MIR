@@ -25,6 +25,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"gopkg.in/urfave/cli.v1"
@@ -70,7 +72,7 @@ Regular users do not need to execute it.
 `,
 	}
 	versionCommand = cli.Command{
-		Action:    utils.MigrateFlags(version),
+		Action:    utils.MigrateFlags(version[nist.PublicKey]),
 		Name:      "version",
 		Usage:     "Print version numbers",
 		ArgsUsage: " ",
@@ -133,7 +135,7 @@ func makedag(ctx *cli.Context) error {
 	return nil
 }
 
-func version(ctx *cli.Context) error {
+func version[P crypto.PublicKey](ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
 	fmt.Println("Version:", params.VersionWithMeta)
 	if gitCommit != "" {
@@ -144,7 +146,7 @@ func version(ctx *cli.Context) error {
 	}
 	fmt.Println("Quorum Version:", params.QuorumVersion)
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Network Id:", ethconfig.Defaults.NetworkId)
+	fmt.Println("Network Id:", ethconfig.Defaults[P]().NetworkId)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))

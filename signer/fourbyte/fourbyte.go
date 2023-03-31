@@ -27,27 +27,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Database is a 4byte database with the possibility of maintaining an immutable
 // set (embedded) into the process and a mutable set (loaded and written to file).
-type Database struct {
+type Database[P crypto.PublicKey]struct {
 	embedded   map[string]string
 	custom     map[string]string
 	customPath string
 }
 
 // newEmpty exists for testing purposes.
-func newEmpty() *Database {
-	return &Database{
+func newEmpty[P crypto.PublicKey]() *Database[P] {
+	return &Database[P]{
 		embedded: make(map[string]string),
 		custom:   make(map[string]string),
 	}
 }
 
 // New loads the standard signature database embedded in the package.
-func New() (*Database, error) {
-	return NewWithFile("")
+func New[P crypto.PublicKey]() (*Database[P], error) {
+	return NewWithFile[P]("")
 }
 
 // NewFromFile loads signature database from file, and errors if the file is not
@@ -56,14 +58,14 @@ func New() (*Database, error) {
 //
 // The provided path will be used to write new values into if they are submitted
 // via the API.
-func NewFromFile(path string) (*Database, error) {
+func NewFromFile[P crypto.PublicKey](path string) (*Database[P], error) {
 	raw, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer raw.Close()
 
-	db := newEmpty()
+	db := newEmpty[P]()
 	if err := json.NewDecoder(raw).Decode(&db.embedded); err != nil {
 		return nil, err
 	}
@@ -73,8 +75,8 @@ func NewFromFile(path string) (*Database, error) {
 // NewWithFile loads both the standard signature database (embedded resource
 // file) as well as a custom database. The latter will be used to write new
 // values into if they are submitted via the API.
-func NewWithFile(path string) (*Database, error) {
-	db := &Database{make(map[string]string), make(map[string]string), path}
+func NewWithFile[P crypto.PublicKey](path string) (*Database[P], error) {
+	db := &Database[P]{make(map[string]string), make(map[string]string), path}
 	db.customPath = path
 
 	blob, err := Asset("4byte.json")
@@ -97,14 +99,14 @@ func NewWithFile(path string) (*Database, error) {
 }
 
 // Size returns the number of 4byte entries in the embedded and custom datasets.
-func (db *Database) Size() (int, int) {
+func (db *Database[P]) Size() (int, int) {
 	return len(db.embedded), len(db.custom)
 }
 
 // Selector checks the given 4byte ID against the known ABI methods.
 //
 // This method does not validate the match, it's assumed the caller will do.
-func (db *Database) Selector(id []byte) (string, error) {
+func (db *Database[P]) Selector(id []byte) (string, error) {
 	if len(id) < 4 {
 		return "", fmt.Errorf("expected 4-byte id, got %d", len(id))
 	}
@@ -123,7 +125,7 @@ func (db *Database) Selector(id []byte) (string, error) {
 //
 // Node, this method does _not_ validate the correctness of the data. It assumes
 // the caller has already done so.
-func (db *Database) AddSelector(selector string, data []byte) error {
+func (db *Database[P]) AddSelector(selector string, data []byte) error {
 	// If the selector is already known, skip duplicating it
 	if len(data) < 4 {
 		return nil

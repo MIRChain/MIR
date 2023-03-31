@@ -164,7 +164,7 @@ var (
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
 		Usage: "Explicitly set network id (integer)(For testnets: use --ropsten, --rinkeby, --goerli instead)",
-		Value: ethconfig.Defaults.NetworkId,
+		Value: ethconfig.Defaults[nist.PublicKey]().NetworkId,
 	}
 	MainnetFlag = cli.BoolFlag{
 		Name:  "mainnet",
@@ -223,7 +223,7 @@ var (
 		Name:  "nocode",
 		Usage: "Exclude contract code (save db lookups)",
 	}
-	defaultSyncMode = ethconfig.Defaults.SyncMode
+	defaultSyncMode = ethconfig.Defaults[nist.PublicKey]().SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
 		Usage: `Blockchain sync mode ("fast", "full", "snap" or "light")`,
@@ -241,7 +241,7 @@ var (
 	TxLookupLimitFlag = cli.Uint64Flag{
 		Name:  "txlookuplimit",
 		Usage: "Number of recent blocks to maintain transactions index for (default = about one year, 0 = entire chain)",
-		Value: ethconfig.Defaults.TxLookupLimit,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxLookupLimit,
 	}
 	LightKDFFlag = cli.BoolFlag{
 		Name:  "lightkdf",
@@ -268,32 +268,32 @@ var (
 	LightServeFlag = cli.IntFlag{
 		Name:  "light.serve",
 		Usage: "Maximum percentage of time allowed for serving LES requests (multi-threaded processing allows values over 100)",
-		Value: ethconfig.Defaults.LightServ,
+		Value: ethconfig.Defaults[nist.PublicKey]().LightServ,
 	}
 	LightIngressFlag = cli.IntFlag{
 		Name:  "light.ingress",
 		Usage: "Incoming bandwidth limit for serving light clients (kilobytes/sec, 0 = unlimited)",
-		Value: ethconfig.Defaults.LightIngress,
+		Value: ethconfig.Defaults[nist.PublicKey]().LightIngress,
 	}
 	LightEgressFlag = cli.IntFlag{
 		Name:  "light.egress",
 		Usage: "Outgoing bandwidth limit for serving light clients (kilobytes/sec, 0 = unlimited)",
-		Value: ethconfig.Defaults.LightEgress,
+		Value: ethconfig.Defaults[nist.PublicKey]().LightEgress,
 	}
 	LightMaxPeersFlag = cli.IntFlag{
 		Name:  "light.maxpeers",
 		Usage: "Maximum number of light clients to serve, or light servers to attach to",
-		Value: ethconfig.Defaults.LightPeers,
+		Value: ethconfig.Defaults[nist.PublicKey]().LightPeers,
 	}
 	UltraLightServersFlag = cli.StringFlag{
 		Name:  "ulc.servers",
 		Usage: "List of trusted ultra-light servers",
-		Value: strings.Join(ethconfig.Defaults.UltraLightServers, ","),
+		Value: strings.Join(ethconfig.Defaults[nist.PublicKey]().UltraLightServers, ","),
 	}
 	UltraLightFractionFlag = cli.IntFlag{
 		Name:  "ulc.fraction",
 		Usage: "Minimum % of trusted ultra-light servers required to announce a new head",
-		Value: ethconfig.Defaults.UltraLightFraction,
+		Value: ethconfig.Defaults[nist.PublicKey]().UltraLightFraction,
 	}
 	UltraLightOnlyAnnounceFlag = cli.BoolFlag{
 		Name:  "ulc.onlyannounce",
@@ -315,12 +315,12 @@ var (
 	EthashCachesInMemoryFlag = cli.IntFlag{
 		Name:  "ethash.cachesinmem",
 		Usage: "Number of recent ethash caches to keep in memory (16MB each)",
-		Value: ethconfig.Defaults.Ethash.CachesInMem,
+		Value: ethconfig.Defaults[nist.PublicKey]().Ethash.CachesInMem,
 	}
 	EthashCachesOnDiskFlag = cli.IntFlag{
 		Name:  "ethash.cachesondisk",
 		Usage: "Number of recent ethash caches to keep on disk (16MB each)",
-		Value: ethconfig.Defaults.Ethash.CachesOnDisk,
+		Value: ethconfig.Defaults[nist.PublicKey]().Ethash.CachesOnDisk,
 	}
 	EthashCachesLockMmapFlag = cli.BoolFlag{
 		Name:  "ethash.cacheslockmmap",
@@ -329,17 +329,17 @@ var (
 	EthashDatasetDirFlag = DirectoryFlag{
 		Name:  "ethash.dagdir",
 		Usage: "Directory to store the ethash mining DAGs",
-		Value: DirectoryString(ethconfig.Defaults.Ethash.DatasetDir),
+		Value: DirectoryString(ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetDir),
 	}
 	EthashDatasetsInMemoryFlag = cli.IntFlag{
 		Name:  "ethash.dagsinmem",
 		Usage: "Number of recent ethash mining DAGs to keep in memory (1+GB each)",
-		Value: ethconfig.Defaults.Ethash.DatasetsInMem,
+		Value: ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsInMem,
 	}
 	EthashDatasetsOnDiskFlag = cli.IntFlag{
 		Name:  "ethash.dagsondisk",
 		Usage: "Number of recent ethash mining DAGs to keep on disk (1+GB each)",
-		Value: ethconfig.Defaults.Ethash.DatasetsOnDisk,
+		Value: ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsOnDisk,
 	}
 	EthashDatasetsLockMmapFlag = cli.BoolFlag{
 		Name:  "ethash.dagslockmmap",
@@ -367,37 +367,37 @@ var (
 	TxPoolPriceLimitFlag = cli.Uint64Flag{
 		Name:  "txpool.pricelimit",
 		Usage: "Minimum gas price limit to enforce for acceptance into the pool",
-		Value: ethconfig.Defaults.TxPool.PriceLimit,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.PriceLimit,
 	}
 	TxPoolPriceBumpFlag = cli.Uint64Flag{
 		Name:  "txpool.pricebump",
 		Usage: "Price bump percentage to replace an already existing transaction",
-		Value: ethconfig.Defaults.TxPool.PriceBump,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.PriceBump,
 	}
 	TxPoolAccountSlotsFlag = cli.Uint64Flag{
 		Name:  "txpool.accountslots",
 		Usage: "Minimum number of executable transaction slots guaranteed per account",
-		Value: ethconfig.Defaults.TxPool.AccountSlots,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.AccountSlots,
 	}
 	TxPoolGlobalSlotsFlag = cli.Uint64Flag{
 		Name:  "txpool.globalslots",
 		Usage: "Maximum number of executable transaction slots for all accounts",
-		Value: ethconfig.Defaults.TxPool.GlobalSlots,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.GlobalSlots,
 	}
 	TxPoolAccountQueueFlag = cli.Uint64Flag{
 		Name:  "txpool.accountqueue",
 		Usage: "Maximum number of non-executable transaction slots permitted per account",
-		Value: ethconfig.Defaults.TxPool.AccountQueue,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.AccountQueue,
 	}
 	TxPoolGlobalQueueFlag = cli.Uint64Flag{
 		Name:  "txpool.globalqueue",
 		Usage: "Maximum number of non-executable transaction slots for all accounts",
-		Value: ethconfig.Defaults.TxPool.GlobalQueue,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.GlobalQueue,
 	}
 	TxPoolLifetimeFlag = cli.DurationFlag{
 		Name:  "txpool.lifetime",
 		Usage: "Maximum amount of time non-executable transaction are queued",
-		Value: ethconfig.Defaults.TxPool.Lifetime,
+		Value: ethconfig.Defaults[nist.PublicKey]().TxPool.Lifetime,
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
@@ -418,12 +418,12 @@ var (
 	CacheTrieJournalFlag = cli.StringFlag{
 		Name:  "cache.trie.journal",
 		Usage: "Disk journal directory for trie cache to survive node restarts",
-		Value: ethconfig.Defaults.TrieCleanCacheJournal,
+		Value: ethconfig.Defaults[nist.PublicKey]().TrieCleanCacheJournal,
 	}
 	CacheTrieRejournalFlag = cli.DurationFlag{
 		Name:  "cache.trie.rejournal",
 		Usage: "Time interval to regenerate the trie cache journal",
-		Value: ethconfig.Defaults.TrieCleanCacheRejournal,
+		Value: ethconfig.Defaults[nist.PublicKey]().TrieCleanCacheRejournal,
 	}
 	CacheGCFlag = cli.IntFlag{
 		Name:  "cache.gc",
@@ -464,17 +464,17 @@ var (
 	MinerGasTargetFlag = cli.Uint64Flag{
 		Name:  "miner.gastarget",
 		Usage: "Target gas floor for mined blocks",
-		Value: ethconfig.Defaults.Miner.GasFloor,
+		Value: ethconfig.Defaults[nist.PublicKey]().Miner.GasFloor,
 	}
 	MinerGasLimitFlag = cli.Uint64Flag{
 		Name:  "miner.gaslimit",
 		Usage: "Target gas ceiling for mined blocks",
-		Value: ethconfig.Defaults.Miner.GasCeil,
+		Value: ethconfig.Defaults[nist.PublicKey]().Miner.GasCeil,
 	}
 	MinerGasPriceFlag = BigFlag{
 		Name:  "miner.gasprice",
 		Usage: "Minimum gas price for mining a transaction",
-		Value: ethconfig.Defaults.Miner.GasPrice,
+		Value: ethconfig.Defaults[nist.PublicKey]().Miner.GasPrice,
 	}
 	MinerEtherbaseFlag = cli.StringFlag{
 		Name:  "miner.etherbase",
@@ -488,7 +488,7 @@ var (
 	MinerRecommitIntervalFlag = cli.DurationFlag{
 		Name:  "miner.recommit",
 		Usage: "Time interval to recreate the block being mined",
-		Value: ethconfig.Defaults.Miner.Recommit,
+		Value: ethconfig.Defaults[nist.PublicKey]().Miner.Recommit,
 	}
 	MinerNoVerfiyFlag = cli.BoolFlag{
 		Name:  "miner.noverify",
@@ -521,12 +521,12 @@ var (
 	RPCGlobalGasCapFlag = cli.Uint64Flag{
 		Name:  "rpc.gascap",
 		Usage: "Sets a cap on gas that can be used in eth_call/estimateGas (0=infinite)",
-		Value: ethconfig.Defaults.RPCGasCap,
+		Value: ethconfig.Defaults[nist.PublicKey]().RPCGasCap,
 	}
 	RPCGlobalTxFeeCapFlag = cli.Float64Flag{
 		Name:  "rpc.txfeecap",
 		Usage: "Sets a cap on transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)",
-		Value: ethconfig.Defaults.RPCTxFeeCap,
+		Value: ethconfig.Defaults[nist.PublicKey]().RPCTxFeeCap,
 	}
 	// Logging and debug settings
 	EthStatsURLFlag = cli.StringFlag{
@@ -727,17 +727,17 @@ var (
 	GpoBlocksFlag = cli.IntFlag{
 		Name:  "gpo.blocks",
 		Usage: "Number of recent blocks to check for gas prices",
-		Value: ethconfig.Defaults.GPO.Blocks,
+		Value: ethconfig.Defaults[nist.PublicKey]().GPO.Blocks,
 	}
 	GpoPercentileFlag = cli.IntFlag{
 		Name:  "gpo.percentile",
 		Usage: "Suggested gas price is the given percentile of a set of recent transaction gas prices",
-		Value: ethconfig.Defaults.GPO.Percentile,
+		Value: ethconfig.Defaults[nist.PublicKey]().GPO.Percentile,
 	}
 	GpoMaxGasPriceFlag = cli.Int64Flag{
 		Name:  "gpo.maxprice",
 		Usage: "Maximum gas price will be recommended by gpo",
-		Value: ethconfig.Defaults.GPO.MaxPrice.Int64(),
+		Value: ethconfig.Defaults[nist.PublicKey]().GPO.MaxPrice.Int64(),
 	}
 
 	// Metrics flags
@@ -892,12 +892,12 @@ var (
 	IstanbulRequestTimeoutFlag = cli.Uint64Flag{
 		Name:  "istanbul.requesttimeout",
 		Usage: "[Deprecated] Timeout for each Istanbul round in milliseconds",
-		Value: ethconfig.Defaults.Istanbul.RequestTimeout,
+		Value: ethconfig.Defaults[nist.PublicKey]().Istanbul.RequestTimeout,
 	}
 	IstanbulBlockPeriodFlag = cli.Uint64Flag{
 		Name:  "istanbul.blockperiod",
 		Usage: "[Deprecated] Default minimum difference between two consecutive block's timestamps in seconds",
-		Value: ethconfig.Defaults.Istanbul.BlockPeriod,
+		Value: ethconfig.Defaults[nist.PublicKey]().Istanbul.BlockPeriod,
 	}
 	// Multitenancy setting
 	MultitenancyFlag = cli.BoolFlag{
@@ -1364,8 +1364,8 @@ func setIPC[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node
 // 		cfg.UltraLightFraction = ctx.GlobalInt(UltraLightFractionFlag.Name)
 // 	}
 // 	if cfg.UltraLightFraction <= 0 && cfg.UltraLightFraction > 100 {
-// 		log.Error("Ultra light fraction is invalid", "had", cfg.UltraLightFraction, "updated", ethconfig.Defaults.UltraLightFraction)
-// 		cfg.UltraLightFraction = ethconfig.Defaults.UltraLightFraction
+// 		log.Error("Ultra light fraction is invalid", "had", cfg.UltraLightFraction, "updated", ethconfig.Defaults[nist.PublicKey]().UltraLightFraction)
+// 		cfg.UltraLightFraction = ethconfig.Defaults[nist.PublicKey]().UltraLightFraction
 // 	}
 // 	if ctx.GlobalIsSet(UltraLightOnlyAnnounceFlag.Name) {
 // 		cfg.UltraLightOnlyAnnounce = ctx.GlobalBool(UltraLightOnlyAnnounceFlag.Name)
@@ -2587,14 +2587,14 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		engine = ethash.NewFaker[P]()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {
 			engine = ethash.New[P](ethash.Config{
-				CacheDir:         stack.ResolvePath(ethconfig.Defaults[P]().Ethash.CacheDir),
-				CachesInMem:      ethconfig.Defaults[P]().Ethash.CachesInMem,
-				CachesOnDisk:     ethconfig.Defaults[P]().Ethash.CachesOnDisk,
-				CachesLockMmap:   ethconfig.Defaults[P]().Ethash.CachesLockMmap,
-				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[P]().Ethash.DatasetDir),
-				DatasetsInMem:    ethconfig.Defaults[P]().Ethash.DatasetsInMem,
-				DatasetsOnDisk:   ethconfig.Defaults[P]().Ethash.DatasetsOnDisk,
-				DatasetsLockMmap: ethconfig.Defaults[P]().Ethash.DatasetsLockMmap,
+				CacheDir:         stack.ResolvePath(ethconfig.Defaults[nist.PublicKey]().Ethash.CacheDir),
+				CachesInMem:      ethconfig.Defaults[nist.PublicKey]().Ethash.CachesInMem,
+				CachesOnDisk:     ethconfig.Defaults[nist.PublicKey]().Ethash.CachesOnDisk,
+				CachesLockMmap:   ethconfig.Defaults[nist.PublicKey]().Ethash.CachesLockMmap,
+				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetDir),
+				DatasetsInMem:    ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsInMem,
+				DatasetsOnDisk:   ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsOnDisk,
+				DatasetsLockMmap: ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsLockMmap,
 			}, nil, false)
 		}
 	}
@@ -2602,12 +2602,12 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
 	cache := &core.CacheConfig{
-		TrieCleanLimit:      ethconfig.Defaults[P]().TrieCleanCache,
+		TrieCleanLimit:      ethconfig.Defaults[nist.PublicKey]().TrieCleanCache,
 		TrieCleanNoPrefetch: ctx.GlobalBool(CacheNoPrefetchFlag.Name),
-		TrieDirtyLimit:      ethconfig.Defaults[P]().TrieDirtyCache,
+		TrieDirtyLimit:      ethconfig.Defaults[nist.PublicKey]().TrieDirtyCache,
 		TrieDirtyDisabled:   ctx.GlobalString(GCModeFlag.Name) == "archive",
-		TrieTimeLimit:       ethconfig.Defaults[P]().TrieTimeout,
-		SnapshotLimit:       ethconfig.Defaults[P]().SnapshotCache,
+		TrieTimeLimit:       ethconfig.Defaults[nist.PublicKey]().TrieTimeout,
+		SnapshotLimit:       ethconfig.Defaults[nist.PublicKey]().SnapshotCache,
 		Preimages:           ctx.GlobalBool(CachePreimagesFlag.Name),
 	}
 	if true || cache.TrieDirtyDisabled && !cache.Preimages { // TODO: Quorum; force preimages for contract extension and dump of states compatibility, until a fix is found

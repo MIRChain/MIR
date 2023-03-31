@@ -23,6 +23,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 	"github.com/pavelkrolevets/MIR-pro/signer/fourbyte"
 )
@@ -36,8 +38,8 @@ Parses the given ABI data and tries to interpret it from the fourbyte database.`
 	}
 }
 
-func parse(data []byte) {
-	db, err := fourbyte.New()
+func parse[P crypto.PublicKey](data []byte) {
+	db, err := fourbyte.New[P]()
 	if err != nil {
 		die(err)
 	}
@@ -60,7 +62,7 @@ func main() {
 		if err != nil {
 			die(err)
 		}
-		parse(data)
+		parse[nist.PublicKey](data)
 	default:
 		fmt.Fprintln(os.Stderr, "Error: one argument needed")
 		flag.Usage()
