@@ -18,7 +18,6 @@ package clique
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"sort"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -35,12 +35,12 @@ import (
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
 type testerAccountPool struct {
-	accounts map[string]*ecdsa.PrivateKey
+	accounts map[string]*nist.PrivateKey
 }
 
 func newTesterAccountPool() *testerAccountPool {
 	return &testerAccountPool{
-		accounts: make(map[string]*ecdsa.PrivateKey),
+		accounts: make(map[string]*nist.PrivateKey),
 	}
 }
 
@@ -66,10 +66,10 @@ func (ap *testerAccountPool) address(account string) common.Address {
 	}
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = crypto.GenerateKey()
+		ap.accounts[account], _ = crypto.GenerateKey[*nist.PrivateKey]()
 	}
 	// Resolve and return the Ethereum address
-	return crypto.PubkeyToAddress(ap.accounts[account].PublicKey)
+	return crypto.PubkeyToAddress[nist.PublicKey](*ap.accounts[account].Public())
 }
 
 // sign calculates a Clique digital signature for the given block and embeds it
@@ -77,7 +77,7 @@ func (ap *testerAccountPool) address(account string) common.Address {
 func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 	// Ensure we have a persistent key for the signer
 	if ap.accounts[signer] == nil {
-		ap.accounts[signer], _ = crypto.GenerateKey()
+		ap.accounts[signer], _ = crypto.GenerateKey[*nist.PrivateKey]()
 	}
 	// Sign the header and embed the signature in extra data
 	sig, _ := crypto.Sign(SealHash(header).Bytes(), ap.accounts[signer])
@@ -393,7 +393,7 @@ func TestClique(t *testing.T) {
 			}
 		}
 		// Create the genesis block with the initial set of signers
-		genesis := &core.Genesis{
+		genesis := &core.Genesis[nist.PublicKey]{
 			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
 		}
 		for j, signer := range signers {
@@ -409,10 +409,10 @@ func TestClique(t *testing.T) {
 			Period: 1,
 			Epoch:  tt.epoch,
 		}
-		engine := New(config.Clique, db)
+		engine := New[nist.PublicKey](config.Clique, db)
 		engine.fakeDiff = true
 
-		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain[nist.PublicKey](&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen[nist.PublicKey]) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
@@ -440,7 +440,7 @@ func TestClique(t *testing.T) {
 			blocks[j] = block.WithSeal(header)
 		}
 		// Split the blocks up into individual import batches (cornercase testing)
-		batches := [][]*types.Block{nil}
+		batches := [][]*types.Block[nist.PublicKey]{nil}
 		for j, block := range blocks {
 			if tt.votes[j].newbatch {
 				batches = append(batches, nil)
@@ -448,7 +448,7 @@ func TestClique(t *testing.T) {
 			batches[len(batches)-1] = append(batches[len(batches)-1], block)
 		}
 		// Pass all the headers through clique and ensure tallying succeeds
-		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil, nil, nil)
+		chain, err := core.NewBlockChain[nist.PublicKey](db, nil, &config, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 		if err != nil {
 			t.Errorf("test %d: failed to create test chain: %v", i, err)
 			continue

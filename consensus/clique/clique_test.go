@@ -26,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -39,12 +40,12 @@ func TestReimportMirroredState(t *testing.T) {
 	// Initialize a Clique chain with a single signer
 	var (
 		db     = rawdb.NewMemoryDatabase()
-		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = crypto.PubkeyToAddress(key.PublicKey)
-		engine = New(params.AllCliqueProtocolChanges.Clique, db)
-		signer = new(types.HomesteadSigner)
+		key, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr   = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		engine = New[nist.PublicKey](params.AllCliqueProtocolChanges.Clique, db)
+		signer = new(types.HomesteadSigner[nist.PublicKey])
 	)
-	genspec := &core.Genesis{
+	genspec := &core.Genesis[nist.PublicKey]{
 		ExtraData: make([]byte, extraVanity+common.AddressLength+extraSeal),
 		Alloc: map[common.Address]core.GenesisAccount{
 			addr: {Balance: big.NewInt(1)},
@@ -54,10 +55,10 @@ func TestReimportMirroredState(t *testing.T) {
 	genesis := genspec.MustCommit(db)
 
 	// Generate a batch of blocks, each properly signed
-	chain, _ := core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[nist.PublicKey](db, nil, params.AllCliqueProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chain.Stop()
 
-	blocks, _ := core.GenerateChain(params.AllCliqueProtocolChanges, genesis, engine, db, 3, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](params.AllCliqueProtocolChanges, genesis, engine, db, 3, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		// The chain maker doesn't have access to a chain, so the difficulty will be
 		// lets unset (nil). Set it here to the correct value.
 		block.SetDifficulty(diffInTurn)
@@ -65,7 +66,7 @@ func TestReimportMirroredState(t *testing.T) {
 		// We want to simulate an empty middle block, having the same state as the
 		// first one. The last is needs a state change again to force a reorg.
 		if i != 1 {
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, nil, nil), signer, key)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -88,7 +89,7 @@ func TestReimportMirroredState(t *testing.T) {
 	db = rawdb.NewMemoryDatabase()
 	genspec.MustCommit(db)
 
-	chain, _ = core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, _ = core.NewBlockChain[nist.PublicKey](db, nil, params.AllCliqueProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chain.Stop()
 
 	if _, err := chain.InsertChain(blocks[:2]); err != nil {
@@ -101,7 +102,7 @@ func TestReimportMirroredState(t *testing.T) {
 	// Simulate a crash by creating a new chain on top of the database, without
 	// flushing the dirty states out. Insert the last block, triggering a sidechain
 	// reimport.
-	chain, _ = core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, _ = core.NewBlockChain[nist.PublicKey](db, nil, params.AllCliqueProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chain.Stop()
 
 	if _, err := chain.InsertChain(blocks[2:]); err != nil {
