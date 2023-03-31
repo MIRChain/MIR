@@ -24,10 +24,11 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func newTestPreprepare(v *istanbul.View) *istanbul.Preprepare[P] {
-	return &istanbul.Preprepare{
+func newTestPreprepare(v *istanbul.View) *istanbul.Preprepare[nist.PublicKey] {
+	return &istanbul.Preprepare[nist.PublicKey]{
 		View:     v,
 		Proposal: newTestProposal(),
 	}
@@ -143,7 +144,7 @@ OUTER:
 
 		curView := r0.currentView()
 
-		preprepare := &istanbul.Preprepare{
+		preprepare := &istanbul.Preprepare[nist.PublicKey]{
 			View:     curView,
 			Proposal: test.expectedRequest,
 		}
@@ -247,11 +248,11 @@ func TestHandlePreprepareWithLock(t *testing.T) {
 		v0 := test.system.backends[0]
 		r0 := v0.engine
 		curView := r0.currentView()
-		preprepare := &istanbul.Preprepare{
+		preprepare := &istanbul.Preprepare[nist.PublicKey]{
 			View:     curView,
 			Proposal: test.proposal,
 		}
-		lockPreprepare := &istanbul.Preprepare{
+		lockPreprepare := &istanbul.Preprepare[nist.PublicKey]{
 			View:     curView,
 			Proposal: test.lockProposal,
 		}

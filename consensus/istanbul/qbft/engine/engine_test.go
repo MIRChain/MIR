@@ -16,6 +16,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -263,8 +264,8 @@ func TestAccumulateRewards(t *testing.T) {
 			expectedBalance:   big.NewInt(1),
 		},
 	}
-	var e *Engine
-	chain := &core.BlockChain{}
+	var e *Engine[nist.PublicKey]
+	chain := &core.BlockChain[nist.PublicKey]{}
 	db := state.NewDatabaseWithConfig(rawdb.NewMemoryDatabase(), nil)
 	state, err := state.New(common.Hash{}, db, nil)
 	require.NoError(t, err)

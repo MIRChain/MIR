@@ -10,14 +10,15 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEngine(t *testing.T) {
-	engine := NewEngine(nil, common.Address{}, nil)
+	engine := NewEngine[nist.PublicKey](nil, common.Address{}, nil)
 	require.NotNil(t, engine, "Constructor")
-	assert.Implements(t, new(istanbul.Engine), engine)
+	assert.Implements(t, new(istanbul.Engine[nist.PublicKey]), engine)
 }
 
 func TestPrepareExtra(t *testing.T) {

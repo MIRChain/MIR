@@ -240,7 +240,7 @@ func TestVerifyCommit(t *testing.T) {
 	testCases := []struct {
 		expected   error
 		commit     *istanbul.Subject
-		roundState *roundState
+		roundState *roundState[nist.PublicKey]
 	}{
 		{
 			// normal case

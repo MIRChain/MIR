@@ -23,10 +23,11 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func newTestRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState {
-	return &roundState{
+func newTestRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState[nist.PublicKey] {
+	return &roundState[nist.PublicKey]{
 		round:      view.Round,
 		sequence:   view.Sequence,
 		Preprepare: newTestPreprepare(view),

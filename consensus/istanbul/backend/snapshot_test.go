@@ -18,7 +18,6 @@ package backend
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"math/big"
 	"reflect"
 	"testing"
@@ -32,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 type testerVote struct {
@@ -44,12 +44,12 @@ type testerVote struct {
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
 type testerAccountPool struct {
-	accounts map[string]*ecdsa.PrivateKey
+	accounts map[string]nist.PrivateKey
 }
 
 func newTesterAccountPool() *testerAccountPool {
 	return &testerAccountPool{
-		accounts: make(map[string]*ecdsa.PrivateKey),
+		accounts: make(map[string]nist.PrivateKey),
 	}
 }
 
@@ -62,11 +62,11 @@ func (ap *testerAccountPool) writeValidatorVote(header *types.Header, validator 
 
 func (ap *testerAccountPool) address(account string) common.Address {
 	// Ensure we have a persistent key for the account
-	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = crypto.GenerateKey()
+	if ap.accounts[account] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
+		ap.accounts[account], _ = crypto.GenerateKey[nist.PrivateKey]()
 	}
 	// Resolve and return the Ethereum address
-	return crypto.PubkeyToAddress(ap.accounts[account].PublicKey)
+	return crypto.PubkeyToAddress[nist.PublicKey](*ap.accounts[account].Public())
 }
 
 // Tests that voting is evaluated correctly for various simple and complex scenarios.
@@ -328,7 +328,7 @@ func TestVoting(t *testing.T) {
 			}
 		}
 
-		genesis := testutils.Genesis(validators, true)
+		genesis := testutils.Genesis[nist.PublicKey](validators, true)
 		config := new(istanbul.Config)
 		*config = *istanbul.DefaultConfig
 		config.TestQBFTBlock = big.NewInt(0)
@@ -338,7 +338,7 @@ func TestVoting(t *testing.T) {
 
 		chain, backend := newBlockchainFromConfig(
 			genesis,
-			[]*ecdsa.PrivateKey{accounts.accounts[tt.validators[0]]},
+			[]nist.PrivateKey{accounts.accounts[tt.validators[0]]},
 			config,
 		)
 

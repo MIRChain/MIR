@@ -23,6 +23,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -35,7 +36,7 @@ func TestMessageSetWithPreprepare(t *testing.T) {
 		Round:    new(big.Int),
 		Sequence: new(big.Int),
 	}
-	pp := &istanbul.Preprepare{
+	pp := &istanbul.Preprepare[nist.PublicKey]{
 		View:     view,
 		Proposal: makeBlock(1),
 	}

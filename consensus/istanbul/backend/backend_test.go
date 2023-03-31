@@ -18,7 +18,6 @@ package backend
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"math/big"
 	"sort"
 	"strings"
@@ -44,7 +43,7 @@ func TestSign(t *testing.T) {
 	}
 	//Check signature recover
 	hashData := crypto.Keccak256(data)
-	pubkey, _ := crypto.Ecrecover(hashData, sig)
+	pubkey, _ := crypto.Ecrecover[nist.PublicKey](hashData, sig)
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
 	if signer != getAddress() {
@@ -56,7 +55,7 @@ func TestCheckSignature(t *testing.T) {
 	key, _ := generatePrivateKey()
 	data := []byte("Here is a string....")
 	hashData := crypto.Keccak256(data)
-	sig, _ := crypto.Sign(hashData, key)
+	sig, _ := crypto.Sign[nist.PrivateKey](hashData, key)
 	b := newBackend()
 	defer b.Stop()
 	a := getAddress()
@@ -84,7 +83,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
+		addr, err := istanbul.CheckValidatorSignature[nist.PublicKey](vset, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
@@ -95,7 +94,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// 2. Negative test: sign with any key other than validator's key should return error
-	key, err := crypto.GenerateKey()
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -106,7 +105,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
+	addr, err := istanbul.CheckValidatorSignature[nist.PublicKey](vset, data, sig)
 	if err != istanbul.ErrUnauthorizedAddress {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbul.ErrUnauthorizedAddress)
 	}
@@ -120,19 +119,19 @@ func TestCommit(t *testing.T) {
 	backend := newBackend()
 	defer backend.Stop()
 
-	commitCh := make(chan *types.Block)
+	commitCh := make(chan *types.Block[nist.PublicKey])
 	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Commit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
-		expectedBlock     func() *types.Block
+		expectedBlock     func() *types.Block[nist.PublicKey]
 	}{
 		{
 			// normal case
 			nil,
 			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-1)...)},
-			func() *types.Block {
-				chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+			func() *types.Block[nist.PublicKey] {
+				chain, engine := NewBlockChain(1, big.NewInt(0))
 				block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 				return updateQBFTBlock(block, engine.Address())
 			},
@@ -141,8 +140,8 @@ func TestCommit(t *testing.T) {
 			// invalid signature
 			istanbulcommon.ErrInvalidCommittedSeals,
 			nil,
-			func() *types.Block {
-				chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+			func() *types.Block[nist.PublicKey] {
+				chain, engine := NewBlockChain(1, big.NewInt(0))
 				block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 				return updateQBFTBlock(block, engine.Address())
 			},
@@ -178,10 +177,10 @@ func TestCommit(t *testing.T) {
 }
 
 func TestGetProposer(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlock(chain, engine, chain.Genesis())
-	chain.InsertChain(types.Blocks{block})
+	chain.InsertChain(types.Blocks[nist.PublicKey]{block})
 	expected := engine.GetProposer(1)
 	actual := engine.Address()
 	if actual != expected {
@@ -195,11 +194,11 @@ func TestQBFTTransitionDeadlock(t *testing.T) {
 	timeout := time.After(1 * time.Minute)
 	done := make(chan bool)
 	go func() {
-		chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(1))
+		chain, engine := NewBlockChain(1, big.NewInt(1))
 		defer engine.Stop()
 		// Create an insert a new block into the chain.
 		block := makeBlock(chain, engine, chain.Genesis())
-		_, err := chain.InsertChain(types.Blocks{block})
+		_, err := chain.InsertChain(types.Blocks[nist.PublicKey]{block})
 		if err != nil {
 			t.Errorf("Error inserting block: %v", err)
 		}
@@ -222,7 +221,7 @@ func TestQBFTTransitionDeadlock(t *testing.T) {
 }
 
 func TestIsQBFTConsensus(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(2))
+	chain, engine := NewBlockChain(1, big.NewInt(2))
 	defer engine.Stop()
 	qbftConsensus := engine.IsQBFTConsensus()
 	if qbftConsensus {
@@ -231,7 +230,7 @@ func TestIsQBFTConsensus(t *testing.T) {
 
 	// Create an insert a new block into the chain.
 	block := makeBlock(chain, engine, chain.Genesis())
-	_, err := chain.InsertChain(types.Blocks{block})
+	_, err := chain.InsertChain(types.Blocks[nist.PublicKey]{block})
 	if err != nil {
 		t.Errorf("Error inserting block: %v", err)
 	}
@@ -241,7 +240,7 @@ func TestIsQBFTConsensus(t *testing.T) {
 	}
 
 	secondBlock := makeBlock(chain, engine, block)
-	_, err = chain.InsertChain(types.Blocks{secondBlock})
+	_, err = chain.InsertChain(types.Blocks[nist.PublicKey]{secondBlock})
 	if err != nil {
 		t.Errorf("Error inserting block: %v", err)
 	}
@@ -266,41 +265,41 @@ func getInvalidAddress() common.Address {
 	return common.HexToAddress("0x9535b2e7faaba5288511d89341d94a38063a349b")
 }
 
-func generatePrivateKey() (*ecdsa.PrivateKey, error) {
+func generatePrivateKey() (nist.PrivateKey, error) {
 	key := "bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1"
-	return crypto.HexToECDSA(key)
+	return crypto.HexToECDSA[nist.PrivateKey](key)
 }
 
-func newTestValidatorSet(n int) (istanbul.ValidatorSet, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (istanbul.ValidatorSet, []nist.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make([]common.Address, n)
 	for i := 0; i < n; i++ {
-		privateKey, _ := crypto.GenerateKey()
+		privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
 		keys[i] = privateKey
-		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
+		addrs[i] = crypto.PubkeyToAddress[nist.PublicKey](*privateKey.Public())
 	}
 	vset := validator.NewSet(addrs, istanbul.NewRoundRobinProposerPolicy())
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
 
-type Keys []*ecdsa.PrivateKey
+type Keys []nist.PrivateKey
 
 func (slice Keys) Len() int {
 	return len(slice)
 }
 
 func (slice Keys) Less(i, j int) bool {
-	return strings.Compare(crypto.PubkeyToAddress(slice[i].PublicKey).String(), crypto.PubkeyToAddress(slice[j].PublicKey).String()) < 0
+	return strings.Compare(crypto.PubkeyToAddress[nist.PublicKey](*slice[i].Public()).String(), crypto.PubkeyToAddress[nist.PublicKey](*slice[j].Public()).String()) < 0
 }
 
 func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend() (b *Backend) {
-	_, b = NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+func newBackend() (b *Backend[nist.PrivateKey,nist.PublicKey]) {
+	_, b = NewBlockChain(1, big.NewInt(0))
 	key, _ := generatePrivateKey()
 	b.privateKey = key
 	return

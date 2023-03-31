@@ -38,7 +38,7 @@ type testSystemBackend struct {
 	id  uint64
 	sys *testSystem
 
-	engine *core
+	engine *core[nist.PublicKey]
 	peers  istanbul.ValidatorSet
 	events *event.TypeMux
 
@@ -202,7 +202,7 @@ func generateValidators(n int) []common.Address {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
-		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey))
+		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](*privateKey.Public()))
 	}
 	return vals
 }
@@ -225,9 +225,9 @@ func NewTestSystemWithBackend(n, f uint64) *testSystem {
 		backend.peers = vset
 		backend.address = vset.GetByIndex(i).Address()
 
-		core := New(backend, config)
+		core := New[nist.PublicKey](backend, config)
 		core.state = ibfttypes.StateAcceptRequest
-		core.current = newRoundState(&istanbul.View{
+		core.current = newRoundState[nist.PublicKey](&istanbul.View{
 			Round:    big.NewInt(0),
 			Sequence: big.NewInt(1),
 		}, vset, common.Hash{}, nil, nil, func(hash common.Hash) bool {
@@ -303,5 +303,5 @@ func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 // helper functions.
 
 func getPublicKeyAddress(privateKey nist.PrivateKey) common.Address {
-	return crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey)
+	return crypto.PubkeyToAddress[nist.PublicKey](*privateKey.Public())
 }

@@ -27,15 +27,16 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 func TestCheckMessage(t *testing.T) {
-	c := &core{
+	c := &core[nist.PublicKey]{
 		state: ibfttypes.StateAcceptRequest,
-		current: newRoundState(&istanbul.View{
+		current: newRoundState[nist.PublicKey](&istanbul.View{
 			Sequence: big.NewInt(1),
 			Round:    big.NewInt(0),
 		}, newTestValidatorSet(4), common.Hash{}, nil, nil, nil),
@@ -167,7 +168,7 @@ func TestCheckMessage(t *testing.T) {
 }
 
 func TestStoreBacklog(t *testing.T) {
-	c := &core{
+	c := &core[nist.PublicKey]{
 		logger:     log.New("backend", "test", "id", 0),
 		valSet:     newTestValidatorSet(1),
 		backlogs:   make(map[common.Address]*prque.Prque),
@@ -179,7 +180,7 @@ func TestStoreBacklog(t *testing.T) {
 	}
 	p := c.valSet.GetByIndex(0)
 	// push preprepare msg
-	preprepare := &istanbul.Preprepare{
+	preprepare := &istanbul.Preprepare[nist.PublicKey]{
 		View:     v,
 		Proposal: makeBlock(1),
 	}
@@ -238,13 +239,13 @@ func TestProcessFutureBacklog(t *testing.T) {
 	backend := &testSystemBackend{
 		events: new(event.TypeMux),
 	}
-	c := &core{
+	c := &core[nist.PublicKey]{
 		logger:     log.New("backend", "test", "id", 0),
 		valSet:     newTestValidatorSet(1),
 		backlogs:   make(map[common.Address]*prque.Prque),
 		backlogsMu: new(sync.Mutex),
 		backend:    backend,
-		current: newRoundState(&istanbul.View{
+		current: newRoundState[nist.PublicKey](&istanbul.View{
 			Sequence: big.NewInt(1),
 			Round:    big.NewInt(0),
 		}, newTestValidatorSet(4), common.Hash{}, nil, nil, nil),
@@ -289,7 +290,7 @@ func TestProcessBacklog(t *testing.T) {
 		Round:    big.NewInt(0),
 		Sequence: big.NewInt(1),
 	}
-	preprepare := &istanbul.Preprepare{
+	preprepare := &istanbul.Preprepare[nist.PublicKey]{
 		View:     v,
 		Proposal: makeBlock(1),
 	}
@@ -330,14 +331,14 @@ func testProcessBacklog(t *testing.T, msg *ibfttypes.Message) {
 		events: new(event.TypeMux),
 		peers:  vset,
 	}
-	c := &core{
+	c := &core[nist.PublicKey]{
 		logger:     log.New("backend", "test", "id", 0),
 		backlogs:   make(map[common.Address]*prque.Prque),
 		backlogsMu: new(sync.Mutex),
 		valSet:     vset,
 		backend:    backend,
 		state:      ibfttypes.State(msg.Code),
-		current: newRoundState(&istanbul.View{
+		current: newRoundState[nist.PublicKey](&istanbul.View{
 			Sequence: big.NewInt(1),
 			Round:    big.NewInt(0),
 		}, newTestValidatorSet(4), common.Hash{}, nil, nil, nil),

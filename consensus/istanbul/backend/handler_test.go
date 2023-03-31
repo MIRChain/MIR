@@ -34,7 +34,7 @@ import (
 )
 
 func TestIstanbulMessage(t *testing.T) {
-	_, backend := NewBlockChain[nist.PublicKey](1, nil)
+	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 
 	// generate one msg
@@ -79,7 +79,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
 
-func tryUntilMessageIsHandled(backend *Backend, arbitraryAddress common.Address, arbitraryP2PMessage p2p.Msg) (handled bool, err error) {
+func tryUntilMessageIsHandled(backend *Backend[nist.PrivateKey,nist.PublicKey], arbitraryAddress common.Address, arbitraryP2PMessage p2p.Msg) (handled bool, err error) {
 	for i := 0; i < 5; i++ { // make 5 tries if a little wait
 		handled, err = backend.HandleMsg(arbitraryAddress, arbitraryP2PMessage)
 		if handled && err == nil {
@@ -91,7 +91,7 @@ func tryUntilMessageIsHandled(backend *Backend, arbitraryAddress common.Address,
 }
 
 func TestHandleNewBlockMessage_whenTypical(t *testing.T) {
-	_, backend := NewBlockChain[nist.PublicKey](1, nil)
+	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	arbitraryBlock, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
@@ -110,11 +110,11 @@ func TestHandleNewBlockMessage_whenTypical(t *testing.T) {
 }
 
 func TestHandleNewBlockMessage_whenNotAProposedBlock(t *testing.T) {
-	_, backend := NewBlockChain[nist.PublicKey](1, nil)
+	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
-	postAndWait(backend, types.NewBlock(&types.Header{
+	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header{
 		Number:    big.NewInt(1),
 		Root:      common.StringToHash("someroot"),
 		GasLimit:  1,
@@ -134,11 +134,11 @@ func TestHandleNewBlockMessage_whenNotAProposedBlock(t *testing.T) {
 }
 
 func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
-	_, backend := NewBlockChain[nist.PublicKey](1, nil)
+	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, true)
-	postAndWait(backend, types.NewBlock(&types.Header{
+	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header{
 		Number:    big.NewInt(1),
 		GasLimit:  1,
 		MixDigest: types.IstanbulDigest,
@@ -156,7 +156,7 @@ func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
 	}
 }
 
-func postAndWait(backend *Backend, block *types.Block, t *testing.T) {
+func postAndWait(backend *Backend[nist.PrivateKey,nist.PublicKey], block *types.Block[nist.PublicKey], t *testing.T) {
 	eventSub := backend.EventMux().Subscribe(istanbul.RequestEvent{})
 	defer eventSub.Unsubscribe()
 	stop := make(chan struct{}, 1)
@@ -173,8 +173,8 @@ func postAndWait(backend *Backend, block *types.Block, t *testing.T) {
 	<-stop
 }
 
-func buildArbitraryP2PNewBlockMessage(t *testing.T, invalidMsg bool) (*types.Block, p2p.Msg) {
-	arbitraryBlock := types.NewBlock(&types.Header{
+func buildArbitraryP2PNewBlockMessage(t *testing.T, invalidMsg bool) (*types.Block[nist.PublicKey], p2p.Msg) {
+	arbitraryBlock := types.NewBlock[nist.PublicKey](&types.Header{
 		Number:    big.NewInt(1),
 		GasLimit:  0,
 		MixDigest: types.IstanbulDigest,

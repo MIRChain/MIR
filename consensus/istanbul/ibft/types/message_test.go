@@ -24,9 +24,10 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func makeBlock(number int64) *types.Block {
+func makeBlock(number int64) *types.Block[nist.PublicKey] {
 	header := &types.Header{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),
@@ -34,12 +35,12 @@ func makeBlock(number int64) *types.Block {
 		GasUsed:    0,
 		Time:       0,
 	}
-	block := &types.Block{}
+	block := &types.Block[nist.PublicKey]{}
 	return block.WithSeal(header)
 }
 
 func testPreprepare(t *testing.T) {
-	pp := &istanbul.Preprepare{
+	pp := &istanbul.Preprepare[nist.PublicKey]{
 		View: &istanbul.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
@@ -65,7 +66,7 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedPP *istanbul.Preprepare[P]
+	var decodedPP *istanbul.Preprepare[nist.PublicKey]
 	err = decodedMsg.Decode(&decodedPP)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

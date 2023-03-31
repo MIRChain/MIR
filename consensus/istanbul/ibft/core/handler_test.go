@@ -24,6 +24,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // notice: the normal case have been tested in integration tests.
@@ -45,7 +46,7 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Digest: common.StringToHash("1234567890"),
 	})
-	// with a matched payload. msgPreprepare should match with *istanbul.Preprepare[P] in normal case.
+	// with a matched payload. msgPreprepare should match with *istanbul.Preprepare[nist.PublicKey] in normal case.
 	msg := &ibfttypes.Message{
 		Code:          ibfttypes.MsgPreprepare,
 		Msg:           m,
@@ -59,7 +60,7 @@ func TestHandleMsg(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbulcommon.ErrFailedDecodePreprepare)
 	}
 
-	m, _ = ibfttypes.Encode(&istanbul.Preprepare{
+	m, _ = ibfttypes.Encode(&istanbul.Preprepare[nist.PublicKey]{
 		View: &istanbul.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
@@ -80,7 +81,7 @@ func TestHandleMsg(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbulcommon.ErrFailedDecodePreprepare)
 	}
 
-	m, _ = ibfttypes.Encode(&istanbul.Preprepare{
+	m, _ = ibfttypes.Encode(&istanbul.Preprepare[nist.PublicKey]{
 		View: &istanbul.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
@@ -101,7 +102,7 @@ func TestHandleMsg(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbulcommon.ErrFailedDecodeCommit)
 	}
 
-	m, _ = ibfttypes.Encode(&istanbul.Preprepare{
+	m, _ = ibfttypes.Encode(&istanbul.Preprepare[nist.PublicKey]{
 		View: &istanbul.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),

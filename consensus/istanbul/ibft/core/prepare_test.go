@@ -274,7 +274,7 @@ func TestVerifyPrepare(t *testing.T) {
 		expected error
 
 		prepare    *istanbul.Subject
-		roundState *roundState
+		roundState *roundState[nist.PublicKey]
 	}{
 		{
 			// normal case

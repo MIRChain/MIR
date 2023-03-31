@@ -41,7 +41,7 @@ func TestReimportMirroredState(t *testing.T) {
 	var (
 		db     = rawdb.NewMemoryDatabase()
 		key, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = crypto.PubkeyToAddress(*key.Public())
+		addr   = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		engine = New[nist.PublicKey](params.AllCliqueProtocolChanges.Clique, db)
 		signer = new(types.HomesteadSigner[nist.PublicKey])
 	)
@@ -81,7 +81,7 @@ func TestReimportMirroredState(t *testing.T) {
 		header.Extra = make([]byte, extraVanity+extraSeal)
 		header.Difficulty = diffInTurn
 
-		sig, _ := crypto.Sign(SealHash(header).Bytes(), key)
+		sig, _ := crypto.Sign[nist.PrivateKey](SealHash(header).Bytes(), key)
 		copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 		blocks[i] = block.WithSeal(header)
 	}

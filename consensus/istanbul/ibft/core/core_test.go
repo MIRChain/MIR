@@ -39,7 +39,7 @@ func makeBlock(number int64) *types.Block[nist.PublicKey] {
 		GasUsed:    0,
 		Time:       0,
 	}
-	block := &types.Block{}
+	block := &types.Block[nist.PublicKey]{}
 	return block.WithSeal(header)
 }
 
@@ -106,7 +106,7 @@ func TestNilCommittedSealWithEmptyProposal(t *testing.T) {
 	backend := sys.backends[0]
 	c := backend.engine
 	// Set the current round state with an empty proposal
-	preprepare := &istanbul.Preprepare{
+	preprepare := &istanbul.Preprepare[nist.PublicKey]{
 		View: c.currentView(),
 	}
 	c.current.SetPreprepare(preprepare)

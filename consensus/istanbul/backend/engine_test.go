@@ -18,7 +18,6 @@ package backend
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"math/big"
 	"reflect"
 	"testing"
@@ -37,11 +36,11 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey, cfg *istanbul.Config) (*core.BlockChain, *Backend) {
+func newBlockchainFromConfig(genesis *core.Genesis[nist.PublicKey], nodeKeys []nist.PrivateKey, cfg *istanbul.Config) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey,nist.PublicKey]) {
 	memDB := rawdb.NewMemoryDatabase()
 
 	// Use the first key as private key
-	backend := New(cfg, nodeKeys[0], memDB)
+	backend := New[nist.PrivateKey, nist.PublicKey](cfg, nodeKeys[0], memDB)
 
 	backend.qbftConsensusEnabled = backend.IsQBFTConsensus()
 	genesis.MustCommit(memDB)
@@ -51,7 +50,7 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 		panic(err)
 	}
 
-	backend.Start(blockchain, blockchain.CurrentBlock, rawdb.HasBadBlock)
+	backend.Start(blockchain, blockchain.CurrentBlock, rawdb.HasBadBlock[nist.PublicKey])
 
 	snap, err := backend.snapshot(blockchain, 0, common.Hash{}, nil)
 	if err != nil {
@@ -64,7 +63,7 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 
 	// find proposer key
 	for _, key := range nodeKeys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		if addr.String() == proposerAddr.String() {
 			backend.privateKey = key
 			backend.address = addr
@@ -77,9 +76,9 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func NewBlockChain[nist.PublicKey](n int, qbftBlock *big.Int) (*core.BlockChain, *Backend) {
+func NewBlockChain(n int, qbftBlock *big.Int) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey,nist.PublicKey]) {
 	isQBFT := qbftBlock != nil && qbftBlock.Uint64() == 0
-	genesis, nodeKeys := testutils.GenesisAndKeys(n, isQBFT)
+	genesis, nodeKeys := testutils.GenesisAndKeys[nist.PrivateKey,nist.PublicKey](n, isQBFT)
 
 	config := copyConfig(istanbul.DefaultConfig)
 
@@ -94,7 +93,7 @@ func copyConfig(config *istanbul.Config) *istanbul.Config {
 	return &cpy
 }
 
-func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
+func makeHeader(parent *types.Block[nist.PublicKey], config *istanbul.Config) *types.Header {
 	blockNumber := parent.Number().Add(parent.Number(), common.Big1)
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -107,16 +106,16 @@ func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 	return header
 }
 
-func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) *types.Block {
+func makeBlock(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey,nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
 	block := makeBlockWithoutSeal(chain, engine, parent)
 	stopCh := make(chan struct{})
-	resultCh := make(chan *types.Block, 10)
+	resultCh := make(chan *types.Block[nist.PublicKey], 10)
 	go engine.Seal(chain, block, resultCh, stopCh)
 	blk := <-resultCh
 	return blk
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) *types.Block {
+func makeBlockWithoutSeal(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey,nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, _, _ := chain.StateAt(parent.Root())
@@ -125,7 +124,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 }
 
 func TestIBFTPrepare(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, nil)
+	chain, engine := NewBlockChain(1, nil)
 	defer engine.Stop()
 	chain.Config().Istanbul.TestQBFTBlock = nil
 	header := makeHeader(chain.Genesis(), engine.config)
@@ -141,7 +140,7 @@ func TestIBFTPrepare(t *testing.T) {
 }
 
 func TestQBFTPrepare(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	header := makeHeader(chain.Genesis(), engine.config)
 	err := engine.Prepare(chain, header)
@@ -157,7 +156,7 @@ func TestQBFTPrepare(t *testing.T) {
 }
 
 func TestSealStopChannel(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	stop := make(chan struct{}, 1)
@@ -171,7 +170,7 @@ func TestSealStopChannel(t *testing.T) {
 		stop <- struct{}{}
 		eventSub.Unsubscribe()
 	}
-	resultCh := make(chan *types.Block, 10)
+	resultCh := make(chan *types.Block[nist.PublicKey], 10)
 	go func() {
 		err := engine.Seal(chain, block, resultCh, stop)
 		if err != nil {
@@ -187,14 +186,14 @@ func TestSealStopChannel(t *testing.T) {
 }
 
 func TestSealCommittedOtherHash(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	otherBlock := makeBlockWithoutSeal(chain, engine, block)
 	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-3)...)
 
 	eventSub := engine.EventMux().Subscribe(istanbul.RequestEvent{})
-	blockOutputChannel := make(chan *types.Block)
+	blockOutputChannel := make(chan *types.Block[nist.PublicKey])
 	stopChannel := make(chan struct{})
 
 	go func() {
@@ -228,19 +227,19 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	}
 }
 
-func updateQBFTBlock(block *types.Block, addr common.Address) *types.Block {
+func updateQBFTBlock(block *types.Block[nist.PublicKey], addr common.Address) *types.Block[nist.PublicKey] {
 	header := block.Header()
 	header.Coinbase = addr
 	return block.WithSeal(header)
 }
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	expectedBlock := updateQBFTBlock(block, engine.Address())
 
-	resultCh := make(chan *types.Block, 10)
+	resultCh := make(chan *types.Block[nist.PublicKey], 10)
 	go func() {
 		err := engine.Seal(chain, block, resultCh, make(chan struct{}))
 
@@ -256,7 +255,7 @@ func TestSealCommitted(t *testing.T) {
 }
 
 func TestVerifyHeader(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 
 	// istanbulcommon.ErrEmptyCommittedSeals case
@@ -352,17 +351,17 @@ func TestVerifyHeader(t *testing.T) {
 }
 
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
+	chain, engine := NewBlockChain(1, big.NewInt(0))
 	defer engine.Stop()
 	genesis := chain.Genesis()
 
 	// success case
 	headers := []*types.Header{}
-	blocks := []*types.Block{}
+	blocks := []*types.Block[nist.PublicKey]{}
 	size := 100
 
 	for i := 0; i < size; i++ {
-		var b *types.Block
+		var b *types.Block[nist.PublicKey]
 		if i == 0 {
 			b = makeBlockWithoutSeal(chain, engine, genesis)
 			b = updateQBFTBlock(b, engine.Address())

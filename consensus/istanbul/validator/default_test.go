@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var (
@@ -47,8 +48,8 @@ func testNewValidatorSet(t *testing.T) {
 	// Create 100 validators with random addresses
 	b := []byte{}
 	for i := 0; i < ValCnt; i++ {
-		key, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		key, _ := crypto.GenerateKey[nist.PrivateKey]()
+		addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		val := New(addr)
 		validators = append(validators, val)
 		b = append(b, val.Address().Bytes()...)

@@ -27,15 +27,16 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 func TestCheckRequestMsg(t *testing.T) {
-	c := &core{
+	c := &core[nist.PublicKey]{
 		state: ibfttypes.StateAcceptRequest,
-		current: newRoundState(&istanbul.View{
+		current: newRoundState[nist.PublicKey](&istanbul.View{
 			Sequence: big.NewInt(1),
 			Round:    big.NewInt(0),
 		}, newTestValidatorSet(4), common.Hash{}, nil, nil, nil),
@@ -86,11 +87,11 @@ func TestStoreRequestMsg(t *testing.T) {
 	backend := &testSystemBackend{
 		events: new(event.TypeMux),
 	}
-	c := &core{
+	c := &core[nist.PublicKey]{
 		logger:  log.New("backend", "test", "id", 0),
 		backend: backend,
 		state:   ibfttypes.StateAcceptRequest,
-		current: newRoundState(&istanbul.View{
+		current: newRoundState[nist.PublicKey](&istanbul.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		}, newTestValidatorSet(4), common.Hash{}, nil, nil, nil),

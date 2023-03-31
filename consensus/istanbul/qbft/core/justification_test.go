@@ -149,7 +149,7 @@ func testParameterizedCase(
 }
 
 func createRoundChangeMessage(from common.Address, round int64, preparedRound int64, preparedBlock istanbul.Proposal) *qbfttypes.SignedRoundChangePayload {
-	m := qbfttypes.NewRoundChange(big.NewInt(1), big.NewInt(1), big.NewInt(preparedRound), preparedBlock)
+	m := qbfttypes.NewRoundChange[nist.PublicKey](big.NewInt(1), big.NewInt(1), big.NewInt(preparedRound), preparedBlock)
 	m.SetSource(from)
 	return &m.SignedRoundChangePayload
 }
@@ -162,7 +162,7 @@ func generateValidators(n int) []common.Address {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
-		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey))
+		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](*privateKey.Public()))
 	}
 	return vals
 }
@@ -175,6 +175,6 @@ func makeBlock(number int64) *types.Block[nist.PublicKey] {
 		GasUsed:    0,
 		Time:       0,
 	}
-	block := &types.Block{}
+	block := &types.Block[nist.PublicKey]{}
 	return block.WithSeal(header)
 }
