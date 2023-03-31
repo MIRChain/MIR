@@ -23,10 +23,11 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/holiman/uint256"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/holiman/uint256"
 )
 
 type TwoOperandTestcase struct {
@@ -42,7 +43,7 @@ type twoOperandParams struct {
 
 var alphabetSoup = "ABCDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff"
 var commonParams []*twoOperandParams
-var twoOpMethods map[string]executionFunc
+var twoOpMethods map[string]executionFunc[nist.PublicKey]
 
 func init() {
 
@@ -65,38 +66,38 @@ func init() {
 			commonParams[i*len(params)+j] = &twoOperandParams{x, y}
 		}
 	}
-	twoOpMethods = map[string]executionFunc{
-		"add":     opAdd,
-		"sub":     opSub,
-		"mul":     opMul,
-		"div":     opDiv,
-		"sdiv":    opSdiv,
-		"mod":     opMod,
-		"smod":    opSmod,
-		"exp":     opExp,
-		"signext": opSignExtend,
-		"lt":      opLt,
-		"gt":      opGt,
-		"slt":     opSlt,
-		"sgt":     opSgt,
-		"eq":      opEq,
-		"and":     opAnd,
-		"or":      opOr,
-		"xor":     opXor,
-		"byte":    opByte,
-		"shl":     opSHL,
-		"shr":     opSHR,
-		"sar":     opSAR,
+	twoOpMethods = map[string]executionFunc[nist.PublicKey]{
+		"add":     opAdd[nist.PublicKey],
+		"sub":     opSub[nist.PublicKey],
+		"mul":     opMul[nist.PublicKey],
+		"div":     opDiv[nist.PublicKey],
+		"sdiv":    opSdiv[nist.PublicKey],
+		"mod":     opMod[nist.PublicKey],
+		"smod":    opSmod[nist.PublicKey],
+		"exp":     opExp[nist.PublicKey],
+		"signext": opSignExtend[nist.PublicKey],
+		"lt":      opLt[nist.PublicKey],
+		"gt":      opGt[nist.PublicKey],
+		"slt":     opSlt[nist.PublicKey],
+		"sgt":     opSgt[nist.PublicKey],
+		"eq":      opEq[nist.PublicKey],
+		"and":     opAnd[nist.PublicKey],
+		"or":      opOr[nist.PublicKey],
+		"xor":     opXor[nist.PublicKey],
+		"byte":    opByte[nist.PublicKey],
+		"shl":     opSHL[nist.PublicKey],
+		"shr":     opSHR[nist.PublicKey],
+		"sar":     opSAR[nist.PublicKey],
 	}
 }
 
-func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFunc, name string) {
+func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFunc[nist.PublicKey], name string) {
 
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		pc             = uint64(0)
-		evmInterpreter = env.interpreter.(*EVMInterpreter)
+		evmInterpreter = env.interpreter.(*EVMInterpreter[nist.PublicKey])
 	)
 
 	for i, test := range tests {
@@ -128,7 +129,7 @@ func TestByteOp(t *testing.T) {
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "20", "00"},
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "FFFFFFFFFFFFFFFF", "00"},
 	}
-	testTwoOperandOp(t, tests, opByte, "byte")
+	testTwoOperandOp(t, tests, opByte[nist.PublicKey], "byte")
 }
 
 func TestSHL(t *testing.T) {
@@ -145,7 +146,7 @@ func TestSHL(t *testing.T) {
 		{"0000000000000000000000000000000000000000000000000000000000000000", "01", "0000000000000000000000000000000000000000000000000000000000000000"},
 		{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"},
 	}
-	testTwoOperandOp(t, tests, opSHL, "shl")
+	testTwoOperandOp(t, tests, opSHL[nist.PublicKey], "shl")
 }
 
 func TestSHR(t *testing.T) {
@@ -163,7 +164,7 @@ func TestSHR(t *testing.T) {
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
 		{"0000000000000000000000000000000000000000000000000000000000000000", "01", "0000000000000000000000000000000000000000000000000000000000000000"},
 	}
-	testTwoOperandOp(t, tests, opSHR, "shr")
+	testTwoOperandOp(t, tests, opSHR[nist.PublicKey], "shr")
 }
 
 func TestSAR(t *testing.T) {
@@ -187,12 +188,12 @@ func TestSAR(t *testing.T) {
 		{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
 	}
 
-	testTwoOperandOp(t, tests, opSAR, "sar")
+	testTwoOperandOp(t, tests, opSAR[nist.PublicKey], "sar")
 }
 
 func TestAddMod(t *testing.T) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 		pc             = uint64(0)
@@ -220,7 +221,7 @@ func TestAddMod(t *testing.T) {
 		stack.push(z)
 		stack.push(y)
 		stack.push(x)
-		opAddmod(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		opAddmod[nist.PublicKey](&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
 		actual := stack.pop()
 		if actual.Cmp(expected) != 0 {
 			t.Errorf("Testcase %d, expected  %x, got %x", i, expected, actual)
@@ -229,12 +230,12 @@ func TestAddMod(t *testing.T) {
 }
 
 // getResult is a convenience function to generate the expected values
-func getResult(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcase {
+func getResult(args []*twoOperandParams, opFn executionFunc[nist.PublicKey]) []TwoOperandTestcase {
 	var (
-		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack       = newstack()
 		pc          = uint64(0)
-		interpreter = env.interpreter.(*EVMInterpreter)
+		interpreter = env.interpreter.(*EVMInterpreter[nist.PublicKey])
 	)
 	result := make([]TwoOperandTestcase, len(args))
 	for i, param := range args {
@@ -279,9 +280,9 @@ func TestJsonTestcases(t *testing.T) {
 	}
 }
 
-func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
+func opBenchmark(bench *testing.B, op executionFunc[nist.PublicKey], args ...string) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
@@ -309,169 +310,169 @@ func BenchmarkOpAdd64(b *testing.B) {
 	x := "ffffffff"
 	y := "fd37f3e2bba2c4f"
 
-	opBenchmark(b, opAdd, x, y)
+	opBenchmark(b, opAdd[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpAdd128(b *testing.B) {
 	x := "ffffffffffffffff"
 	y := "f5470b43c6549b016288e9a65629687"
 
-	opBenchmark(b, opAdd, x, y)
+	opBenchmark(b, opAdd[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpAdd256(b *testing.B) {
 	x := "0802431afcbce1fc194c9eaa417b2fb67dc75a95db0bc7ec6b1c8af11df6a1da9"
 	y := "a1f5aac137876480252e5dcac62c354ec0d42b76b0642b6181ed099849ea1d57"
 
-	opBenchmark(b, opAdd, x, y)
+	opBenchmark(b, opAdd[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSub64(b *testing.B) {
 	x := "51022b6317003a9d"
 	y := "a20456c62e00753a"
 
-	opBenchmark(b, opSub, x, y)
+	opBenchmark(b, opSub[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSub128(b *testing.B) {
 	x := "4dde30faaacdc14d00327aac314e915d"
 	y := "9bbc61f5559b829a0064f558629d22ba"
 
-	opBenchmark(b, opSub, x, y)
+	opBenchmark(b, opSub[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSub256(b *testing.B) {
 	x := "4bfcd8bb2ac462735b48a17580690283980aa2d679f091c64364594df113ea37"
 	y := "97f9b1765588c4e6b69142eb00d20507301545acf3e1238c86c8b29be227d46e"
 
-	opBenchmark(b, opSub, x, y)
+	opBenchmark(b, opSub[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpMul(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opMul, x, y)
+	opBenchmark(b, opMul[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpDiv256(b *testing.B) {
 	x := "ff3f9014f20db29ae04af2c2d265de17"
 	y := "fe7fb0d1f59dfe9492ffbf73683fd1e870eec79504c60144cc7f5fc2bad1e611"
-	opBenchmark(b, opDiv, x, y)
+	opBenchmark(b, opDiv[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpDiv128(b *testing.B) {
 	x := "fdedc7f10142ff97"
 	y := "fbdfda0e2ce356173d1993d5f70a2b11"
-	opBenchmark(b, opDiv, x, y)
+	opBenchmark(b, opDiv[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpDiv64(b *testing.B) {
 	x := "fcb34eb3"
 	y := "f97180878e839129"
-	opBenchmark(b, opDiv, x, y)
+	opBenchmark(b, opDiv[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSdiv(b *testing.B) {
 	x := "ff3f9014f20db29ae04af2c2d265de17"
 	y := "fe7fb0d1f59dfe9492ffbf73683fd1e870eec79504c60144cc7f5fc2bad1e611"
 
-	opBenchmark(b, opSdiv, x, y)
+	opBenchmark(b, opSdiv[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpMod(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opMod, x, y)
+	opBenchmark(b, opMod[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSmod(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opSmod, x, y)
+	opBenchmark(b, opSmod[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpExp(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opExp, x, y)
+	opBenchmark(b, opExp[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSignExtend(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opSignExtend, x, y)
+	opBenchmark(b, opSignExtend[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpLt(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opLt, x, y)
+	opBenchmark(b, opLt[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpGt(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opGt, x, y)
+	opBenchmark(b, opGt[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSlt(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opSlt, x, y)
+	opBenchmark(b, opSlt[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpSgt(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opSgt, x, y)
+	opBenchmark(b, opSgt[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpEq(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opEq, x, y)
+	opBenchmark(b, opEq[nist.PublicKey], x, y)
 }
 func BenchmarkOpEq2(b *testing.B) {
 	x := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201ffffffff"
 	y := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201fffffffe"
-	opBenchmark(b, opEq, x, y)
+	opBenchmark(b, opEq[nist.PublicKey], x, y)
 }
 func BenchmarkOpAnd(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opAnd, x, y)
+	opBenchmark(b, opAnd[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpOr(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opOr, x, y)
+	opBenchmark(b, opOr[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpXor(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opXor, x, y)
+	opBenchmark(b, opXor[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpByte(b *testing.B) {
 	x := alphabetSoup
 	y := alphabetSoup
 
-	opBenchmark(b, opByte, x, y)
+	opBenchmark(b, opByte[nist.PublicKey], x, y)
 }
 
 func BenchmarkOpAddmod(b *testing.B) {
@@ -479,7 +480,7 @@ func BenchmarkOpAddmod(b *testing.B) {
 	y := alphabetSoup
 	z := alphabetSoup
 
-	opBenchmark(b, opAddmod, x, y, z)
+	opBenchmark(b, opAddmod[nist.PublicKey], x, y, z)
 }
 
 func BenchmarkOpMulmod(b *testing.B) {
@@ -487,35 +488,35 @@ func BenchmarkOpMulmod(b *testing.B) {
 	y := alphabetSoup
 	z := alphabetSoup
 
-	opBenchmark(b, opMulmod, x, y, z)
+	opBenchmark(b, opMulmod[nist.PublicKey], x, y, z)
 }
 
 func BenchmarkOpSHL(b *testing.B) {
 	x := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201ffffffff"
 	y := "ff"
 
-	opBenchmark(b, opSHL, x, y)
+	opBenchmark(b, opSHL[nist.PublicKey], x, y)
 }
 func BenchmarkOpSHR(b *testing.B) {
 	x := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201ffffffff"
 	y := "ff"
 
-	opBenchmark(b, opSHR, x, y)
+	opBenchmark(b, opSHR[nist.PublicKey], x, y)
 }
 func BenchmarkOpSAR(b *testing.B) {
 	x := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201ffffffff"
 	y := "ff"
 
-	opBenchmark(b, opSAR, x, y)
+	opBenchmark(b, opSAR[nist.PublicKey], x, y)
 }
 func BenchmarkOpIsZero(b *testing.B) {
 	x := "FBCDEF090807060504030201ffffffffFBCDEF090807060504030201ffffffff"
-	opBenchmark(b, opIszero, x)
+	opBenchmark(b, opIszero[nist.PublicKey], x)
 }
 
 func TestOpMstore(t *testing.T) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
@@ -539,7 +540,7 @@ func TestOpMstore(t *testing.T) {
 
 func BenchmarkOpMstore(bench *testing.B) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
@@ -560,7 +561,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 
 func BenchmarkOpSHA3(bench *testing.B) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)

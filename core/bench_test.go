@@ -17,7 +17,6 @@
 package core
 
 import (
-	"crypto/ecdsa"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -30,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -73,26 +73,26 @@ func BenchmarkInsertChain_ring1000_diskdb(b *testing.B) {
 
 var (
 	// This is the content of the genesis block used by the benchmarks.
-	benchRootKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	benchRootAddr   = crypto.PubkeyToAddress(benchRootKey.PublicKey)
+	benchRootKey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	benchRootAddr   = crypto.PubkeyToAddress[nist.PublicKey](*benchRootKey.Public())
 	benchRootFunds  = math.BigPow(2, 100)
 )
 
 // genValueTx returns a block generator that includes a single
 // value-transfer transaction with n bytes of extra data in each
 // block.
-func genValueTx(nbytes int) func(int, *BlockGen) {
-	return func(i int, gen *BlockGen) {
+func genValueTx(nbytes int) func(int, *BlockGen[nist.PublicKey]) {
+	return func(i int, gen *BlockGen[nist.PublicKey]) {
 		toaddr := common.Address{}
 		data := make([]byte, nbytes)
 		gas, _ := IntrinsicGas(data, nil, false, false, false)
-		tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(benchRootAddr), toaddr, big.NewInt(1), gas, nil, data), types.HomesteadSigner{}, benchRootKey)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(benchRootAddr), toaddr, big.NewInt(1), gas, nil, data), types.HomesteadSigner[nist.PublicKey]{}, benchRootKey)
 		gen.AddTx(tx)
 	}
 }
 
 var (
-	ringKeys  = make([]*ecdsa.PrivateKey, 1000)
+	ringKeys  = make([]nist.PrivateKey, 1000)
 	ringAddrs = make([]common.Address, len(ringKeys))
 	// bigTxGas  = new(big.Int).SetUint64(params.TxGas)
 )
@@ -101,17 +101,17 @@ func init() {
 	ringKeys[0] = benchRootKey
 	ringAddrs[0] = benchRootAddr
 	for i := 1; i < len(ringKeys); i++ {
-		ringKeys[i], _ = crypto.GenerateKey()
-		ringAddrs[i] = crypto.PubkeyToAddress(ringKeys[i].PublicKey)
+		ringKeys[i], _ = crypto.GenerateKey[nist.PrivateKey]()
+		ringAddrs[i] = crypto.PubkeyToAddress[nist.PublicKey](*ringKeys[i].Public())
 	}
 }
 
 // genTxRing returns a block generator that sends ether in a ring
 // among n accounts. This is creates n entries in the state database
 // and fills the blocks with many small transactions.
-func genTxRing(naccounts int) func(int, *BlockGen) {
+func genTxRing(naccounts int) func(int, *BlockGen[nist.PublicKey]) {
 	from := 0
-	return func(i int, gen *BlockGen) {
+	return func(i int, gen *BlockGen[nist.PublicKey]) {
 		block := gen.PrevBlock(i - 1)
 		gas := CalcGasLimit(block, block.GasLimit(), block.GasLimit(), block.GasLimit())
 		for {
@@ -120,7 +120,7 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 				break
 			}
 			to := (from + 1) % naccounts
-			tx := types.NewTransaction(
+			tx := types.NewTransaction[nist.PublicKey](
 				gen.TxNonce(ringAddrs[from]),
 				ringAddrs[to],
 				benchRootFunds,
@@ -128,7 +128,7 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 				nil,
 				nil,
 			)
-			tx, _ = types.SignTx(tx, types.HomesteadSigner{}, ringKeys[from])
+			tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, ringKeys[from])
 			gen.AddTx(tx)
 			from = to
 		}
@@ -136,7 +136,7 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 }
 
 // genUncles generates blocks with two uncle headers.
-func genUncles(i int, gen *BlockGen) {
+func genUncles(i int, gen *BlockGen[nist.PublicKey]) {
 	if i >= 6 {
 		b2 := gen.PrevBlock(i - 6).Header()
 		b2.Extra = []byte("foo")
@@ -147,7 +147,7 @@ func genUncles(i int, gen *BlockGen) {
 	}
 }
 
-func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
+func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen[nist.PublicKey])) {
 	// Create the database in memory or in a temporary directory.
 	var db ethdb.Database
 	if !disk {
@@ -167,16 +167,16 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 
 	// Generate a chain of b.N blocks using the supplied block
 	// generator function.
-	gspec := Genesis{
+	gspec := Genesis[nist.PublicKey]{
 		Config: params.TestChainConfig,
 		Alloc:  GenesisAlloc{benchRootAddr: {Balance: benchRootFunds}},
 	}
 	genesis := gspec.MustCommit(db)
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, b.N, gen)
+	chain, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis, ethash.NewFaker[nist.PublicKey](), db, b.N, gen)
 
 	// Time the insertion of the new chain.
 	// State and blocks are stored in the same DB.
-	chainman, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	chainman, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chainman.Stop()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -243,9 +243,9 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 		rawdb.WriteTd(db, hash, n, big.NewInt(int64(n+1)))
 
 		if full || n == 0 {
-			block := types.NewBlockWithHeader(header)
+			block := types.NewBlockWithHeader[nist.PublicKey](header)
 			rawdb.WriteBody(db, hash, n, block.Body())
-			rawdb.WriteReceipts(db, hash, n, nil)
+			rawdb.WriteReceipts[nist.PublicKey](db, hash, n, nil)
 		}
 	}
 }
@@ -288,7 +288,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		chain, err := NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+		chain, err := NewBlockChain[nist.PublicKey](db, nil, params.TestChainConfig, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}
@@ -297,8 +297,8 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 			header := chain.GetHeaderByNumber(n)
 			if full {
 				hash := header.Hash()
-				rawdb.ReadBody(db, hash, n)
-				rawdb.ReadReceipts(db, hash, n, chain.Config())
+				rawdb.ReadBody[nist.PublicKey](db, hash, n)
+				rawdb.ReadReceipts[nist.PublicKey](db, hash, n, chain.Config())
 			}
 		}
 		chain.Stop()

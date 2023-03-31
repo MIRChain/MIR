@@ -129,7 +129,7 @@ func TestDecompressPubkey(t *testing.T) {
 		t.Errorf("Store error: %s", err)
 	}
 	defer store.Close()
-	crt, err := store.GetBySubjectId("853edbc917f879858190408778ddec68bc0dd11f")
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
 	if err != nil {
 		t.Errorf("Get cert error: %s", err)
 	}

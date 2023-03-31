@@ -28,6 +28,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
 	"github.com/pavelkrolevets/MIR-pro/log"
 )
@@ -50,12 +51,12 @@ func TestRemoteNotify(t *testing.T) {
 	defer server.Close()
 
 	// Create the custom ethash engine.
-	ethash := NewTester([]string{server.URL}, false)
+	ethash := NewTester[nist.PublicKey]([]string{server.URL}, false)
 	defer ethash.Close()
 
 	// Stream a work task and ensure the notification bubbles out.
 	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
-	block := types.NewBlockWithHeader(header)
+	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	ethash.Seal(nil, block, nil, nil)
 	select {
@@ -98,12 +99,12 @@ func TestRemoteNotifyFull(t *testing.T) {
 		NotifyFull: true,
 		Log:        testlog.Logger(t, log.LvlWarn),
 	}
-	ethash := New(config, []string{server.URL}, false)
+	ethash := New[nist.PublicKey](config, []string{server.URL}, false)
 	defer ethash.Close()
 
 	// Stream a work task and ensure the notification bubbles out.
 	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
-	block := types.NewBlockWithHeader(header)
+	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	ethash.Seal(nil, block, nil, nil)
 	select {
@@ -138,19 +139,19 @@ func TestRemoteMultiNotify(t *testing.T) {
 	defer server.Close()
 
 	// Create the custom ethash engine.
-	ethash := NewTester([]string{server.URL}, false)
+	ethash := NewTester[nist.PublicKey]([]string{server.URL}, false)
 	ethash.config.Log = testlog.Logger(t, log.LvlWarn)
 	defer ethash.Close()
 
 	// Provide a results reader.
 	// Otherwise the unread results will be logged asynchronously
 	// and this can happen after the test is finished, causing a panic.
-	results := make(chan *types.Block, cap(sink))
+	results := make(chan *types.Block[nist.PublicKey], cap(sink))
 
 	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
 		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
-		block := types.NewBlockWithHeader(header)
+		block := types.NewBlockWithHeader[nist.PublicKey](header)
 		ethash.Seal(nil, block, results, nil)
 	}
 
@@ -188,18 +189,18 @@ func TestRemoteMultiNotifyFull(t *testing.T) {
 		NotifyFull: true,
 		Log:        testlog.Logger(t, log.LvlWarn),
 	}
-	ethash := New(config, []string{server.URL}, false)
+	ethash := New[nist.PublicKey](config, []string{server.URL}, false)
 	defer ethash.Close()
 
 	// Provide a results reader.
 	// Otherwise the unread results will be logged asynchronously
 	// and this can happen after the test is finished, causing a panic.
-	results := make(chan *types.Block, cap(sink))
+	results := make(chan *types.Block[nist.PublicKey], cap(sink))
 
 	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
 		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
-		block := types.NewBlockWithHeader(header)
+		block := types.NewBlockWithHeader[nist.PublicKey](header)
 		ethash.Seal(nil, block, results, nil)
 	}
 
@@ -215,9 +216,9 @@ func TestRemoteMultiNotifyFull(t *testing.T) {
 
 // Tests whether stale solutions are correctly processed.
 func TestStaleSubmission(t *testing.T) {
-	ethash := NewTester(nil, true)
+	ethash := NewTester[nist.PublicKey](nil, true)
 	defer ethash.Close()
-	api := &API{ethash}
+	api := &API[nist.PublicKey]{ethash}
 
 	fakeNonce, fakeDigest := types.BlockNonce{0x01, 0x02, 0x03}, common.HexToHash("deadbeef")
 
@@ -262,11 +263,11 @@ func TestStaleSubmission(t *testing.T) {
 			false,
 		},
 	}
-	results := make(chan *types.Block, 16)
+	results := make(chan *types.Block[nist.PublicKey], 16)
 
 	for id, c := range testcases {
 		for _, h := range c.headers {
-			ethash.Seal(nil, types.NewBlockWithHeader(h), results, nil)
+			ethash.Seal(nil, types.NewBlockWithHeader[nist.PublicKey](h), results, nil)
 		}
 		if res := api.SubmitWork(fakeNonce, ethash.SealHash(c.headers[c.submitIndex]), fakeDigest); res != c.submitRes {
 			t.Errorf("case %d submit result mismatch, want %t, get %t", id+1, c.submitRes, res)

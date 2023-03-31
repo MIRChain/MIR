@@ -16,6 +16,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
@@ -129,10 +130,10 @@ func contractCodeHashes() (c1CodeHash common.Hash, c2CodeHash common.Hash) {
 }
 
 func TestApplyMessage_Private_whenTypicalCreate_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
@@ -155,10 +156,10 @@ func TestApplyMessage_Private_whenTypicalCreate_Success(t *testing.T) {
 }
 
 func TestApplyMessage_Private_whenCreatePartyProtectionC1_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 
 	// calling C1.Create party protection
@@ -181,10 +182,10 @@ func TestApplyMessage_Private_whenCreatePartyProtectionC1_Success(t *testing.T) 
 }
 
 func TestApplyMessage_Private_whenCreatePartyProtectionC1WithPrivacyEnhancementsDisabledReturnsError(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 
 	// calling C1.Create party protection
@@ -212,10 +213,10 @@ func TestApplyMessage_Private_whenCreatePartyProtectionC1WithPrivacyEnhancements
 }
 
 func TestApplyMessage_Private_whenInteractWithPartyProtectionC1_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -247,10 +248,10 @@ func TestApplyMessage_Private_whenInteractWithPartyProtectionC1_Success(t *testi
 }
 
 func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -285,10 +286,10 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testi
 }
 
 func TestApplyMessage_Private_whenInteractWithStateValidationC1WithEmptyMRFromTessera_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -322,10 +323,10 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithEmptyMRFromTe
 }
 
 func TestApplyMessage_Private_whenInteractWithStateValidationC1WithWrongMRFromTessera_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -361,10 +362,10 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithWrongMRFromTe
 //Limitation of design --if don't send privacyFlag can't be guaranteed to catch non-party
 //review this...
 func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_NoFlag_Succeed(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -395,10 +396,10 @@ func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_
 }
 
 func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_WithFlag_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -430,10 +431,10 @@ func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_
 
 // C1 is a existing contract before privacy enhancements implementation
 func TestApplyMessage_Private_whenPartyProtectionC2InteractsExistingStandardPrivateC1_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -472,10 +473,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsExistingStandardPriv
 }
 
 func TestApplyMessage_Private_whenPartyProtectionC2InteractsNewStandardPrivateC1_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -514,10 +515,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsNewStandardPrivateC1
 }
 
 func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPartyProtectionC1_Succeed(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -559,10 +560,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPartyProtectionC
 //scenario where sender Q1 runs simulation which affects c2 and c1 privy for Q3 and Q7
 //Q3 receives block but wasn't privy to C1 so doesn't have creation info in tessera
 func TestApplyMessage_Private_whenPartyProtectionC2AndC1ButMissingC1CreationInTessera_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -606,10 +607,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2AndC1ButMissingC1CreationInTe
 // UPDATE - after relaxing the ACOTH checks this is a valid scenario where C0 acoth is ignored if it isn't detected as an
 // affected contract during transaction execution
 func TestApplyMessage_Private_whenPartyProtectionC2AndC1AndC0ButMissingC0InStateDB_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -652,10 +653,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2AndC1AndC0ButMissingC0InState
 }
 
 func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC1_Succeed(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -703,10 +704,10 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 }
 
 func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC1_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -750,10 +751,10 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC
 }
 
 func TestApplyMessage_Private_whenStandardPrivateC2InteractsWithPublicC1_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -788,10 +789,10 @@ func TestApplyMessage_Private_whenStandardPrivateC2InteractsWithPublicC1_Fail(t 
 }
 
 func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPublicC1_Fail(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 	cfg := newConfig()
 
@@ -827,10 +828,10 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPublicC1_Fail(t 
 }
 
 func TestApplyMessage_Private_whenTxManagerReturnsError_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
@@ -851,10 +852,10 @@ func TestApplyMessage_Private_whenTxManagerReturnsError_Success(t *testing.T) {
 }
 
 func TestApplyMessage_Private_whenTxManagerReturnsEmptyResult_Success(t *testing.T) {
-	originalP := private.P
-	defer func() { private.P = originalP }()
+	originalP := private.Ptm
+	defer func() { private.Ptm = originalP }()
 	mockPM := newMockPrivateTransactionManager()
-	private.P = mockPM
+	private.Ptm = mockPM
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
@@ -918,11 +919,11 @@ func createPublicContract(cfg *config, assert *testifyassert.Assertions, c *cont
 }
 
 func newTypicalPrivateMessage(cfg *config) PrivateMessage {
-	var tx *types.Transaction[P]
+	var tx *types.Transaction[nist.PublicKey]
 	if cfg.to == nil {
-		tx = types.NewContractCreation(cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewContractCreation[nist.PublicKey](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
-		tx = types.NewTransaction(cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewTransaction[nist.PublicKey](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	}
 	tx.SetPrivate()
 	if cfg.privacyFlag < math.MaxUint64 {
@@ -941,11 +942,11 @@ func newTypicalPrivateMessage(cfg *config) PrivateMessage {
 }
 
 func newTypicalPublicMessage(cfg *config) Message {
-	var tx *types.Transaction[P]
+	var tx *types.Transaction[nist.PublicKey]
 	if cfg.to == nil {
-		tx = types.NewContractCreation(cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewContractCreation[nist.PublicKey](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
-		tx = types.NewTransaction(cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewTransaction[nist.PublicKey](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	}
 	tx.SetTxPrivacyMetadata(nil)
 	msg, err := tx.AsMessage(&stubSigner{})
@@ -984,7 +985,7 @@ type config struct {
 	privacyFlag  engine.PrivacyFlagType
 	acMerkleRoot common.Hash
 
-	currentTx *types.Transaction[P]
+	currentTx *types.Transaction[nist.PublicKey]
 
 	publicState, privateState *state.StateDB
 }
@@ -1025,7 +1026,7 @@ func (cfg *config) setTo(address common.Address) *config {
 	return cfg
 }
 
-func newEVM(cfg *config) *vm.EVM {
+func newEVM(cfg *config) *vm.EVM[nist.PublicKey] {
 	context := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -1052,7 +1053,7 @@ func newEVM(cfg *config) *vm.EVM {
 		EIP158Block:              new(big.Int),
 		IsQuorum:                 true,
 		PrivacyEnhancementsBlock: new(big.Int),
-	}, vm.Config{})
+	}, vm.Config[nist.PublicKey]{})
 	evm.SetCurrentTX(cfg.currentTx)
 	return evm
 }
@@ -1068,19 +1069,19 @@ func mustParse(def string) abi.ABI {
 type stubSigner struct {
 }
 
-func (ss *stubSigner) Sender(tx *types.Transaction[P]) (common.Address, error) {
+func (ss *stubSigner) Sender(tx *types.Transaction[nist.PublicKey]) (common.Address, error) {
 	return signingAddress, nil
 }
 
-func (ss *stubSigner) SignatureValues(tx *types.Transaction[P], sig []byte) (r, s, v *big.Int, err error) {
+func (ss *stubSigner) SignatureValues(tx *types.Transaction[nist.PublicKey], sig []byte) (r, s, v *big.Int, err error) {
 	panic("implement me")
 }
 
-func (ss *stubSigner) Hash(tx *types.Transaction[P]) common.Hash {
+func (ss *stubSigner) Hash(tx *types.Transaction[nist.PublicKey]) common.Hash {
 	panic("implement me")
 }
 
-func (ss *stubSigner) Equal(types.Signer) bool {
+func (ss *stubSigner) Equal(types.Signer[nist.PublicKey]) bool {
 	panic("implement me")
 }
 
@@ -1258,11 +1259,11 @@ const (
 
 func verifyGasPoolCalculation(t *testing.T, pm private.PrivateTransactionManager) {
 	assert := testifyassert.New(t)
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = pm
+	private.Ptm = pm
 
 	txGasLimit := uint64(100000)
 	gasPool := new(GasPool).AddGas(200000)
@@ -1283,11 +1284,11 @@ func verifyGasPoolCalculation(t *testing.T, pm private.PrivateTransactionManager
 			data:     common.Hex2Bytes(arbitraryEncryptedPayload),
 		},
 	}
-	ctx := NewEVMBlockContext(&dualStateTestHeader, nil, &common.Address{})
+	ctx := NewEVMBlockContext[nist.PublicKey](&dualStateTestHeader, nil, &common.Address{})
 	txCtx := NewEVMTxContext(msg)
-	evm := vm.NewEVM(ctx, txCtx, publicState, privateState, params.QuorumTestChainConfig, vm.Config{})
+	evm := vm.NewEVM(ctx, txCtx, publicState, privateState, params.QuorumTestChainConfig, vm.Config[nist.PublicKey]{})
 
-	tx := types.NewTransaction(
+	tx := types.NewTransaction[nist.PublicKey](
 		0,
 		common.Address{},
 		big.NewInt(0),

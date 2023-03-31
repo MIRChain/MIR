@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core"
@@ -35,6 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -198,7 +199,7 @@ func TestBlockSubscription(t *testing.T) {
 		backend     = &testBackend{db: db}
 		api         = NewPublicFilterAPI(backend, false, deadline)
 		genesis     = new(core.Genesis).MustCommit(db)
-		chain, _    = core.GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 10, func(i int, gen *core.BlockGen) {})
+		chain, _    = core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 10, func(i int, gen *core.BlockGen) {})
 		chainEvents = []core.ChainEvent{}
 	)
 

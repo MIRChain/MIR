@@ -11,6 +11,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/stretchr/testify/assert"
@@ -20,21 +21,21 @@ var (
 	incrementByOne = common.BytesToEncryptedPayloadHash([]byte("incContract"))
 )
 
-func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainConfig *QuorumChainConfig) ([]*types.Block[P], map[common.Hash]*types.Block[P], *BlockChain) {
+func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainConfig *QuorumChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
-	genesis := GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	genesis := GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 
 	// The generated chain deploys one Accumulator contracts which is incremented every block
-	blocks, _ := GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
-		signer := types.QuorumPrivateTxSigner{}
-		var tx *types.Transaction[P]
+		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
+		var tx *types.Transaction[nist.PublicKey]
 		var err error
 		if i == 0 {
-			tx, err = types.SignTx(types.NewContractCreation(block.TxNonce(testAddress), big.NewInt(0), testGas, nil, deployContract.Bytes()), signer, testKey)
+			tx, err = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](block.TxNonce(testAddress), big.NewInt(0), testGas, nil, deployContract.Bytes()), signer, testKey)
 		} else {
-			tx, err = types.SignTx(types.NewTransaction(block.TxNonce(testAddress), Contract1AddressAfterDeployment, big.NewInt(0), testGas, nil, incrementByOne.Bytes()), signer, testKey)
+			tx, err = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddress), Contract1AddressAfterDeployment, big.NewInt(0), testGas, nil, incrementByOne.Bytes()), signer, testKey)
 		}
 		if err != nil {
 			panic(err)
@@ -44,7 +45,7 @@ func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainC
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block[P], n+1)
+	blockm := make(map[common.Hash]*types.Block[nist.PublicKey], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()
@@ -53,7 +54,7 @@ func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainC
 
 	// recreate the DB so that we don't have the public state written already by the block generation logic
 	testdb = rawdb.NewMemoryDatabase()
-	genesis = GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	genesis = GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 
 	// disable snapshots
 	testingCacheConfig := &CacheConfig{
@@ -65,7 +66,7 @@ func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainC
 		SnapshotWait:  true,
 	}
 
-	blockchain, err := NewBlockChain(testdb, testingCacheConfig, config, ethash.NewFaker(), vm.Config{}, nil, nil, quorumChainConfig)
+	blockchain, err := NewBlockChain[nist.PublicKey](testdb, testingCacheConfig, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, quorumChainConfig)
 	if err != nil {
 		return nil, nil, nil
 	}
@@ -91,11 +92,11 @@ func TestSegregatedCacheProvider(t *testing.T) {
 
 	mockptm := buildMockPTM(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	blocks, _, blockchain := buildCacheProviderTestChain(11, params.QuorumTestChainConfig, nil)
 
@@ -136,11 +137,11 @@ func TestUnifiedCacheProvider(t *testing.T) {
 
 	mockptm := buildMockPTM(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	blocks, _, blockchain := buildCacheProviderTestChain(130, params.QuorumTestChainConfig, &QuorumChainConfig{privateTrieCacheEnabled: true})
 

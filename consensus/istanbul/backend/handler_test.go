@@ -23,17 +23,18 @@ import (
 	"testing"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 func TestIstanbulMessage(t *testing.T) {
-	_, backend := newBlockChain(1, nil)
+	_, backend := NewBlockChain[nist.PublicKey](1, nil)
 	defer backend.Stop()
 
 	// generate one msg
@@ -90,7 +91,7 @@ func tryUntilMessageIsHandled(backend *Backend, arbitraryAddress common.Address,
 }
 
 func TestHandleNewBlockMessage_whenTypical(t *testing.T) {
-	_, backend := newBlockChain(1, nil)
+	_, backend := NewBlockChain[nist.PublicKey](1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	arbitraryBlock, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
@@ -109,7 +110,7 @@ func TestHandleNewBlockMessage_whenTypical(t *testing.T) {
 }
 
 func TestHandleNewBlockMessage_whenNotAProposedBlock(t *testing.T) {
-	_, backend := newBlockChain(1, nil)
+	_, backend := NewBlockChain[nist.PublicKey](1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
@@ -133,7 +134,7 @@ func TestHandleNewBlockMessage_whenNotAProposedBlock(t *testing.T) {
 }
 
 func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
-	_, backend := newBlockChain(1, nil)
+	_, backend := NewBlockChain[nist.PublicKey](1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
 	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, true)

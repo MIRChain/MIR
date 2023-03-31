@@ -26,11 +26,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
-func verifyUnbrokenCanonchain(hc *HeaderChain) error {
+func verifyUnbrokenCanonchain(hc *HeaderChain[nist.PublicKey]) error {
 	h := hc.CurrentHeader()
 	for {
 		canonHash := rawdb.ReadCanonicalHash(hc.chainDb, h.Number.Uint64())
@@ -50,7 +51,7 @@ func verifyUnbrokenCanonchain(hc *HeaderChain) error {
 	return nil
 }
 
-func testInsert(t *testing.T, hc *HeaderChain, chain []*types.Header, wantStatus WriteStatus, wantErr error) {
+func testInsert(t *testing.T, hc *HeaderChain[nist.PublicKey], chain []*types.Header, wantStatus WriteStatus, wantErr error) {
 	t.Helper()
 
 	status, err := hc.InsertHeaderChain(chain, time.Now())
@@ -70,17 +71,17 @@ func testInsert(t *testing.T, hc *HeaderChain, chain []*types.Header, wantStatus
 func TestHeaderInsertion(t *testing.T) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		genesis = new(Genesis).MustCommit(db)
+		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
 	)
 
-	hc, err := NewHeaderChain(db, params.AllEthashProtocolChanges, ethash.NewFaker(), func() bool { return false })
+	hc, err := NewHeaderChain[nist.PublicKey](db, params.AllEthashProtocolChanges,  ethash.NewFaker[nist.PublicKey](), func() bool { return false })
 	if err != nil {
 		t.Fatal(err)
 	}
 	// chain A: G->A1->A2...A128
-	chainA := makeHeaderChain(genesis.Header(), 128, ethash.NewFaker(), db, 10)
+	chainA := makeHeaderChain[nist.PublicKey](genesis.Header(), 128,  ethash.NewFaker[nist.PublicKey](), db, 10)
 	// chain B: G->A1->B2...B128
-	chainB := makeHeaderChain(chainA[0], 128, ethash.NewFaker(), db, 10)
+	chainB := makeHeaderChain[nist.PublicKey](chainA[0], 128,  ethash.NewFaker[nist.PublicKey](), db, 10)
 	log.Root().SetHandler(log.StdoutHandler)
 
 	// Inserting 64 headers on an empty chain, expecting

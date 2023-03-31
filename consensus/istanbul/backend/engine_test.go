@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey, cfg *istanbul.Config) (*core.BlockChain, *Backend) {
@@ -45,7 +46,7 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 	backend.qbftConsensusEnabled = backend.IsQBFTConsensus()
 	genesis.MustCommit(memDB)
 
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, nil, nil)
+	blockchain, err := core.NewBlockChain[nist.PublicKey](memDB, nil, genesis.Config, backend, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +77,7 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int, qbftBlock *big.Int) (*core.BlockChain, *Backend) {
+func NewBlockChain[nist.PublicKey](n int, qbftBlock *big.Int) (*core.BlockChain, *Backend) {
 	isQBFT := qbftBlock != nil && qbftBlock.Uint64() == 0
 	genesis, nodeKeys := testutils.GenesisAndKeys(n, isQBFT)
 
@@ -124,7 +125,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 }
 
 func TestIBFTPrepare(t *testing.T) {
-	chain, engine := newBlockChain(1, nil)
+	chain, engine := NewBlockChain[nist.PublicKey](1, nil)
 	defer engine.Stop()
 	chain.Config().Istanbul.TestQBFTBlock = nil
 	header := makeHeader(chain.Genesis(), engine.config)
@@ -140,7 +141,7 @@ func TestIBFTPrepare(t *testing.T) {
 }
 
 func TestQBFTPrepare(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 	header := makeHeader(chain.Genesis(), engine.config)
 	err := engine.Prepare(chain, header)
@@ -156,7 +157,7 @@ func TestQBFTPrepare(t *testing.T) {
 }
 
 func TestSealStopChannel(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	stop := make(chan struct{}, 1)
@@ -186,7 +187,7 @@ func TestSealStopChannel(t *testing.T) {
 }
 
 func TestSealCommittedOtherHash(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	otherBlock := makeBlockWithoutSeal(chain, engine, block)
@@ -234,7 +235,7 @@ func updateQBFTBlock(block *types.Block, addr common.Address) *types.Block {
 }
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	expectedBlock := updateQBFTBlock(block, engine.Address())
@@ -255,7 +256,7 @@ func TestSealCommitted(t *testing.T) {
 }
 
 func TestVerifyHeader(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 
 	// istanbulcommon.ErrEmptyCommittedSeals case
@@ -351,7 +352,7 @@ func TestVerifyHeader(t *testing.T) {
 }
 
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1, big.NewInt(0))
+	chain, engine := NewBlockChain[nist.PublicKey](1, big.NewInt(0))
 	defer engine.Stop()
 	genesis := chain.Genesis()
 

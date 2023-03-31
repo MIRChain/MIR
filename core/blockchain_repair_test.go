@@ -32,6 +32,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -1770,8 +1771,8 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 
 	// Initialize a fresh chain
 	var (
-		genesis = new(Genesis).MustCommit(db)
-		engine  = ethash.NewFullFaker()
+		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
+		engine  = ethash.NewFullFaker[nist.PublicKey]()
 		config  = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,
@@ -1783,21 +1784,21 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.AllEthashProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](db, config, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
 	// If sidechain blocks are needed, make a light chain and import it
-	var sideblocks types.Blocks
+	var sideblocks types.Blocks[nist.PublicKey]
 	if tt.sidechainBlocks > 0 {
-		sideblocks, _ = GenerateChain(params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen) {
+		sideblocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	canonblocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen) {
+	canonblocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -1836,7 +1837,7 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 	}
 	defer db.Close()
 
-	chain, err = NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, err = NewBlockChain[nist.PublicKey](db, nil, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}

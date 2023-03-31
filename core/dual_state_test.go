@@ -9,6 +9,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -53,9 +54,9 @@ func TestDualStatePrivateToPublicCall(t *testing.T) {
 		data:     nil,
 	}
 
-	ctx := NewEVMBlockContext(&dualStateTestHeader, nil, &author)
+	ctx := NewEVMBlockContext[nist.PublicKey](&dualStateTestHeader, nil, &author)
 	txCtx := NewEVMTxContext(msg)
-	env := vm.NewEVM(ctx, txCtx, publicState, privateState, &params.ChainConfig{}, vm.Config{})
+	env := vm.NewEVM(ctx, txCtx, publicState, privateState, &params.ChainConfig{}, vm.Config[nist.PublicKey]{})
 	env.Call(vm.AccountRef(author), callAddr, msg.data, msg.gas, new(big.Int))
 
 	if value := privateState.GetState(callAddr, common.Hash{}); value != (common.Hash{10}) {
@@ -83,9 +84,9 @@ func TestDualStatePublicToPrivateCall(t *testing.T) {
 		data:     nil,
 	}
 
-	ctx := NewEVMBlockContext(&dualStateTestHeader, nil, &author)
+	ctx := NewEVMBlockContext[nist.PublicKey](&dualStateTestHeader, nil, &author)
 	txCtx := NewEVMTxContext(msg)
-	env := vm.NewEVM(ctx, txCtx, publicState, publicState, &params.ChainConfig{}, vm.Config{})
+	env := vm.NewEVM(ctx, txCtx, publicState, publicState, &params.ChainConfig{}, vm.Config[nist.PublicKey]{})
 	env.Call(vm.AccountRef(author), callAddr, msg.data, msg.gas, new(big.Int))
 
 	if value := publicState.GetState(callAddr, common.Hash{}); value != (common.Hash{}) {
@@ -113,9 +114,9 @@ func TestDualStateReadOnly(t *testing.T) {
 		data:     nil,
 	}
 
-	ctx := NewEVMBlockContext(&dualStateTestHeader, nil, &author)
+	ctx := NewEVMBlockContext[nist.PublicKey](&dualStateTestHeader, nil, &author)
 	txCtx := NewEVMTxContext(msg)
-	env := vm.NewEVM(ctx, txCtx, publicState, privateState, &params.ChainConfig{}, vm.Config{})
+	env := vm.NewEVM(ctx, txCtx, publicState, privateState, &params.ChainConfig{}, vm.Config[nist.PublicKey]{})
 	env.Call(vm.AccountRef(author), callAddr, msg.data, msg.gas, new(big.Int))
 
 	if value := publicState.GetState(common.Address{2}, common.Hash{}); value != (common.Hash{0}) {
@@ -153,11 +154,11 @@ func verifyStaticCall(t *testing.T, privateState *state.StateDB, publicState *st
 		data:     nil,
 	}
 
-	ctx := NewEVMBlockContext(&dualStateTestHeader, nil, &author)
+	ctx := NewEVMBlockContext[nist.PublicKey](&dualStateTestHeader, nil, &author)
 	txCtx := NewEVMTxContext(msg)
 	env := vm.NewEVM(ctx, txCtx, publicState, privateState, &params.ChainConfig{
 		ByzantiumBlock: new(big.Int),
-	}, vm.Config{})
+	}, vm.Config[nist.PublicKey]{})
 
 	ret, _, err := env.Call(vm.AccountRef(author), callerAddress, msg.data, msg.gas, new(big.Int))
 

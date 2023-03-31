@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.
@@ -46,7 +47,7 @@ type precompiledFailureTest struct {
 // allPrecompiles does not map to the actual set of precompiles, as it also contains
 // repriced versions of precompiles at certain slots
 var allPrecompiles = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}):    &ecrecover{},
+	common.BytesToAddress([]byte{1}):    &ecrecover[nist.PublicKey]{},
 	common.BytesToAddress([]byte{2}):    &sha256hash{},
 	common.BytesToAddress([]byte{3}):    &ripemd160hash{},
 	common.BytesToAddress([]byte{4}):    &dataCopy{},

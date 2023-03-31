@@ -23,20 +23,21 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that transactions can be added to strict lists and list contents and
 // nonce boundaries are correctly maintained.
 func TestStrictTxListAdd(t *testing.T) {
 	// Generate a list of transactions to insert
-	key, _ := crypto.GenerateKey()
+	key, _ := crypto.GenerateKey[nist.PrivateKey]()
 
-	txs := make(types.Transactions, 1024)
+	txs := make(types.Transactions[nist.PublicKey], 1024)
 	for i := 0; i < len(txs); i++ {
 		txs[i] = transaction(uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
-	list := newTxList(true)
+	list := newTxList[nist.PublicKey](true)
 	for _, v := range rand.Perm(len(txs)) {
 		list.Add(txs[v], DefaultTxPoolConfig.PriceBump)
 	}
@@ -53,14 +54,14 @@ func TestStrictTxListAdd(t *testing.T) {
 
 func BenchmarkTxListAdd(t *testing.B) {
 	// Generate a list of transactions to insert
-	key, _ := crypto.GenerateKey()
+	key, _ := crypto.GenerateKey[nist.PrivateKey]()
 
-	txs := make(types.Transactions, 100000)
+	txs := make(types.Transactions[nist.PublicKey], 100000)
 	for i := 0; i < len(txs); i++ {
 		txs[i] = transaction(uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
-	list := newTxList(true)
+	list := newTxList[nist.PublicKey](true)
 	priceLimit := big.NewInt(int64(DefaultTxPoolConfig.PriceLimit))
 	t.ResetTimer()
 	for _, v := range rand.Perm(len(txs)) {

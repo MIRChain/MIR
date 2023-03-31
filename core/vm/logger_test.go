@@ -20,10 +20,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/holiman/uint256"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/holiman/uint256"
 )
 
 type dummyContractRef struct {
@@ -51,8 +52,8 @@ func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 
 func TestStoreCapture(t *testing.T) {
 	var (
-		env      = NewEVM(BlockContext{}, TxContext{}, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, Config{})
-		logger   = NewStructLogger(nil)
+		env      = NewEVM(BlockContext{}, TxContext{}, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig,Config[nist.PublicKey]{})
+		logger   = NewStructLogger[nist.PublicKey](nil)
 		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
 		scope    = &ScopeContext{
 			Memory:   NewMemory(),

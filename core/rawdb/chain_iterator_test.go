@@ -25,22 +25,23 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestChainIterator(t *testing.T) {
 	// Construct test chain db
 	chainDb := NewMemoryDatabase()
 
-	var block *types.Block[P]
-	var txs []*types.Transaction[P]
+	var block *types.Block[nist.PublicKey]
+	var txs []*types.Transaction[nist.PublicKey]
 	to := common.BytesToAddress([]byte{0x11})
-	block = types.NewBlock(&types.Header{Number: big.NewInt(int64(0))}, nil, nil, nil, newHasher()) // Empty genesis block
+	block = types.NewBlock[nist.PublicKey](&types.Header{Number: big.NewInt(int64(0))}, nil, nil, nil, newHasher()) // Empty genesis block
 	WriteBlock(chainDb, block)
 	WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	for i := uint64(1); i <= 10; i++ {
-		var tx *types.Transaction[P]
+		var tx *types.Transaction[nist.PublicKey]
 		if i%2 == 0 {
-			tx = types.NewTx(&types.LegacyTx{
+			tx = types.NewTx[nist.PublicKey](&types.LegacyTx{
 				Nonce:    i,
 				GasPrice: big.NewInt(11111),
 				Gas:      1111,
@@ -49,7 +50,7 @@ func TestChainIterator(t *testing.T) {
 				Data:     []byte{0x11, 0x11, 0x11},
 			})
 		} else {
-			tx = types.NewTx(&types.AccessListTx{
+			tx = types.NewTx[nist.PublicKey](&types.AccessListTx{
 				ChainID:  big.NewInt(1337),
 				Nonce:    i,
 				GasPrice: big.NewInt(11111),
@@ -60,7 +61,7 @@ func TestChainIterator(t *testing.T) {
 			})
 		}
 		txs = append(txs, tx)
-		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[P]{tx}, nil, nil, newHasher())
+		block = types.NewBlock[nist.PublicKey](&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[nist.PublicKey]{tx}, nil, nil, newHasher())
 		WriteBlock(chainDb, block)
 		WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	}
@@ -80,7 +81,7 @@ func TestChainIterator(t *testing.T) {
 	}
 	for i, c := range cases {
 		var numbers []int
-		hashCh := iterateTransactions(chainDb, c.from, c.to, c.reverse, nil)
+		hashCh := iterateTransactions[nist.PublicKey](chainDb, c.from, c.to, c.reverse, nil)
 		if hashCh != nil {
 			for h := range hashCh {
 				numbers = append(numbers, int(h.number))
@@ -106,19 +107,19 @@ func TestIndexTransactions(t *testing.T) {
 	// Construct test chain db
 	chainDb := NewMemoryDatabase()
 
-	var block *types.Block[P]
-	var txs []*types.Transaction[P]
+	var block *types.Block[nist.PublicKey]
+	var txs []*types.Transaction[nist.PublicKey]
 	to := common.BytesToAddress([]byte{0x11})
 
 	// Write empty genesis block
-	block = types.NewBlock(&types.Header{Number: big.NewInt(int64(0))}, nil, nil, nil, newHasher())
+	block = types.NewBlock[nist.PublicKey](&types.Header{Number: big.NewInt(int64(0))}, nil, nil, nil, newHasher())
 	WriteBlock(chainDb, block)
 	WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 
 	for i := uint64(1); i <= 10; i++ {
-		var tx *types.Transaction[P]
+		var tx *types.Transaction[nist.PublicKey]
 		if i%2 == 0 {
-			tx = types.NewTx(&types.LegacyTx{
+			tx = types.NewTx[nist.PublicKey](&types.LegacyTx{
 				Nonce:    i,
 				GasPrice: big.NewInt(11111),
 				Gas:      1111,
@@ -127,7 +128,7 @@ func TestIndexTransactions(t *testing.T) {
 				Data:     []byte{0x11, 0x11, 0x11},
 			})
 		} else {
-			tx = types.NewTx(&types.AccessListTx{
+			tx = types.NewTx[nist.PublicKey](&types.AccessListTx{
 				ChainID:  big.NewInt(1337),
 				Nonce:    i,
 				GasPrice: big.NewInt(11111),
@@ -138,7 +139,7 @@ func TestIndexTransactions(t *testing.T) {
 			})
 		}
 		txs = append(txs, tx)
-		block = types.NewBlock(&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[P]{tx}, nil, nil, newHasher())
+		block = types.NewBlock[nist.PublicKey](&types.Header{Number: big.NewInt(int64(i))}, []*types.Transaction[nist.PublicKey]{tx}, nil, nil, newHasher())
 		WriteBlock(chainDb, block)
 		WriteCanonicalHash(chainDb, block.Hash(), block.NumberU64())
 	}
@@ -162,24 +163,24 @@ func TestIndexTransactions(t *testing.T) {
 			t.Fatalf("Transaction tail mismatch")
 		}
 	}
-	IndexTransactions(chainDb, 5, 11, nil)
+	IndexTransactions[nist.PublicKey](chainDb, 5, 11, nil)
 	verify(5, 11, true, 5)
 	verify(0, 5, false, 5)
 
-	IndexTransactions(chainDb, 0, 5, nil)
+	IndexTransactions[nist.PublicKey](chainDb, 0, 5, nil)
 	verify(0, 11, true, 0)
 
-	UnindexTransactions(chainDb, 0, 5, nil)
+	UnindexTransactions[nist.PublicKey](chainDb, 0, 5, nil)
 	verify(5, 11, true, 5)
 	verify(0, 5, false, 5)
 
-	UnindexTransactions(chainDb, 5, 11, nil)
+	UnindexTransactions[nist.PublicKey](chainDb, 5, 11, nil)
 	verify(0, 11, false, 11)
 
 	// Testing corner cases
 	signal := make(chan struct{})
 	var once sync.Once
-	indexTransactionsForTesting(chainDb, 5, 11, signal, func(n uint64) bool {
+	indexTransactionsForTesting[nist.PublicKey](chainDb, 5, 11, signal, func(n uint64) bool {
 		if n <= 8 {
 			once.Do(func() {
 				close(signal)
@@ -190,11 +191,11 @@ func TestIndexTransactions(t *testing.T) {
 	})
 	verify(9, 11, true, 9)
 	verify(0, 9, false, 9)
-	IndexTransactions(chainDb, 0, 9, nil)
+	IndexTransactions[nist.PublicKey](chainDb, 0, 9, nil)
 
 	signal = make(chan struct{})
 	var once2 sync.Once
-	unindexTransactionsForTesting(chainDb, 0, 11, signal, func(n uint64) bool {
+	unindexTransactionsForTesting[nist.PublicKey](chainDb, 0, 11, signal, func(n uint64) bool {
 		if n >= 8 {
 			once2.Do(func() {
 				close(signal)

@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/mock_private"
 	"github.com/stretchr/testify/require"
@@ -17,14 +17,14 @@ import (
 
 var (
 	sender           common.Address
-	senderPrivateKey *ecdsa.PrivateKey
+	senderPrivateKey nist.PrivateKey
 	tmPrivateTxHash  common.EncryptedPayloadHash
 	pmtData          []byte
 )
 
 func init() {
 	sender = common.HexToAddress("0xed9d02e382b34818e88b88a309c7fe71e65f419d")
-	senderPrivateKey, _ = crypto.HexToECDSA("e6181caaffff94a09d7e332fc8da9884d99902c7874eb74354bdcadf411929f1")
+	senderPrivateKey, _ = crypto.HexToECDSA[nist.PrivateKey]("e6181caaffff94a09d7e332fc8da9884d99902c7874eb74354bdcadf411929f1")
 
 	privateTxHash := crypto.Keccak512([]byte("encrypted-private-tx"))
 	for i := 0; i < 64; i++ {
@@ -35,15 +35,15 @@ func init() {
 }
 
 func TestPrivacyMarker_Run_UnsupportedTransaction_DoesNothing(t *testing.T) {
-	publicContractCreationTx := types.NewContractCreation(0, nil, 0, nil, []byte{})
-	privatePrivacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	publicContractCreationTx := types.NewContractCreation[nist.PublicKey](0, nil, 0, nil, []byte{})
+	privatePrivacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	privatePrivacyMarkerTx.SetPrivate()
 	require.True(t, privatePrivacyMarkerTx.IsPrivacyMarker())
 	require.True(t, privatePrivacyMarkerTx.IsPrivate())
 
 	tests := []struct {
 		name      string
-		currentTx *types.Transaction[P]
+		currentTx *types.Transaction[nist.PublicKey]
 	}{
 		{
 			name:      "is-nil",
@@ -63,12 +63,12 @@ func TestPrivacyMarker_Run_UnsupportedTransaction_DoesNothing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
-			pm := privacyMarker{}
+			pm := privacyMarker[nist.PublicKey]{}
 
 			publicState := NewMockStateDB(ctrl)
 			innerApplier := &stubInnerApplier{}
 
-			evm := &EVM{
+			evm := &EVM[nist.PublicKey]{
 				currentTx:   tt.currentTx,
 				publicState: publicState,
 				InnerApply:  innerApplier.InnerApply,
@@ -91,17 +91,17 @@ func TestPrivacyMarker_Run_NonZeroEVMDepth_DoesNothing(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	privacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	privacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	require.True(t, privacyMarkerTx.IsPrivacyMarker())
 
-	pm := privacyMarker{}
+	pm := privacyMarker[nist.PublicKey]{}
 
 	publicState := NewMockStateDB(ctrl)
 	innerApplier := &stubInnerApplier{}
 
 	depth := 1
 
-	evm := &EVM{
+	evm := &EVM[nist.PublicKey]{
 		depth:       depth,
 		currentTx:   privacyMarkerTx,
 		publicState: publicState,
@@ -119,27 +119,27 @@ func TestPrivacyMarker_Run_NonZeroEVMDepth_DoesNothing(t *testing.T) {
 
 func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 	var (
-		publicTx                      *types.Transaction[P]
+		publicTx                      *types.Transaction[nist.PublicKey]
 		publicTxByt                   []byte
-		unsignedPrivateTx             *types.Transaction[P]
-		incorrectlySignedPrivateTx    *types.Transaction[P]
+		unsignedPrivateTx             *types.Transaction[nist.PublicKey]
+		incorrectlySignedPrivateTx    *types.Transaction[nist.PublicKey]
 		incorrectlySignedPrivateTxByt []byte
 		setupErr                      error
 	)
 
-	publicTx = types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	publicTx = types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	require.False(t, publicTx.IsPrivate())
 	publicTxByt, setupErr = json.Marshal(publicTx)
 	if setupErr != nil {
 		t.Fatalf("unable to marshal tx to json, err = %v", setupErr)
 	}
 
-	unsignedPrivateTx = types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	unsignedPrivateTx = types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	unsignedPrivateTx.SetPrivate()
 
 	invalidSig := common.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100")
 	incorrectlySignedPrivateTx, setupErr = unsignedPrivateTx.WithSignature(
-		types.QuorumPrivateTxSigner{},
+		types.QuorumPrivateTxSigner[nist.PublicKey]{},
 		invalidSig,
 	)
 	if setupErr != nil {
@@ -182,8 +182,8 @@ func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
-			unsignedPrivacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
-			signer := types.HomesteadSigner{}
+			unsignedPrivacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
+			signer := types.HomesteadSigner[nist.PublicKey]{}
 			txHash := signer.Hash(unsignedPrivacyMarkerTx)
 			validSig, setupErr := crypto.Sign(txHash.Bytes(), senderPrivateKey)
 			if setupErr != nil {
@@ -199,10 +199,10 @@ func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 
 			require.True(t, privacyMarkerTx.IsPrivacyMarker())
 
-			pm := privacyMarker{}
+			pm := privacyMarker[nist.PublicKey]{}
 
 			privacyManager := mock_private.NewMockPrivateTransactionManager(ctrl)
-			private.P = privacyManager
+			private.Ptm = privacyManager
 			publicState := NewMockStateDB(ctrl)
 			innerApplier := nonceIncrementingInnerApplier{
 				incrementNonceFunc: func() {
@@ -211,7 +211,7 @@ func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 				},
 			}
 
-			evm := &EVM{
+			evm := &EVM[nist.PublicKey]{
 				currentTx:   privacyMarkerTx,
 				publicState: publicState,
 				InnerApply:  innerApplier.InnerApply,
@@ -235,16 +235,16 @@ func TestPrivacyMarker_Run_InvalidTransaction_NonceUnchanged(t *testing.T) {
 
 func TestPrivacyMarker_Run_SupportedTransaction_ExecutionFails_NonceUnchanged(t *testing.T) {
 	var (
-		unsignedPrivateTx  *types.Transaction[P]
-		signedPrivateTx    *types.Transaction[P]
+		unsignedPrivateTx  *types.Transaction[nist.PublicKey]
+		signedPrivateTx    *types.Transaction[nist.PublicKey]
 		signedPrivateTxByt []byte
 		setupErr           error
 	)
 
-	unsignedPrivateTx = types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	unsignedPrivateTx = types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	unsignedPrivateTx.SetPrivate()
 
-	signer := types.QuorumPrivateTxSigner{}
+	signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
 	txHash := signer.Hash(unsignedPrivateTx)
 
 	validSig, setupErr := crypto.Sign(txHash.Bytes(), senderPrivateKey)
@@ -253,7 +253,7 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionFails_NonceUnchanged(t 
 	}
 
 	signedPrivateTx, setupErr = unsignedPrivateTx.WithSignature(
-		types.QuorumPrivateTxSigner{},
+		types.QuorumPrivateTxSigner[nist.PublicKey]{},
 		validSig,
 	)
 	if setupErr != nil {
@@ -283,8 +283,8 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionFails_NonceUnchanged(t 
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
-			unsignedPrivacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
-			signer := types.HomesteadSigner{}
+			unsignedPrivacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
+			signer := types.HomesteadSigner[nist.PublicKey]{}
 			txHash := signer.Hash(unsignedPrivacyMarkerTx)
 			validSig, setupErr := crypto.Sign(txHash.Bytes(), senderPrivateKey)
 			if setupErr != nil {
@@ -300,13 +300,13 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionFails_NonceUnchanged(t 
 
 			require.True(t, privacyMarkerTx.IsPrivacyMarker())
 
-			pm := privacyMarker{}
+			pm := privacyMarker[nist.PublicKey]{}
 
 			privacyManager := mock_private.NewMockPrivateTransactionManager(ctrl)
-			private.P = privacyManager
+			private.Ptm = privacyManager
 			publicState := NewMockStateDB(ctrl)
 
-			evm := &EVM{
+			evm := &EVM[nist.PublicKey]{
 				currentTx:   privacyMarkerTx,
 				publicState: publicState,
 				InnerApply:  tt.innerApplier.InnerApply,
@@ -347,16 +347,16 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 	defer ctrl.Finish()
 
 	var (
-		unsignedPrivateTx  *types.Transaction[P]
-		signedPrivateTx    *types.Transaction[P]
+		unsignedPrivateTx  *types.Transaction[nist.PublicKey]
+		signedPrivateTx    *types.Transaction[nist.PublicKey]
 		signedPrivateTxByt []byte
 		setupErr           error
 	)
 
-	unsignedPrivateTx = types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
+	unsignedPrivateTx = types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, []byte{})
 	unsignedPrivateTx.SetPrivate()
 
-	signer := types.QuorumPrivateTxSigner{}
+	signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
 	txHash := signer.Hash(unsignedPrivateTx)
 
 	validSig, setupErr := crypto.Sign(txHash.Bytes(), senderPrivateKey)
@@ -365,7 +365,7 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 	}
 
 	signedPrivateTx, setupErr = unsignedPrivateTx.WithSignature(
-		types.QuorumPrivateTxSigner{},
+		types.QuorumPrivateTxSigner[nist.PublicKey]{},
 		validSig,
 	)
 	if setupErr != nil {
@@ -377,8 +377,8 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 		t.Fatalf("unable to marshal tx to json, err = %v", setupErr)
 	}
 
-	unsignedPrivacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
-	ptmSigner := types.HomesteadSigner{}
+	unsignedPrivacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), nil, 0, nil, pmtData)
+	ptmSigner := types.HomesteadSigner[nist.PublicKey]{}
 	ptmHash := ptmSigner.Hash(unsignedPrivacyMarkerTx)
 	validSig, setupErr = crypto.Sign(ptmHash.Bytes(), senderPrivateKey)
 	if setupErr != nil {
@@ -394,10 +394,10 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 
 	require.True(t, privacyMarkerTx.IsPrivacyMarker())
 
-	pm := privacyMarker{}
+	pm := privacyMarker[nist.PublicKey]{}
 
 	privacyManager := mock_private.NewMockPrivateTransactionManager(ctrl)
-	private.P = privacyManager
+	private.Ptm = privacyManager
 	publicState := NewMockStateDB(ctrl)
 
 	var (
@@ -411,7 +411,7 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 		},
 	}
 
-	evm := &EVM{
+	evm := &EVM[nist.PublicKey]{
 		currentTx:   privacyMarkerTx,
 		publicState: publicState,
 		InnerApply:  innerApplier.InnerApply,
@@ -440,17 +440,17 @@ func TestPrivacyMarker_Run_SupportedTransaction_ExecutionSucceeds_NonceUnchanged
 }
 
 type innerApplier interface {
-	InnerApply(innerTx *types.Transaction[P]) error
+	InnerApply(innerTx *types.Transaction[nist.PublicKey]) error
 	wasCalled() bool
-	innerTx() *types.Transaction[P]
+	innerTx() *types.Transaction[nist.PublicKey]
 }
 
 type stubInnerApplier struct {
 	called bool
-	tx     *types.Transaction[P]
+	tx     *types.Transaction[nist.PublicKey]
 }
 
-func (m *stubInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
+func (m *stubInnerApplier) InnerApply(innerTx *types.Transaction[nist.PublicKey]) error {
 	m.called = true
 	m.tx = innerTx
 	return nil
@@ -460,16 +460,16 @@ func (m *stubInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *stubInnerApplier) innerTx() *types.Transaction[P] {
+func (m *stubInnerApplier) innerTx() *types.Transaction[nist.PublicKey] {
 	return m.tx
 }
 
 type failingInnerApplier struct {
 	called bool
-	tx     *types.Transaction[P]
+	tx     *types.Transaction[nist.PublicKey]
 }
 
-func (m *failingInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
+func (m *failingInnerApplier) InnerApply(innerTx *types.Transaction[nist.PublicKey]) error {
 	m.called = true
 	m.tx = innerTx
 	return errors.New("some error")
@@ -479,17 +479,17 @@ func (m *failingInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *failingInnerApplier) innerTx() *types.Transaction[P] {
+func (m *failingInnerApplier) innerTx() *types.Transaction[nist.PublicKey] {
 	return m.tx
 }
 
 type nonceIncrementingInnerApplier struct {
 	called             bool
-	tx                 *types.Transaction[P]
+	tx                 *types.Transaction[nist.PublicKey]
 	incrementNonceFunc func()
 }
 
-func (m *nonceIncrementingInnerApplier) InnerApply(innerTx *types.Transaction[P]) error {
+func (m *nonceIncrementingInnerApplier) InnerApply(innerTx *types.Transaction[nist.PublicKey]) error {
 	m.called = true
 	m.tx = innerTx
 
@@ -502,6 +502,6 @@ func (m *nonceIncrementingInnerApplier) wasCalled() bool {
 	return m.called
 }
 
-func (m *nonceIncrementingInnerApplier) innerTx() *types.Transaction[P] {
+func (m *nonceIncrementingInnerApplier) innerTx() *types.Transaction[nist.PublicKey] {
 	return m.tx
 }

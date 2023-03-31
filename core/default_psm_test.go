@@ -4,16 +4,17 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,11 +25,11 @@ func TestLegacyPrivateStateCreated(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{"psi1", "psi2"}, common.FromHex(testCode), nil, nil).AnyTimes()
 
@@ -39,7 +40,7 @@ func TestLegacyPrivateStateCreated(t *testing.T) {
 		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
 		privateStateRepo, _ := blockchain.PrivateStateManager().StateRepository(parent.Root())
 
-		_, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config{})
+		_, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config[nist.PublicKey]{})
 
 		for _, privateReceipt := range privateReceipts {
 			expectedContractAddress := privateReceipt.ContractAddress
@@ -81,11 +82,11 @@ func TestDefaultResolver(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{}, common.FromHex(testCode), nil, nil).AnyTimes()
 	mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()
@@ -94,7 +95,7 @@ func TestDefaultResolver(t *testing.T) {
 
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(blockchain.db, nil, nil, false)
 
-	mpsm := newDefaultPrivateStateManager(blockchain.db, privateCacheProvider)
+	mpsm := newDefaultPrivateStateManager[nist.PublicKey](blockchain.db, privateCacheProvider)
 
 	psm1, _ := mpsm.ResolveForManagedParty("TEST")
 	assert.Equal(t, psm1, mps.DefaultPrivateStateMetadata)

@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core"
@@ -16,13 +18,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/plugin/security"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/pavelkrolevets/MIR-pro/qlight"
-	"github.com/golang/mock/gomock"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -413,7 +414,7 @@ var (
 func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{0})
 	})
 
@@ -426,14 +427,14 @@ func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*typ
 		blockm[b.Hash()] = b
 	}
 
-	blockchain, _ := core.NewBlockChain(testdb, nil, config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[nist.PublicKey](testdb, nil, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	return blocks, blockm, blockchain
 }
 
 func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner{}
@@ -453,14 +454,14 @@ func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*type
 		blockm[b.Hash()] = b
 	}
 
-	blockchain, _ := core.NewBlockChain(testdb, nil, config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[nist.PublicKey](testdb, nil, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	return blocks, blockm, blockchain
 }
 
 func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.LatestSigner(config)
@@ -480,7 +481,7 @@ func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*t
 		blockm[b.Hash()] = b
 	}
 
-	blockchain, _ := core.NewBlockChain(testdb, nil, config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[nist.PublicKey](testdb, nil, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	return blocks, blockm, blockchain
 }
 

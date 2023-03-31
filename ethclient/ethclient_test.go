@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
+	ethereum "github.com/pavelkrolevets/MIR-pro"
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/node"
@@ -228,8 +229,8 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
-	engine := ethash.NewFaker()
-	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
+	engine :=  ethash.NewFaker[nist.PublicKey]()
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
 	return genesis, blocks
 }

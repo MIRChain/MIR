@@ -26,6 +26,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ import (
 
 func TestDecodeEmptyTypedReceipt(t *testing.T) {
 	input := []byte{0x80}
-	var r Receipt
+	var r Receipt[nist.PublicKey]
 	err := rlp.DecodeBytes(input, &r)
 	if err != errEmptyTypedReceipt {
 		t.Fatal("wrong error:", err)
@@ -43,7 +44,7 @@ func TestDecodeEmptyTypedReceipt(t *testing.T) {
 func TestLegacyReceiptDecoding(t *testing.T) {
 	tests := []struct {
 		name   string
-		encode func(*Receipt) ([]byte, error)
+		encode func(*Receipt[nist.PublicKey]) ([]byte, error)
 	}{
 		{
 			"StoredReceiptRLP",
@@ -59,8 +60,8 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 		},
 	}
 
-	tx := NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil)
-	receipt := &Receipt{
+	tx := NewTransaction[nist.PublicKey](1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil)
+	receipt := &Receipt[nist.PublicKey]{
 		Status:            ReceiptStatusFailed,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -79,7 +80,7 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 		GasUsed:         111111,
 	}
-	receipt.Bloom = CreateBloom(Receipts{receipt})
+	receipt.Bloom = CreateBloom(Receipts[nist.PublicKey]{receipt})
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -87,7 +88,7 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error encoding receipt: %v", err)
 			}
-			var dec ReceiptForStorage
+			var dec ReceiptForStorage[nist.PublicKey]
 			if err := rlp.DecodeBytes(enc, &dec); err != nil {
 				t.Fatalf("Error decoding RLP receipt: %v", err)
 			}
@@ -97,7 +98,7 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 	}
 }
 
-func testConsensusFields(t *testing.T, decReceipt ReceiptForStorage, encReceipt *Receipt, expectRevertReason bool, expectPSReceipts bool, supportPTM bool) {
+func testConsensusFields(t *testing.T, decReceipt ReceiptForStorage[nist.PublicKey], encReceipt *Receipt[nist.PublicKey], expectRevertReason bool, expectPSReceipts bool, supportPTM bool) {
 	if encReceipt.Status != decReceipt.Status {
 		t.Errorf("Status mismatch, want %v, have %v", encReceipt.Status, decReceipt.Status)
 	}
@@ -146,7 +147,7 @@ func compareLogsConsensusFields(t *testing.T, encLogs []*Log, decLogs []*Log) {
 	}
 }
 
-func comparePSReceipts(t *testing.T, encPSReceipts map[PrivateStateIdentifier]*Receipt, decPSReceipts map[PrivateStateIdentifier]*Receipt, supportPTM bool) {
+func comparePSReceipts(t *testing.T, encPSReceipts map[PrivateStateIdentifier]*Receipt[nist.PublicKey], decPSReceipts map[PrivateStateIdentifier]*Receipt[nist.PublicKey], supportPTM bool) {
 	if encPSReceipts == nil {
 		t.Fatalf("Receipt is missing the expected psReceipts[]")
 	}
@@ -181,12 +182,12 @@ func comparePSReceipts(t *testing.T, encPSReceipts map[PrivateStateIdentifier]*R
 	}
 }
 
-func encodeAsStoredReceiptRLP(want *Receipt) ([]byte, error) {
-	receiptForStorage := (*ReceiptForStorage)(want)
+func encodeAsStoredReceiptRLP(want *Receipt[nist.PublicKey]) ([]byte, error) {
+	receiptForStorage := (*ReceiptForStorage[nist.PublicKey])(want)
 	return rlp.EncodeToBytes(receiptForStorage)
 }
 
-func encodeAsV4StoredReceiptRLP(want *Receipt) ([]byte, error) {
+func encodeAsV4StoredReceiptRLP(want *Receipt[nist.PublicKey]) ([]byte, error) {
 	stored := &v4StoredReceiptRLP{
 		PostStateOrStatus: want.statusEncoding(),
 		CumulativeGasUsed: want.CumulativeGasUsed,
@@ -201,7 +202,7 @@ func encodeAsV4StoredReceiptRLP(want *Receipt) ([]byte, error) {
 	return rlp.EncodeToBytes(stored)
 }
 
-func encodeAsV3StoredReceiptRLP(want *Receipt) ([]byte, error) {
+func encodeAsV3StoredReceiptRLP(want *Receipt[nist.PublicKey]) ([]byte, error) {
 	stored := &v3StoredReceiptRLP{
 		PostStateOrStatus: want.statusEncoding(),
 		CumulativeGasUsed: want.CumulativeGasUsed,
@@ -226,13 +227,13 @@ func TestReceiptForStorage_OnlySubsetOfFieldsPreservedDuringSerialisation(t *tes
 		t.Fatalf("Error RLP encoding receipt: %v", err)
 	}
 
-	got := new(ReceiptForStorage)
+	got := new(ReceiptForStorage[nist.PublicKey])
 	if err := rlp.Decode(buf, got); err != nil {
 		t.Fatalf("Error RLP encoding receipt: %v", err)
 	}
 
 	// only a subset of fields are to be encoded, the rest are derived after decoding
-	want := &ReceiptForStorage{
+	want := &ReceiptForStorage[nist.PublicKey]{
 		Status:            ReceiptStatusSuccessful,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -258,8 +259,8 @@ var (
 )
 
 // newFullReceipt returns a new receipt with non-zero values in all fields to test field preservation during encode/decode
-func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSReceiptRevertReason bool) *ReceiptForStorage {
-	fullReceipt := &ReceiptForStorage{
+func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSReceiptRevertReason bool) *ReceiptForStorage[nist.PublicKey] {
+	fullReceipt := &ReceiptForStorage[nist.PublicKey]{
 		Status:            ReceiptStatusSuccessful,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -296,7 +297,7 @@ func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSRecei
 		BlockNumber:      big.NewInt(14),
 		TransactionIndex: uint(4),
 	}
-	topLevelReceiptBloom := CreateBloom(Receipts{(*Receipt)(fullReceipt)})
+	topLevelReceiptBloom := CreateBloom(Receipts[nist.PublicKey]{(*Receipt[nist.PublicKey])(fullReceipt)})
 	fullReceipt.Bloom = topLevelReceiptBloom
 
 	if withTopLevelReceiptRevertReason {
@@ -304,7 +305,7 @@ func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSRecei
 	}
 
 	if withPSReceipts {
-		fullReceipt.PSReceipts = map[PrivateStateIdentifier]*Receipt{
+		fullReceipt.PSReceipts = map[PrivateStateIdentifier]*Receipt[nist.PublicKey]{
 			"myPSI": {
 				Status:            ReceiptStatusSuccessful,
 				CumulativeGasUsed: 1,
@@ -332,7 +333,7 @@ func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSRecei
 				TransactionIndex: uint(4),
 			},
 		}
-		psReceiptBloom := CreateBloom(Receipts{(fullReceipt.PSReceipts["myPSI"])})
+		psReceiptBloom := CreateBloom(Receipts[nist.PublicKey]{(fullReceipt.PSReceipts["myPSI"])})
 		fullReceipt.PSReceipts["myPSI"].Bloom = psReceiptBloom
 
 		if withPSReceiptRevertReason {
@@ -347,21 +348,21 @@ func TestDeriveFields(t *testing.T) {
 	// Create a few transactions to have receipts for
 	to2 := common.HexToAddress("0x2")
 	to3 := common.HexToAddress("0x3")
-	txs := Transactions{
-		NewTx(&LegacyTx{
+	txs := Transactions[nist.PublicKey]{
+		NewTx[nist.PublicKey](&LegacyTx{
 			Nonce:    1,
 			Value:    big.NewInt(1),
 			Gas:      1,
 			GasPrice: big.NewInt(1),
 		}),
-		NewTx(&LegacyTx{
+		NewTx[nist.PublicKey](&LegacyTx{
 			To:       &to2,
 			Nonce:    2,
 			Value:    big.NewInt(2),
 			Gas:      2,
 			GasPrice: big.NewInt(2),
 		}),
-		NewTx(&AccessListTx{
+		NewTx[nist.PublicKey](&AccessListTx{
 			To:       &to3,
 			Nonce:    3,
 			Value:    big.NewInt(3),
@@ -370,8 +371,8 @@ func TestDeriveFields(t *testing.T) {
 		}),
 	}
 	// Create the corresponding receipts
-	receipts := Receipts{
-		&Receipt{
+	receipts := Receipts[nist.PublicKey]{
+		&Receipt[nist.PublicKey]{
 			Status:            ReceiptStatusFailed,
 			CumulativeGasUsed: 1,
 			Logs: []*Log{
@@ -382,7 +383,7 @@ func TestDeriveFields(t *testing.T) {
 			ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 			GasUsed:         1,
 		},
-		&Receipt{
+		&Receipt[nist.PublicKey]{
 			PostState:         common.Hash{2}.Bytes(),
 			CumulativeGasUsed: 3,
 			Logs: []*Log{
@@ -393,7 +394,7 @@ func TestDeriveFields(t *testing.T) {
 			ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
 			GasUsed:         2,
 		},
-		&Receipt{
+		&Receipt[nist.PublicKey]{
 			Type:              AccessListTxType,
 			PostState:         common.Hash{3}.Bytes(),
 			CumulativeGasUsed: 6,
@@ -415,7 +416,7 @@ func TestDeriveFields(t *testing.T) {
 		t.Fatalf("DeriveFields(...) = %v, want <nil>", err)
 	}
 	// Iterate over all the computed fields and check that they're correct
-	signer := MakeSigner(params.TestChainConfig, number)
+	signer := MakeSigner[nist.PublicKey](params.TestChainConfig, number)
 
 	for i := range receipts {
 		testReceiptFields(t, receipts[i], txs, i, "receipt"+strconv.Itoa(i), hash, number, signer)
@@ -426,18 +427,18 @@ func TestDeriveFields(t *testing.T) {
 // Tests public, private, and private mps txs/receipts
 func TestDeriveFieldsMPS(t *testing.T) {
 	// Create a public tx, private tx, psi tx
-	pubT := NewContractCreation(1, big.NewInt(1), 1, big.NewInt(1), nil)
-	privT := NewContractCreation(2, big.NewInt(2), 2, big.NewInt(2), nil)
+	pubT := NewContractCreation[nist.PublicKey](1, big.NewInt(1), 1, big.NewInt(1), nil)
+	privT := NewContractCreation[nist.PublicKey](2, big.NewInt(2), 2, big.NewInt(2), nil)
 	privT.SetPrivate()
-	psiT := NewTransaction(3, common.HexToAddress("0x3"), big.NewInt(3), 3, big.NewInt(3), nil)
+	psiT := NewTransaction[nist.PublicKey](3, common.HexToAddress("0x3"), big.NewInt(3), 3, big.NewInt(3), nil)
 	psiT.SetPrivate()
 	//3 transactions: public, private, and private with mps
-	txs := Transactions{
+	txs := Transactions[nist.PublicKey]{
 		pubT,
 		privT,
 		psiT,
 	}
-	publicReceipt := &Receipt{
+	publicReceipt := &Receipt[nist.PublicKey]{
 		Status:            ReceiptStatusFailed,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -448,7 +449,7 @@ func TestDeriveFieldsMPS(t *testing.T) {
 		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 		GasUsed:         1,
 	}
-	innerPrivateReceipt := &Receipt{
+	innerPrivateReceipt := &Receipt[nist.PublicKey]{
 		PostState:         common.Hash{2}.Bytes(),
 		CumulativeGasUsed: 3,
 		Logs: []*Log{
@@ -459,7 +460,7 @@ func TestDeriveFieldsMPS(t *testing.T) {
 		ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
 		GasUsed:         2,
 	}
-	innerPSIReceipt := &Receipt{
+	innerPSIReceipt := &Receipt[nist.PublicKey]{
 		PostState:         common.Hash{3}.Bytes(),
 		CumulativeGasUsed: 6,
 		Logs: []*Log{
@@ -471,15 +472,15 @@ func TestDeriveFieldsMPS(t *testing.T) {
 		GasUsed:         1,
 	}
 	psiReceipt := innerPSIReceipt
-	psiReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
+	psiReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt[nist.PublicKey])
 	psiReceipt.PSReceipts[PrivateStateIdentifier("psi1")] = innerPSIReceipt
 	psiReceipt.PSReceipts[EmptyPrivateStateIdentifier] = innerPSIReceipt
 
 	privateReceipt := innerPrivateReceipt
-	privateReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
+	privateReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt[nist.PublicKey])
 	privateReceipt.PSReceipts[EmptyPrivateStateIdentifier] = innerPrivateReceipt
 	// Create the corresponding receipts: public, private, psi
-	receipts := Receipts{
+	receipts := Receipts[nist.PublicKey]{
 		publicReceipt,
 		privateReceipt,
 		psiReceipt,
@@ -493,7 +494,7 @@ func TestDeriveFieldsMPS(t *testing.T) {
 		t.Fatalf("DeriveFields(...) = %v, want <nil>", err)
 	}
 	// Iterate over all the computed fields and check that they're correct
-	signer := MakeSigner(params.QuorumMPSTestChainConfig, number)
+	signer := MakeSigner[nist.PublicKey](params.QuorumMPSTestChainConfig, number)
 
 	for i := range receipts {
 		testReceiptFields(t, receipts[i], txs, i, "receipt"+strconv.Itoa(i), hash, number, signer)
@@ -517,7 +518,7 @@ func TestDeriveFieldsMPS(t *testing.T) {
 	}
 }
 
-func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex int, receiptName string, blockHash common.Hash, blockNumber *big.Int, signer Signer) {
+func testReceiptFields(t *testing.T, receipt *Receipt[nist.PublicKey], txs Transactions[nist.PublicKey], txIndex int, receiptName string, blockHash common.Hash, blockNumber *big.Int, signer Signer[nist.PublicKey]) {
 	if receipt.Type != txs[txIndex].Type() {
 		t.Errorf("%s.Type = %d, want %d", receiptName, receipt.Type, txs[txIndex].Type())
 	}
@@ -539,7 +540,7 @@ func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex
 	if txs[txIndex].To() != nil && receipt.ContractAddress != (common.Address{}) {
 		t.Errorf("%s.ContractAddress = %s, want %s", receiptName, receipt.ContractAddress.String(), (common.Address{}).String())
 	}
-	from, _ := Sender(signer, txs[txIndex])
+	from, _ := Sender[nist.PublicKey](signer, txs[txIndex])
 	contractAddress := crypto.CreateAddress(from, txs[txIndex].Nonce())
 	if txs[txIndex].To() == nil && receipt.ContractAddress != contractAddress {
 		t.Errorf("%s.ContractAddress = %s, want %s", receiptName, receipt.ContractAddress.String(), contractAddress.String())
@@ -567,7 +568,7 @@ func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex
 // rlp decoder, which failed due to a shadowing error.
 func TestTypedReceiptEncodingDecoding(t *testing.T) {
 	var payload = common.FromHex("f9043eb9010c01f90108018262d4b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010c01f901080182cd14b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010d01f901090183013754b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010d01f90109018301a194b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0")
-	check := func(bundle []*Receipt) {
+	check := func(bundle []*Receipt[nist.PublicKey]) {
 		t.Helper()
 		for i, receipt := range bundle {
 			if got, want := receipt.Type, uint8(1); got != want {
@@ -576,12 +577,12 @@ func TestTypedReceiptEncodingDecoding(t *testing.T) {
 		}
 	}
 	{
-		var bundle []*Receipt
+		var bundle []*Receipt[nist.PublicKey]
 		rlp.DecodeBytes(payload, &bundle)
 		check(bundle)
 	}
 	{
-		var bundle []*Receipt
+		var bundle []*Receipt[nist.PublicKey]
 		r := bytes.NewReader(payload)
 		s := rlp.NewStream(r, uint64(len(payload)))
 		if err := s.Decode(&bundle); err != nil {
@@ -590,12 +591,12 @@ func TestTypedReceiptEncodingDecoding(t *testing.T) {
 		check(bundle)
 	}
 	{
-		var bundle []*Receipt
+		var bundle []*Receipt[nist.PublicKey]
 		rlp.DecodeBytes(payload, &bundle)
 		check(bundle)
 	}
 	{
-		var bundle []*Receipt
+		var bundle []*Receipt[nist.PublicKey]
 		r := bytes.NewReader(payload)
 		s := rlp.NewStream(r, uint64(len(payload)))
 		if err := s.Decode(&bundle); err != nil {
@@ -605,7 +606,7 @@ func TestTypedReceiptEncodingDecoding(t *testing.T) {
 	}
 }
 
-func clearComputedFieldsOnReceipts(t *testing.T, receipts Receipts) {
+func clearComputedFieldsOnReceipts(t *testing.T, receipts Receipts[nist.PublicKey]) {
 	t.Helper()
 
 	for _, receipt := range receipts {
@@ -613,7 +614,7 @@ func clearComputedFieldsOnReceipts(t *testing.T, receipts Receipts) {
 	}
 }
 
-func clearComputedFieldsOnReceipt(t *testing.T, receipt *Receipt) {
+func clearComputedFieldsOnReceipt(t *testing.T, receipt *Receipt[nist.PublicKey]) {
 	t.Helper()
 
 	receipt.TxHash = common.Hash{}
@@ -645,8 +646,8 @@ func clearComputedFieldsOnLog(t *testing.T, log *Log) {
 }
 
 func TestQuorumReceiptExtraDataDecodingSuccess(t *testing.T) {
-	tx := NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil)
-	ps1Receipt := &Receipt{
+	tx := NewTransaction[nist.PublicKey](1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil)
+	ps1Receipt := &Receipt[nist.PublicKey]{
 		Status:            ReceiptStatusFailed,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -665,15 +666,15 @@ func TestQuorumReceiptExtraDataDecodingSuccess(t *testing.T) {
 		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 		GasUsed:         111111,
 	}
-	ps1Receipt.Bloom = CreateBloom(Receipts{ps1Receipt})
+	ps1Receipt.Bloom = CreateBloom(Receipts[nist.PublicKey]{ps1Receipt})
 
-	extraData := &QuorumReceiptExtraData{
+	extraData := &QuorumReceiptExtraData[nist.PublicKey]{
 		RevertReason: []byte("arbitrary reason"),
-		PSReceipts:   map[PrivateStateIdentifier]*Receipt{PrivateStateIdentifier("psi1"): ps1Receipt},
+		PSReceipts:   map[PrivateStateIdentifier]*Receipt[nist.PublicKey]{PrivateStateIdentifier("psi1"): ps1Receipt},
 	}
 	rlpData, err := rlp.EncodeToBytes(extraData)
 	assert.Nil(t, err)
-	var decodedExtraData QuorumReceiptExtraData
+	var decodedExtraData QuorumReceiptExtraData[nist.PublicKey]
 	err = rlp.DecodeBytes(rlpData, &decodedExtraData)
 	assert.Nil(t, err)
 	assert.Equal(t, decodedExtraData.RevertReason, []byte("arbitrary reason"))
@@ -689,14 +690,14 @@ func TestQuorumReceiptExtraDataDecodingFailDueToUnknownVersion(t *testing.T) {
 		RevertReason: []byte("arbitrary reason"),
 	})
 	assert.Nil(t, err)
-	var decodedExtraData QuorumReceiptExtraData
+	var decodedExtraData QuorumReceiptExtraData[nist.PublicKey]
 	err = rlp.DecodeBytes(rlpData, &decodedExtraData)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "unknown version 2")
 }
 
 func TestQuorumReceiptExtraDataDecodingFailDueToGarbageData(t *testing.T) {
-	var decodedExtraData QuorumReceiptExtraData
+	var decodedExtraData QuorumReceiptExtraData[nist.PublicKey]
 	err := rlp.DecodeBytes([]byte("arbitrary data"), &decodedExtraData)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "unexpected content type (expecting list) 0")

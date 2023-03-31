@@ -18,7 +18,6 @@ package types
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -36,14 +36,14 @@ import (
 var (
 	testAddr = common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
-	emptyTx = NewTransaction(
+	emptyTx = NewTransaction[nist.PublicKey](
 		0,
 		common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"),
 		big.NewInt(0), 0, big.NewInt(0),
 		nil,
 	)
 
-	rightvrsTx, _ = NewTransaction(
+	rightvrsTx, _ = NewTransaction[nist.PublicKey](
 		3,
 		testAddr,
 		big.NewInt(10),
@@ -51,12 +51,12 @@ var (
 		big.NewInt(1),
 		common.FromHex("5544"),
 	).WithSignature(
-		HomesteadSigner{},
+		HomesteadSigner[nist.PublicKey]{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 
 	// Quorum
-	rightvrsTx2, _ = NewTransaction(
+	rightvrsTx2, _ = NewTransaction[nist.PublicKey](
 		3,
 		common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
 		big.NewInt(10),
@@ -64,12 +64,12 @@ var (
 		big.NewInt(0),
 		common.FromHex("5544"),
 	).WithSignature(
-		HomesteadSigner{},
+		HomesteadSigner[nist.PublicKey]{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 	// End Quorum
 
-	emptyEip2718Tx = NewTx(&AccessListTx{
+	emptyEip2718Tx = NewTx[nist.PublicKey](&AccessListTx{
 		ChainID:  big.NewInt(1),
 		Nonce:    3,
 		To:       &testAddr,
@@ -80,14 +80,14 @@ var (
 	})
 
 	signedEip2718Tx, _ = emptyEip2718Tx.WithSignature(
-		NewEIP2930Signer(big.NewInt(1)),
+		NewEIP2930Signer[nist.PublicKey](big.NewInt(1)),
 		common.Hex2Bytes("c9519f4f2b30335884581971573fadf60c6204f59a911df35ee8a540456b266032f1e8e2c5dd761f9e4f88f41c8310aeaba26a8bfcdacfedfa12ec3862d3752101"),
 	)
 )
 
 func TestDecodeEmptyTypedTx(t *testing.T) {
 	input := []byte{0x80}
-	var tx Transaction
+	var tx Transaction[nist.PublicKey]
 	err := rlp.DecodeBytes(input, &tx)
 	if err != errEmptyTypedTx {
 		t.Fatal("wrong error:", err)
@@ -95,7 +95,7 @@ func TestDecodeEmptyTypedTx(t *testing.T) {
 }
 
 func TestTransactionSigHash(t *testing.T) {
-	var homestead HomesteadSigner
+	var homestead HomesteadSigner[nist.PublicKey]
 	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
@@ -116,7 +116,7 @@ func TestTransactionEncode(t *testing.T) {
 }
 
 func TestEIP2718TransactionSigHash(t *testing.T) {
-	s := NewEIP2930Signer(big.NewInt(1))
+	s := NewEIP2930Signer[nist.PublicKey](big.NewInt(1))
 	if s.Hash(emptyEip2718Tx) != common.HexToHash("49b486f0ec0a60dfbbca2d30cb07c9e8ffb2a2ff41f29a1ab6737475f6ff69f3") {
 		t.Errorf("empty EIP-2718 transaction hash mismatch, got %x", s.Hash(emptyEip2718Tx))
 	}
@@ -129,18 +129,18 @@ func TestEIP2718TransactionSigHash(t *testing.T) {
 func TestEIP2930Signer(t *testing.T) {
 
 	var (
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		keyAddr = crypto.PubkeyToAddress(key.PublicKey)
-		signer1 = NewEIP2930Signer(big.NewInt(1))
-		signer2 = NewEIP2930Signer(big.NewInt(2))
-		tx0     = NewTx(&AccessListTx{Nonce: 1})
-		tx1     = NewTx(&AccessListTx{ChainID: big.NewInt(1), Nonce: 1})
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		keyAddr =crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		signer1 = NewEIP2930Signer[nist.PublicKey](big.NewInt(1))
+		signer2 = NewEIP2930Signer[nist.PublicKey](big.NewInt(2))
+		tx0     = NewTx[nist.PublicKey](&AccessListTx{Nonce: 1})
+		tx1     = NewTx[nist.PublicKey](&AccessListTx{ChainID: big.NewInt(1), Nonce: 1})
 		tx2, _  = SignNewTx(key, signer2, &AccessListTx{ChainID: big.NewInt(2), Nonce: 1})
 	)
 
 	tests := []struct {
-		tx             *Transaction
-		signer         Signer
+		tx             *Transaction[nist.PublicKey]
+		signer         Signer[nist.PublicKey]
 		wantSignerHash common.Hash
 		wantSenderErr  error
 		wantSignErr    error
@@ -183,14 +183,14 @@ func TestEIP2930Signer(t *testing.T) {
 		if sigHash != test.wantSignerHash {
 			t.Errorf("test %d: wrong sig hash: got %x, want %x", i, sigHash, test.wantSignerHash)
 		}
-		sender, err := Sender(test.signer, test.tx)
+		sender, err := Sender[nist.PublicKey](test.signer, test.tx)
 		if err != test.wantSenderErr {
 			t.Errorf("test %d: wrong Sender error %q", i, err)
 		}
 		if err == nil && sender != keyAddr {
 			t.Errorf("test %d: wrong sender address %x", i, sender)
 		}
-		signedTx, err := SignTx(test.tx, test.signer, key)
+		signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](test.tx, test.signer, key)
 		if err != test.wantSignErr {
 			t.Fatalf("test %d: wrong SignTx error %q", i, err)
 		}
@@ -227,15 +227,15 @@ func TestEIP2718TransactionEncode(t *testing.T) {
 	}
 }
 
-func decodeTx(data []byte) (*Transaction, error) {
-	var tx Transaction
+func decodeTx(data []byte) (*Transaction[nist.PublicKey], error) {
+	var tx Transaction[nist.PublicKey]
 	t, err := &tx, rlp.Decode(bytes.NewReader(data), &tx)
 	return t, err
 }
 
-func defaultTestKey() (*ecdsa.PrivateKey, common.Address) {
-	key, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+func defaultTestKey() (nist.PrivateKey, common.Address) {
+	key, _ := crypto.HexToECDSA[nist.PrivateKey]("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	return key, addr
 }
 
@@ -246,7 +246,7 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender[nist.PublicKey](HomesteadSigner[nist.PublicKey]{}, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestRecipientNormal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender[nist.PublicKey](HomesteadSigner[nist.PublicKey]{}, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,25 +277,25 @@ func TestRecipientNormal(t *testing.T) {
 // the same account.
 func TestTransactionPriceNonceSort(t *testing.T) {
 	// Generate a batch of accounts to start with
-	keys := make([]*ecdsa.PrivateKey, 25)
+	keys := make([]nist.PrivateKey, 25)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = crypto.GenerateKey()
+		keys[i], _ = crypto.GenerateKey[nist.PrivateKey]()
 	}
-	signer := HomesteadSigner{}
+	signer := HomesteadSigner[nist.PublicKey]{}
 
 	// Generate a batch of transactions with overlapping values, but shifted nonces
-	groups := map[common.Address]Transactions{}
+	groups := map[common.Address]Transactions[nist.PublicKey]{}
 	for start, key := range keys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		for i := 0; i < 25; i++ {
-			tx, _ := SignTx(NewTransaction(uint64(start+i), common.Address{}, big.NewInt(100), 100, big.NewInt(int64(start+i)), nil), signer, key)
+			tx, _ := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](uint64(start+i), common.Address{}, big.NewInt(100), 100, big.NewInt(int64(start+i)), nil), signer, key)
 			groups[addr] = append(groups[addr], tx)
 		}
 	}
 	// Sort the transactions and cross check the nonce ordering
-	txset := NewTransactionsByPriceAndNonce(signer, groups)
+	txset := NewTransactionsByPriceAndNonce[nist.PublicKey](signer, groups)
 
-	txs := Transactions{}
+	txs := Transactions[nist.PublicKey]{}
 	for tx := txset.Peek(); tx != nil; tx = txset.Peek() {
 		txs = append(txs, tx)
 		txset.Shift()
@@ -304,11 +304,11 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 		t.Errorf("expected %d transactions, found %d", 25*25, len(txs))
 	}
 	for i, txi := range txs {
-		fromi, _ := Sender(signer, txi)
+		fromi, _ := Sender[nist.PublicKey](signer, txi)
 
 		// Make sure the nonce order is valid
 		for j, txj := range txs[i+1:] {
-			fromj, _ := Sender(signer, txj)
+			fromj, _ := Sender[nist.PublicKey](signer, txj)
 			if fromi == fromj && txi.Nonce() > txj.Nonce() {
 				t.Errorf("invalid nonce ordering: tx #%d (A=%x N=%v) < tx #%d (A=%x N=%v)", i, fromi[:4], txi.Nonce(), i+j, fromj[:4], txj.Nonce())
 			}
@@ -316,7 +316,7 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 		// If the next tx has different from account, the price must be lower than the current one
 		if i+1 < len(txs) {
 			next := txs[i+1]
-			fromNext, _ := Sender(signer, next)
+			fromNext, _ := Sender[nist.PublicKey](signer, next)
 			if fromi != fromNext && txi.GasPrice().Cmp(next.GasPrice()) < 0 {
 				t.Errorf("invalid gasprice ordering: tx #%d (A=%x P=%v) < tx #%d (A=%x P=%v)", i, fromi[:4], txi.GasPrice(), i+1, fromNext[:4], next.GasPrice())
 			}
@@ -328,26 +328,26 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 // are prioritized to avoid network spam attacks aiming for a specific ordering.
 func TestTransactionTimeSort(t *testing.T) {
 	// Generate a batch of accounts to start with
-	keys := make([]*ecdsa.PrivateKey, 5)
+	keys := make([]nist.PrivateKey, 5)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = crypto.GenerateKey()
+		keys[i], _ = crypto.GenerateKey[nist.PrivateKey]()
 	}
-	signer := HomesteadSigner{}
+	signer := HomesteadSigner[nist.PublicKey]{}
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
-	groups := map[common.Address]Transactions{}
+	groups := map[common.Address]Transactions[nist.PublicKey]{}
 	for start, key := range keys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
-		tx, _ := SignTx(NewTransaction(0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+		tx, _ := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
 		tx.time = time.Unix(0, int64(len(keys)-start))
 
 		groups[addr] = append(groups[addr], tx)
 	}
 	// Sort the transactions and cross check the nonce ordering
-	txset := NewTransactionsByPriceAndNonce(signer, groups)
+	txset := NewTransactionsByPriceAndNonce[nist.PublicKey](signer, groups)
 
-	txs := Transactions{}
+	txs := Transactions[nist.PublicKey]{}
 	for tx := txset.Peek(); tx != nil; tx = txset.Peek() {
 		txs = append(txs, tx)
 		txset.Shift()
@@ -356,10 +356,10 @@ func TestTransactionTimeSort(t *testing.T) {
 		t.Errorf("expected %d transactions, found %d", len(keys), len(txs))
 	}
 	for i, txi := range txs {
-		fromi, _ := Sender(signer, txi)
+		fromi, _ := Sender[nist.PublicKey](signer, txi)
 		if i+1 < len(txs) {
 			next := txs[i+1]
-			fromNext, _ := Sender(signer, next)
+			fromNext, _ := Sender[nist.PublicKey](signer, next)
 
 			if txi.GasPrice().Cmp(next.GasPrice()) < 0 {
 				t.Errorf("invalid gasprice ordering: tx #%d (A=%x P=%v) < tx #%d (A=%x P=%v)", i, fromi[:4], txi.GasPrice(), i+1, fromNext[:4], next.GasPrice())
@@ -374,12 +374,12 @@ func TestTransactionTimeSort(t *testing.T) {
 
 // TestTransactionCoding tests serializing/de-serializing to/from rlp and JSON.
 func TestTransactionCoding(t *testing.T) {
-	key, err := crypto.GenerateKey()
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}
 	var (
-		signer    = NewEIP2930Signer(common.Big1)
+		signer    = NewEIP2930Signer[nist.PublicKey](common.Big1)
 		addr      = common.HexToAddress("0x0000000000000000000000000000000000000001")
 		recipient = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 		accesses  = AccessList{{Address: addr, StorageKeys: []common.Hash{{0}}}}
@@ -455,31 +455,31 @@ func TestTransactionCoding(t *testing.T) {
 	}
 }
 
-func encodeDecodeJSON(tx *Transaction) (*Transaction, error) {
+func encodeDecodeJSON(tx *Transaction[nist.PublicKey]) (*Transaction[nist.PublicKey], error) {
 	data, err := json.Marshal(tx)
 	if err != nil {
 		return nil, fmt.Errorf("json encoding failed: %v", err)
 	}
-	var parsedTx = &Transaction{}
+	var parsedTx = &Transaction[nist.PublicKey]{}
 	if err := json.Unmarshal(data, &parsedTx); err != nil {
 		return nil, fmt.Errorf("json decoding failed: %v", err)
 	}
 	return parsedTx, nil
 }
 
-func encodeDecodeBinary(tx *Transaction) (*Transaction, error) {
+func encodeDecodeBinary(tx *Transaction[nist.PublicKey]) (*Transaction[nist.PublicKey], error) {
 	data, err := tx.MarshalBinary()
 	if err != nil {
 		return nil, fmt.Errorf("rlp encoding failed: %v", err)
 	}
-	var parsedTx = &Transaction{}
+	var parsedTx = &Transaction[nist.PublicKey]{}
 	if err := parsedTx.UnmarshalBinary(data); err != nil {
 		return nil, fmt.Errorf("rlp decoding failed: %v", err)
 	}
 	return parsedTx, nil
 }
 
-func assertEqual(orig *Transaction, cpy *Transaction) error {
+func assertEqual(orig *Transaction[nist.PublicKey], cpy *Transaction[nist.PublicKey]) error {
 	// compare nonce, price, gaslimit, recipient, amount, payload, V, R, S
 	if want, got := orig.Hash(), cpy.Hash(); want != got {
 		return fmt.Errorf("parsed tx differs from original tx, want %v, got %v", want, got)

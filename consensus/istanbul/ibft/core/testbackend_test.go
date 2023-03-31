@@ -17,7 +17,6 @@
 package core
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	elog "github.com/pavelkrolevets/MIR-pro/log"
@@ -201,8 +201,8 @@ func newTestSystem(n uint64) *testSystem {
 func generateValidators(n int) []common.Address {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
-		privateKey, _ := crypto.GenerateKey()
-		vals = append(vals, crypto.PubkeyToAddress(privateKey.PublicKey))
+		privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
+		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey))
 	}
 	return vals
 }
@@ -302,6 +302,6 @@ func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 //
 // helper functions.
 
-func getPublicKeyAddress(privateKey *ecdsa.PrivateKey) common.Address {
-	return crypto.PubkeyToAddress(privateKey.PublicKey)
+func getPublicKeyAddress(privateKey nist.PrivateKey) common.Address {
+	return crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Runs multiple tests with randomized parameters.
@@ -60,7 +61,7 @@ func testChainIndexer(t *testing.T, count int) {
 			confirmsReq = uint64(rand.Intn(10))
 		)
 		backends[i] = &testChainIndexBackend{t: t, processCh: make(chan uint64)}
-		backends[i].indexer = NewChainIndexer(db, rawdb.NewTable(db, string([]byte{byte(i)})), backends[i], sectionSize, confirmsReq, 0, fmt.Sprintf("indexer-%d", i))
+		backends[i].indexer = NewChainIndexer[nist.PublicKey](db, rawdb.NewTable(db, string([]byte{byte(i)})), backends[i], sectionSize, confirmsReq, 0, fmt.Sprintf("indexer-%d", i))
 
 		if sections, _, _ := backends[i].indexer.Sections(); sections != 0 {
 			t.Fatalf("Canonical section count mismatch: have %v, want %v", sections, 0)
@@ -137,7 +138,7 @@ func testChainIndexer(t *testing.T, count int) {
 // testChainIndexBackend implements ChainIndexerBackend
 type testChainIndexBackend struct {
 	t                          *testing.T
-	indexer                    *ChainIndexer
+	indexer                    *ChainIndexer[nist.PublicKey]
 	section, headerCnt, stored uint64
 	processCh                  chan uint64
 }

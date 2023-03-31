@@ -8,6 +8,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // callmsg is the message type used for call transactions in the private state test
@@ -36,9 +37,9 @@ func (m callmsg) AccessList() types.AccessList { return m.accessList }
 func ExampleMakeCallHelper() {
 	var (
 		// setup new pair of keys for the calls
-		key, _ = crypto.GenerateKey()
+		key, _ = crypto.GenerateKey[nist.PrivateKey]()
 		// create a new helper
-		helper = MakeCallHelper()
+		helper = MakeCallHelper[nist.PrivateKey, nist.PublicKey]()
 	)
 	// Private contract address
 	prvContractAddr := common.Address{1}
@@ -81,8 +82,8 @@ func ExampleMakeCallHelper() {
 // Store then log
 func TestPrivateTransaction(t *testing.T) {
 	var (
-		key, _       = crypto.GenerateKey()
-		helper       = MakeCallHelper()
+		key, _       = crypto.GenerateKey[nist.PrivateKey]()
+		helper       = MakeCallHelper[nist.PrivateKey, nist.PublicKey]()
 		privateState = helper.PrivateState
 		publicState  = helper.PublicState
 	)

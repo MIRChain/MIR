@@ -27,10 +27,11 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	elog "github.com/pavelkrolevets/MIR-pro/log"
 )
 
-func makeBlock(number int64) *types.Block[P] {
+func makeBlock(number int64) *types.Block[nist.PublicKey] {
 	header := &types.Header{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),

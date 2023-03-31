@@ -24,6 +24,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 
 	//"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
@@ -33,11 +34,11 @@ import (
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
-	block := DefaultGenesisBlock().ToBlock(nil)
+	block := DefaultGenesisBlock[nist.PublicKey]().ToBlock(nil)
 	if block.Hash() != params.MainnetGenesisHash {
 		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
 	}
-	block = DefaultRopstenGenesisBlock().ToBlock(nil)
+	block = DefaultRopstenGenesisBlock[nist.PublicKey]().ToBlock(nil)
 	if block.Hash() != params.RopstenGenesisHash {
 		t.Errorf("wrong ropsten genesis hash, got %v, want %v", block.Hash(), params.RopstenGenesisHash)
 	}
@@ -46,7 +47,7 @@ func TestDefaultGenesisBlock(t *testing.T) {
 func TestSetupGenesis(t *testing.T) {
 	// Quorum: customized test cases for quorum
 	var (
-		customg = Genesis{
+		customg = Genesis[nist.PublicKey]{
 			Config: &params.ChainConfig{HomesteadBlock: big.NewInt(3), IsQuorum: true},
 			Alloc: GenesisAlloc{
 				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
@@ -65,7 +66,7 @@ func TestSetupGenesis(t *testing.T) {
 		{
 			name: "genesis without ChainConfig",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
-				return SetupGenesisBlock(db, new(Genesis))
+				return SetupGenesisBlock[nist.PublicKey](db, new(Genesis[nist.PublicKey]))
 			},
 			wantErr:    errGenesisNoConfig,
 			wantConfig: params.AllEthashProtocolChanges,
@@ -73,7 +74,7 @@ func TestSetupGenesis(t *testing.T) {
 		{
 			name: "no block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
-				return SetupGenesisBlock(db, nil)
+				return SetupGenesisBlock[nist.PublicKey](db, nil)
 			},
 			wantHash:   params.MainnetGenesisHash,
 			wantConfig: params.MainnetChainConfig,
@@ -81,8 +82,8 @@ func TestSetupGenesis(t *testing.T) {
 		{
 			name: "mainnet block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
-				DefaultGenesisBlock().MustCommit(db)
-				return SetupGenesisBlock(db, nil)
+				DefaultGenesisBlock[nist.PublicKey]().MustCommit(db)
+				return SetupGenesisBlock[nist.PublicKey](db, nil)
 			},
 			wantHash:   params.MainnetGenesisHash,
 			wantConfig: params.MainnetChainConfig,
@@ -92,7 +93,7 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				customg.Config.TransactionSizeLimit = 100000
 				customg.Config.MaxCodeSize = 32
-				return SetupGenesisBlock(db, &customg)
+				return SetupGenesisBlock[nist.PublicKey](db, &customg)
 			},
 			wantErr:    errors.New("Genesis transaction size limit must be between 32 and 128"),
 			wantConfig: customg.Config,
@@ -102,7 +103,7 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				customg.Config.TransactionSizeLimit = 64
 				customg.Config.MaxCodeSize = 100000
-				return SetupGenesisBlock(db, &customg)
+				return SetupGenesisBlock[nist.PublicKey](db, &customg)
 			},
 			wantErr:    errors.New("Genesis max code size must be between 24 and 128"),
 			wantConfig: customg.Config,
@@ -124,7 +125,7 @@ func TestSetupGenesis(t *testing.T) {
 			t.Errorf("%s: returned hash %s, want %s", test.name, hash.Hex(), test.wantHash.Hex())
 		} else if err == nil {
 			// Check database content.
-			stored := rawdb.ReadBlock(db, test.wantHash, 0)
+			stored := rawdb.ReadBlock[nist.PublicKey](db, test.wantHash, 0)
 			if stored.Hash() != test.wantHash {
 				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash(), test.wantHash)
 			}
@@ -135,27 +136,27 @@ func TestSetupGenesis(t *testing.T) {
 // TestGenesisHashes checks the congruity of default genesis data to corresponding hardcoded genesis hash values.
 func TestGenesisHashes(t *testing.T) {
 	cases := []struct {
-		genesis *Genesis
+		genesis *Genesis[nist.PublicKey]
 		hash    common.Hash
 	}{
 		{
-			genesis: DefaultGenesisBlock(),
+			genesis: DefaultGenesisBlock[nist.PublicKey](),
 			hash:    params.MainnetGenesisHash,
 		},
 		{
-			genesis: DefaultGoerliGenesisBlock(),
+			genesis: DefaultGoerliGenesisBlock[nist.PublicKey](),
 			hash:    params.GoerliGenesisHash,
 		},
 		{
-			genesis: DefaultRopstenGenesisBlock(),
+			genesis: DefaultRopstenGenesisBlock[nist.PublicKey](),
 			hash:    params.RopstenGenesisHash,
 		},
 		{
-			genesis: DefaultRinkebyGenesisBlock(),
+			genesis: DefaultRinkebyGenesisBlock[nist.PublicKey](),
 			hash:    params.RinkebyGenesisHash,
 		},
 		{
-			genesis: DefaultYoloV3GenesisBlock(),
+			genesis: DefaultYoloV3GenesisBlock[nist.PublicKey](),
 			hash:    params.YoloV3GenesisHash,
 		},
 	}

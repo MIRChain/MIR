@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
@@ -137,9 +138,9 @@ func newTestHandlerWithBlocks(blocks int) *testHandler {
 		Alloc:  core.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
 	}).MustCommit(db)
 
-	chain, _ := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[nist.PublicKey](db, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 
-	bs, _ := core.GenerateChain(params.TestChainConfig, chain.Genesis(), ethash.NewFaker(), db, blocks, nil)
+	bs, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, chain.Genesis(),  ethash.NewFaker[nist.PublicKey](), db, blocks, nil)
 	if _, err := chain.InsertChain(bs); err != nil {
 		panic(err)
 	}

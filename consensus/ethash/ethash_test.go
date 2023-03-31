@@ -28,17 +28,18 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that ethash works correctly in test mode.
 func TestTestMode(t *testing.T) {
 	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 
-	ethash := NewTester(nil, false)
+	ethash := NewTester[nist.PublicKey](nil, false)
 	defer ethash.Close()
 
-	results := make(chan *types.Block)
-	err := ethash.Seal(nil, types.NewBlockWithHeader(header), results, nil)
+	results := make(chan *types.Block[nist.PublicKey])
+	err := ethash.Seal(nil, types.NewBlockWithHeader[nist.PublicKey](header), results, nil)
 	if err != nil {
 		t.Fatalf("failed to seal block: %v", err)
 	}
@@ -69,7 +70,7 @@ func TestCacheFileEvict(t *testing.T) {
 		CacheDir:     tmpdir,
 		PowMode:      ModeTest,
 	}
-	e := New(config, nil, false)
+	e := New[nist.PublicKey](config, nil, false)
 	defer e.Close()
 
 	workers := 8
@@ -82,7 +83,7 @@ func TestCacheFileEvict(t *testing.T) {
 	wg.Wait()
 }
 
-func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
+func verifyTest(wg *sync.WaitGroup, e *Ethash[nist.PublicKey], workerIndex, epochs int) {
 	defer wg.Done()
 
 	const wiggle = 4 * epochLength
@@ -98,19 +99,19 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
 }
 
 func TestRemoteSealer(t *testing.T) {
-	ethash := NewTester(nil, false)
+	ethash := NewTester[nist.PublicKey](nil, false)
 	defer ethash.Close()
 
-	api := &API{ethash}
+	api := &API[nist.PublicKey]{ethash}
 	if _, err := api.GetWork(); err != errNoMiningWork {
 		t.Error("expect to return an error indicate there is no mining work")
 	}
 	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
-	block := types.NewBlockWithHeader(header)
+	block := types.NewBlockWithHeader[nist.PublicKey](header)
 	sealhash := ethash.SealHash(header)
 
 	// Push new work.
-	results := make(chan *types.Block)
+	results := make(chan *types.Block[nist.PublicKey])
 	ethash.Seal(nil, block, results, nil)
 
 	var (
@@ -126,7 +127,7 @@ func TestRemoteSealer(t *testing.T) {
 	}
 	// Push new block with same block number to replace the original one.
 	header = &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
-	block = types.NewBlockWithHeader(header)
+	block = types.NewBlockWithHeader[nist.PublicKey](header)
 	sealhash = ethash.SealHash(header)
 	ethash.Seal(nil, block, results, nil)
 
@@ -141,14 +142,14 @@ func TestHashrate(t *testing.T) {
 		expect   uint64
 		ids      = []common.Hash{common.HexToHash("a"), common.HexToHash("b"), common.HexToHash("c")}
 	)
-	ethash := NewTester(nil, false)
+	ethash := NewTester[nist.PublicKey](nil, false)
 	defer ethash.Close()
 
 	if tot := ethash.Hashrate(); tot != 0 {
 		t.Error("expect the result should be zero")
 	}
 
-	api := &API{ethash}
+	api := &API[nist.PublicKey]{ethash}
 	for i := 0; i < len(hashrate); i += 1 {
 		if res := api.SubmitHashrate(hashrate[i], ids[i]); !res {
 			t.Error("remote miner submit hashrate failed")
@@ -161,11 +162,11 @@ func TestHashrate(t *testing.T) {
 }
 
 func TestClosedRemoteSealer(t *testing.T) {
-	ethash := NewTester(nil, false)
+	ethash := NewTester[nist.PublicKey](nil, false)
 	time.Sleep(1 * time.Second) // ensure exit channel is listening
 	ethash.Close()
 
-	api := &API{ethash}
+	api := &API[nist.PublicKey]{ethash}
 	if _, err := api.GetWork(); err != errEthashStopped {
 		t.Error("expect to return an error to indicate ethash is stopped")
 	}

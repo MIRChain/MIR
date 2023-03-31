@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
 )
@@ -63,10 +64,10 @@ func TestEIP2718DeriveSha(t *testing.T) {
 		},
 	} {
 		d := &hashToHumanReadable{}
-		var t1, t2 types.Transaction
+		var t1, t2 types.Transaction[nist.PublicKey]
 		rlp.DecodeBytes(common.FromHex(tc.rlpData), &t1)
 		rlp.DecodeBytes(common.FromHex(tc.rlpData), &t2)
-		txs := types.Transactions{&t1, &t2}
+		txs := types.Transactions[nist.PublicKey]{&t1, &t2}
 		types.DeriveSha(txs, d)
 		if tc.exp != string(d.data) {
 			t.Fatalf("Want\n%v\nhave:\n%v", tc.exp, string(d.data))
@@ -142,19 +143,19 @@ func TestDerivableList(t *testing.T) {
 	}
 }
 
-func genTxs(num uint64) (types.Transactions, error) {
-	key, err := crypto.HexToECDSA("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+func genTxs(num uint64) (types.Transactions[nist.PublicKey], error) {
+	key, err := crypto.HexToECDSA[nist.PrivateKey]("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 	if err != nil {
 		return nil, err
 	}
-	var addr = crypto.PubkeyToAddress(key.PublicKey)
-	newTx := func(i uint64) (*types.Transaction[P], error) {
-		signer := types.NewEIP155Signer(big.NewInt(18))
-		utx := types.NewTransaction(i, addr, new(big.Int), 0, new(big.Int).SetUint64(10000000), nil)
-		tx, err := types.SignTx(utx, signer, key)
+	var addr = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	newTx := func(i uint64) (*types.Transaction[nist.PublicKey], error) {
+		signer := types.NewEIP155Signer[nist.PublicKey](big.NewInt(18))
+		utx := types.NewTransaction[nist.PublicKey](i, addr, new(big.Int), 0, new(big.Int).SetUint64(10000000), nil)
+		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](utx, signer, key)
 		return tx, err
 	}
-	var txs types.Transactions
+	var txs types.Transactions[nist.PublicKey]
 	for i := uint64(0); i < num; i++ {
 		tx, err := newTx(i)
 		if err != nil {

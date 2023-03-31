@@ -13,6 +13,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests combinations of justifications that evaluate to true.
@@ -160,13 +161,13 @@ func createPrepareMessage(from common.Address, round int64, preparedBlock istanb
 func generateValidators(n int) []common.Address {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
-		privateKey, _ := crypto.GenerateKey()
-		vals = append(vals, crypto.PubkeyToAddress(privateKey.PublicKey))
+		privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
+		vals = append(vals, crypto.PubkeyToAddress[nist.PublicKey](privateKey.PublicKey))
 	}
 	return vals
 }
 
-func makeBlock(number int64) *types.Block[P] {
+func makeBlock(number int64) *types.Block[nist.PublicKey] {
 	header := &types.Header{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),

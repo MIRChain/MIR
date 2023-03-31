@@ -35,6 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -50,34 +51,34 @@ var (
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+func newCanonical(engine consensus.Engine[nist.PublicKey], n int, full bool) (ethdb.Database, *BlockChain[nist.PublicKey], error) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		genesis = new(Genesis).MustCommit(db)
+		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
 	)
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
 	}
 	if full {
 		// Full block-chain requested
-		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
+		blocks := makeBlockChain[nist.PublicKey](genesis, n, engine, db, canonicalSeed)
 		_, err := blockchain.InsertChain(blocks)
 		return db, blockchain, err
 	}
 	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, engine, db, canonicalSeed)
+	headers := makeHeaderChain[nist.PublicKey](genesis.Header(), n, engine, db, canonicalSeed)
 	_, err := blockchain.InsertHeaderChain(headers, 1)
 	return db, blockchain, err
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
+func testFork(t *testing.T, blockchain *BlockChain[nist.PublicKey], i, n int, full bool, comparator func(td1, td2 *big.Int)) {
 	// Copy old chain up to #i into a new db
-	db, blockchain2, err := newCanonical(ethash.NewFaker(), i, full)
+	db, blockchain2, err := newCanonical( ethash.NewFaker[nist.PublicKey](), i, full)
 	if err != nil {
 		t.Fatal("could not make new canonical in testFork", err)
 	}
@@ -97,16 +98,16 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 	}
 	// Extend the newly created chain
 	var (
-		blockChainB  []*types.Block[P]
+		blockChainB  []*types.Block[nist.PublicKey]
 		headerChainB []*types.Header
 	)
 	if full {
-		blockChainB = makeBlockChain(blockchain2.CurrentBlock(), n, ethash.NewFaker(), db, forkSeed)
+		blockChainB = makeBlockChain[nist.PublicKey](blockchain2.CurrentBlock(), n,  ethash.NewFaker[nist.PublicKey](), db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
 	} else {
-		headerChainB = makeHeaderChain(blockchain2.CurrentHeader(), n, ethash.NewFaker(), db, forkSeed)
+		headerChainB = makeHeaderChain[nist.PublicKey](blockchain2.CurrentHeader(), n,  ethash.NewFaker[nist.PublicKey](), db, forkSeed)
 		if _, err := blockchain2.InsertHeaderChain(headerChainB, 1); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
@@ -133,7 +134,7 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
-func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
+func testBlockChainImport(chain types.Blocks[nist.PublicKey], blockchain *BlockChain[nist.PublicKey]) error {
 	for _, block := range chain {
 		// Try and process the block
 		err := blockchain.engine.VerifyHeader(blockchain, block.Header(), true)
@@ -154,7 +155,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 		if repoErr != nil {
 			return repoErr
 		}
-		receipts, _, _, usedGas, err := blockchain.processor.Process(block, statedb, privateStateRepo, vm.Config{})
+		receipts, _, _, usedGas, err := blockchain.processor.Process(block, statedb, privateStateRepo, vm.Config[nist.PublicKey]{})
 		if err != nil {
 			blockchain.reportBlock(block, receipts, err)
 			return err
@@ -175,7 +176,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
-func testHeaderChainImport(chain []*types.Header, blockchain *BlockChain) error {
+func testHeaderChainImport(chain []*types.Header, blockchain *BlockChain[nist.PublicKey]) error {
 	for _, header := range chain {
 		// Try and validate the header
 		if err := blockchain.engine.VerifyHeader(blockchain, header, false); err != nil {
@@ -191,13 +192,13 @@ func testHeaderChainImport(chain []*types.Header, blockchain *BlockChain) error 
 }
 
 func TestLastBlock(t *testing.T) {
-	_, blockchain, err := newCanonical(ethash.NewFaker(), 0, true)
+	_, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(blockchain.CurrentBlock(), 1, ethash.NewFullFaker(), blockchain.db, 0)
+	blocks := makeBlockChain[nist.PublicKey](blockchain.CurrentBlock(), 1, ethash.NewFullFaker[nist.PublicKey](), blockchain.db, 0)
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}
@@ -215,7 +216,7 @@ func testExtendCanonical(t *testing.T, full bool) {
 	length := 5
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
+	_, processor, err := newCanonical( ethash.NewFaker[nist.PublicKey](), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -243,7 +244,7 @@ func testShorterFork(t *testing.T, full bool) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
+	_, processor, err := newCanonical( ethash.NewFaker[nist.PublicKey](), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -273,7 +274,7 @@ func testLongerFork(t *testing.T, full bool) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
+	_, processor, err := newCanonical( ethash.NewFaker[nist.PublicKey](), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -303,7 +304,7 @@ func testEqualFork(t *testing.T, full bool) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
+	_, processor, err := newCanonical( ethash.NewFaker[nist.PublicKey](), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -330,7 +331,7 @@ func TestBrokenBlockChain(t *testing.T)  { testBrokenChain(t, true) }
 
 func testBrokenChain(t *testing.T, full bool) {
 	// Make chain starting from genesis
-	db, blockchain, err := newCanonical(ethash.NewFaker(), 10, full)
+	db, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 10, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -338,12 +339,12 @@ func testBrokenChain(t *testing.T, full bool) {
 
 	// Create a forked chain, and try to insert with a missing link
 	if full {
-		chain := makeBlockChain(blockchain.CurrentBlock(), 5, ethash.NewFaker(), db, forkSeed)[1:]
+		chain := makeBlockChain[nist.PublicKey](blockchain.CurrentBlock(), 5,  ethash.NewFaker[nist.PublicKey](), db, forkSeed)[1:]
 		if err := testBlockChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken block chain not reported")
 		}
 	} else {
-		chain := makeHeaderChain(blockchain.CurrentHeader(), 5, ethash.NewFaker(), db, forkSeed)[1:]
+		chain := makeHeaderChain[nist.PublicKey](blockchain.CurrentHeader(), 5,  ethash.NewFaker[nist.PublicKey](), db, forkSeed)[1:]
 		if err := testHeaderChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken header chain not reported")
 		}
@@ -381,17 +382,17 @@ func testReorgShort(t *testing.T, full bool) {
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, err := newCanonical(ethash.NewFaker(), 0, full)
+	db, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, full)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
 	// Insert an easy and a difficult chain afterwards
-	easyBlocks, _ := GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(first), func(i int, b *BlockGen) {
+	easyBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, blockchain.CurrentBlock(),  ethash.NewFaker[nist.PublicKey](), db, len(first), func(i int, b *BlockGen[nist.PublicKey]) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks, _ := GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(second), func(i int, b *BlockGen) {
+	diffBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, blockchain.CurrentBlock(),  ethash.NewFaker[nist.PublicKey](), db, len(second), func(i int, b *BlockGen[nist.PublicKey]) {
 		b.OffsetTime(second[i])
 	})
 	if full {
@@ -452,7 +453,7 @@ func TestBadBlockHashes(t *testing.T)  { testBadHashes(t, true) }
 
 func testBadHashes(t *testing.T, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, err := newCanonical(ethash.NewFaker(), 0, full)
+	db, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, full)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
@@ -460,14 +461,14 @@ func testBadHashes(t *testing.T, full bool) {
 
 	// Create a chain, ban a hash and try to import
 	if full {
-		blocks := makeBlockChain(blockchain.CurrentBlock(), 3, ethash.NewFaker(), db, 10)
+		blocks := makeBlockChain[nist.PublicKey](blockchain.CurrentBlock(), 3,  ethash.NewFaker[nist.PublicKey](), db, 10)
 
 		BadHashes[blocks[2].Header().Hash()] = true
 		defer func() { delete(BadHashes, blocks[2].Header().Hash()) }()
 
 		_, err = blockchain.InsertChain(blocks)
 	} else {
-		headers := makeHeaderChain(blockchain.CurrentHeader(), 3, ethash.NewFaker(), db, 10)
+		headers := makeHeaderChain[nist.PublicKey](blockchain.CurrentHeader(), 3,  ethash.NewFaker[nist.PublicKey](), db, 10)
 
 		BadHashes[headers[2].Hash()] = true
 		defer func() { delete(BadHashes, headers[2].Hash()) }()
@@ -486,13 +487,13 @@ func TestReorgBadBlockHashes(t *testing.T)  { testReorgBadHashes(t, true) }
 
 func testReorgBadHashes(t *testing.T, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, err := newCanonical(ethash.NewFaker(), 0, full)
+	db, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, full)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	// Create a chain, import and ban afterwards
-	headers := makeHeaderChain(blockchain.CurrentHeader(), 4, ethash.NewFaker(), db, 10)
-	blocks := makeBlockChain(blockchain.CurrentBlock(), 4, ethash.NewFaker(), db, 10)
+	headers := makeHeaderChain[nist.PublicKey](blockchain.CurrentHeader(), 4,  ethash.NewFaker[nist.PublicKey](), db, 10)
+	blocks := makeBlockChain[nist.PublicKey](blockchain.CurrentBlock(), 4,  ethash.NewFaker[nist.PublicKey](), db, 10)
 
 	if full {
 		if _, err = blockchain.InsertChain(blocks); err != nil {
@@ -516,7 +517,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewBlockChain(blockchain.db, nil, blockchain.chainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ncm, err := NewBlockChain[nist.PublicKey](blockchain.db, nil, blockchain.chainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -542,7 +543,7 @@ func TestBlocksInsertNonceError(t *testing.T)  { testInsertNonceError(t, true) }
 func testInsertNonceError(t *testing.T, full bool) {
 	for i := 1; i < 25 && !t.Failed(); i++ {
 		// Create a pristine chain and database
-		db, blockchain, err := newCanonical(ethash.NewFaker(), 0, full)
+		db, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, full)
 		if err != nil {
 			t.Fatalf("failed to create pristine chain: %v", err)
 		}
@@ -555,20 +556,20 @@ func testInsertNonceError(t *testing.T, full bool) {
 			failNum uint64
 		)
 		if full {
-			blocks := makeBlockChain(blockchain.CurrentBlock(), i, ethash.NewFaker(), db, 0)
+			blocks := makeBlockChain[nist.PublicKey](blockchain.CurrentBlock(), i,  ethash.NewFaker[nist.PublicKey](), db, 0)
 
 			failAt = rand.Int() % len(blocks)
 			failNum = blocks[failAt].NumberU64()
 
-			blockchain.engine = ethash.NewFakeFailer(failNum)
+			blockchain.engine = ethash.NewFakeFailer[nist.PublicKey](failNum)
 			failRes, err = blockchain.InsertChain(blocks)
 		} else {
-			headers := makeHeaderChain(blockchain.CurrentHeader(), i, ethash.NewFaker(), db, 0)
+			headers := makeHeaderChain[nist.PublicKey](blockchain.CurrentHeader(), i,  ethash.NewFaker[nist.PublicKey](), db, 0)
 
 			failAt = rand.Int() % len(headers)
 			failNum = headers[failAt].Number.Uint64()
 
-			blockchain.engine = ethash.NewFakeFailer(failNum)
+			blockchain.engine = ethash.NewFakeFailer[nist.PublicKey](failNum)
 			blockchain.hc.engine = blockchain.engine
 			failRes, err = blockchain.InsertHeaderChain(headers, 1)
 		}
@@ -597,23 +598,23 @@ func TestFastVsFullChains(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{address: {Balance: funds}},
 		}
 		genesis = gspec.MustCommit(gendb)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, 1024, func(i int, block *BlockGen) {
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, 1024, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0x00})
 
 		// If the block number is multiple of 3, send a few bonus transactions to the miner
 		if i%3 == 2 {
 			for j := 0; j < i%4+1; j++ {
-				tx, err := types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+				tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 				if err != nil {
 					panic(err)
 				}
@@ -628,7 +629,7 @@ func TestFastVsFullChains(t *testing.T) {
 	// Import the chain as an archive node for the comparison baseline
 	archiveDb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(archiveDb)
-	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	archive, _ := NewBlockChain[nist.PublicKey](archiveDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer archive.Stop()
 
 	if n, err := archive.InsertChain(blocks); err != nil {
@@ -637,7 +638,7 @@ func TestFastVsFullChains(t *testing.T) {
 	// Fast import the chain as a non-archive node to test
 	fastDb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(fastDb)
-	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	fast, _ := NewBlockChain[nist.PublicKey](fastDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer fast.Stop()
 
 	headers := make([]*types.Header, len(blocks))
@@ -661,7 +662,7 @@ func TestFastVsFullChains(t *testing.T) {
 		t.Fatalf("failed to create temp freezer db: %v", err)
 	}
 	gspec.MustCommit(ancientDb)
-	ancient, _ := NewBlockChain(ancientDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ancient, _ := NewBlockChain[nist.PublicKey](ancientDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer ancient.Stop()
 
 	if n, err := ancient.InsertHeaderChain(headers, 1); err != nil {
@@ -693,7 +694,7 @@ func TestFastVsFullChains(t *testing.T) {
 		} else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(arblock.Uncles()) || types.CalcUncleHash(anblock.Uncles()) != types.CalcUncleHash(arblock.Uncles()) {
 			t.Errorf("block #%d [%x]: uncles mismatch: fastdb %v, ancientdb %v, archivedb %v", num, hash, fblock.Uncles(), anblock, arblock.Uncles())
 		}
-		if freceipts, anreceipts, areceipts := rawdb.ReadReceipts(fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash), fast.Config()), rawdb.ReadReceipts(ancientDb, hash, *rawdb.ReadHeaderNumber(ancientDb, hash), fast.Config()), rawdb.ReadReceipts(archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash), fast.Config()); types.DeriveSha(freceipts, trie.NewStackTrie(nil)) != types.DeriveSha(areceipts, trie.NewStackTrie(nil)) {
+		if freceipts, anreceipts, areceipts := rawdb.ReadReceipts[nist.PublicKey](fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash), fast.Config()), rawdb.ReadReceipts[nist.PublicKey](ancientDb, hash, *rawdb.ReadHeaderNumber(ancientDb, hash), fast.Config()), rawdb.ReadReceipts[nist.PublicKey](archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash), fast.Config()); types.DeriveSha(freceipts, trie.NewStackTrie(nil)) != types.DeriveSha(areceipts, trie.NewStackTrie(nil)) {
 			t.Errorf("block #%d [%x]: receipts mismatch: fastdb %v, ancientdb %v, archivedb %v", num, hash, freceipts, anreceipts, areceipts)
 		}
 	}
@@ -714,14 +715,14 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
 	)
 	height := uint64(1024)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), nil)
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, int(height), nil)
 
 	// makeDb creates a db instance for testing.
 	makeDb := func() (ethdb.Database, func()) {
@@ -741,7 +742,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	remove := blocks[height/2].NumberU64()
 
 	// Create a small assertion method to check the three heads
-	assert := func(t *testing.T, kind string, chain *BlockChain, header uint64, fast uint64, block uint64) {
+	assert := func(t *testing.T, kind string, chain *BlockChain[nist.PublicKey], header uint64, fast uint64, block uint64) {
 		t.Helper()
 
 		if num := chain.CurrentBlock().NumberU64(); num != block {
@@ -761,7 +762,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	archiveCaching := *defaultCacheConfig
 	archiveCaching.TrieDirtyDisabled = true
 
-	archive, _ := NewBlockChain(archiveDb, &archiveCaching, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	archive, _ := NewBlockChain[nist.PublicKey](archiveDb, &archiveCaching, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if n, err := archive.InsertChain(blocks); err != nil {
 		t.Fatalf("failed to process block %d: %v", n, err)
 	}
@@ -774,7 +775,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Import the chain as a non-archive node and ensure all pointers are updated
 	fastDb, delfn := makeDb()
 	defer delfn()
-	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	fast, _ := NewBlockChain[nist.PublicKey](fastDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer fast.Stop()
 
 	headers := make([]*types.Header, len(blocks))
@@ -794,7 +795,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Import the chain as a ancient-first node and ensure all pointers are updated
 	ancientDb, delfn := makeDb()
 	defer delfn()
-	ancient, _ := NewBlockChain(ancientDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ancient, _ := NewBlockChain[nist.PublicKey](ancientDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer ancient.Stop()
 
 	if n, err := ancient.InsertHeaderChain(headers, 1); err != nil {
@@ -813,7 +814,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Import the chain as a light node and ensure all pointers are updated
 	lightDb, delfn := makeDb()
 	defer delfn()
-	light, _ := NewBlockChain(lightDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	light, _ := NewBlockChain[nist.PublicKey](lightDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if n, err := light.InsertHeaderChain(headers, 1); err != nil {
 		t.Fatalf("failed to insert header %d: %v", n, err)
 	}
@@ -827,14 +828,14 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 // Tests that chain reorganisations handle transaction removals and reinsertions.
 func TestChainTxReorgs(t *testing.T) {
 	var (
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-		key3, _ = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
-		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
+		key1, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		key2, _ = crypto.HexToECDSA[nist.PrivateKey]("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
+		key3, _ = crypto.HexToECDSA[nist.PrivateKey]("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
+		addr1   = crypto.PubkeyToAddress[nist.PublicKey](*key1.Public())
+		addr2   = crypto.PubkeyToAddress[nist.PublicKey](*key2.Public())
+		addr3   = crypto.PubkeyToAddress[nist.PublicKey](*key3.Public())
 		db      = rawdb.NewMemoryDatabase()
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config:   params.TestChainConfig,
 			GasLimit: 700000000,
 			Alloc: GenesisAlloc{
@@ -844,36 +845,36 @@ func TestChainTxReorgs(t *testing.T) {
 			},
 		}
 		genesis = gspec.MustCommit(db)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 
 	// Create two transactions shared between the chains:
 	//  - postponed: transaction included at a later block in the forked chain
 	//  - swapped: transaction included at the same block number in the forked chain
-	postponed, _ := types.SignTx(types.NewTransaction(0, addr1, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
-	swapped, _ := types.SignTx(types.NewTransaction(1, addr1, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
+	postponed, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, addr1, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
+	swapped, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](1, addr1, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
 
 	// Create two transactions that will be dropped by the forked chain:
 	//  - pastDrop: transaction dropped retroactively from a past block
 	//  - freshDrop: transaction dropped exactly at the block where the reorg is detected
-	var pastDrop, freshDrop *types.Transaction[P]
+	var pastDrop, freshDrop *types.Transaction[nist.PublicKey]
 
 	// Create three transactions that will be added in the forked chain:
 	//  - pastAdd:   transaction added before the reorganization is detected
 	//  - freshAdd:  transaction added at the exact block the reorg is detected
 	//  - futureAdd: transaction added after the reorg has already finished
-	var pastAdd, freshAdd, futureAdd *types.Transaction[P]
+	var pastAdd, freshAdd, futureAdd *types.Transaction[nist.PublicKey]
 
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {
+	chain, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 3, func(i int, gen *BlockGen[nist.PublicKey]) {
 		switch i {
 		case 0:
-			pastDrop, _ = types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
+			pastDrop, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(addr2), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
 
 			gen.AddTx(pastDrop)  // This transaction will be dropped in the fork from below the split point
 			gen.AddTx(postponed) // This transaction will be postponed till block #3 in the fork
 
 		case 2:
-			freshDrop, _ = types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
+			freshDrop, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(addr2), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
 
 			gen.AddTx(freshDrop) // This transaction will be dropped in the fork from exactly at the split point
 			gen.AddTx(swapped)   // This transaction will be swapped out at the exact height
@@ -882,28 +883,28 @@ func TestChainTxReorgs(t *testing.T) {
 		}
 	})
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if i, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert original chain[%d]: %v", i, err)
 	}
 	defer blockchain.Stop()
 
 	// overwrite the old chain
-	chain, _ = GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 5, func(i int, gen *BlockGen) {
+	chain, _ = GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 5, func(i int, gen *BlockGen[nist.PublicKey]) {
 		switch i {
 		case 0:
-			pastAdd, _ = types.SignTx(types.NewTransaction(gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
+			pastAdd, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
 			gen.AddTx(pastAdd) // This transaction needs to be injected during reorg
 
 		case 2:
 			gen.AddTx(postponed) // This transaction was postponed from block #1 in the original chain
 			gen.AddTx(swapped)   // This transaction was swapped from the exact current spot in the original chain
 
-			freshAdd, _ = types.SignTx(types.NewTransaction(gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
+			freshAdd, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
 			gen.AddTx(freshAdd) // This transaction will be added exactly at reorg time
 
 		case 3:
-			futureAdd, _ = types.SignTx(types.NewTransaction(gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
+			futureAdd, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](gen.TxNonce(addr3), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key3)
 			gen.AddTx(futureAdd) // This transaction will be added after a full reorg
 		}
 	})
@@ -912,29 +913,29 @@ func TestChainTxReorgs(t *testing.T) {
 	}
 
 	// removed tx
-	for i, tx := range (types.Transactions{pastDrop, freshDrop}) {
-		if txn, _, _, _ := rawdb.ReadTransaction(db, tx.Hash()); txn != nil {
+	for i, tx := range (types.Transactions[nist.PublicKey]{pastDrop, freshDrop}) {
+		if txn, _, _, _ := rawdb.ReadTransaction[nist.PublicKey](db, tx.Hash()); txn != nil {
 			t.Errorf("drop %d: tx %v found while shouldn't have been", i, txn)
 		}
-		if rcpt, _, _, _ := rawdb.ReadReceipt(db, tx.Hash(), blockchain.Config()); rcpt != nil {
+		if rcpt, _, _, _ := rawdb.ReadReceipt[nist.PublicKey](db, tx.Hash(), blockchain.Config()); rcpt != nil {
 			t.Errorf("drop %d: receipt %v found while shouldn't have been", i, rcpt)
 		}
 	}
 	// added tx
-	for i, tx := range (types.Transactions{pastAdd, freshAdd, futureAdd}) {
-		if txn, _, _, _ := rawdb.ReadTransaction(db, tx.Hash()); txn == nil {
+	for i, tx := range (types.Transactions[nist.PublicKey]{pastAdd, freshAdd, futureAdd}) {
+		if txn, _, _, _ := rawdb.ReadTransaction[nist.PublicKey](db, tx.Hash()); txn == nil {
 			t.Errorf("add %d: expected tx to be found", i)
 		}
-		if rcpt, _, _, _ := rawdb.ReadReceipt(db, tx.Hash(), blockchain.Config()); rcpt == nil {
+		if rcpt, _, _, _ := rawdb.ReadReceipt[nist.PublicKey](db, tx.Hash(), blockchain.Config()); rcpt == nil {
 			t.Errorf("add %d: expected receipt to be found", i)
 		}
 	}
 	// shared tx
-	for i, tx := range (types.Transactions{postponed, swapped}) {
-		if txn, _, _, _ := rawdb.ReadTransaction(db, tx.Hash()); txn == nil {
+	for i, tx := range (types.Transactions[nist.PublicKey]{postponed, swapped}) {
+		if txn, _, _, _ := rawdb.ReadTransaction[nist.PublicKey](db, tx.Hash()); txn == nil {
 			t.Errorf("share %d: expected tx to be found", i)
 		}
-		if rcpt, _, _, _ := rawdb.ReadReceipt(db, tx.Hash(), blockchain.Config()); rcpt == nil {
+		if rcpt, _, _, _ := rawdb.ReadReceipt[nist.PublicKey](db, tx.Hash(), blockchain.Config()); rcpt == nil {
 			t.Errorf("share %d: expected receipt to be found", i)
 		}
 	}
@@ -942,24 +943,24 @@ func TestChainTxReorgs(t *testing.T) {
 
 func TestLogReorgs(t *testing.T) {
 	var (
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
+		key1, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr1   = crypto.PubkeyToAddress[nist.PublicKey](*key1.Public())
 		db      = rawdb.NewMemoryDatabase()
 		// this code generates a log
 		code    = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
 		genesis = gspec.MustCommit(db)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer blockchain.Stop()
 
-	rmLogsCh := make(chan RemovedLogsEvent)
+	rmLogsCh := make(chan RemovedLogsEvent[nist.PublicKey])
 	blockchain.SubscribeRemovedLogsEvent(rmLogsCh)
-	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 2, func(i int, gen *BlockGen) {
+	chain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 2, func(i int, gen *BlockGen[nist.PublicKey]) {
 		if i == 1 {
-			tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), code), signer, key1)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), code), signer, key1)
 			if err != nil {
 				t.Fatalf("failed to create tx: %v", err)
 			}
@@ -970,7 +971,7 @@ func TestLogReorgs(t *testing.T) {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
 
-	chain, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {})
+	chain, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 3, func(i int, gen *BlockGen[nist.PublicKey]) {})
 	done := make(chan struct{})
 	go func() {
 		ev := <-rmLogsCh
@@ -998,28 +999,28 @@ var logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd
 // when the chain reorganizes.
 func TestLogRebirth(t *testing.T) {
 	var (
-		key1, _       = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1         = crypto.PubkeyToAddress(key1.PublicKey)
+		key1, _       = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr1         = crypto.PubkeyToAddress[nist.PublicKey](*key1.Public())
 		db            = rawdb.NewMemoryDatabase()
-		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		gspec         = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
 		genesis       = gspec.MustCommit(db)
-		signer        = types.LatestSigner(gspec.Config)
-		engine        = ethash.NewFaker()
-		blockchain, _ = NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, nil, nil)
+		signer        = types.LatestSigner[nist.PublicKey](gspec.Config)
+		engine        =  ethash.NewFaker[nist.PublicKey]()
+		blockchain, _ = NewBlockChain[nist.PublicKey](db, nil, gspec.Config, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	)
 
 	defer blockchain.Stop()
 
 	// The event channels.
 	newLogCh := make(chan []*types.Log, 10)
-	rmLogsCh := make(chan RemovedLogsEvent, 10)
+	rmLogsCh := make(chan RemovedLogsEvent[nist.PublicKey], 10)
 	blockchain.SubscribeLogsEvent(newLogCh)
 	blockchain.SubscribeRemovedLogsEvent(rmLogsCh)
 
 	// This chain contains a single log.
-	chain, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2, func(i int, gen *BlockGen) {
+	chain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 2, func(i int, gen *BlockGen[nist.PublicKey]) {
 		if i == 1 {
-			tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
 			if err != nil {
 				t.Fatalf("failed to create tx: %v", err)
 			}
@@ -1033,9 +1034,9 @@ func TestLogRebirth(t *testing.T) {
 
 	// Generate long reorg chain containing another log. Inserting the
 	// chain removes one log and adds one.
-	forkChain, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2, func(i int, gen *BlockGen) {
+	forkChain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 2, func(i int, gen *BlockGen[nist.PublicKey]) {
 		if i == 1 {
-			tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
 			if err != nil {
 				t.Fatalf("failed to create tx: %v", err)
 			}
@@ -1051,7 +1052,7 @@ func TestLogRebirth(t *testing.T) {
 	// This chain segment is rooted in the original chain, but doesn't contain any logs.
 	// When inserting it, the canonical chain switches away from forkChain and re-emits
 	// the log event for the old chain, as well as a RemovedLogsEvent for forkChain.
-	newBlocks, _ := GenerateChain(params.TestChainConfig, chain[len(chain)-1], engine, db, 1, func(i int, gen *BlockGen) {})
+	newBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, chain[len(chain)-1], engine, db, 1, func(i int, gen *BlockGen[nist.PublicKey]) {})
 	if _, err := blockchain.InsertChain(newBlocks); err != nil {
 		t.Fatalf("failed to insert forked chain: %v", err)
 	}
@@ -1062,23 +1063,23 @@ func TestLogRebirth(t *testing.T) {
 // when a side chain containing log events overtakes the canonical chain.
 func TestSideLogRebirth(t *testing.T) {
 	var (
-		key1, _       = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1         = crypto.PubkeyToAddress(key1.PublicKey)
+		key1, _       = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr1         = crypto.PubkeyToAddress[nist.PublicKey](*key1.Public())
 		db            = rawdb.NewMemoryDatabase()
-		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		gspec         = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
 		genesis       = gspec.MustCommit(db)
-		signer        = types.LatestSigner(gspec.Config)
-		blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+		signer        = types.LatestSigner[nist.PublicKey](gspec.Config)
+		blockchain, _ = NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	)
 
 	defer blockchain.Stop()
 
 	newLogCh := make(chan []*types.Log, 10)
-	rmLogsCh := make(chan RemovedLogsEvent, 10)
+	rmLogsCh := make(chan RemovedLogsEvent[nist.PublicKey], 10)
 	blockchain.SubscribeLogsEvent(newLogCh)
 	blockchain.SubscribeRemovedLogsEvent(rmLogsCh)
 
-	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 2, func(i int, gen *BlockGen) {
+	chain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 2, func(i int, gen *BlockGen[nist.PublicKey]) {
 		if i == 1 {
 			gen.OffsetTime(-9) // higher block difficulty
 
@@ -1090,9 +1091,9 @@ func TestSideLogRebirth(t *testing.T) {
 	checkLogEvents(t, newLogCh, rmLogsCh, 0, 0)
 
 	// Generate side chain with lower difficulty
-	sideChain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 2, func(i int, gen *BlockGen) {
+	sideChain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 2, func(i int, gen *BlockGen[nist.PublicKey]) {
 		if i == 1 {
-			tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), logCode), signer, key1)
 			if err != nil {
 				t.Fatalf("failed to create tx: %v", err)
 			}
@@ -1105,14 +1106,14 @@ func TestSideLogRebirth(t *testing.T) {
 	checkLogEvents(t, newLogCh, rmLogsCh, 0, 0)
 
 	// Generate a new block based on side chain.
-	newBlocks, _ := GenerateChain(params.TestChainConfig, sideChain[len(sideChain)-1], ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {})
+	newBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, sideChain[len(sideChain)-1],  ethash.NewFaker[nist.PublicKey](), db, 1, func(i int, gen *BlockGen[nist.PublicKey]) {})
 	if _, err := blockchain.InsertChain(newBlocks); err != nil {
 		t.Fatalf("failed to insert forked chain: %v", err)
 	}
 	checkLogEvents(t, newLogCh, rmLogsCh, 1, 0)
 }
 
-func checkLogEvents(t *testing.T, logsCh <-chan []*types.Log, rmLogsCh <-chan RemovedLogsEvent, wantNew, wantRemoved int) {
+func checkLogEvents(t *testing.T, logsCh <-chan []*types.Log, rmLogsCh <-chan RemovedLogsEvent[nist.PublicKey], wantNew, wantRemoved int) {
 	t.Helper()
 
 	if len(logsCh) != wantNew {
@@ -1133,26 +1134,26 @@ func checkLogEvents(t *testing.T, logsCh <-chan []*types.Log, rmLogsCh <-chan Re
 func TestReorgSideEvent(t *testing.T) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		gspec   = &Genesis{
+		key1, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr1   = crypto.PubkeyToAddress[nist.PublicKey](*key1.Public())
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
 		}
 		genesis = gspec.MustCommit(db)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer blockchain.Stop()
 
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {})
+	chain, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 3, func(i int, gen *BlockGen[nist.PublicKey]) {})
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
 
-	replacementBlocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, gen *BlockGen) {
-		tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), nil), signer, key1)
+	replacementBlocks, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 4, func(i int, gen *BlockGen[nist.PublicKey]) {
+		tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), nil), signer, key1)
 		if i == 2 {
 			gen.OffsetTime(-9)
 		}
@@ -1161,7 +1162,7 @@ func TestReorgSideEvent(t *testing.T) {
 		}
 		gen.AddTx(tx)
 	})
-	chainSideCh := make(chan ChainSideEvent, 64)
+	chainSideCh := make(chan ChainSideEvent[nist.PublicKey], 64)
 	blockchain.SubscribeChainSideEvent(chainSideCh)
 	if _, err := blockchain.InsertChain(replacementBlocks); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
@@ -1215,19 +1216,19 @@ done:
 
 // Tests if the canonical block can be fetched from the database during chain insertion.
 func TestCanonicalBlockRetrieval(t *testing.T) {
-	_, blockchain, err := newCanonical(ethash.NewFaker(), 0, true)
+	_, blockchain, err := newCanonical( ethash.NewFaker[nist.PublicKey](), 0, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	chain, _ := GenerateChain(blockchain.chainConfig, blockchain.genesisBlock, ethash.NewFaker(), blockchain.db, 10, func(i int, gen *BlockGen) {})
+	chain, _ := GenerateChain[nist.PublicKey](blockchain.chainConfig, blockchain.genesisBlock,  ethash.NewFaker[nist.PublicKey](), blockchain.db, 10, func(i int, gen *BlockGen[nist.PublicKey]) {})
 
 	var pend sync.WaitGroup
 	pend.Add(len(chain))
 
 	for i := range chain {
-		go func(block *types.Block[P]) {
+		go func(block *types.Block[nist.PublicKey]) {
 			defer pend.Done()
 
 			// try to retrieve a block by its canonical hash and see if the block data can be retrieved.
@@ -1240,7 +1241,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 					t.Errorf("unknown canonical hash, want %s, got %s", block.Hash().Hex(), ch.Hex())
 					return
 				}
-				fb := rawdb.ReadBlock(blockchain.db, ch, block.NumberU64())
+				fb := rawdb.ReadBlock[nist.PublicKey](blockchain.db, ch, block.NumberU64())
 				if fb == nil {
 					t.Errorf("unable to retrieve block %d for canonical hash: %s", block.NumberU64(), ch.Hex())
 					return
@@ -1253,7 +1254,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 		}(chain[i])
 
-		if _, err := blockchain.InsertChain(types.Blocks{chain[i]}); err != nil {
+		if _, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{chain[i]}); err != nil {
 			t.Fatalf("failed to insert block %d: %v", i, err)
 		}
 	}
@@ -1264,55 +1265,55 @@ func TestEIP155Transition(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		db         = rawdb.NewMemoryDatabase()
-		key, _     = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address    = crypto.PubkeyToAddress(key.PublicKey)
+		key, _     = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address    = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds      = big.NewInt(1000000000)
 		deleteAddr = common.Address{1}
-		gspec      = &Genesis{
+		gspec      = &Genesis[nist.PublicKey]{
 			Config: &params.ChainConfig{ChainID: big.NewInt(10), EIP150Block: big.NewInt(0), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)},
 			Alloc:  GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
 		genesis = gspec.MustCommit(db)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer blockchain.Stop()
 
-	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 4, func(i int, block *BlockGen[nist.PublicKey]) {
 		var (
-			tx      *types.Transaction[P]
+			tx      *types.Transaction[nist.PublicKey]
 			err     error
-			basicTx = func(signer types.Signer) (*types.Transaction[P], error) {
-				return types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
+			basicTx = func(signer types.Signer[nist.PublicKey]) (*types.Transaction[nist.PublicKey], error) {
+				return types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
 			}
 		)
 		switch i {
 		case 0:
-			tx, err = basicTx(types.HomesteadSigner{})
+			tx, err = basicTx(types.HomesteadSigner[nist.PublicKey]{})
 			if err != nil {
 				t.Fatal(err)
 			}
 			block.AddTx(tx)
 		case 2:
-			tx, err = basicTx(types.HomesteadSigner{})
+			tx, err = basicTx(types.HomesteadSigner[nist.PublicKey]{})
 			if err != nil {
 				t.Fatal(err)
 			}
 			block.AddTx(tx)
 
-			tx, err = basicTx(types.LatestSigner(gspec.Config))
+			tx, err = basicTx(types.LatestSigner[nist.PublicKey](gspec.Config))
 			if err != nil {
 				t.Fatal(err)
 			}
 			block.AddTx(tx)
 		case 3:
-			tx, err = basicTx(types.HomesteadSigner{})
+			tx, err = basicTx(types.HomesteadSigner[nist.PublicKey]{})
 			if err != nil {
 				t.Fatal(err)
 			}
 			block.AddTx(tx)
 
-			tx, err = basicTx(types.LatestSigner(gspec.Config))
+			tx, err = basicTx(types.LatestSigner[nist.PublicKey](gspec.Config))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1341,16 +1342,16 @@ func TestEIP155Transition(t *testing.T) {
 
 	// generate an invalid chain id transaction
 	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP150Block: big.NewInt(0), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)}
-	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+	blocks, _ = GenerateChain[nist.PublicKey](config, blocks[len(blocks)-1],  ethash.NewFaker[nist.PublicKey](), db, 4, func(i int, block *BlockGen[nist.PublicKey]) {
 		var (
-			tx      *types.Transaction[P]
+			tx      *types.Transaction[nist.PublicKey]
 			err     error
-			basicTx = func(signer types.Signer) (*types.Transaction[P], error) {
-				return types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
+			basicTx = func(signer types.Signer[nist.PublicKey]) (*types.Transaction[nist.PublicKey], error) {
+				return types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, key)
 			}
 		)
 		if i == 0 {
-			tx, err = basicTx(types.LatestSigner(config))
+			tx, err = basicTx(types.LatestSigner[nist.PublicKey](config))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1365,11 +1366,11 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
 		theAddr = common.Address{1}
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: &params.ChainConfig{
 				ChainID:        big.NewInt(10),
 				HomesteadBlock: new(big.Int),
@@ -1381,22 +1382,22 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		}
 		genesis = gspec.MustCommit(db)
 	)
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer blockchain.Stop()
 
-	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, block *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 3, func(i int, block *BlockGen[nist.PublicKey]) {
 		var (
-			tx     *types.Transaction[P]
+			tx     *types.Transaction[nist.PublicKey]
 			err    error
-			signer = types.LatestSigner(gspec.Config)
+			signer = types.LatestSigner[nist.PublicKey](gspec.Config)
 		)
 		switch i {
 		case 0:
-			tx, err = types.SignTx(types.NewTransaction(block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
+			tx, err = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
 		case 1:
-			tx, err = types.SignTx(types.NewTransaction(block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
+			tx, err = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
 		case 2:
-			tx, err = types.SignTx(types.NewTransaction(block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
+			tx, err = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), theAddr, new(big.Int), 21000, new(big.Int), nil), signer, key)
 		}
 		if err != nil {
 			t.Fatal(err)
@@ -1404,7 +1405,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		block.AddTx(tx)
 	})
 	// account must exist pre eip 161
-	if _, err := blockchain.InsertChain(types.Blocks{blocks[0]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{blocks[0]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _, _ := blockchain.State(); !st.Exist(theAddr) {
@@ -1412,7 +1413,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 
 	// account needs to be deleted post eip 161
-	if _, err := blockchain.InsertChain(types.Blocks{blocks[1]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{blocks[1]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _, _ := blockchain.State(); st.Exist(theAddr) {
@@ -1420,7 +1421,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 
 	// account mustn't be created post eip 161
-	if _, err := blockchain.InsertChain(types.Blocks{blocks[2]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{blocks[2]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _, _ := blockchain.State(); st.Exist(theAddr) {
@@ -1435,28 +1436,28 @@ func TestEIP161AccountRemoval(t *testing.T) {
 // https://github.com/pavelkrolevets/MIR-pro/pull/15941
 func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.Block[P], len(blocks))
+	forks := make([]*types.Block[nist.PublicKey], len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork, _ := GenerateChain(params.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, verifying the current block
 	// and current header consistency
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1480,27 +1481,27 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 // cache (which would eventually cause memory issues).
 func TestTrieForkGC(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.Block[P], len(blocks))
+	forks := make([]*types.Block[nist.PublicKey], len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork, _ := GenerateChain(params.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1526,20 +1527,20 @@ func TestTrieForkGC(t *testing.T) {
 // forking point is not available any more.
 func TestLargeReorgTrieGC(t *testing.T) {
 	// Generate the original common chain segment and the two competing forks
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
-	shared, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-	original, _ := GenerateChain(params.TestChainConfig, shared[len(shared)-1], engine, db, 2*TriesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-	competitor, _ := GenerateChain(params.TestChainConfig, shared[len(shared)-1], engine, db, 2*TriesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+	shared, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{1}) })
+	original, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, shared[len(shared)-1], engine, db, 2*TriesInMemory, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{2}) })
+	competitor, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, shared[len(shared)-1], engine, db, 2*TriesInMemory+1, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{3}) })
 
 	// Import the shared chain and the original canonical one
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1579,14 +1580,14 @@ func TestBlockchainRecovery(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
 	)
 	height := uint64(1024)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), nil)
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, int(height), nil)
 
 	// Import the chain as a ancient-first node and ensure all pointers are updated
 	frdir, err := ioutil.TempDir("", "")
@@ -1600,7 +1601,7 @@ func TestBlockchainRecovery(t *testing.T) {
 		t.Fatalf("failed to create temp freezer db: %v", err)
 	}
 	gspec.MustCommit(ancientDb)
-	ancient, _ := NewBlockChain(ancientDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ancient, _ := NewBlockChain[nist.PublicKey](ancientDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
@@ -1620,7 +1621,7 @@ func TestBlockchainRecovery(t *testing.T) {
 	rawdb.WriteHeadFastBlockHash(ancientDb, midBlock.Hash())
 
 	// Reopen broken blockchain again
-	ancient, _ = NewBlockChain(ancientDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ancient, _ = NewBlockChain[nist.PublicKey](ancientDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer ancient.Stop()
 	if num := ancient.CurrentBlock().NumberU64(); num != 0 {
 		t.Errorf("head block mismatch: have #%v, want #%v", num, 0)
@@ -1637,14 +1638,14 @@ func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
 	)
 	height := uint64(1024)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), nil)
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, int(height), nil)
 
 	// Import the chain as a ancient-first node and ensure all pointers are updated
 	frdir, err := ioutil.TempDir("", "")
@@ -1657,7 +1658,7 @@ func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 		t.Fatalf("failed to create temp freezer db: %v", err)
 	}
 	gspec.MustCommit(ancientDb)
-	ancient, _ := NewBlockChain(ancientDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	ancient, _ := NewBlockChain[nist.PublicKey](ancientDb, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer ancient.Stop()
 
 	headers := make([]*types.Header, len(blocks))
@@ -1699,22 +1700,22 @@ func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 //  - https://github.com/pavelkrolevets/MIR-pro/pull/18988
 func TestLowDiffLongChain(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
 	// We must use a pretty long chain to ensure that the fork doesn't overtake us
 	// until after at least 128 blocks post tip
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 6*TriesInMemory, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 6*TriesInMemory, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		b.OffsetTime(-9)
 	})
 
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1723,7 +1724,7 @@ func TestLowDiffLongChain(t *testing.T) {
 	}
 	// Generate fork chain, starting from an early block
 	parent := blocks[10]
-	fork, _ := GenerateChain(params.TestChainConfig, parent, engine, db, 8*TriesInMemory, func(i int, b *BlockGen) {
+	fork, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, parent, engine, db, 8*TriesInMemory, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{2})
 	})
 
@@ -1753,15 +1754,15 @@ func TestLowDiffLongChain(t *testing.T) {
 func testSideImport(t *testing.T, numCanonBlocksInSidechain, blocksBetweenCommonAncestorAndPruneblock int) {
 
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
 	// Generate and import the canonical chain
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, nil)
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, nil)
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1788,11 +1789,11 @@ func testSideImport(t *testing.T, numCanonBlocksInSidechain, blocksBetweenCommon
 	// Generate fork chain, make it longer than canon
 	parentIndex := lastPrunedIndex + blocksBetweenCommonAncestorAndPruneblock
 	parent := blocks[parentIndex]
-	fork, _ := GenerateChain(params.TestChainConfig, parent, engine, db, 2*TriesInMemory, func(i int, b *BlockGen) {
+	fork, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, parent, engine, db, 2*TriesInMemory, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{2})
 	})
 	// Prepend the parent(s)
-	var sidechain []*types.Block[P]
+	var sidechain []*types.Block[nist.PublicKey]
 	for i := numCanonBlocksInSidechain; i > 0; i-- {
 		sidechain = append(sidechain, blocks[parentIndex+1-i])
 	}
@@ -1832,16 +1833,16 @@ func TestInsertKnownReceiptChain(t *testing.T) { testInsertKnownChainData(t, "re
 func TestInsertKnownBlocks(t *testing.T)       { testInsertKnownChainData(t, "blocks") }
 
 func testInsertKnownChainData(t *testing.T, typ string) {
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
-	blocks, receipts := GenerateChain(params.TestChainConfig, genesis, engine, db, 32, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks, receipts := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 32, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{1}) })
 	// A longer chain but total difficulty is lower.
-	blocks2, receipts2 := GenerateChain(params.TestChainConfig, blocks[len(blocks)-1], engine, db, 65, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks2, receipts2 := GenerateChain[nist.PublicKey](params.TestChainConfig, blocks[len(blocks)-1], engine, db, 65, func(i int, b *BlockGen[nist.PublicKey]) { b.SetCoinbase(common.Address{1}) })
 	// A shorter chain but total difficulty is higher.
-	blocks3, receipts3 := GenerateChain(params.TestChainConfig, blocks[len(blocks)-1], engine, db, 64, func(i int, b *BlockGen) {
+	blocks3, receipts3 := GenerateChain[nist.PublicKey](params.TestChainConfig, blocks[len(blocks)-1], engine, db, 64, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		b.OffsetTime(-9) // A higher difficulty
 	})
@@ -1855,20 +1856,20 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 	if err != nil {
 		t.Fatalf("failed to create temp freezer db: %v", err)
 	}
-	new(Genesis).MustCommit(chaindb)
+	new(Genesis[nist.PublicKey]).MustCommit(chaindb)
 	defer os.RemoveAll(dir)
 
-	chain, err := NewBlockChain(chaindb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](chaindb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
 
 	var (
-		inserter func(blocks []*types.Block[P], receipts []types.Receipts) error
-		asserter func(t *testing.T, block *types.Block[P])
+		inserter func(blocks []*types.Block[nist.PublicKey], receipts []types.Receipts[nist.PublicKey]) error
+		asserter func(t *testing.T, block *types.Block[nist.PublicKey])
 	)
 	if typ == "headers" {
-		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[nist.PublicKey], receipts []types.Receipts[nist.PublicKey]) error {
 			headers := make([]*types.Header, 0, len(blocks))
 			for _, block := range blocks {
 				headers = append(headers, block.Header())
@@ -1876,13 +1877,13 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 			_, err := chain.InsertHeaderChain(headers, 1)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block[P]) {
+		asserter = func(t *testing.T, block *types.Block[nist.PublicKey]) {
 			if chain.CurrentHeader().Hash() != block.Hash() {
 				t.Fatalf("current head header mismatch, have %v, want %v", chain.CurrentHeader().Hash().Hex(), block.Hash().Hex())
 			}
 		}
 	} else if typ == "receipts" {
-		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[nist.PublicKey], receipts []types.Receipts[nist.PublicKey]) error {
 			headers := make([]*types.Header, 0, len(blocks))
 			for _, block := range blocks {
 				headers = append(headers, block.Header())
@@ -1894,17 +1895,17 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 			_, err = chain.InsertReceiptChain(blocks, receipts, 0)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block[P]) {
+		asserter = func(t *testing.T, block *types.Block[nist.PublicKey]) {
 			if chain.CurrentFastBlock().Hash() != block.Hash() {
 				t.Fatalf("current head fast block mismatch, have %v, want %v", chain.CurrentFastBlock().Hash().Hex(), block.Hash().Hex())
 			}
 		}
 	} else {
-		inserter = func(blocks []*types.Block[P], receipts []types.Receipts) error {
+		inserter = func(blocks []*types.Block[nist.PublicKey], receipts []types.Receipts[nist.PublicKey]) error {
 			_, err := chain.InsertChain(blocks)
 			return err
 		}
-		asserter = func(t *testing.T, block *types.Block[P]) {
+		asserter = func(t *testing.T, block *types.Block[nist.PublicKey]) {
 			if chain.CurrentBlock().Hash() != block.Hash() {
 				t.Fatalf("current head block mismatch, have %v, want %v", chain.CurrentBlock().Hash().Hex(), block.Hash().Hex())
 			}
@@ -1954,21 +1955,21 @@ func testInsertKnownChainData(t *testing.T, typ string) {
 
 // getLongAndShortChains returns two chains,
 // A is longer, B is heavier
-func getLongAndShortChains() (*BlockChain, []*types.Block[P], []*types.Block[P], error) {
+func getLongAndShortChains() (*BlockChain[nist.PublicKey], []*types.Block[nist.PublicKey], []*types.Block[nist.PublicKey], error) {
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
 	// Generate and import the canonical chain,
 	// Offset the time, to keep the difficulty low
-	longChain, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 80, func(i int, b *BlockGen) {
+	longChain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 80, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 	})
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create tester chain: %v", err)
 	}
@@ -1976,7 +1977,7 @@ func getLongAndShortChains() (*BlockChain, []*types.Block[P], []*types.Block[P],
 	// Generate fork chain, make it shorter than canon, with common ancestor pretty early
 	parentIndex := 3
 	parent := longChain[parentIndex]
-	heavyChain, _ := GenerateChain(params.TestChainConfig, parent, engine, db, 75, func(i int, b *BlockGen) {
+	heavyChain, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, parent, engine, db, 75, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{2})
 		b.OffsetTime(-9)
 	})
@@ -2076,24 +2077,24 @@ func TestTransactionIndices(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 	height := uint64(128)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), func(i int, block *BlockGen) {
-		tx, err := types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, int(height), func(i int, block *BlockGen[nist.PublicKey]) {
+		tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 		if err != nil {
 			panic(err)
 		}
 		block.AddTx(tx)
 	})
-	blocks2, _ := GenerateChain(gspec.Config, blocks[len(blocks)-1], ethash.NewFaker(), gendb, 10, nil)
+	blocks2, _ := GenerateChain[nist.PublicKey](gspec.Config, blocks[len(blocks)-1],  ethash.NewFaker[nist.PublicKey](), gendb, 10, nil)
 
-	check := func(tail *uint64, chain *BlockChain) {
+	check := func(tail *uint64, chain *BlockChain[nist.PublicKey]) {
 		stored := rawdb.ReadTxIndexTail(chain.db)
 		if tail == nil && stored != nil {
 			t.Fatalf("Oldest indexded block mismatch, want nil, have %d", *stored)
@@ -2103,7 +2104,7 @@ func TestTransactionIndices(t *testing.T) {
 		}
 		if tail != nil {
 			for i := *tail; i <= chain.CurrentBlock().NumberU64(); i++ {
-				block := rawdb.ReadBlock(chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
+				block := rawdb.ReadBlock[nist.PublicKey](chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
 				if block.Transactions().Len() == 0 {
 					continue
 				}
@@ -2114,7 +2115,7 @@ func TestTransactionIndices(t *testing.T) {
 				}
 			}
 			for i := uint64(0); i < *tail; i++ {
-				block := rawdb.ReadBlock(chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
+				block := rawdb.ReadBlock[nist.PublicKey](chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
 				if block.Transactions().Len() == 0 {
 					continue
 				}
@@ -2139,7 +2140,7 @@ func TestTransactionIndices(t *testing.T) {
 
 	// Import all blocks into ancient db
 	l := uint64(0)
-	chain, err := NewBlockChain(ancientDb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &l, nil)
+	chain, err := NewBlockChain[nist.PublicKey](ancientDb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, &l, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2164,7 +2165,7 @@ func TestTransactionIndices(t *testing.T) {
 			t.Fatalf("failed to create temp freezer db: %v", err)
 		}
 		gspec.MustCommit(ancientDb)
-		chain, err = NewBlockChain(ancientDb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &l, nil)
+		chain, err = NewBlockChain[nist.PublicKey](ancientDb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, &l, nil)
 		if err != nil {
 			t.Fatalf("failed to create tester chain: %v", err)
 		}
@@ -2188,7 +2189,7 @@ func TestTransactionIndices(t *testing.T) {
 	limit = []uint64{0, 64 /* drop stale */, 32 /* shorten history */, 64 /* extend history */, 0 /* restore all */}
 	tails := []uint64{0, 67 /* 130 - 64 + 1 */, 100 /* 131 - 32 + 1 */, 69 /* 132 - 64 + 1 */, 0}
 	for i, l := range limit {
-		chain, err = NewBlockChain(ancientDb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &l, nil)
+		chain, err = NewBlockChain[nist.PublicKey](ancientDb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, &l, nil)
 		if err != nil {
 			t.Fatalf("failed to create tester chain: %v", err)
 		}
@@ -2203,23 +2204,23 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		gspec   = &Genesis[nist.PublicKey]{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
-		signer  = types.LatestSigner(gspec.Config)
+		signer  = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 	height := uint64(128)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), func(i int, block *BlockGen) {
-		tx, err := types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+	blocks, receipts := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), gendb, int(height), func(i int, block *BlockGen[nist.PublicKey]) {
+		tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 		if err != nil {
 			panic(err)
 		}
 		block.AddTx(tx)
 	})
 
-	check := func(tail *uint64, chain *BlockChain) {
+	check := func(tail *uint64, chain *BlockChain[nist.PublicKey]) {
 		stored := rawdb.ReadTxIndexTail(chain.db)
 		if tail == nil && stored != nil {
 			t.Fatalf("Oldest indexded block mismatch, want nil, have %d", *stored)
@@ -2229,7 +2230,7 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 		}
 		if tail != nil {
 			for i := *tail; i <= chain.CurrentBlock().NumberU64(); i++ {
-				block := rawdb.ReadBlock(chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
+				block := rawdb.ReadBlock[nist.PublicKey](chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
 				if block.Transactions().Len() == 0 {
 					continue
 				}
@@ -2240,7 +2241,7 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 				}
 			}
 			for i := uint64(0); i < *tail; i++ {
-				block := rawdb.ReadBlock(chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
+				block := rawdb.ReadBlock[nist.PublicKey](chain.db, rawdb.ReadCanonicalHash(chain.db, i), i)
 				if block.Transactions().Len() == 0 {
 					continue
 				}
@@ -2266,7 +2267,7 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 
 	// Import all blocks into ancient db, only HEAD-32 indices are kept.
 	l := uint64(32)
-	chain, err := NewBlockChain(ancientDb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &l, nil)
+	chain, err := NewBlockChain[nist.PublicKey](ancientDb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, &l, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2288,11 +2289,11 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
-		signer          = types.HomesteadSigner{}
-		testBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+		signer          = types.HomesteadSigner[nist.PublicKey]{}
+		testBankKey, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		testBankAddress = crypto.PubkeyToAddress[nist.PublicKey](*testBankKey.Public())
 		bankFunds       = big.NewInt(100000000000000000)
-		gspec           = Genesis{
+		gspec           = Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
@@ -2305,16 +2306,16 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 	)
 	// Generate the original common chain segment and the two competing forks
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
 	genesis := gspec.MustCommit(db)
 
-	blockGenerator := func(i int, block *BlockGen) {
+	blockGenerator := func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{1})
 		for txi := 0; txi < numTxs; txi++ {
 			uniq := uint64(i*numTxs + txi)
 			recipient := recipientFn(uniq)
-			tx, err := types.SignTx(types.NewTransaction(uniq, recipient, big.NewInt(1), params.TxGas, big.NewInt(1), nil), signer, testBankKey)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](uniq, recipient, big.NewInt(1), params.TxGas, big.NewInt(1), nil), signer, testBankKey)
 			if err != nil {
 				b.Error(err)
 			}
@@ -2322,7 +2323,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 	}
 
-	shared, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, numBlocks, blockGenerator)
+	shared, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, numBlocks, blockGenerator)
 	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -2330,7 +2331,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		diskdb := rawdb.NewMemoryDatabase()
 		gspec.MustCommit(diskdb)
 
-		chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+		chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 		if err != nil {
 			b.Fatalf("failed to create tester chain: %v", err)
 		}
@@ -2404,15 +2405,15 @@ func BenchmarkBlockChain_1x1000Executions(b *testing.B) {
 //   3. The blocks fetched are all known and canonical blocks
 func TestSideImportPrunedBlocks(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := ethash.NewFaker()
+	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(Genesis[nist.PublicKey]).MustCommit(db)
 
 	// Generate and import the canonical chain
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, nil)
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, nil)
 	diskdb := rawdb.NewMemoryDatabase()
-	new(Genesis).MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	new(Genesis[nist.PublicKey]).MustCommit(diskdb)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2453,14 +2454,14 @@ func TestDeleteCreateRevert(t *testing.T) {
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		bb = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc: GenesisAlloc{
 				address: {Balance: funds},
@@ -2491,22 +2492,22 @@ func TestDeleteCreateRevert(t *testing.T) {
 		genesis = gspec.MustCommit(db)
 	)
 
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AAAA
-		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, aa,
+			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 		// One transaction to BBBB
-		tx, _ = types.SignTx(types.NewTransaction(1, bb,
-			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](1, bb,
+			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2525,11 +2526,11 @@ func TestDeleteCreateRevert(t *testing.T) {
 func TestDeleteRecreateSlots(t *testing.T) {
 	var (
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address   = crypto.PubkeyToAddress(key.PublicKey)
+		key, _    = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address   = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds     = big.NewInt(1000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2582,7 +2583,7 @@ func TestDeleteRecreateSlots(t *testing.T) {
 	aa := crypto.CreateAddress2(bb, [32]byte{}, initHash[:])
 	t.Logf("Destination address: %x\n", aa)
 
-	gspec := &Genesis{
+	gspec := &Genesis[nist.PublicKey]{
 		Config: params.TestChainConfig,
 		Alloc: GenesisAlloc{
 			address: {Balance: funds},
@@ -2603,23 +2604,23 @@ func TestDeleteRecreateSlots(t *testing.T) {
 	}
 	genesis := gspec.MustCommit(db)
 
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AA, to kill it
-		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, aa,
+			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 		// One transaction to BB, to recreate AA
-		tx, _ = types.SignTx(types.NewTransaction(1, bb,
-			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](1, bb,
+			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{
 		Debug:  true,
-		Tracer: vm.NewJSONLogger(nil, os.Stdout),
+		Tracer: vm.NewJSONLogger[nist.PublicKey](nil, os.Stdout),
 	}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
@@ -2652,11 +2653,11 @@ func TestDeleteRecreateSlots(t *testing.T) {
 func TestDeleteRecreateAccount(t *testing.T) {
 	var (
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
 
 		aa        = common.HexToAddress("0x7217d81b76bdd8707601e959454e3d776aee5f43")
@@ -2667,7 +2668,7 @@ func TestDeleteRecreateAccount(t *testing.T) {
 	aaStorage[common.HexToHash("01")] = common.HexToHash("01")
 	aaStorage[common.HexToHash("02")] = common.HexToHash("02")
 
-	gspec := &Genesis{
+	gspec := &Genesis[nist.PublicKey]{
 		Config: params.TestChainConfig,
 		Alloc: GenesisAlloc{
 			address: {Balance: funds},
@@ -2683,23 +2684,23 @@ func TestDeleteRecreateAccount(t *testing.T) {
 	}
 	genesis := gspec.MustCommit(db)
 
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AA, to kill it
-		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, aa,
+			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 		// One transaction to AA, to recreate it (but without storage
-		tx, _ = types.SignTx(types.NewTransaction(1, aa,
-			big.NewInt(1), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](1, aa,
+			big.NewInt(1), 100000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{
 		Debug:  true,
-		Tracer: vm.NewJSONLogger(nil, os.Stdout),
+		Tracer: vm.NewJSONLogger[nist.PublicKey](nil, os.Stdout),
 	}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
@@ -2728,11 +2729,11 @@ func TestDeleteRecreateAccount(t *testing.T) {
 func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	var (
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address   = crypto.PubkeyToAddress(key.PublicKey)
+		key, _    = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address   = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds     = big.NewInt(1000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2786,7 +2787,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	initHash := crypto.Keccak256Hash(initCode)
 	aa := crypto.CreateAddress2(bb, [32]byte{}, initHash[:])
 	t.Logf("Destination address: %x\n", aa)
-	gspec := &Genesis{
+	gspec := &Genesis[nist.PublicKey]{
 		Config: params.TestChainConfig,
 		Alloc: GenesisAlloc{
 			address: {Balance: funds},
@@ -2819,9 +2820,9 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		values:   map[int]int{1: 1, 2: 2},
 	}
 	var expectations []*expectation
-	var newDestruct = func(e *expectation) *types.Transaction[P] {
-		tx, _ := types.SignTx(types.NewTransaction(nonce, aa,
-			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+	var newDestruct = func(e *expectation) *types.Transaction[nist.PublicKey] {
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, aa,
+			big.NewInt(0), 50000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		nonce++
 		if e.exist {
 			e.exist = false
@@ -2830,9 +2831,9 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		t.Logf("block %d; adding destruct\n", e.blocknum)
 		return tx
 	}
-	var newResurrect = func(e *expectation) *types.Transaction[P] {
-		tx, _ := types.SignTx(types.NewTransaction(nonce, bb,
-			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+	var newResurrect = func(e *expectation) *types.Transaction[nist.PublicKey] {
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, bb,
+			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		nonce++
 		if !e.exist {
 			e.exist = true
@@ -2842,7 +2843,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		return tx
 	}
 
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 150, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 150, func(i int, b *BlockGen[nist.PublicKey]) {
 		var exp = new(expectation)
 		exp.blocknum = i + 1
 		exp.values = make(map[int]int)
@@ -2870,9 +2871,9 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{
 		//Debug: true,
-		//Tracer: vm.NewJSONLogger(nil, os.Stdout),
+		//Tracer: vm.NewJSONLogger[nist.PublicKey](nil, os.Stdout),
 	}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
@@ -2882,7 +2883,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	}
 	for i, block := range blocks {
 		blockNum := i + 1
-		if n, err := chain.InsertChain([]*types.Block[P]{block}); err != nil {
+		if n, err := chain.InsertChain([]*types.Block[nist.PublicKey]{block}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", n, err)
 		}
 		statedb, _, _ := chain.State()
@@ -2930,11 +2931,11 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 func TestInitThenFailCreateContract(t *testing.T) {
 	var (
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
 		bb      = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 	)
@@ -2977,7 +2978,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	aa := crypto.CreateAddress2(bb, [32]byte{}, initHash[:])
 	t.Logf("Destination address: %x\n", aa)
 
-	gspec := &Genesis{
+	gspec := &Genesis[nist.PublicKey]{
 		Config: params.TestChainConfig,
 		Alloc: GenesisAlloc{
 			address: {Balance: funds},
@@ -2992,11 +2993,11 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	}
 	genesis := gspec.MustCommit(db)
 	nonce := uint64(0)
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 4, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 4, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to BB
-		tx, _ := types.SignTx(types.NewTransaction(nonce, bb,
-			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, bb,
+			big.NewInt(0), 100000, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
 		b.AddTx(tx)
 		nonce++
 	})
@@ -3004,9 +3005,9 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	// Import the canonical chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
-	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, params.TestChainConfig, engine, vm.Config[nist.PublicKey]{
 		//Debug:  true,
-		//Tracer: vm.NewJSONLogger(nil, os.Stdout),
+		//Tracer: vm.NewJSONLogger[nist.PublicKey](nil, os.Stdout),
 	}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
@@ -3018,7 +3019,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	// First block tries to create, but fails
 	{
 		block := blocks[0]
-		if _, err := chain.InsertChain([]*types.Block[P]{blocks[0]}); err != nil {
+		if _, err := chain.InsertChain([]*types.Block[nist.PublicKey]{blocks[0]}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", block.NumberU64(), err)
 		}
 		statedb, _, _ = chain.State()
@@ -3028,7 +3029,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	}
 	// Import the rest of the blocks
 	for _, block := range blocks[1:] {
-		if _, err := chain.InsertChain([]*types.Block[P]{block}); err != nil {
+		if _, err := chain.InsertChain([]*types.Block[nist.PublicKey]{block}); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", block.NumberU64(), err)
 		}
 	}
@@ -3044,14 +3045,14 @@ func TestEIP2718Transition(t *testing.T) {
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: params.YoloV3ChainConfig,
 			Alloc: GenesisAlloc{
 				address: {Balance: funds},
@@ -3071,11 +3072,11 @@ func TestEIP2718Transition(t *testing.T) {
 		genesis = gspec.MustCommit(db)
 	)
 
-	blocks, _ := GenerateChain(gspec.Config, genesis, engine, db, 1, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis, engine, db, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
 
 		// One transaction to 0xAAAA
-		signer := types.LatestSigner(gspec.Config)
+		signer := types.LatestSigner[nist.PublicKey](gspec.Config)
 		tx, _ := types.SignNewTx(key, signer, &types.AccessListTx{
 			ChainID:  gspec.Config.ChainID,
 			Nonce:    0,
@@ -3094,7 +3095,7 @@ func TestEIP2718Transition(t *testing.T) {
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, gspec.Config, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](diskdb, nil, gspec.Config, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestBloom(t *testing.T) {
@@ -93,12 +94,12 @@ func BenchmarkBloom9Lookup(b *testing.B) {
 
 func BenchmarkCreateBloom(b *testing.B) {
 
-	var txs = Transactions{
-		NewContractCreation(1, big.NewInt(1), 1, big.NewInt(1), nil),
-		NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil),
+	var txs = Transactions[nist.PublicKey]{
+		NewContractCreation[nist.PublicKey](1, big.NewInt(1), 1, big.NewInt(1), nil),
+		NewTransaction[nist.PublicKey](2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil),
 	}
-	var rSmall = Receipts{
-		&Receipt{
+	var rSmall = Receipts[nist.PublicKey]{
+		&Receipt[nist.PublicKey]{
 			Status:            ReceiptStatusFailed,
 			CumulativeGasUsed: 1,
 			Logs: []*Log{
@@ -109,7 +110,7 @@ func BenchmarkCreateBloom(b *testing.B) {
 			ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 			GasUsed:         1,
 		},
-		&Receipt{
+		&Receipt[nist.PublicKey]{
 			PostState:         common.Hash{2}.Bytes(),
 			CumulativeGasUsed: 3,
 			Logs: []*Log{
@@ -122,7 +123,7 @@ func BenchmarkCreateBloom(b *testing.B) {
 		},
 	}
 
-	var rLarge = make(Receipts, 200)
+	var rLarge = make(Receipts[nist.PublicKey], 200)
 	// Fill it with 200 receipts x 2 logs
 	for i := 0; i < 200; i += 2 {
 		copy(rLarge[i:], rSmall)

@@ -26,22 +26,23 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
-func getBlock(transactions int, uncles int, dataSize int) *types.Block {
+func getBlock(transactions int, uncles int, dataSize int) *types.Block[nist.PublicKey] {
 	var (
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		// Generate a canonical chain to act as the main dataset
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
+		gspec   = &Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{address: {Balance: funds}},
 		}
@@ -49,13 +50,13 @@ func getBlock(transactions int, uncles int, dataSize int) *types.Block {
 	)
 
 	// We need to generate as many blocks +1 as uncles
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, uncles+1,
-		func(n int, b *BlockGen) {
+	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, uncles+1,
+		func(n int, b *BlockGen[nist.PublicKey]) {
 			if n == uncles {
 				// Add transactions and stuff on the last block
 				for i := 0; i < transactions; i++ {
-					tx, _ := types.SignTx(types.NewTransaction(uint64(i), aa,
-						big.NewInt(0), 50000, big.NewInt(1), make([]byte, dataSize)), types.HomesteadSigner{}, key)
+					tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), aa,
+						big.NewInt(0), 50000, big.NewInt(1), make([]byte, dataSize)), types.HomesteadSigner[nist.PublicKey]{}, key)
 					b.AddTx(tx)
 				}
 				for i := 0; i < uncles; i++ {
@@ -115,7 +116,7 @@ func testRlpIterator(t *testing.T, txs, uncles, datasize int) {
 		gotHashes = append(gotHashes, crypto.Keccak256Hash(txIt.Value()))
 	}
 
-	var expBody types.Body
+	var expBody types.Body[nist.PublicKey]
 	err = rlp.DecodeBytes(bodyRlp, &expBody)
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +179,7 @@ func BenchmarkHashing(b *testing.B) {
 	b.Run("fullbodyhashing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			var body types.Body
+			var body types.Body[nist.PublicKey]
 			rlp.DecodeBytes(bodyRlp, &body)
 			for _, tx := range body.Transactions {
 				exp = tx.Hash()
@@ -188,7 +189,7 @@ func BenchmarkHashing(b *testing.B) {
 	b.Run("fullblockhashing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			var block types.Block
+			var block types.Block[nist.PublicKey]
 			rlp.DecodeBytes(blockRlp, &block)
 			for _, tx := range block.Transactions() {
 				tx.Hash()

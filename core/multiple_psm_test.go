@@ -16,6 +16,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
@@ -33,18 +34,18 @@ const (
 )
 
 var (
-	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
+	testKey, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddress = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 )
 
-func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[P], map[common.Hash]*types.Block[P], *BlockChain) {
+func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
-	genesis := GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := GenerateChain(config, genesis, ethash.NewFaker(), testdb, n, func(i int, block *BlockGen) {
+	genesis := GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
+	blocks, _ := GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
-		signer := types.QuorumPrivateTxSigner{}
-		tx, err := types.SignTx(types.NewContractCreation(block.TxNonce(testAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testKey)
+		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
+		tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](block.TxNonce(testAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testKey)
 		if err != nil {
 			panic(err)
 		}
@@ -53,14 +54,14 @@ func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[P], map[c
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block[P], n+1)
+	blockm := make(map[common.Hash]*types.Block[nist.PublicKey], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()
 		blockm[b.Hash()] = b
 	}
 
-	blockchain, _ := NewBlockChain(testdb, nil, config, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](testdb, nil, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	return blocks, blockm, blockchain
 }
 
@@ -70,13 +71,13 @@ func TestMultiplePSMRStateCreated(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
-	mockpsm := mps.NewMockPrivateStateManager(mockCtrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](mockCtrl)
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{"psi1", "psi2"}, common.FromHex(testCode), nil, nil).AnyTimes()
 	mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()
@@ -95,12 +96,12 @@ func TestMultiplePSMRStateCreated(t *testing.T) {
 	for _, block := range blocks {
 		parent := blockmap[block.ParentHash()]
 		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
-		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository(blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
+		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository[nist.PublicKey](blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
 
 		privateStateRepo, err := blockchain.PrivateStateManager().StateRepository(parent.Root())
 		assert.NoError(t, err)
 
-		publicReceipts, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config{})
+		publicReceipts, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config[nist.PublicKey]{})
 
 		//managed states tests
 		for _, privateReceipt := range privateReceipts {
@@ -170,13 +171,13 @@ func TestMPSReset(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
-	mockpsm := mps.NewMockPrivateStateManager(mockCtrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](mockCtrl)
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{"psi1", "psi2"}, common.FromHex(testCode), nil, nil).AnyTimes()
 	mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()
@@ -195,12 +196,12 @@ func TestMPSReset(t *testing.T) {
 	for _, block := range blocks {
 		parent := blockmap[block.ParentHash()]
 		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
-		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository(blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
+		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository[nist.PublicKey](blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
 
 		privateStateRepo, err := blockchain.PrivateStateManager().StateRepository(parent.Root())
 		assert.NoError(t, err)
 
-		_, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config{})
+		_, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config[nist.PublicKey]{})
 
 		for _, privateReceipt := range privateReceipts {
 			expectedContractAddress := privateReceipt.ContractAddress
@@ -236,11 +237,11 @@ func TestPrivateStateMetadataResolver(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{"AAA", "CCC"}, common.FromHex(testCode), nil, nil).AnyTimes()
 	mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()

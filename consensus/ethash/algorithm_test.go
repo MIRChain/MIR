@@ -29,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // prepare converts an ethash cache or dataset from a byte stream into the internal
@@ -705,7 +706,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	defer os.RemoveAll(cachedir)
 
 	// Define a heavy enough block, one from mainnet should do
-	block := types.NewBlockWithHeader(&types.Header{
+	block := types.NewBlockWithHeader[nist.PublicKey](&types.Header{
 		Number:      big.NewInt(3311058),
 		ParentHash:  common.HexToHash("0xd783efa4d392943503f28438ad5830b2d5964696ffc285f338585e9fe0a37a05"),
 		UncleHash:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
@@ -733,7 +734,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 				CacheDir:     cachedir,
 				CachesOnDisk: 1,
 			}
-			ethash := New(config, nil, false)
+			ethash := New[nist.PublicKey](config, nil, false)
 			defer ethash.Close()
 			if err := ethash.verifySeal(nil, block.Header(), false); err != nil {
 				t.Errorf("proc %d: block verification failed: %v", idx, err)

@@ -10,6 +10,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestDefaultPSRCopy(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
 	testCache := state.NewDatabase(testdb)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
-	psr, _ := NewDefaultPrivateStateRepository(testdb, testCache, privateCacheProvider, common.Hash{})
+	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	testState, _ := psr.DefaultState()
 
@@ -30,7 +31,7 @@ func TestDefaultPSRCopy(t *testing.T) {
 	}
 	testState.Finalise(false)
 
-	psrCopy := psr.Copy().(*DefaultPrivateStateRepository)
+	psrCopy := psr.Copy().(*DefaultPrivateStateRepository[nist.PublicKey])
 
 	testStateCopy, _ := psrCopy.DefaultState()
 
@@ -77,7 +78,7 @@ func TestDefaultPSRReset(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
 	testCache := state.NewDatabase(testdb)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
-	psr, _ := NewDefaultPrivateStateRepository(testdb, testCache, privateCacheProvider, common.Hash{})
+	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	testState, _ := psr.DefaultState()
 
@@ -104,7 +105,7 @@ func TestOnlyPrivateStateAccessible(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
 	testCache := state.NewDatabase(testdb)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
-	psr, _ := NewDefaultPrivateStateRepository(testdb, testCache, privateCacheProvider, common.Hash{})
+	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	privateState, _ := psr.DefaultState()
 	assert.NotEqual(t, privateState, nil)
@@ -119,9 +120,9 @@ func TestDefaultPSRCommit(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
 	testCache := state.NewDatabase(testdb)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
-	psr, _ := NewDefaultPrivateStateRepository(testdb, testCache, privateCacheProvider, common.Hash{})
+	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 	header := &types.Header{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
-	block := types.NewBlockWithHeader(header)
+	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	testState, _ := psr.DefaultState()
 
@@ -150,9 +151,9 @@ func TestDefaultPSRCommitAndWrite(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
 	testCache := state.NewDatabase(testdb)
 	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
-	psr, _ := NewDefaultPrivateStateRepository(testdb, testCache, privateCacheProvider, common.Hash{})
+	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 	header := &types.Header{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
-	block := types.NewBlockWithHeader(header)
+	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	testState, _ := psr.DefaultState()
 

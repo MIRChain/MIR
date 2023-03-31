@@ -4,15 +4,16 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,11 +67,11 @@ func TestMultiplePSMRDBUpgrade(t *testing.T) {
 
 	mockptm := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", []string{"CCC"}, common.FromHex(testCode), nil, nil).AnyTimes()
 	mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()
@@ -108,7 +109,7 @@ func TestMultiplePSMRDBUpgrade(t *testing.T) {
 	assert.NotEqual(t, standaloneStateDB.GetCodeSize(c3Address), 0)
 
 	// execute mpsdbupgrade
-	assert.Nil(t, mps.UpgradeDB(db, blockchain))
+	assert.Nil(t, mps.UpgradeDB[nist.PublicKey](db, blockchain))
 	// UpgradeDB updates the chainconfig isMPS to true so set it back to false at the end of the test
 	defer func() { DBUpgradeQuorumTestChainConfig.IsMPS = false }()
 	assert.True(t, DBUpgradeQuorumTestChainConfig.IsMPS)
@@ -116,7 +117,7 @@ func TestMultiplePSMRDBUpgrade(t *testing.T) {
 	blockchain.Stop()
 
 	// reinstantiate the blockchain with isMPS enabled
-	blockchain, err = NewBlockChain(db, nil, DBUpgradeQuorumTestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	blockchain, err = NewBlockChain[nist.PublicKey](db, nil, DBUpgradeQuorumTestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	assert.Nil(t, err)
 
 	count, err = blockchain.InsertChain(blocks[3:])

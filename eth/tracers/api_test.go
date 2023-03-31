@@ -40,6 +40,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -64,7 +65,7 @@ var _ Backend = &testBackend{}
 func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
 	backend := &testBackend{
 		chainConfig: params.TestChainConfig,
-		engine:      ethash.NewFaker(),
+		engine:       ethash.NewFaker[nist.PublicKey](),
 		chaindb:     rawdb.NewMemoryDatabase(),
 	}
 	// Generate blocks for testing
@@ -73,7 +74,7 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 		gendb   = rawdb.NewMemoryDatabase()
 		genesis = gspec.MustCommit(gendb)
 	)
-	blocks, _ := core.GenerateChain(backend.chainConfig, genesis, backend.engine, gendb, n, generator)
+	blocks, _ := core.GenerateChain[nist.PublicKey](backend.chainConfig, genesis, backend.engine, gendb, n, generator)
 
 	// Import the canonical chain
 	gspec.MustCommit(backend.chaindb)
@@ -84,7 +85,7 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 		SnapshotLimit:     0,
 		TrieDirtyDisabled: true, // Archive mode
 	}
-	chain, err := core.NewBlockChain(backend.chaindb, cacheConfig, backend.chainConfig, backend.engine, vm.Config{}, nil, nil, nil)
+	chain, err := core.NewBlockChain[nist.PublicKey](backend.chaindb, cacheConfig, backend.chainConfig, backend.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -178,7 +179,7 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 		if idx == txIndex {
 			return msg, context, statedb, privateState, privateStateRepo, nil
 		}
-		vmenv := vm.NewEVM(context, txContext, statedb, privateState, b.chainConfig, vm.Config{})
+		vmenv := vm.NewEVM(context, txContext, statedb, privateState, b.chainConfig, vm.Config[nist.PublicKey]{})
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 		}

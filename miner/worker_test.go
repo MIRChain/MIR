@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus"
@@ -35,12 +36,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -138,12 +139,12 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	}
 	genesis := gspec.MustCommit(db)
 
-	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[nist.PublicKey](db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain)
 
 	// Generate a small n-block chain and an uncle block for it
 	if n > 0 {
-		blocks, _ := core.GenerateChain(chainConfig, genesis, engine, db, n, func(i int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, genesis, engine, db, n, func(i int, gen *core.BlockGen) {
 			gen.SetCoinbase(testBankAddress)
 		})
 		if _, err := chain.InsertChain(blocks); err != nil {
@@ -154,7 +155,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	if n > 0 {
 		parent = chain.GetBlockByHash(chain.CurrentBlock().ParentHash())
 	}
-	blocks, _ := core.GenerateChain(chainConfig, parent, engine, db, 1, func(i int, gen *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, parent, engine, db, 1, func(i int, gen *core.BlockGen) {
 		gen.SetCoinbase(testUserAddress)
 	})
 
@@ -179,7 +180,7 @@ func (b *testWorkerBackend) newRandomUncle() *types.Block {
 	} else {
 		parent = b.chain.GetBlockByHash(b.chain.CurrentBlock().ParentHash())
 	}
-	blocks, _ := core.GenerateChain(b.chain.Config(), parent, b.chain.Engine(), b.db, 1, func(i int, gen *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](b.chain.Config(), parent, b.chain.Engine(), b.db, 1, func(i int, gen *core.BlockGen) {
 		var addr = make([]byte, common.AddressLength)
 		rand.Read(addr)
 		gen.SetCoinbase(common.BytesToAddress(addr))
@@ -230,7 +231,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 		engine = clique.New(chainConfig.Clique, db)
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 	}
 
 	w, b := newTestWorker(t, chainConfig, engine, db, 0)
@@ -239,7 +240,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[nist.PublicKey](db2, nil, b.chain.Config(), engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
@@ -273,7 +274,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 }
 
 func TestEmptyWorkEthash(t *testing.T) {
-	testEmptyWork(t, ethashChainConfig, ethash.NewFaker())
+	testEmptyWork(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
 }
 func TestEmptyWorkClique(t *testing.T) {
 	testEmptyWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
@@ -325,7 +326,7 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 }
 
 func TestStreamUncleBlock(t *testing.T) {
-	ethash := ethash.NewFaker()
+	ethash :=  ethash.NewFaker[nist.PublicKey]()
 	defer ethash.Close()
 
 	w, b := newTestWorker(t, ethashChainConfig, ethash, rawdb.NewMemoryDatabase(), 1)
@@ -376,7 +377,7 @@ func TestStreamUncleBlock(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockEthash(t *testing.T) {
-	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker())
+	testRegenerateMiningBlock(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
 }
 
 func TestRegenerateMiningBlockClique(t *testing.T) {
@@ -436,7 +437,7 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 }
 
 func TestAdjustIntervalEthash(t *testing.T) {
-	testAdjustInterval(t, ethashChainConfig, ethash.NewFaker())
+	testAdjustInterval(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
 }
 
 func TestAdjustIntervalClique(t *testing.T) {

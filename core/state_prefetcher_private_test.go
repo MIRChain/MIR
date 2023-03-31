@@ -1,13 +1,13 @@
 package core
 
 import (
-	"crypto/ecdsa"
 	"encoding/base64"
 	"math/big"
 	"os"
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/core/mps"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -46,20 +46,20 @@ var (
 
 func TestPrefetch_PublicTransaction(t *testing.T) {
 	var (
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 	)
 	mockTxDataArr := createMockTxData(contractDeploymentCount, Public)
 	chain, gspec := createBlockchain(params.QuorumTestChainConfig, mockTxDataArr)
 	minedBlock, futureBlock := createBlocks(chain, gspec, mockTxDataArr, nil)
 
 	// Import the canonical chain
-	chain.InsertChain(types.Blocks{minedBlock})
+	chain.InsertChain(types.Blocks[nist.PublicKey]{minedBlock})
 
-	prefetcher := newStatePrefetcher(gspec.Config, chain, engine)
+	prefetcher := newStatePrefetcher[nist.PublicKey](gspec.Config, chain, engine)
 	throwaway, throwawayRepo := createThrowawayStates(minedBlock, chain)
 
 	// When
-	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config{}, nil)
+	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config[nist.PublicKey]{}, nil)
 
 	// Then
 	for _, data := range mockTxDataArr {
@@ -70,29 +70,29 @@ func TestPrefetch_PublicTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateDualStateTransaction(t *testing.T) {
 	var (
-		engine   = ethash.NewFaker()
+		engine   =  ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
 
 	mockptm := createDualStatePrivateTransactionManagerMock(mockCtrl)
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockTxDataArr := createMockTxData(contractDeploymentCount, Private)
 	chain, gspec := createBlockchain(params.QuorumTestChainConfig, mockTxDataArr)
 	minedBlock, futureBlock := createBlocks(chain, gspec, mockTxDataArr, nil)
 
 	// Import the canonical chain
-	chain.InsertChain(types.Blocks{minedBlock})
-	prefetcher := newStatePrefetcher(gspec.Config, chain, engine)
+	chain.InsertChain(types.Blocks[nist.PublicKey]{minedBlock})
+	prefetcher := newStatePrefetcher[nist.PublicKey](gspec.Config, chain, engine)
 	throwaway, throwawayRepo := createThrowawayStates(minedBlock, chain)
 
 	// When
-	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config{}, nil)
+	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config[nist.PublicKey]{}, nil)
 
 	// Then
 	assertPrefetchedDualState(t, mockTxDataArr, throwaway, throwawayRepo)
@@ -100,29 +100,29 @@ func TestPrefetch_PrivateDualStateTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateMPSTransaction(t *testing.T) {
 	var (
-		engine   = ethash.NewFaker()
+		engine   =  ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
 
 	mockptm := createMPSPrivateTransactionManagerMock(mockCtrl)
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockTxDataArr := createMockTxData(contractDeploymentCount, Private)
 	chain, gspec := createBlockchain(params.QuorumMPSTestChainConfig, mockTxDataArr)
 	minedBlock, futureBlock := createBlocks(chain, gspec, mockTxDataArr, nil)
 
 	// Import the canonical chain
-	chain.InsertChain(types.Blocks{minedBlock})
-	prefetcher := newStatePrefetcher(gspec.Config, chain, engine)
+	chain.InsertChain(types.Blocks[nist.PublicKey]{minedBlock})
+	prefetcher := newStatePrefetcher[nist.PublicKey](gspec.Config, chain, engine)
 	throwaway, throwawayRepo := createThrowawayStates(minedBlock, chain)
 
 	// When
-	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config{}, nil)
+	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config[nist.PublicKey]{}, nil)
 
 	// Then
 	assertPrefetchedMPSState(t, mockTxDataArr, throwaway, throwawayRepo)
@@ -130,7 +130,7 @@ func TestPrefetch_PrivateMPSTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 	var (
-		engine   = ethash.NewFaker()
+		engine   =  ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -140,11 +140,11 @@ func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 	defer func() { params.QuorumTestChainConfig.PrivacyPrecompileBlock = nil }()
 
 	mockptm := createDualStatePrivateTransactionManagerMock(mockCtrl)
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockTxDataArr := createMockTxData(contractDeploymentCount, PMT)
 
@@ -152,12 +152,12 @@ func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 	minedBlock, futureBlock := createBlocks(chain, gspec, mockTxDataArr, createInnerTransactionHandlerMock(mockptm))
 
 	// Import the canonical chain
-	chain.InsertChain(types.Blocks{minedBlock})
-	prefetcher := newStatePrefetcher(gspec.Config, chain, engine)
+	chain.InsertChain(types.Blocks[nist.PublicKey]{minedBlock})
+	prefetcher := newStatePrefetcher[nist.PublicKey](gspec.Config, chain, engine)
 	throwaway, throwawayRepo := createThrowawayStates(minedBlock, chain)
 
 	// When
-	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config{}, nil)
+	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config[nist.PublicKey]{}, nil)
 
 	// Then
 	assertPrefetchedDualState(t, mockTxDataArr, throwaway, throwawayRepo)
@@ -165,7 +165,7 @@ func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 	var (
-		engine   = ethash.NewFaker()
+		engine   =  ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -175,11 +175,11 @@ func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 	defer func() { params.QuorumMPSTestChainConfig.PrivacyPrecompileBlock = nil }()
 
 	mockptm := createMPSPrivateTransactionManagerMock(mockCtrl)
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockTxDataArr := createMockTxData(contractDeploymentCount, PMT)
 
@@ -187,12 +187,12 @@ func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 	minedBlock, futureBlock := createBlocks(chain, gspec, mockTxDataArr, createInnerTransactionHandlerMock(mockptm))
 
 	// Import the canonical chain
-	chain.InsertChain(types.Blocks{minedBlock})
-	prefetcher := newStatePrefetcher(gspec.Config, chain, engine)
+	chain.InsertChain(types.Blocks[nist.PublicKey]{minedBlock})
+	prefetcher := newStatePrefetcher[nist.PublicKey](gspec.Config, chain, engine)
 	throwaway, throwawayRepo := createThrowawayStates(minedBlock, chain)
 
 	// When
-	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config{}, nil)
+	prefetcher.Prefetch(futureBlock, throwaway, throwawayRepo, vm.Config[nist.PublicKey]{}, nil)
 
 	// Then
 	assertPrefetchedMPSState(t, mockTxDataArr, throwaway, throwawayRepo)
@@ -200,7 +200,7 @@ func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 
 // Assert functions
 
-func assertPrefetchedDualState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository) {
+func assertPrefetchedDualState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository[nist.PublicKey]) {
 	throwawayPrivateState, _ := throwawayRepo.DefaultState()
 	for _, data := range mockTxDataArr {
 		assert.Equal(t, uint64(2), throwaway.GetNonce(data.fromAddress))
@@ -209,7 +209,7 @@ func assertPrefetchedDualState(t *testing.T, mockTxDataArr []*mockTxData, throwa
 	}
 }
 
-func assertPrefetchedMPSState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository) {
+func assertPrefetchedMPSState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository[nist.PublicKey]) {
 	throwawayDefaultPrivateState, _ := throwawayRepo.DefaultState()
 	throwawayPS1PrivateState, _ := throwawayRepo.StatePSI(PSI1PSM.ID)
 	throwawayPS2PrivateState, _ := throwawayRepo.StatePSI(PSI2PSM.ID)
@@ -234,7 +234,7 @@ const (
 
 type mockTxData struct {
 	fromAddress    common.Address
-	fromPrivateKey *ecdsa.PrivateKey
+	fromPrivateKey nist.PrivateKey
 
 	toAddress common.Address
 
@@ -246,7 +246,7 @@ type mockTxData struct {
 // Utility functions
 
 // createThrowawayStates create the StateDBs to be used for the prefetcher to warm up the cached but are thrown away after
-func createThrowawayStates(minedBlock *types.Block[P], chain *BlockChain) (*state.StateDB, mps.PrivateStateRepository) {
+func createThrowawayStates(minedBlock *types.Block[nist.PublicKey], chain *BlockChain[nist.PublicKey]) (*state.StateDB, mps.PrivateStateRepository[nist.PublicKey]) {
 	throwaway, _ := state.New(minedBlock.Root(), chain.stateCache, chain.snaps)
 	privateRepo, _ := chain.PrivateStateManager().StateRepository(minedBlock.Root())
 	throwawayRepo := privateRepo.Copy()
@@ -290,13 +290,13 @@ func createMPSPrivateTransactionManagerMock(mockCtrl *gomock.Controller) *privat
 }
 
 // createInnerTransactionHandlerMock create a function that will create the necessary mock to handle the Private Transaction `Receive()` of the private transaction inside a PMT Tx
-func createInnerTransactionHandlerMock(mockptm *private.MockPrivateTransactionManager) func(outerTx *types.Transaction[P], mockTxData *mockTxData) {
-	return func(outerTx *types.Transaction[P], mockTxData *mockTxData) {
+func createInnerTransactionHandlerMock(mockptm *private.MockPrivateTransactionManager) func(outerTx *types.Transaction[nist.PublicKey], mockTxData *mockTxData) {
+	return func(outerTx *types.Transaction[nist.PublicKey], mockTxData *mockTxData) {
 		enclaveHash := common.BytesToEncryptedPayloadHash(outerTx.Data())
 		mockptm.EXPECT().Receive(enclaveHash).DoAndReturn(func(hash common.EncryptedPayloadHash) (string, []string, []byte, *privateEngine.ExtraMetadata, error) {
-			innerTx := types.NewTransaction(1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, encryptedPayloadHashForSetFunction.Bytes())
+			innerTx := types.NewTransaction[nist.PublicKey](1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, encryptedPayloadHashForSetFunction.Bytes())
 			innerTx.SetPrivate()
-			signedTx, _ := types.SignTx(innerTx, types.QuorumPrivateTxSigner{}, mockTxData.fromPrivateKey)
+			signedTx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](innerTx, types.QuorumPrivateTxSigner[nist.PublicKey]{}, mockTxData.fromPrivateKey)
 			jsonSignedTx, _ := signedTx.MarshalJSON()
 			return "", []string{}, jsonSignedTx, nil, nil
 		}).AnyTimes()
@@ -307,8 +307,8 @@ func createInnerTransactionHandlerMock(mockptm *private.MockPrivateTransactionMa
 func createMockTxData(n int, txType txType) []*mockTxData {
 	result := make([]*mockTxData, n)
 	for i := 0; i < n; i++ {
-		fromKey, _ := crypto.GenerateKey()
-		fromAddress := crypto.PubkeyToAddress(fromKey.PublicKey)
+		fromKey, _ := crypto.GenerateKey[nist.PrivateKey]()
+		fromAddress := crypto.PubkeyToAddress[nist.PublicKey](*fromKey.Public())
 		result[i] = &mockTxData{
 			fromPrivateKey: fromKey,
 			fromAddress:    fromAddress,
@@ -318,9 +318,9 @@ func createMockTxData(n int, txType txType) []*mockTxData {
 	return result
 }
 
-func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxData) (*BlockChain, *Genesis) {
+func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxData) (*BlockChain[nist.PublicKey], *Genesis[nist.PublicKey]) {
 	var (
-		engine      = ethash.NewFaker()
+		engine      =  ethash.NewFaker[nist.PublicKey]()
 		cacheConfig = *defaultCacheConfig
 	)
 	// Disable prefetching. We are going to manually run prefetch
@@ -333,30 +333,30 @@ func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxDa
 			Nonce:   0,
 		}
 	}
-	gspec := &Genesis{
+	gspec := &Genesis[nist.PublicKey]{
 		Config: chainConfig,
 		Alloc:  allocation,
 	}
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(diskdb)
-	vmConfig := vm.Config{
+	vmConfig := vm.Config[nist.PublicKey]{
 		Debug:  true,
-		Tracer: vm.NewJSONLogger(nil, os.Stdout),
+		Tracer: vm.NewJSONLogger[nist.PublicKey](nil, os.Stdout),
 	}
-	chain, _ := NewBlockChain(diskdb, &cacheConfig, gspec.Config, engine, vmConfig, nil, nil, nil)
+	chain, _ := NewBlockChain[nist.PublicKey](diskdb, &cacheConfig, gspec.Config, engine, vmConfig, nil, nil, nil)
 
 	return chain, gspec
 }
 
-func createBlocks(chain *BlockChain, gspec *Genesis, mockTxDataArr []*mockTxData, decorateSetTransaction func(*types.Transaction[P], *mockTxData)) (*types.Block[P], *types.Block[P]) {
+func createBlocks(chain *BlockChain[nist.PublicKey], gspec *Genesis[nist.PublicKey], mockTxDataArr []*mockTxData, decorateSetTransaction func(*types.Transaction[nist.PublicKey], *mockTxData)) (*types.Block[nist.PublicKey], *types.Block[nist.PublicKey]) {
 	var (
-		engine      = ethash.NewFaker()
+		engine      =  ethash.NewFaker[nist.PublicKey]()
 		temporaryDb = rawdb.NewMemoryDatabase()
 	)
 	genesisBlock := gspec.MustCommit(temporaryDb)
-	minedBlocks, _ := GenerateChain(gspec.Config, genesisBlock, engine, temporaryDb, 1, func(i int, b *BlockGen) {
+	minedBlocks, _ := GenerateChain[nist.PublicKey](gspec.Config, genesisBlock, engine, temporaryDb, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
-		var signer types.Signer = types.HomesteadSigner{}
+		var signer types.Signer[nist.PublicKey] = types.HomesteadSigner[nist.PublicKey]{}
 		for _, mockTxData := range mockTxDataArr {
 			var data []byte
 			switch mockTxData.txType {
@@ -366,46 +366,46 @@ func createBlocks(chain *BlockChain, gspec *Genesis, mockTxDataArr []*mockTxData
 				data = encryptedPayloadHashForContractDeployment.Bytes()
 			}
 
-			createTransaction := types.NewContractCreation(0, common.Big0, uint64(3000000), common.Big0, data)
+			createTransaction := types.NewContractCreation[nist.PublicKey](0, common.Big0, uint64(3000000), common.Big0, data)
 
 			switch mockTxData.txType {
 			case Private, PMT:
 				createTransaction.SetPrivate()
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[nist.PublicKey]{}
 			}
-			signedTx, _ := types.SignTx(createTransaction, signer, mockTxData.fromPrivateKey)
+			signedTx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](createTransaction, signer, mockTxData.fromPrivateKey)
 			b.AddTxWithChain(chain, signedTx)
 
 			// save the contract address to use when calling `set()`
 			mockTxData.toAddress = b.receipts[0].ContractAddress
 		}
 	})
-	futureBlocks, _ := GenerateChain(gspec.Config, minedBlocks[0], engine, temporaryDb, 1, func(i int, b *BlockGen) {
+	futureBlocks, _ := GenerateChain[nist.PublicKey](gspec.Config, minedBlocks[0], engine, temporaryDb, 1, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
-		var signer types.Signer = types.HomesteadSigner{}
+		var signer types.Signer[nist.PublicKey] = types.HomesteadSigner[nist.PublicKey]{}
 		for _, mockTxData := range mockTxDataArr {
 			var data []byte
-			var setTransaction *types.Transaction[P]
+			var setTransaction *types.Transaction[nist.PublicKey]
 
 			switch mockTxData.txType {
 			case Public:
 				data = contractSetABIPayloadBytes
-				setTransaction = types.NewTransaction(1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, data)
+				setTransaction = types.NewTransaction[nist.PublicKey](1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, data)
 			case Private:
 				data = encryptedPayloadHashForSetFunction.Bytes()
-				setTransaction = types.NewTransaction(1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, data)
+				setTransaction = types.NewTransaction[nist.PublicKey](1, mockTxData.toAddress, common.Big0, uint64(3000000), common.Big0, data)
 				setTransaction.SetPrivate()
-				signer = types.QuorumPrivateTxSigner{}
+				signer = types.QuorumPrivateTxSigner[nist.PublicKey]{}
 			case PMT:
 				data = common.LeftPadBytes(mockTxData.toAddress.Bytes(), 64)
-				setTransaction = types.NewTransaction(1, common.QuorumPrivacyPrecompileContractAddress(), common.Big0, uint64(3000000), common.Big0, data)
+				setTransaction = types.NewTransaction[nist.PublicKey](1, common.QuorumPrivacyPrecompileContractAddress(), common.Big0, uint64(3000000), common.Big0, data)
 			}
 
 			if decorateSetTransaction != nil {
 				decorateSetTransaction(setTransaction, mockTxData)
 			}
 
-			signedTx, _ := types.SignTx(setTransaction, signer, mockTxData.fromPrivateKey)
+			signedTx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](setTransaction, signer, mockTxData.fromPrivateKey)
 			b.AddTxWithChain(chain, signedTx)
 		}
 	})

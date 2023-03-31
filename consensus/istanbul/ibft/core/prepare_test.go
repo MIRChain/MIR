@@ -28,6 +28,7 @@ import (
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestHandlePrepare(t *testing.T) {
@@ -263,7 +264,7 @@ OUTER:
 // round is not checked for now
 func TestVerifyPrepare(t *testing.T) {
 	// for log purpose
-	privateKey, _ := crypto.GenerateKey()
+	privateKey, _ := crypto.GenerateKey[nist.PrivateKey]()
 	peer := validator.New(getPublicKeyAddress(privateKey))
 	valSet := validator.NewSet([]common.Address{peer.Address()}, istanbul.NewRoundRobinProposerPolicy())
 

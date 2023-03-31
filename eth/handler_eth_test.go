@@ -32,6 +32,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
 	"github.com/pavelkrolevets/MIR-pro/event"
@@ -88,7 +89,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	var (
-		engine = ethash.NewFaker()
+		engine =  ethash.NewFaker[nist.PublicKey]()
 
 		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
 		configProFork = &params.ChainConfig{
@@ -107,11 +108,11 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 		genesisNoFork  = gspecNoFork.MustCommit(dbNoFork)
 		genesisProFork = gspecProFork.MustCommit(dbProFork)
 
-		chainNoFork, _  = core.NewBlockChain(dbNoFork, nil, configNoFork, engine, vm.Config{}, nil, nil, nil)
-		chainProFork, _ = core.NewBlockChain(dbProFork, nil, configProFork, engine, vm.Config{}, nil, nil, nil)
+		chainNoFork, _  = core.NewBlockChain[nist.PublicKey](dbNoFork, nil, configNoFork, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+		chainProFork, _ = core.NewBlockChain[nist.PublicKey](dbProFork, nil, configProFork, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 
-		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
-		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
+		blocksNoFork, _  = core.GenerateChain[nist.PublicKey](configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
+		blocksProFork, _ = core.GenerateChain[nist.PublicKey](configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
 		ethNoFork, _ = newHandler(&handlerConfig{
 			Database:   dbNoFork,

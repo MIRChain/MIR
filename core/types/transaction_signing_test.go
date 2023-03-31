@@ -22,20 +22,21 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 func TestEIP155Signing(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := crypto.GenerateKey[nist.PrivateKey]()
+	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
-	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	signer := NewEIP155Signer[nist.PublicKey](big.NewInt(18))
+	tx, err := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(signer, tx)
+	from, err := Sender[nist.PublicKey](signer, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,11 +46,11 @@ func TestEIP155Signing(t *testing.T) {
 }
 
 func TestEIP155ChainId(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := crypto.GenerateKey[nist.PrivateKey]()
+	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
-	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	signer := NewEIP155Signer[nist.PublicKey](big.NewInt(18))
+	tx, err := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,8 +62,8 @@ func TestEIP155ChainId(t *testing.T) {
 		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
 	}
 
-	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
-	tx, err = SignTx(tx, HomesteadSigner{}, key)
+	tx = NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
+	tx, err = SignTx[nist.PrivateKey,nist.PublicKey](tx, HomesteadSigner[nist.PublicKey]{}, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,16 +96,16 @@ func TestEIP155SigningVitalik(t *testing.T) {
 		{"f86c098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a76400008038a0878b3ea61b8135c5f6c6907ea6669fc0f9eb9c90e4b648923498627c4cb8b5b6a02e8de6963a8649f16cadfebf23def96cafd89072ad19ed04c29e5f880e5ede98", "0x0EfbD0bEC0dA8dCc0Ad442A7D337E9CDc2dd6a54"},
 		{"f86c098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a76400008037a0fa0fd46b84c9d488558da70103960f1c43400b4d92cc9ca37737bd508635acefa01b2b01c2667ce7b48cc3fcfdba75181d097134ae6e57af4b691ba6d5c118d0c1", "0x0E8E18e1A11E6196f6B82426196027d042Fd6812"},
 	} {
-		signer := NewEIP155Signer(big.NewInt(10))
+		signer := NewEIP155Signer[nist.PublicKey](big.NewInt(10))
 
-		var tx *Transaction
+		var tx *Transaction[nist.PublicKey]
 		err := rlp.DecodeBytes(common.Hex2Bytes(test.txRlp), &tx)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
 		}
 
-		from, err := Sender(signer, tx)
+		from, err := Sender[nist.PublicKey](signer, tx)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
@@ -121,20 +122,20 @@ func TestEIP155SigningVitalik(t *testing.T) {
 func TestChainId(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
+	tx := NewTransaction[nist.PublicKey](0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
 
 	var err error
-	tx, err = SignTx(tx, NewEIP155Signer(big.NewInt(10)), key)
+	tx, err = SignTx[nist.PrivateKey,nist.PublicKey](tx, NewEIP155Signer[nist.PublicKey](big.NewInt(10)), key)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = Sender(NewEIP155Signer(big.NewInt(11)), tx)
+	_, err = Sender[nist.PublicKey](NewEIP155Signer[nist.PublicKey](big.NewInt(11)), tx)
 	if err != ErrInvalidChainId {
 		t.Error("expected error:", ErrInvalidChainId)
 	}
 
-	_, err = Sender(NewEIP155Signer(big.NewInt(10)), tx)
+	_, err = Sender[nist.PublicKey](NewEIP155Signer[nist.PublicKey](big.NewInt(10)), tx)
 	if err != nil {
 		t.Error("expected no error")
 	}

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -23,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
@@ -34,8 +37,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/private/engine/notinuse"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/golang/mock/gomock"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -953,7 +954,7 @@ func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.Mi
 	}
 	config := params.QuorumTestChainConfig
 	config.IstanbulBlock = sb.IstanbulBlock
-	return vm.NewEVM(vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config{}), vmError, nil
+	return vm.NewEVM(vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config[nist.PublicKey]{}), vmError, nil
 }
 
 func (sb *StubBackend) CurrentBlock() *types.Block {

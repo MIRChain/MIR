@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus"
@@ -37,6 +38,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
@@ -50,7 +52,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/pavelkrolevets/MIR-pro/private/engine/notinuse"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/sha3"
 )
@@ -274,8 +275,8 @@ func createGQLService(t *testing.T, stack *node.Node) {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		ethash.NewFaker(), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
+	chain, _ := core.GenerateChain[nist.PublicKey](params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
+		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
@@ -353,8 +354,8 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	})
 
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		ethash.NewFaker(), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
+	chain, _ := core.GenerateChain[nist.PublicKey](params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
+		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{1})
 			b.AddTx(legacyTx)
 			b.AddTx(envelopTx)

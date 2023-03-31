@@ -29,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
@@ -255,7 +256,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create consensus engine
 	engine := clique.New(chainConfig.Clique, chainDB)
 	// Create Ethereum backend
-	bc, err := core.NewBlockChain(chainDB, nil, chainConfig, engine, vm.Config{}, nil, nil, nil)
+	bc, err := core.NewBlockChain[nist.PublicKey](chainDB, nil, chainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}

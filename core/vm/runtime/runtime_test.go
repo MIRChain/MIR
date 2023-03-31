@@ -262,7 +262,7 @@ func (d *dummyChain) Config() *params.ChainConfig { return &params.ChainConfig{}
 func (d *dummyChain) QuorumConfig() *core.QuorumChainConfig { return &core.QuorumChainConfig{} }
 
 // PrivateStateManager returns the private state manager
-func (d *dummyChain) PrivateStateManager() mps.PrivateStateManager { return nil }
+func (d *dummyChain) PrivateStateManager() mps.PrivateStateManager[nist.PublicKey] { return nil }
 
 // CheckAndSetPrivateState updates the private state as a part contract state extension
 func (d *dummyChain) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {

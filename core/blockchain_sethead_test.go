@@ -33,6 +33,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -1969,8 +1970,8 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 
 	// Initialize a fresh chain
 	var (
-		genesis = new(Genesis).MustCommit(db)
-		engine  = ethash.NewFullFaker()
+		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
+		engine  = ethash.NewFullFaker[nist.PublicKey]()
 		config  = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,
@@ -1982,21 +1983,21 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.AllEthashProtocolChanges, engine, vm.Config{}, nil, nil, nil)
+	chain, err := NewBlockChain[nist.PublicKey](db, config, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
 	// If sidechain blocks are needed, make a light chain and import it
-	var sideblocks types.Blocks
+	var sideblocks types.Blocks[nist.PublicKey]
 	if tt.sidechainBlocks > 0 {
-		sideblocks, _ = GenerateChain(params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen) {
+		sideblocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	canonblocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen) {
+	canonblocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -2059,7 +2060,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 
 // verifyNoGaps checks that there are no gaps after the initial set of blocks in
 // the database and errors if found.
-func verifyNoGaps(t *testing.T, chain *BlockChain, canonical bool, inserted types.Blocks) {
+func verifyNoGaps(t *testing.T, chain *BlockChain[nist.PublicKey], canonical bool, inserted types.Blocks[nist.PublicKey]) {
 	t.Helper()
 
 	var end uint64
@@ -2111,7 +2112,7 @@ func verifyNoGaps(t *testing.T, chain *BlockChain, canonical bool, inserted type
 
 // verifyCutoff checks that there are no chain data available in the chain after
 // the specified limit, but that it is available before.
-func verifyCutoff(t *testing.T, chain *BlockChain, canonical bool, inserted types.Blocks, head int) {
+func verifyCutoff(t *testing.T, chain *BlockChain[nist.PublicKey], canonical bool, inserted types.Blocks[nist.PublicKey], head int) {
 	t.Helper()
 
 	for i := 1; i <= len(inserted); i++ {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/stretchr/testify/require"
 )
@@ -11,12 +12,12 @@ import (
 func TestActivePrecompiles(t *testing.T) {
 	tests := []struct {
 		name string
-		evm  *EVM
+		evm  *EVM[nist.PublicKey]
 		want []common.Address
 	}{
 		{
 			name: "istanbul-plus-quorum-privacy",
-			evm: &EVM{
+			evm: &EVM[nist.PublicKey]{
 				chainRules: params.Rules{
 					IsIstanbul:          true,
 					IsPrivacyPrecompile: true,
@@ -37,7 +38,7 @@ func TestActivePrecompiles(t *testing.T) {
 		},
 		{
 			name: "homestead-plus-quorum-privacy",
-			evm: &EVM{
+			evm: &EVM[nist.PublicKey]{
 				chainRules: params.Rules{
 					IsHomestead:         true,
 					IsPrivacyPrecompile: true,
@@ -53,7 +54,7 @@ func TestActivePrecompiles(t *testing.T) {
 		},
 		{
 			name: "istanbul",
-			evm: &EVM{
+			evm: &EVM[nist.PublicKey]{
 				chainRules: params.Rules{
 					IsIstanbul:          true,
 					IsPrivacyPrecompile: false,
@@ -73,7 +74,7 @@ func TestActivePrecompiles(t *testing.T) {
 		},
 		{
 			name: "homestead",
-			evm: &EVM{
+			evm: &EVM[nist.PublicKey]{
 				chainRules: params.Rules{
 					IsHomestead:         true,
 					IsPrivacyPrecompile: false,

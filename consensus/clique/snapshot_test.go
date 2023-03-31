@@ -35,12 +35,12 @@ import (
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
 type testerAccountPool struct {
-	accounts map[string]*nist.PrivateKey
+	accounts map[string]nist.PrivateKey
 }
 
 func newTesterAccountPool() *testerAccountPool {
 	return &testerAccountPool{
-		accounts: make(map[string]*nist.PrivateKey),
+		accounts: make(map[string]nist.PrivateKey),
 	}
 }
 
@@ -65,8 +65,8 @@ func (ap *testerAccountPool) address(account string) common.Address {
 		return common.Address{}
 	}
 	// Ensure we have a persistent key for the account
-	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = crypto.GenerateKey[*nist.PrivateKey]()
+	if ap.accounts[account] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
+		ap.accounts[account], _ = crypto.GenerateKey[nist.PrivateKey]()
 	}
 	// Resolve and return the Ethereum address
 	return crypto.PubkeyToAddress[nist.PublicKey](*ap.accounts[account].Public())
@@ -76,8 +76,8 @@ func (ap *testerAccountPool) address(account string) common.Address {
 // back into the header.
 func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 	// Ensure we have a persistent key for the signer
-	if ap.accounts[signer] == nil {
-		ap.accounts[signer], _ = crypto.GenerateKey[*nist.PrivateKey]()
+	if ap.accounts[signer] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
+		ap.accounts[signer], _ = crypto.GenerateKey[nist.PrivateKey]()
 	}
 	// Sign the header and embed the signature in extra data
 	sig, _ := crypto.Sign(SealHash(header).Bytes(), ap.accounts[signer])

@@ -17,20 +17,20 @@
 package types
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
-func signTxWithSigner(signer Signer, key *ecdsa.PrivateKey) (*Transaction, common.Address, error) {
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	tx := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
-	signedTx, err := SignTx(tx, signer, key)
+func signTxWithSigner(signer Signer[nist.PublicKey], key nist.PrivateKey) (*Transaction[nist.PublicKey], common.Address, error) {
+	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	tx := NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
+	signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](tx, signer, key)
 	return signedTx, addr, err
 }
 
@@ -48,14 +48,14 @@ func TestQuorumSignPrivateQuorum(t *testing.T) {
 
 	for i := 0; i < len(keys); i++ {
 		key, _ := createKey(crypto.S256(), keys[i])
-		qpPrivateSigner := QuorumPrivateTxSigner{HomesteadSigner{}}
+		qpPrivateSigner := QuorumPrivateTxSigner[nist.PublicKey]{HomesteadSigner[nist.PublicKey]{}}
 
 		signedTx, addr, err := signTxWithSigner(qpPrivateSigner, key)
 		v, _, _ := signedTx.RawSignatureValues()
 		assert.Nil(err, err)
 		assert.True(signedTx.IsPrivate(),
 			fmt.Sprintf("The signed transaction is not private, signedTx.data.V is [%v]", v))
-		from, err := Sender(qpPrivateSigner, signedTx)
+		from, err := Sender[nist.PublicKey](qpPrivateSigner, signedTx)
 		assert.Nil(err, err)
 		assert.True(from == addr, fmt.Sprintf("Expected from == address, [%x] == [%x]", from, addr))
 	}

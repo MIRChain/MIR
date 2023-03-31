@@ -25,6 +25,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
@@ -39,18 +40,18 @@ var k0v, _ = new(big.Int).SetString("2580726060240250453667582044414277924899310
 var k1v, _ = new(big.Int).SetString("10148397294747000913768625849546502595195728826990639993137198410557736548965", 10)
 
 // helper to deterministically create an ECDSA key from an int.
-func createKey(c elliptic.Curve, k *big.Int) (*ecdsa.PrivateKey, error) {
+func createKey(c elliptic.Curve, k *big.Int) (nist.PrivateKey, error) {
 	sk := new(ecdsa.PrivateKey)
 	sk.PublicKey.Curve = c
 	sk.D = k
 	sk.PublicKey.X, sk.PublicKey.Y = c.ScalarBaseMult(k.Bytes())
-	return sk, nil
+	return nist.PrivateKey{sk}, nil
 }
 
-func signTx(key *ecdsa.PrivateKey, signer Signer) (*Transaction, common.Address, error) {
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	tx := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
-	signedTx, err := SignTx(tx, signer, key)
+func signTx(key nist.PrivateKey, signer Signer[nist.PublicKey]) (*Transaction[nist.PublicKey], common.Address, error) {
+	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	tx := NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
+	signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](tx, signer, key)
 	//fmt.Printf("\ntx.data.V signTx after sign [%v] \n", signedTx.data.V)
 	return signedTx, addr, err
 }
@@ -71,7 +72,7 @@ func TestSignQuorumHomesteadPublic(t *testing.T) {
 	k0, _ := createKey(crypto.S256(), k0v)
 	k1, _ := createKey(crypto.S256(), k1v)
 
-	homeSinger := HomesteadSigner{}
+	homeSinger := HomesteadSigner[nist.PublicKey]{}
 
 	// odd parity should be 27 for Homestead
 	signedTx, addr, _ := signTx(k1, homeSinger)
@@ -80,7 +81,7 @@ func TestSignQuorumHomesteadPublic(t *testing.T) {
 	assert.True(v.Cmp(big.NewInt(27)) == 0, fmt.Sprintf("v wasn't 27 it was [%v]", v))
 
 	// recover address from signed TX
-	from, _ := Sender(homeSinger, signedTx)
+	from, _ := Sender[nist.PublicKey](homeSinger, signedTx)
 	//fmt.Printf("from [%v] == addr [%v]\n\n", from, from == addr)
 	assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. Got %x want %x", from, addr))
 
@@ -90,7 +91,7 @@ func TestSignQuorumHomesteadPublic(t *testing.T) {
 	assert.True(v.Cmp(big.NewInt(28)) == 0, fmt.Sprintf("v wasn't 28 it was [%v]\n", v))
 
 	// recover address from signed TX
-	from, _ = Sender(homeSinger, signedTx)
+	from, _ = Sender[nist.PublicKey](homeSinger, signedTx)
 	//fmt.Printf("from [%v] == addr [%v]\n", from, from == addr)
 	assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. Got %x want %x", from, addr))
 
@@ -129,14 +130,14 @@ func TestSignQuorumEIP155Public(t *testing.T) {
 	// To retrieve Sender, pull out 27, 28 Eth Frontier / Homestead values.
 	// 	39 - (2 * 2) - 8 == 27
 	// 	40 - (2 * 2) - 8 == 28
-	EIPsigner := NewEIP155Signer(big.NewInt(chainId))
+	EIPsigner := NewEIP155Signer[nist.PublicKey](big.NewInt(chainId))
 
 	signedTx, addr, _ := signTx(k0, EIPsigner)
 
 	v, _, _ := signedTx.RawSignatureValues()
 	//fmt.Printf("After signing V is [%v] \n", signedTx.data.V)
 	assert.True(v.Cmp(big.NewInt(v0)) == 0, fmt.Sprintf("v wasn't [%v] it was [%v]\n", v0, v))
-	from, _ := Sender(EIPsigner, signedTx)
+	from, _ := Sender[nist.PublicKey](EIPsigner, signedTx)
 
 	assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. Got %x want %x", from, addr))
 
@@ -147,7 +148,7 @@ func TestSignQuorumEIP155Public(t *testing.T) {
 
 	v, _, _ = signedTx.RawSignatureValues()
 	assert.True(v.Cmp(big.NewInt(v1)) == 0, fmt.Sprintf("v wasn't [%v], it was [%v]\n", v1, v))
-	from, _ = Sender(EIPsigner, signedTx)
+	from, _ = Sender[nist.PublicKey](EIPsigner, signedTx)
 
 	assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. Got %x want %x", from, addr))
 
@@ -181,7 +182,7 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 	// To retrieve Sender, pull out 27, 28 Eth Frontier / Homestead values.
 	// 	37 - (1 * 2) - 8 == 27
 	// 	38 - (1 * 2) - 8 == 28
-	EIPsigner := NewEIP155Signer(big.NewInt(chainId))
+	EIPsigner := NewEIP155Signer[nist.PublicKey](big.NewInt(chainId))
 
 	signedTx, addr, _ := signTx(k0, EIPsigner)
 
@@ -189,12 +190,12 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 	// the calculated v value should equal `chainId * 2 + 35 `
 	assert.True(v.Cmp(big.NewInt(v0)) == 0, fmt.Sprintf("v wasn't [%v] it was "+
 		"[%v]\n", v0, v))
-	// the sender will not be equal as HomesteadSigner{}.Sender(tx) is used because IsPrivate() will be true
+	// the sender will not be equal as HomesteadSigner[nist.PublicKey]{}.Sender[nist.PublicKey](tx) is used because IsPrivate() will be true
 	// although it is a public tx.
 	// This is test to catch when / if this behavior changes.
 	assert.True(signedTx.IsPrivate(), "A public transaction with EIP155 and chainID 1 is expected to be "+
 		"considered private, as its v param conflict with a private transaction. signedTx.IsPrivate() == [%v]", signedTx.IsPrivate())
-	from, _ := Sender(EIPsigner, signedTx)
+	from, _ := Sender[nist.PublicKey](EIPsigner, signedTx)
 
 	assert.False(from == addr, fmt.Sprintf("Expected the sender of a public TX from chainId 1, \n "+
 		"should not be recoverable from [%x] addr [%v] ", from, addr))
@@ -206,14 +207,14 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 	assert.True(v.Cmp(big.NewInt(v1)) == 0,
 		fmt.Sprintf("v wasn't [%v] it was [%v]", v1, v))
 
-	// the sender will not be equal as HomesteadSigner{}.Sender(tx) is used because IsPrivate() will be true
+	// the sender will not be equal as HomesteadSigner[nist.PublicKey]{}.Sender[nist.PublicKey](tx) is used because IsPrivate() will be true
 	// although it is a public tx.
 	// This is test to catch when / if this behavior changes.
 	// we are signing the data with EIPsigner and chainID 1, so this would be considered a private tx.
 	assert.True(signedTx.IsPrivate(), "A public transaction with EIP155 and chainID 1 is expected to "+
 		"to be considered private, as its v param conflict with a private transaction. "+
 		"signedTx.IsPrivate() == [%v]", signedTx.IsPrivate())
-	from, _ = Sender(EIPsigner, signedTx)
+	from, _ = Sender[nist.PublicKey](EIPsigner, signedTx)
 
 	assert.False(from == addr, fmt.Sprintf("Expected the sender of a public TX from chainId 1, "+
 		"should not be recoverable from [%x] addr [%v] ", from, addr))
@@ -229,14 +230,14 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 *  func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 *  Current implementation in `internal/ethapi/api.go`
 *
-*  accounts/keystore/keystore.SignTx(): would hash and sign with homestead
+*  accounts/keystore/keystore.SignTx[nist.PrivateKey,nist.PublicKey](): would hash and sign with homestead
 *
 *  When a private tx (obtained from json params PrivateFor) is submitted `internal/ethapi/api.go`:
 *
 *  1. sign with HomesteadSigner, this will set the v parameter to
 *     27 or 28. // there is no indication that this is a private tx yet.
 *
-*  2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction[P], isPrivate bool)`
+*  2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction[nist.PublicKey], isPrivate bool)`
       check isPrivate param, and call `tx.SetPrivate()`, this will update the `v` signature param (recoveryID)
 *     from 27 -> 37, 28 -> 38. // this is now considered a private tx.
 *
@@ -248,8 +249,8 @@ func TestSignQuorumHomesteadEIP155SigningPrivateQuorum(t *testing.T) {
 
 	keys := []*big.Int{k0v, k1v}
 
-	homeSinger := HomesteadSigner{}
-	recoverySigner := NewEIP155Signer(big.NewInt(18))
+	homeSinger := HomesteadSigner[nist.PublicKey]{}
+	recoverySigner := NewEIP155Signer[nist.PublicKey](big.NewInt(18))
 
 	// check for both sig[64] == 0, and sig[64] == 1
 	for i := 0; i < len(keys); i++ {
@@ -263,7 +264,7 @@ func TestSignQuorumHomesteadEIP155SigningPrivateQuorum(t *testing.T) {
 
 		assert.True(signedTx.IsPrivate(), fmt.Sprintf("Expected the transaction to be private [%v]", signedTx.IsPrivate()))
 		// Try to recover Sender
-		from, err := Sender(recoverySigner, signedTx)
+		from, err := Sender[nist.PublicKey](recoverySigner, signedTx)
 
 		assert.Nil(err, err)
 		assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. Got %x want %x", from, addr))
@@ -288,8 +289,8 @@ func TestSignQuorumHomesteadOnlyPrivateQuorum(t *testing.T) {
 	// check even and odd parity
 	keys := []*big.Int{k0v, k1v}
 
-	homeSinger := HomesteadSigner{}
-	recoverySigner := HomesteadSigner{}
+	homeSinger := HomesteadSigner[nist.PublicKey]{}
+	recoverySigner := HomesteadSigner[nist.PublicKey]{}
 
 	for i := 0; i < len(keys); i++ {
 		key, _ := createKey(crypto.S256(), keys[i])
@@ -305,7 +306,7 @@ func TestSignQuorumHomesteadOnlyPrivateQuorum(t *testing.T) {
 		//fmt.Printf("Private tx.data.V Home [%v] \n", signedTx.data.V)
 
 		// Try to recover Sender
-		from, err := Sender(recoverySigner, signedTx)
+		from, err := Sender[nist.PublicKey](recoverySigner, signedTx)
 
 		assert.Nil(err, err)
 		assert.True(from == addr, fmt.Sprintf("Expected from and address to be equal. "+
@@ -333,7 +334,7 @@ func TestSignQuorumEIP155OnlyPrivateQuorum(t *testing.T) {
 	// check even and odd parity
 	keys := []*big.Int{k0v, k1v}
 
-	EIP155Signer := NewEIP155Signer(big.NewInt(0))
+	EIP155Signer := NewEIP155Signer[nist.PublicKey](big.NewInt(0))
 
 	for i := 0; i < len(keys); i++ {
 		key, _ := createKey(crypto.S256(), keys[i])
@@ -349,7 +350,7 @@ func TestSignQuorumEIP155OnlyPrivateQuorum(t *testing.T) {
 		//fmt.Printf("Private tx.data.V Home [%v] \n", signedTx.data.V)
 
 		// Try to recover Sender
-		from, err := Sender(EIP155Signer, signedTx)
+		from, err := Sender[nist.PublicKey](EIP155Signer, signedTx)
 
 		assert.Nil(err, err)
 		assert.False(from == addr, fmt.Sprintf("Expected recovery to fail. from [%x] should not equal "+
