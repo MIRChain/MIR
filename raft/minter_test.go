@@ -15,6 +15,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -26,7 +27,7 @@ const TEST_URL = "enode://3d9ca5956b38557aba991e31cf510d4df641dce9cc26bfeb7de082
 func TestSignHeader(t *testing.T) {
 	//create only what we need to test the seal
 	var testRaftId uint16 = 5
-	config := &node.Config{Name: "unit-test", DataDir: ""}
+	config := &node.Config[nist.PrivateKey,nist.PublicKey]{Name: "unit-test", DataDir: ""}
 	nodeKey := config.NodeKey()
 
 	raftProtocolManager := &ProtocolManager{raftId: testRaftId}
@@ -91,7 +92,7 @@ func TestSignHeaderCsp(t *testing.T) {
 		t.Errorf("Get cert error: %s", err)
 	}
 	defer crt.Close()
-	config := &node.Config{Name: "unit-test", DataDir: "", SignerCert: &crt}
+	config := &node.Config[nist.PrivateKey,nist.PublicKey]{Name: "unit-test", DataDir: "", SignerCert: &crt}
 	sigCert, err := config.GetSignerCert()
 	if err != nil {
 		t.Fatalf("Unable to get signer cert: %s", err.Error())
@@ -251,7 +252,7 @@ func peerList(url string) (error, []*enode.Node) {
 
 func newTestRaftService(t *testing.T, raftId uint16, nodes []uint64, learners []uint64) *RaftService {
 	//create only what we need to test add learner node
-	config := &node.Config{Name: "unit-test", DataDir: ""}
+	config := &node.Config[nist.PrivateKey,nist.PublicKey]{Name: "unit-test", DataDir: ""}
 	// This will create a new node key, which is needed to set a stub p2p.Server and avoid `nil pointer dereference` when testing.
 	nodeKey := config.NodeKey()
 	mockp2pConfig := p2p.Config{Name: "unit-test", ListenAddr: "30303", PrivateKey: nodeKey}

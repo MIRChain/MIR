@@ -15,6 +15,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/miner"
@@ -121,7 +122,7 @@ func writeAppliedIndex(workingDir string, node int, index uint64) error {
 }
 
 func mustNewNodeKey(t *testing.T) *ecdsa.PrivateKey {
-	k, err := crypto.GenerateKey()
+	k, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func nextPort(t *testing.T) uint16 {
 	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
-func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node, cfg *node.Config, err error) {
+func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node[nist.PrivateKey,nist.PublicKey], cfg *node.Config[nist.PrivateKey,nist.PublicKey], err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s", r)
@@ -144,7 +145,7 @@ func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node, cfg *node.C
 			cfg = nil
 		}
 	}()
-	cfg = &node.Config{
+	cfg = &node.Config[nist.PrivateKey,nist.PublicKey]{
 		P2P: p2p.Config{
 			PrivateKey: key,
 		},
@@ -163,7 +164,7 @@ func startRaftNode(id, port uint16, tmpWorkingDir string, key *ecdsa.PrivateKey,
 
 	const testAddress = "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	e, err := eth.New(stack, &eth.Config{
-		Genesis: &core.Genesis{Config: params.QuorumTestChainConfig},
+		Genesis: &core.Genesis[nist.PublicKey]{Config: params.QuorumTestChainConfig},
 		Miner:   miner.Config{Etherbase: common.HexToAddress(testAddress)},
 	})
 	if err != nil {

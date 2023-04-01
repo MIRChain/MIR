@@ -19,7 +19,6 @@ package tracers
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,19 +52,19 @@ var (
 	errTransactionNotFound = errors.New("transaction not found")
 )
 
-type testBackend struct {
+type testBackend [P crypto.PublicKey] struct {
 	chainConfig *params.ChainConfig
-	engine      consensus.Engine
+	engine      consensus.Engine[P]
 	chaindb     ethdb.Database
-	chain       *core.BlockChain
+	chain       *core.BlockChain[P]
 }
 
-var _ Backend = &testBackend{}
+var _ Backend[nist.PublicKey] = &testBackend[nist.PublicKey]{}
 
-func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
-	backend := &testBackend{
+func newTestBackend[P crypto.PublicKey](t *testing.T, n int, gspec *core.Genesis[P], generator func(i int, b *core.BlockGen[P])) *testBackend[P] {
+	backend := &testBackend[P]{
 		chainConfig: params.TestChainConfig,
-		engine:       ethash.NewFaker[nist.PublicKey](),
+		engine:       ethash.NewFaker[P](),
 		chaindb:     rawdb.NewMemoryDatabase(),
 	}
 	// Generate blocks for testing
@@ -74,7 +73,7 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 		gendb   = rawdb.NewMemoryDatabase()
 		genesis = gspec.MustCommit(gendb)
 	)
-	blocks, _ := core.GenerateChain[nist.PublicKey](backend.chainConfig, genesis, backend.engine, gendb, n, generator)
+	blocks, _ := core.GenerateChain[P](backend.chainConfig, genesis, backend.engine, gendb, n, generator)
 
 	// Import the canonical chain
 	gspec.MustCommit(backend.chaindb)
@@ -85,7 +84,7 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 		SnapshotLimit:     0,
 		TrieDirtyDisabled: true, // Archive mode
 	}
-	chain, err := core.NewBlockChain[nist.PublicKey](backend.chaindb, cacheConfig, backend.chainConfig, backend.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, err := core.NewBlockChain[P](backend.chaindb, cacheConfig, backend.chainConfig, backend.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -96,53 +95,53 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 	return backend
 }
 
-func (b *testBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	return b.chain.GetHeaderByHash(hash), nil
 }
 
-func (b *testBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
 	if number == rpc.PendingBlockNumber || number == rpc.LatestBlockNumber {
 		return b.chain.CurrentHeader(), nil
 	}
 	return b.chain.GetHeaderByNumber(uint64(number)), nil
 }
 
-func (b *testBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (b *testBackend[P]) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error) {
 	return b.chain.GetBlockByHash(hash), nil
 }
 
-func (b *testBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
+func (b *testBackend[P]) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error) {
 	if number == rpc.PendingBlockNumber || number == rpc.LatestBlockNumber {
 		return b.chain.CurrentBlock(), nil
 	}
 	return b.chain.GetBlockByNumber(uint64(number)), nil
 }
 
-func (b *testBackend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	tx, hash, blockNumber, index := rawdb.ReadTransaction(b.chaindb, txHash)
+func (b *testBackend[P]) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction[P], common.Hash, uint64, uint64, error) {
+	tx, hash, blockNumber, index := rawdb.ReadTransaction[P](b.chaindb, txHash)
 	if tx == nil {
 		return nil, common.Hash{}, 0, 0, errTransactionNotFound
 	}
 	return tx, hash, blockNumber, index, nil
 }
 
-func (b *testBackend) RPCGasCap() uint64 {
+func (b *testBackend[P]) RPCGasCap() uint64 {
 	return 25000000
 }
 
-func (b *testBackend) ChainConfig() *params.ChainConfig {
+func (b *testBackend[P]) ChainConfig() *params.ChainConfig {
 	return b.chainConfig
 }
 
-func (b *testBackend) Engine() consensus.Engine {
+func (b *testBackend[P]) Engine() consensus.Engine[P] {
 	return b.engine
 }
 
-func (b *testBackend) ChainDb() ethdb.Database {
+func (b *testBackend[P]) ChainDb() ethdb.Database {
 	return b.chaindb
 }
 
-func (b *testBackend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository, error) {
+func (b *testBackend[P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error) {
 	statedb, privateStateRepo, err := b.chain.StateAt(block.Root())
 	if err != nil {
 		return nil, nil, errStateNotFound
@@ -150,7 +149,7 @@ func (b *testBackend) StateAtBlock(ctx context.Context, block *types.Block, reex
 	return statedb, privateStateRepo, nil
 }
 
-func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository, error) {
+func (b *testBackend[P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
 	parent := b.chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
 		return nil, vm.BlockContext{}, nil, nil, nil, errBlockNotFound
@@ -171,11 +170,11 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 		return nil, vm.BlockContext{}, statedb, privateState, privateStateRepo, nil
 	}
 	// Recompute transactions up to the target index.
-	signer := types.MakeSigner(b.chainConfig, block.Number())
+	signer := types.MakeSigner[P](b.chainConfig, block.Number())
 	for idx, tx := range block.Transactions() {
 		msg, _ := tx.AsMessage(signer)
 		txContext := core.NewEVMTxContext(msg)
-		context := core.NewEVMBlockContext(block.Header(), b.chain, nil)
+		context := core.NewEVMBlockContext[P](block.Header(), b.chain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, privateState, privateStateRepo, nil
 		}
@@ -188,7 +187,7 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 	return nil, vm.BlockContext{}, nil, nil, nil, fmt.Errorf("transaction index %d out of range for block %#x", txIndex, block.Hash())
 }
 
-func (b *testBackend) GetBlockchain() *core.BlockChain {
+func (b *testBackend[P]) GetBlockchain() *core.BlockChain[P] {
 	return b.chain
 }
 
@@ -197,18 +196,18 @@ func TestTraceCall(t *testing.T) {
 
 	// Initialize test accounts
 	accounts := newAccounts(3)
-	genesis := &core.Genesis{Alloc: core.GenesisAlloc{
+	genesis := &core.Genesis[nist.PublicKey]{Alloc: core.GenesisAlloc{
 		accounts[0].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
-	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
+	signer := types.HomesteadSigner[nist.PublicKey]{}
+	api := NewAPI[nist.PublicKey](newTestBackend[nist.PublicKey](t, genBlocks, genesis, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 
@@ -334,18 +333,18 @@ func TestOverridenTraceCall(t *testing.T) {
 
 	// Initialize test accounts
 	accounts := newAccounts(3)
-	genesis := &core.Genesis{Alloc: core.GenesisAlloc{
+	genesis := &core.Genesis[nist.PublicKey]{Alloc: core.GenesisAlloc{
 		accounts[0].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
-	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
+	signer := types.HomesteadSigner[nist.PublicKey]{}
+	api := NewAPI[nist.PublicKey](newTestBackend[nist.PublicKey](t, genBlocks, genesis, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 	randomAccounts, tracer := newAccounts(3), "callTracer"
@@ -475,17 +474,17 @@ func TestTraceTransaction(t *testing.T) {
 
 	// Initialize test accounts
 	accounts := newAccounts(2)
-	genesis := &core.Genesis{Alloc: core.GenesisAlloc{
+	genesis := &core.Genesis[nist.PublicKey]{Alloc: core.GenesisAlloc{
 		accounts[0].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	target := common.Hash{}
-	signer := types.HomesteadSigner{}
-	api := NewAPI(newTestBackend(t, 1, genesis, func(i int, b *core.BlockGen) {
+	signer := types.HomesteadSigner[nist.PublicKey]{}
+	api := NewAPI[nist.PublicKey](newTestBackend[nist.PublicKey](t, 1, genesis, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
 		b.AddTx(tx)
 		target = tx.Hash()
 	}))
@@ -508,18 +507,18 @@ func TestTraceBlock(t *testing.T) {
 
 	// Initialize test accounts
 	accounts := newAccounts(3)
-	genesis := &core.Genesis{Alloc: core.GenesisAlloc{
+	genesis := &core.Genesis[nist.PublicKey]{Alloc: core.GenesisAlloc{
 		accounts[0].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
-	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
+	signer := types.HomesteadSigner[nist.PublicKey]{}
+	api := NewAPI[nist.PublicKey](newTestBackend[nist.PublicKey](t, genBlocks, genesis, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, big.NewInt(0), nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 
@@ -615,7 +614,7 @@ func TestTraceBlock(t *testing.T) {
 }
 
 type Account struct {
-	key  *ecdsa.PrivateKey
+	key  nist.PrivateKey
 	addr common.Address
 }
 
@@ -627,8 +626,8 @@ func (a Accounts) Less(i, j int) bool { return bytes.Compare(a[i].addr.Bytes(), 
 
 func newAccounts(n int) (accounts Accounts) {
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		key, _ := crypto.GenerateKey[nist.PrivateKey]()
+		addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		accounts = append(accounts, Account{key: key, addr: addr})
 	}
 	sort.Sort(accounts)

@@ -31,6 +31,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var (
@@ -97,7 +98,7 @@ func TestWatchNoDir(t *testing.T) {
 	// Create ks but not the directory that it watches.
 	rand.Seed(time.Now().UnixNano())
 	dir := filepath.Join(os.TempDir(), fmt.Sprintf("eth-keystore-watch-test-%d-%d", os.Getpid(), rand.Int()))
-	ks := NewKeyStore(dir, LightScryptN, LightScryptP)
+	ks := NewKeyStore[nist.PrivateKey, nist.PublicKey](dir, LightScryptN, LightScryptP)
 
 	list := ks.Accounts()
 	if len(list) > 0 {
@@ -297,7 +298,7 @@ func TestCacheFind(t *testing.T) {
 	}
 }
 
-func waitForAccounts(wantAccounts []accounts.Account, ks *KeyStore) error {
+func waitForAccounts(wantAccounts []accounts.Account, ks *KeyStore[nist.PrivateKey,nist.PublicKey]) error {
 	var list []accounts.Account
 	for d := 200 * time.Millisecond; d < 16*time.Second; d *= 2 {
 		list = ks.Accounts()
@@ -323,7 +324,7 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 	// Create a temporary kesytore to test with
 	rand.Seed(time.Now().UnixNano())
 	dir := filepath.Join(os.TempDir(), fmt.Sprintf("eth-keystore-watch-test-%d-%d", os.Getpid(), rand.Int()))
-	ks := NewKeyStore(dir, LightScryptN, LightScryptP)
+	ks := NewKeyStore[nist.PrivateKey,nist.PublicKey](dir, LightScryptN, LightScryptP)
 
 	list := ks.Accounts()
 	if len(list) > 0 {

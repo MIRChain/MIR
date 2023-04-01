@@ -34,35 +34,35 @@ import (
 
 var (
 	// testKey is a private key to use for funding a tester account.
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testKey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 
 	testBalance = big.NewInt(2e10)
 )
 
-func generateTestChain() (*core.Genesis, []*types.Block) {
+func generateTestChain() (*core.Genesis[nist.PublicKey], []*types.Block[nist.PublicKey]) {
 	db := rawdb.NewMemoryDatabase()
 	config := params.AllEthashProtocolChanges
-	genesis := &core.Genesis{
+	genesis := &core.Genesis[nist.PublicKey]{
 		Config:    config,
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
 	}
-	generate := func(i int, g *core.BlockGen) {
+	generate := func(i int, g *core.BlockGen[nist.PublicKey]) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
 	engine :=  ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, 10, generate)
-	blocks = append([]*types.Block{gblock}, blocks...)
+	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	return genesis, blocks
 }
 
-func generateTestChainWithFork(n int, fork int) (*core.Genesis, []*types.Block, []*types.Block) {
+func generateTestChainWithFork(n int, fork int) (*core.Genesis[nist.PublicKey], []*types.Block[nist.PublicKey], []*types.Block[nist.PublicKey]) {
 	if fork >= n {
 		fork = n - 1
 	}
@@ -82,24 +82,24 @@ func generateTestChainWithFork(n int, fork int) (*core.Genesis, []*types.Block, 
 		CatalystBlock:       big.NewInt(0),
 		Ethash:              new(params.EthashConfig),
 	}
-	genesis := &core.Genesis{
+	genesis := &core.Genesis[nist.PublicKey]{
 		Config:    config,
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
 	}
-	generate := func(i int, g *core.BlockGen) {
+	generate := func(i int, g *core.BlockGen[nist.PublicKey]) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
-	generateFork := func(i int, g *core.BlockGen) {
+	generateFork := func(i int, g *core.BlockGen[nist.PublicKey]) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("testF"))
 	}
 	gblock := genesis.ToBlock(db)
 	engine :=  ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, n, generate)
-	blocks = append([]*types.Block{gblock}, blocks...)
+	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	forkedBlocks, _ := core.GenerateChain[nist.PublicKey](config, blocks[fork], engine, db, n-fork, generateFork)
 	return genesis, blocks, forkedBlocks
 }
@@ -110,8 +110,8 @@ func TestEth2AssembleBlock(t *testing.T) {
 	defer n.Close()
 
 	api := newConsensusAPI(ethservice)
-	signer := types.NewEIP155Signer(ethservice.BlockChain().Config().ChainID)
-	tx, err := types.SignTx(types.NewTransaction(0, blocks[8].Coinbase(), big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+	signer := types.NewEIP155Signer[nist.PublicKey](ethservice.BlockChain().Config().ChainID)
+	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](0, blocks[8].Coinbase(), big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 	if err != nil {
 		t.Fatalf("error signing transaction, err=%v", err)
 	}
@@ -204,7 +204,7 @@ func TestEth2NewBlock(t *testing.T) {
 		if err != nil || !success.Valid {
 			t.Fatalf("Failed to insert forked block #%d: %v", i, err)
 		}
-		lastBlock, err = insertBlockParamsToBlock(p)
+		lastBlock, err = insertBlockParamsToBlock[nist.PublicKey](p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -216,15 +216,15 @@ func TestEth2NewBlock(t *testing.T) {
 }
 
 // startEthService creates a full node instance for testing.
-func startEthService(t *testing.T, genesis *core.Genesis, blocks []*types.Block) (*node.Node, *eth.Ethereum) {
+func startEthService(t *testing.T, genesis *core.Genesis[nist.PublicKey], blocks []*types.Block[nist.PublicKey]) (*node.Node[nist.PrivateKey,nist.PublicKey], *eth.Ethereum[nist.PrivateKey,nist.PublicKey]) {
 	t.Helper()
 
-	n, err := node.New(&node.Config{})
+	n, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
 	if err != nil {
 		t.Fatal("can't create node:", err)
 	}
 
-	ethcfg := &ethconfig.Config{Genesis: genesis, Ethash: ethash.Config{PowMode: ethash.ModeFake}}
+	ethcfg := &ethconfig.Config[nist.PublicKey]{Genesis: genesis, Ethash: ethash.Config{PowMode: ethash.ModeFake}}
 	ethservice, err := eth.New(n, ethcfg)
 	if err != nil {
 		t.Fatal("can't create eth service:", err)

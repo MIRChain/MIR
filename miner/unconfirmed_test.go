@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // noopChainRetriever is an implementation of headerRetriever that always
@@ -29,7 +30,7 @@ type noopChainRetriever struct{}
 func (r *noopChainRetriever) GetHeaderByNumber(number uint64) *types.Header {
 	return nil
 }
-func (r *noopChainRetriever) GetBlockByNumber(number uint64) *types.Block {
+func (r *noopChainRetriever) GetBlockByNumber(number uint64) *types.Block[nist.PublicKey] {
 	return nil
 }
 

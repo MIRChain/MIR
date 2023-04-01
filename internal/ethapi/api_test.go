@@ -70,14 +70,14 @@ var (
 	arbitrarySimpleStorageContractEncryptedPayloadHash       = common.BytesToEncryptedPayloadHash([]byte("arbitrary payload hash"))
 	arbitraryMandatoryRecipientsContractEncryptedPayloadHash = common.BytesToEncryptedPayloadHash([]byte("arbitrary payload hash of tx with mr"))
 
-	simpleStorageContractCreationTx = types.NewContractCreation(
+	simpleStorageContractCreationTx = types.NewContractCreation[nist.PublicKey](
 		0,
 		big.NewInt(0),
 		hexutil.MustDecodeUint64("0x47b760"),
 		big.NewInt(0),
 		hexutil.MustDecode("0x6060604052341561000f57600080fd5b604051602080610149833981016040528080519060200190919050505b806000819055505b505b610104806100456000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680632a1afcd914605157806360fe47b11460775780636d4ce63c146097575b600080fd5b3415605b57600080fd5b606160bd565b6040518082815260200191505060405180910390f35b3415608157600080fd5b6095600480803590602001909190505060c3565b005b341560a157600080fd5b60a760ce565b6040518082815260200191505060405180910390f35b60005481565b806000819055505b50565b6000805490505b905600a165627a7a72305820d5851baab720bba574474de3d09dbeaabc674a15f4dd93b974908476542c23f00029"))
 
-	rawSimpleStorageContractCreationTx = types.NewContractCreation(
+	rawSimpleStorageContractCreationTx = types.NewContractCreation[nist.PublicKey](
 		0,
 		big.NewInt(0),
 		hexutil.MustDecodeUint64("0x47b760"),
@@ -125,12 +125,12 @@ func setup() {
 
 	private.P = &StubPrivateTransactionManager{}
 
-	key, _ := crypto.GenerateKey()
-	from := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := crypto.GenerateKey[nist.PrivateKey]()
+	from := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
 	arbitrarySimpleStorageContractAddress = crypto.CreateAddress(from, 0)
 
-	simpleStorageContractMessageCallTx = types.NewTransaction(
+	simpleStorageContractMessageCallTx = types.NewTransaction[nist.PublicKey](
 		0,
 		arbitrarySimpleStorageContractAddress,
 		big.NewInt(0),
@@ -140,7 +140,7 @@ func setup() {
 
 	arbitraryStandardPrivateSimpleStorageContractAddress = crypto.CreateAddress(from, 1)
 
-	standardPrivateSimpleStorageContractMessageCallTx = types.NewTransaction(
+	standardPrivateSimpleStorageContractMessageCallTx = types.NewTransaction[nist.PublicKey](
 		0,
 		arbitraryStandardPrivateSimpleStorageContractAddress,
 		big.NewInt(0),
@@ -148,7 +148,7 @@ func setup() {
 		big.NewInt(0),
 		hexutil.MustDecode("0x60fe47b1000000000000000000000000000000000000000000000000000000000000000e"))
 
-	rawStandardPrivateSimpleStorageContractMessageCallTx = types.NewTransaction(
+	rawStandardPrivateSimpleStorageContractMessageCallTx = types.NewTransaction[nist.PublicKey](
 		0,
 		arbitraryStandardPrivateSimpleStorageContractAddress,
 		big.NewInt(0),
@@ -442,7 +442,7 @@ func TestHandlePrivateTransaction_whenPrivateFromMatchesPrivateState(t *testing.
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(mps.NewPrivateStateMetadata("PS1", "PS1", "", mps.Resident, []string{"some address"}), nil).AnyTimes()
 
 	// empty data field means that checkAndHandlePrivateTransaction exits without doing handlePrivateTransaction
-	emptyTx := types.NewContractCreation(
+	emptyTx := types.NewContractCreation[nist.PublicKey](
 		0,
 		big.NewInt(0),
 		hexutil.MustDecodeUint64("0x47b760"),
@@ -806,7 +806,7 @@ func TestSetRawTransactionPrivateFrom(t *testing.T) {
 				psmr: mockPSMR,
 			}
 
-			tx := types.NewTransaction(0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
+			tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
 			args := &PrivateTxArgs{
 				PrivateFor:  []string{"some-ptm-recipient"},
@@ -837,7 +837,7 @@ func TestSetRawTransactionPrivateFrom_DifferentArgPrivateFromAndReceiveRawPrivat
 
 	b := &MPSStubBackend{}
 
-	tx := types.NewTransaction(0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
+	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
 	args := &PrivateTxArgs{
 		PrivateFor:  []string{"some-ptm-recipient"},
@@ -874,7 +874,7 @@ func TestSetRawTransactionPrivateFrom_ResolvePrivateFromIsNotMPSTenantAddr(t *te
 		psmr: mockPSMR,
 	}
 
-	tx := types.NewTransaction(0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
+	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
 	args := &PrivateTxArgs{
 		PrivateFor: []string{"some-ptm-recipient"},
@@ -957,7 +957,7 @@ func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.Mi
 	return vm.NewEVM(vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config[nist.PublicKey]{}), vmError, nil
 }
 
-func (sb *StubBackend) CurrentBlock() *types.Block {
+func (sb *StubBackend) CurrentBlock() *types.Block[nist.PublicKey] {
 	return types.NewBlock(&types.Header{
 		Number: arbitraryCurrentBlockNumber,
 	}, nil, nil, nil, new(trie.Trie))
@@ -1027,15 +1027,15 @@ func (sb *StubBackend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash r
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
+func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block[nist.PublicKey], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[nist.PublicKey], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
+func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[nist.PublicKey], error) {
 	return sb.CurrentBlock(), nil
 }
 
@@ -1067,7 +1067,7 @@ func (sb *StubBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) ev
 	panic("implement me")
 }
 
-func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction[nist.PublicKey]) error {
 	sb.sendTxCalled = true
 	sb.txThatWasSent = signedTx
 	return nil

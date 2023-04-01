@@ -40,13 +40,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
 	deadline = 5 * time.Minute
 )
 
-type testBackend struct {
+type testBackend [P crypto.PublicKey]struct {
 	mux             *event.TypeMux
 	db              ethdb.Database
 	sections        uint64
@@ -57,11 +58,11 @@ type testBackend struct {
 	chainFeed       event.Feed
 }
 
-func (b *testBackend) ChainDb() ethdb.Database {
+func (b *testBackend[P]) ChainDb() ethdb.Database {
 	return b.db
 }
 
-func (b *testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	var (
 		hash common.Hash
 		num  uint64
@@ -80,7 +81,7 @@ func (b *testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumbe
 	return rawdb.ReadHeader(b.db, hash, num), nil
 }
 
-func (b *testBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	number := rawdb.ReadHeaderNumber(b.db, hash)
 	if number == nil {
 		return nil, nil
@@ -88,16 +89,16 @@ func (b *testBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*type
 	return rawdb.ReadHeader(b.db, hash, *number), nil
 }
 
-func (b *testBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+func (b *testBackend[P]) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts[P], error) {
 	if number := rawdb.ReadHeaderNumber(b.db, hash); number != nil {
-		receipts := rawdb.ReadReceipts(b.db, hash, *number, params.TestChainConfig)
+		receipts := rawdb.ReadReceipts[P](b.db, hash, *number, params.TestChainConfig)
 
 		psm, err := b.PSMR().ResolveForUserContext(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		psiReceipts := make([]*types.Receipt, len(receipts))
+		psiReceipts := make([]*types.Receipt[P], len(receipts))
 		for i := 0; i < len(receipts); i++ {
 			psiReceipts[i] = receipts[i]
 			if receipts[i].PSReceipts != nil {
@@ -112,7 +113,7 @@ func (b *testBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.
 	return nil, nil
 }
 
-func (b *testBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
+func (b *testBackend[P]) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
 	receipts, err := b.GetReceipts(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -127,31 +128,31 @@ func (b *testBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types
 	return logs, nil
 }
 
-func (b *testBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+func (b *testBackend[P]) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent[P]) event.Subscription {
 	return b.txFeed.Subscribe(ch)
 }
 
-func (b *testBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+func (b *testBackend[P]) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent[P]) event.Subscription {
 	return b.rmLogsFeed.Subscribe(ch)
 }
 
-func (b *testBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *testBackend[P]) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.logsFeed.Subscribe(ch)
 }
 
-func (b *testBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *testBackend[P]) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.pendingLogsFeed.Subscribe(ch)
 }
 
-func (b *testBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+func (b *testBackend[P]) SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription {
 	return b.chainFeed.Subscribe(ch)
 }
 
-func (b *testBackend) BloomStatus() (uint64, uint64) {
+func (b *testBackend[P]) BloomStatus() (uint64, uint64) {
 	return params.BloomBitsBlocks, b.sections
 }
 
-func (b *testBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
+func (b *testBackend[P]) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	requests := make(chan chan *bloombits.Retrieval)
 
 	go session.Multiplex(16, 0, requests)
@@ -178,12 +179,12 @@ func (b *testBackend) ServiceFilter(ctx context.Context, session *bloombits.Matc
 	}()
 }
 
-func (b *testBackend) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
+func (b *testBackend[P]) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
 	return nil, nil
 }
 
-func (b *testBackend) PSMR() mps.PrivateStateMetadataResolver {
-	return &core.DefaultPrivateStateManager{}
+func (b *testBackend[P]) PSMR() mps.PrivateStateMetadataResolver {
+	return &core.DefaultPrivateStateManager[P]{}
 }
 
 // TestBlockSubscription tests if a block subscription returns block hashes for posted chain events.
@@ -196,15 +197,15 @@ func TestBlockSubscription(t *testing.T) {
 
 	var (
 		db          = rawdb.NewMemoryDatabase()
-		backend     = &testBackend{db: db}
-		api         = NewPublicFilterAPI(backend, false, deadline)
-		genesis     = new(core.Genesis).MustCommit(db)
-		chain, _    = core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 10, func(i int, gen *core.BlockGen) {})
-		chainEvents = []core.ChainEvent{}
+		backend     = &testBackend[nist.PublicKey]{db: db}
+		api         = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
+		genesis     = new(core.Genesis[nist.PublicKey]).MustCommit(db)
+		chain, _    = core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 10, func(i int, gen *core.BlockGen[nist.PublicKey]) {})
+		chainEvents = []core.ChainEvent[nist.PublicKey]{}
 	)
 
 	for _, blk := range chain {
-		chainEvents = append(chainEvents, core.ChainEvent{Hash: blk.Hash(), Block: blk})
+		chainEvents = append(chainEvents, core.ChainEvent[nist.PublicKey]{Hash: blk.Hash(), Block: blk})
 	}
 
 	chan0 := make(chan *types.Header)
@@ -248,15 +249,15 @@ func TestPendingTxFilter(t *testing.T) {
 
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, deadline)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 
-		transactions = []*types.Transaction{
-			types.NewTransaction(0, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
-			types.NewTransaction(1, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
-			types.NewTransaction(2, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
-			types.NewTransaction(3, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
-			types.NewTransaction(4, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
+		transactions = []*types.Transaction[nist.PublicKey]{
+			types.NewTransaction[nist.PublicKey](0, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
+			types.NewTransaction[nist.PublicKey](1, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
+			types.NewTransaction[nist.PublicKey](2, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
+			types.NewTransaction[nist.PublicKey](3, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
+			types.NewTransaction[nist.PublicKey](4, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil),
 		}
 
 		hashes []common.Hash
@@ -265,7 +266,7 @@ func TestPendingTxFilter(t *testing.T) {
 	fid0 := api.NewPendingTransactionFilter()
 
 	time.Sleep(1 * time.Second)
-	backend.txFeed.Send(core.NewTxsEvent{Txs: transactions})
+	backend.txFeed.Send(core.NewTxsEvent[nist.PublicKey]{Txs: transactions})
 
 	timeout := time.Now().Add(1 * time.Second)
 	for {
@@ -303,8 +304,8 @@ func TestPendingTxFilter(t *testing.T) {
 func TestLogFilterCreation(t *testing.T) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, deadline)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 
 		testCases = []struct {
 			crit    FilterCriteria
@@ -347,8 +348,8 @@ func TestInvalidLogFilterCreation(t *testing.T) {
 
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, deadline)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 	)
 
 	// different situations where log filter creation should fail.
@@ -369,8 +370,8 @@ func TestInvalidLogFilterCreation(t *testing.T) {
 func TestInvalidGetLogsRequest(t *testing.T) {
 	var (
 		db        = rawdb.NewMemoryDatabase()
-		backend   = &testBackend{db: db}
-		api       = NewPublicFilterAPI(backend, false, deadline)
+		backend   = &testBackend[nist.PublicKey]{db: db}
+		api       = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 		blockHash = common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
 	)
 
@@ -394,8 +395,8 @@ func TestLogFilter(t *testing.T) {
 
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, deadline)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 
 		firstAddr      = common.HexToAddress("0x1111111111111111111111111111111111111111")
 		secondAddr     = common.HexToAddress("0x2222222222222222222222222222222222222222")
@@ -508,8 +509,8 @@ func TestPendingLogsSubscription(t *testing.T) {
 
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, deadline)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 
 		firstAddr      = common.HexToAddress("0x1111111111111111111111111111111111111111")
 		secondAddr     = common.HexToAddress("0x2222222222222222222222222222222222222222")
@@ -539,7 +540,7 @@ func TestPendingLogsSubscription(t *testing.T) {
 			crit     ethereum.FilterQuery
 			expected []*types.Log
 			c        chan []*types.Log
-			sub      *Subscription
+			sub      *Subscription[nist.PublicKey]
 		}{
 			// match all
 			{
@@ -644,8 +645,8 @@ func TestPendingTxFilterDeadlock(t *testing.T) {
 
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		backend = &testBackend{db: db}
-		api     = NewPublicFilterAPI(backend, false, timeout)
+		backend = &testBackend[nist.PublicKey]{db: db}
+		api     = NewPublicFilterAPI[nist.PublicKey](backend, false, timeout)
 		done    = make(chan struct{})
 	)
 
@@ -659,8 +660,8 @@ func TestPendingTxFilterDeadlock(t *testing.T) {
 			default:
 			}
 
-			tx := types.NewTransaction(i, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil)
-			backend.txFeed.Send(core.NewTxsEvent{Txs: []*types.Transaction{tx}})
+			tx := types.NewTransaction[nist.PublicKey](i, common.HexToAddress("0xb794f5ea0ba39494ce83a213fffba74279579268"), new(big.Int), 0, new(big.Int), nil)
+			backend.txFeed.Send(core.NewTxsEvent[nist.PublicKey]{Txs: []*types.Transaction[nist.PublicKey]{tx}})
 			i++
 		}
 	}()

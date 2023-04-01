@@ -30,6 +30,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/console/prompt"
 	"github.com/pavelkrolevets/MIR-pro/core"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/internal/jsre"
@@ -75,10 +77,10 @@ func (p *hookedPrompter) ClearHistory()                                   {}
 func (p *hookedPrompter) SetWordCompleter(completer prompt.WordCompleter) {}
 
 // tester is a console test environment for the console tests to operate on.
-type tester struct {
+type tester [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	workspace string
-	stack     *node.Node
-	ethereum  *eth.Ethereum
+	stack     *node.Node[T,P]
+	ethereum  *eth.Ethereum[T,P]
 	console   *Console
 	input     *hookedPrompter
 	output    *bytes.Buffer
@@ -86,7 +88,7 @@ type tester struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
+func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey])) *tester[nist.PrivateKey,nist.PublicKey] {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
@@ -94,12 +96,12 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 	}
 
 	// Create a networkless protocol stack and start an Ethereum service within
-	stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
+	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
-	ethConf := &ethconfig.Config{
-		Genesis: core.DeveloperGenesisBlock(15, common.Address{}),
+	ethConf := &ethconfig.Config[nist.PublicKey]{
+		Genesis: core.DeveloperGenesisBlock[nist.PublicKey](15, common.Address{}),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
 		},
@@ -137,7 +139,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 		t.Fatalf("failed to create JavaScript console: %v", err)
 	}
 	// Create the final tester and return
-	return &tester{
+	return &tester[nist.PrivateKey,nist.PublicKey]{
 		workspace: workspace,
 		stack:     stack,
 		ethereum:  ethBackend,
@@ -148,7 +150,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 }
 
 // Close cleans up any temporary data folders and held resources.
-func (env *tester) Close(t *testing.T) {
+func (env *tester[T,P]) Close(t *testing.T) {
 	if err := env.console.Stop(false); err != nil {
 		t.Errorf("failed to stop embedded console: %v", err)
 	}

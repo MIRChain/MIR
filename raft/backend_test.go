@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -16,7 +17,7 @@ func Test_New_RegistersEthServicePendingLogsFeed(t *testing.T) {
 	conf := &eth.Config{
 		RaftMode: true,
 	}
-	stack, err := node.New(&node.Config{})
+	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("failed to create node, err = %v", err)
 	}

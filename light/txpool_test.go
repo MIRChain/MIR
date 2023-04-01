@@ -68,7 +68,7 @@ func minedTx(i int) int {
 	return int(math.Pow(float64(i)/float64(poolTestBlocks), 1.1) * poolTestTxs)
 }
 
-func txPoolTestChainGen(i int, block *core.BlockGen) {
+func txPoolTestChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 	s := minedTx(i)
 	e := minedTx(i + 1)
 	for i := s; i < e; i++ {
@@ -78,13 +78,13 @@ func txPoolTestChainGen(i int, block *core.BlockGen) {
 
 func TestTxPool(t *testing.T) {
 	for i := range testTx {
-		testTx[i], _ = types.SignTx(types.NewTransaction(uint64(i), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+		testTx[i], _ = types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), types.HomesteadSigner[nist.PublicKey]{}, testBankKey)
 	}
 
 	var (
 		sdb     = rawdb.NewMemoryDatabase()
 		ldb     = rawdb.NewMemoryDatabase()
-		gspec   = core.Genesis{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
+		gspec   = core.Genesis[nist.PublicKey]{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
 		genesis = gspec.MustCommit(sdb)
 	)
 	gspec.MustCommit(ldb)

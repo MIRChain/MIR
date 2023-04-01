@@ -33,6 +33,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that the account management snippets work correctly.
@@ -76,7 +77,7 @@ func TestAccountManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create signer account: %v", err)
 	}
-	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), nil)
+	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), nil)
 	chain := big.NewInt(1)
 
 	// Sign a transaction with a single authorization

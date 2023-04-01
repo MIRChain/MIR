@@ -10,6 +10,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,11 +31,11 @@ func init() {
 func TestBoundContract_Transact_ContractCreation_PrivateTransaction(t *testing.T) {
 	transactor := &mockTransactor{}
 
-	c := NewBoundContract(common.Address{}, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI{}, nil, transactor, nil)
 
 	senderNonce := 1
 
-	opts := &TransactOpts[P]{
+	opts := &TransactOpts[nist.PublicKey]{
 		Nonce:      big.NewInt(int64(senderNonce)),
 		PrivateFor: []string{"tm1"},
 
@@ -61,11 +62,11 @@ func TestBoundContract_Transact_ContractCreation_PrivateTransaction(t *testing.T
 func TestBoundContract_Transact_ContractCreation_PrivacyPrecompile(t *testing.T) {
 	transactor := &mockTransactor{}
 
-	c := NewBoundContract(common.Address{}, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI{}, nil, transactor, nil)
 
 	senderNonce := 1
 
-	opts := &TransactOpts[P]{
+	opts := &TransactOpts[nist.PublicKey]{
 		Nonce:                    big.NewInt(int64(senderNonce)),
 		PrivateFor:               []string{"tm1"},
 		IsUsingPrivacyPrecompile: true,
@@ -112,11 +113,11 @@ func TestBoundContract_Transact_Transaction_PrivateTransaction(t *testing.T) {
 	transactor := &mockTransactor{}
 
 	contractAddr := common.HexToAddress("0x1932c48b2bf8102ba33b4a6b545c32236e342f34")
-	c := NewBoundContract(contractAddr, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI{}, nil, transactor, nil)
 
 	senderNonce := 1
 
-	opts := &TransactOpts[P]{
+	opts := &TransactOpts[nist.PublicKey]{
 		Nonce:      big.NewInt(int64(senderNonce)),
 		PrivateFor: []string{"tm1"},
 
@@ -144,11 +145,11 @@ func TestBoundContract_Transact_Transaction_PrivacyPrecompile(t *testing.T) {
 	transactor := &mockTransactor{}
 
 	contractAddr := common.HexToAddress("0x1932c48b2bf8102ba33b4a6b545c32236e342f34")
-	c := NewBoundContract(contractAddr, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI{}, nil, transactor, nil)
 
 	senderNonce := 1
 
-	opts := &TransactOpts[P]{
+	opts := &TransactOpts[nist.PublicKey]{
 		Nonce:                    big.NewInt(int64(senderNonce)),
 		PrivateFor:               []string{"tm1"},
 		IsUsingPrivacyPrecompile: true,
@@ -191,12 +192,12 @@ func TestBoundContract_Transact_Transaction_PrivacyPrecompile(t *testing.T) {
 	require.Equal(t, []string{"tm1"}, pvtTxArgs.PrivateFor)
 }
 
-func passthroughSigner(_ common.Address, tx *types.Transaction[P]) (*types.Transaction[P], error) {
+func passthroughSigner(_ common.Address, tx *types.Transaction[nist.PublicKey]) (*types.Transaction[nist.PublicKey], error) {
 	return tx, nil
 }
 
 type mockTransactor struct {
-	capturedInternalPrivateTransaction     *types.Transaction
+	capturedInternalPrivateTransaction     *types.Transaction[nist.PublicKey]
 	capturedInternalPrivateTransactionArgs PrivateTxArgs
 }
 
@@ -204,13 +205,13 @@ func (s *mockTransactor) PreparePrivateTransaction(_ []byte, _ string) (common.E
 	return tmPrivatePayloadHash, nil
 }
 
-func (s *mockTransactor) DistributeTransaction(_ context.Context, tx *types.Transaction[P], args PrivateTxArgs) (string, error) {
+func (s *mockTransactor) DistributeTransaction(_ context.Context, tx *types.Transaction[nist.PublicKey], args PrivateTxArgs) (string, error) {
 	s.capturedInternalPrivateTransaction = tx
 	s.capturedInternalPrivateTransactionArgs = args
 	return tmPrivateTxHash.Hex(), nil
 }
 
-func (s *mockTransactor) SendTransaction(_ context.Context, _ *types.Transaction[P], _ PrivateTxArgs) error {
+func (s *mockTransactor) SendTransaction(_ context.Context, _ *types.Transaction[nist.PublicKey], _ PrivateTxArgs) error {
 	return nil
 }
 

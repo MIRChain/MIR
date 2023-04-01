@@ -231,7 +231,7 @@ func TestGraphQLHTTPOnSamePort_GQLRequest_Unsuccessful(t *testing.T) {
 }
 
 func createNode(t *testing.T, gqlEnabled bool, txEnabled bool) *node.Node {
-	stack, err := node.New(&node.Config{
+	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{
 		HTTPHost: "127.0.0.1",
 		HTTPPort: 0,
 		WSHost:   "127.0.0.1",
@@ -253,8 +253,8 @@ func createNode(t *testing.T, gqlEnabled bool, txEnabled bool) *node.Node {
 
 func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
-	ethConf := &ethconfig.Config{
-		Genesis: &core.Genesis{
+	ethConf := &ethconfig.Config[nist.PublicKey]{
+		Genesis: &core.Genesis[nist.PublicKey]{
 			Config:     params.AllEthashProtocolChanges,
 			GasLimit:   11500000,
 			Difficulty: big.NewInt(1048576),
@@ -276,7 +276,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	}
 	// Create some blocks and import them
 	chain, _ := core.GenerateChain[nist.PublicKey](params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
+		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen[nist.PublicKey]) {})
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
@@ -290,13 +290,13 @@ func createGQLService(t *testing.T, stack *node.Node) {
 
 func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	// create backend
-	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	address := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	address := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	funds := big.NewInt(1000000000)
 	dad := common.HexToAddress("0x0000000000000000000000000000000000000dad")
 
-	ethConf := &ethconfig.Config{
-		Genesis: &core.Genesis{
+	ethConf := &ethconfig.Config[nist.PublicKey]{
+		Genesis: &core.Genesis[nist.PublicKey]{
 			Config:     params.AllEthashProtocolChanges,
 			GasLimit:   11500000,
 			Difficulty: big.NewInt(1048576),
@@ -355,7 +355,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 
 	// Create some blocks and import them
 	chain, _ := core.GenerateChain[nist.PublicKey](params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
+		 ethash.NewFaker[nist.PublicKey](), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen[nist.PublicKey]) {
 			b.SetCoinbase(common.Address{1})
 			b.AddTx(legacyTx)
 			b.AddTx(envelopTx)
@@ -414,7 +414,7 @@ func TestQuorumSchema_PublicTransaction(t *testing.T) {
 	}()
 	private.P = &stubPrivateTransactionManager{}
 
-	publicTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), []byte("some random public payload"))
+	publicTx := types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), []byte("some random public payload"))
 	publicTxQuery := &Transaction{tx: publicTx, backend: &StubBackend{}}
 	isPrivate, err := publicTxQuery.IsPrivate(context.Background())
 	if err != nil {
@@ -456,7 +456,7 @@ func TestQuorumSchema_PrivateTransaction(t *testing.T) {
 		},
 	}
 
-	privateTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), arbitraryPayloadHash.Bytes())
+	privateTx := types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), arbitraryPayloadHash.Bytes())
 	privateTx.SetPrivate()
 	privateTxQuery := &Transaction{tx: privateTx, backend: &StubBackend{}}
 	isPrivate, err := privateTxQuery.IsPrivate(context.Background())
@@ -491,7 +491,7 @@ func TestQuorumSchema_PrivacyMarkerTransaction(t *testing.T) {
 	encryptedPayloadHashByt := sha3.Sum512([]byte("encrypted payload hash"))
 	encryptedPayloadHash := common.BytesToEncryptedPayloadHash(encryptedPayloadHashByt[:])
 
-	privateTx := types.NewTransaction(1, common.Address{}, big.NewInt(0), 0, big.NewInt(0), encryptedPayloadHash.Bytes())
+	privateTx := types.NewTransaction[nist.PublicKey](1, common.Address{}, big.NewInt(0), 0, big.NewInt(0), encryptedPayloadHash.Bytes())
 	privateTx.SetPrivate()
 	// json decoding later in the test requires the private tx to have signature values, so set to some arbitrary values here
 	_, r, s := privateTx.RawSignatureValues()
@@ -515,7 +515,7 @@ func TestQuorumSchema_PrivacyMarkerTransaction(t *testing.T) {
 		},
 	}
 
-	privacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), 0, big.NewInt(0), encryptedPrivateTxHash.Bytes())
+	privacyMarkerTx := types.NewTransaction[nist.PublicKey](0, common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), 0, big.NewInt(0), encryptedPrivateTxHash.Bytes())
 
 	pmtQuery := &Transaction{tx: privacyMarkerTx, backend: &StubBackend{}}
 	isPrivate, err := pmtQuery.IsPrivate(context.Background())
@@ -644,7 +644,7 @@ func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.Mi
 	panic("implement me")
 }
 
-func (sb *StubBackend) CurrentBlock() *types.Block {
+func (sb *StubBackend) CurrentBlock() *types.Block[nist.PublicKey] {
 	panic("implement me")
 }
 
@@ -704,15 +704,15 @@ func (sb *StubBackend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash r
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
+func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block[nist.PublicKey], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[nist.PublicKey], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
+func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[nist.PublicKey], error) {
 	panic("implement me")
 }
 
@@ -744,7 +744,7 @@ func (sb *StubBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) ev
 	panic("implement me")
 }
 
-func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction[nist.PublicKey]) error {
 	panic("implement me")
 }
 

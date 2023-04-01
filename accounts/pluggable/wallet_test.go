@@ -11,6 +11,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,8 +43,8 @@ var (
 	}
 )
 
-func validWallet(m *mock_plugin.MockService) *wallet {
-	return &wallet{
+func validWallet(m *mock_plugin.MockService) *wallet[nist.PublicKey] {
+	return &wallet[nist.PublicKey]{
 		url:           wltUrl,
 		pluginService: m,
 	}
@@ -242,29 +243,29 @@ func TestWallet_SignTx(t *testing.T) {
 		name      string
 		isPrivate bool
 		chainID   *big.Int
-		signer    types.Signer
+		signer    types.Signer[nist.PublicKey]
 	}{
 		{
 			name:      "Public EIP155 tx",
 			isPrivate: false,
 			chainID:   big.NewInt(20),
-			signer:    types.NewEIP155Signer(big.NewInt(20)),
+			signer:    types.NewEIP155Signer[nist.PublicKey](big.NewInt(20)),
 		},
 		{
 			name:      "Public Homestead tx",
 			isPrivate: false,
 			chainID:   nil,
-			signer:    types.HomesteadSigner{},
+			signer:    types.HomesteadSigner[nist.PublicKey]{},
 		},
 		{
 			name:      "Private tx",
 			isPrivate: true,
 			chainID:   nil,
-			signer:    types.QuorumPrivateTxSigner[P]{},
+			signer:    types.QuorumPrivateTxSigner[nist.PublicKey]{},
 		},
 	}
 
-	toSign := types.NewTransaction(
+	toSign := types.NewTransaction[nist.PublicKey](
 		1,
 		common.HexToAddress("0x2332f90a329c2c55ba120b1449d36a144d1f9fe4"),
 		big.NewInt(1),
@@ -296,7 +297,7 @@ func TestWallet_SignTx(t *testing.T) {
 
 			gotV, gotR, gotS := got.RawSignatureValues()
 
-			wantR, wantS, wantV, err := tt.signer.SignatureValues(types.NewTransaction(
+			wantR, wantS, wantV, err := tt.signer.SignatureValues(types.NewTransaction[nist.PublicKey](
 				0,
 				common.Address{},
 				nil,
@@ -330,29 +331,29 @@ func TestWallet_SignTxWithPassphrase(t *testing.T) {
 		name      string
 		isPrivate bool
 		chainID   *big.Int
-		signer    types.Signer
+		signer    types.Signer[nist.PublicKey]
 	}{
 		{
 			name:      "Public EIP155 tx",
 			isPrivate: false,
 			chainID:   big.NewInt(20),
-			signer:    types.NewEIP155Signer(big.NewInt(20)),
+			signer:    types.NewEIP155Signer[nist.PublicKey](big.NewInt(20)),
 		},
 		{
 			name:      "Public Homestead tx",
 			isPrivate: false,
 			chainID:   nil,
-			signer:    types.HomesteadSigner{},
+			signer:    types.HomesteadSigner[nist.PublicKey]{},
 		},
 		{
 			name:      "Private tx",
 			isPrivate: true,
 			chainID:   nil,
-			signer:    types.QuorumPrivateTxSigner[P]{},
+			signer:    types.QuorumPrivateTxSigner[nist.PublicKey]{},
 		},
 	}
 
-	toSign := types.NewTransaction(
+	toSign := types.NewTransaction[nist.PublicKey](
 		1,
 		common.HexToAddress("0x2332f90a329c2c55ba120b1449d36a144d1f9fe4"),
 		big.NewInt(1),
@@ -384,7 +385,7 @@ func TestWallet_SignTxWithPassphrase(t *testing.T) {
 
 			gotV, gotR, gotS := got.RawSignatureValues()
 
-			wantR, wantS, wantV, err := tt.signer.SignatureValues(types.NewTransaction(
+			wantR, wantS, wantV, err := tt.signer.SignatureValues(types.NewTransaction[nist.PublicKey](
 				0,
 				common.Address{},
 				nil,

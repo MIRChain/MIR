@@ -29,6 +29,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -36,20 +38,29 @@ import (
 
 var (
 	testdb  = rawdb.NewMemoryDatabase()
-	genesis = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	genesis = core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 )
 
 // makeChain creates a chain of n blocks starting at and including parent.
 // the returned hash chain is ordered head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func makeChain(n int, seed byte, parent *types.Block, empty bool) ([]*types.Block, []types.Receipts) {
-	blocks, receipts := core.GenerateChain[nist.PublicKey](params.TestChainConfig, parent,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
+func makeChain[T crypto.PrivateKey, P crypto.PublicKey](n int, seed byte, parent *types.Block[P], empty bool) ([]*types.Block[P], []types.Receipts[P]) {
+	blocks, receipts := core.GenerateChain[P](params.TestChainConfig, parent,  ethash.NewFaker[P](), testdb, n, func(i int, block *core.BlockGen[P]) {
 		block.SetCoinbase(common.Address{seed})
 		// Add one tx to every secondblock
 		if !empty && i%2 == 0 {
-			signer := types.MakeSigner(params.TestChainConfig, block.Number())
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			signer := types.MakeSigner[P](params.TestChainConfig, block.Number())
+			var key T
+			switch t:= any(&testKey).(type){
+			case *nist.PrivateKey:
+				tt:=any(&key).(*nist.PrivateKey)
+				*tt = *t
+			case *gost3410.PrivateKey:
+				tt:=any(&key).(*gost3410.PrivateKey)
+				*tt = *t
+			}
+			tx, err := types.SignTx[T,P](types.NewTransaction[P](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -59,25 +70,25 @@ func makeChain(n int, seed byte, parent *types.Block, empty bool) ([]*types.Bloc
 	return blocks, receipts
 }
 
-type chainData struct {
-	blocks []*types.Block
+type chainData [P crypto.PublicKey]struct {
+	blocks []*types.Block[P]
 	offset int
 }
 
-var chain *chainData
-var emptyChain *chainData
+var chain *chainData[nist.PublicKey]
+var emptyChain *chainData[nist.PublicKey]
 
 func init() {
 	// Create a chain of blocks to import
 	targetBlocks := 128
-	blocks, _ := makeChain(targetBlocks, 0, genesis, false)
-	chain = &chainData{blocks, 0}
+	blocks, _ := makeChain[nist.PrivateKey,nist.PublicKey](targetBlocks, 0, genesis, false)
+	chain = &chainData[nist.PublicKey]{blocks, 0}
 
-	blocks, _ = makeChain(targetBlocks, 0, genesis, true)
-	emptyChain = &chainData{blocks, 0}
+	blocks, _ = makeChain[nist.PrivateKey,nist.PublicKey](targetBlocks, 0, genesis, true)
+	emptyChain = &chainData[nist.PublicKey]{blocks, 0}
 }
 
-func (chain *chainData) headers() []*types.Header {
+func (chain *chainData[P]) headers() []*types.Header {
 	hdrs := make([]*types.Header, len(chain.blocks))
 	for i, b := range chain.blocks {
 		hdrs[i] = b.Header()
@@ -85,7 +96,7 @@ func (chain *chainData) headers() []*types.Header {
 	return hdrs
 }
 
-func (chain *chainData) Len() int {
+func (chain *chainData[P]) Len() int {
 	return len(chain.blocks)
 }
 
@@ -101,7 +112,7 @@ func TestBasics(t *testing.T) {
 	numOfBlocks := len(emptyChain.blocks)
 	numOfReceipts := len(emptyChain.blocks) / 2
 
-	q := newQueue(10, 10)
+	q := newQueue[nist.PublicKey](10, 10)
 	if !q.Idle() {
 		t.Errorf("new queue should be idle")
 	}
@@ -196,7 +207,7 @@ func TestBasics(t *testing.T) {
 func TestEmptyBlocks(t *testing.T) {
 	numOfBlocks := len(emptyChain.blocks)
 
-	q := newQueue(10, 10)
+	q := newQueue[nist.PublicKey](10, 10)
 
 	q.Prepare(1, FastSync)
 	// Schedule a batch of headers
@@ -262,7 +273,7 @@ func TestEmptyBlocks(t *testing.T) {
 // some more advanced scenarios
 func XTestDelivery(t *testing.T) {
 	// the outside network, holding blocks
-	blo, rec := makeChain(128, 0, genesis, false)
+	blo, rec := makeChain[nist.PrivateKey,nist.PublicKey](128, 0, genesis, false)
 	world := newNetwork()
 	world.receipts = rec
 	world.chain = blo
@@ -271,7 +282,7 @@ func XTestDelivery(t *testing.T) {
 		log.Root().SetHandler(log.StdoutHandler)
 
 	}
-	q := newQueue(10, 10)
+	q := newQueue[nist.PublicKey](10, 10)
 	var wg sync.WaitGroup
 	q.Prepare(1, FastSync)
 	wg.Add(1)
@@ -313,7 +324,7 @@ func XTestDelivery(t *testing.T) {
 			f, _, _ := q.ReserveBodies(peer, rand.Intn(30))
 			if f != nil {
 				var emptyList []*types.Header
-				var txs [][]*types.Transaction
+				var txs [][]*types.Transaction[nist.PublicKey]
 				var uncles [][]*types.Header
 				numToSkip := rand.Intn(len(f.Headers))
 				for _, hdr := range f.Headers[0 : len(f.Headers)-numToSkip] {
@@ -338,7 +349,7 @@ func XTestDelivery(t *testing.T) {
 		for {
 			f, _, _ := q.ReserveReceipts(peer, rand.Intn(50))
 			if f != nil {
-				var rcs [][]*types.Receipt
+				var rcs [][]*types.Receipt[nist.PublicKey]
 				for _, hdr := range f.Headers {
 					rcs = append(rcs, world.getReceipts(hdr.Number.Uint64()))
 				}
@@ -379,28 +390,28 @@ func XTestDelivery(t *testing.T) {
 	wg.Wait()
 }
 
-func newNetwork() *network {
+func newNetwork() *network[nist.PrivateKey, nist.PublicKey] {
 	var l sync.RWMutex
-	return &network{
+	return &network[nist.PrivateKey, nist.PublicKey]{
 		cond:   sync.NewCond(&l),
 		offset: 1, // block 1 is at blocks[0]
 	}
 }
 
 // represents the network
-type network struct {
+type network [T crypto.PrivateKey,P crypto.PublicKey]struct {
 	offset   int
-	chain    []*types.Block
-	receipts []types.Receipts
+	chain    []*types.Block[P]
+	receipts []types.Receipts[P]
 	lock     sync.RWMutex
 	cond     *sync.Cond
 }
 
-func (n *network) getTransactions(blocknum uint64) types.Transactions {
+func (n *network[T,P]) getTransactions(blocknum uint64) types.Transactions[P] {
 	index := blocknum - uint64(n.offset)
 	return n.chain[index].Transactions()
 }
-func (n *network) getReceipts(blocknum uint64) types.Receipts {
+func (n *network[T,P]) getReceipts(blocknum uint64) types.Receipts[P] {
 	index := blocknum - uint64(n.offset)
 	if got := n.chain[index].Header().Number.Uint64(); got != blocknum {
 		fmt.Printf("Err, got %d exp %d\n", got, blocknum)
@@ -409,26 +420,25 @@ func (n *network) getReceipts(blocknum uint64) types.Receipts {
 	return n.receipts[index]
 }
 
-func (n *network) forget(blocknum uint64) {
+func (n *network[T,P]) forget(blocknum uint64) {
 	index := blocknum - uint64(n.offset)
 	n.chain = n.chain[index:]
 	n.receipts = n.receipts[index:]
 	n.offset = int(blocknum)
 
 }
-func (n *network) progress(numBlocks int) {
-
+func (n *network[T,P]) progress(numBlocks int) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	//fmt.Printf("progressing...\n")
-	newBlocks, newR := makeChain(numBlocks, 0, n.chain[len(n.chain)-1], false)
+	newBlocks, newR := makeChain[T,P](numBlocks, 0, n.chain[len(n.chain)-1], false)
 	n.chain = append(n.chain, newBlocks...)
 	n.receipts = append(n.receipts, newR...)
 	n.cond.Broadcast()
 
 }
 
-func (n *network) headers(from int) []*types.Header {
+func (n *network[T,P]) headers(from int) []*types.Header {
 	numHeaders := 128
 	var hdrs []*types.Header
 	index := from - n.offset

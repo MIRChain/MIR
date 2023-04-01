@@ -40,73 +40,73 @@ import (
 
 var (
 	// testKey is a private key to use for funding a tester account.
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testKey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 )
 
 // testBackend is a mock implementation of the live Ethereum message handler. Its
 // purpose is to allow testing the request/reply workflows and wire serialization
 // in the `eth` protocol without actually doing any data processing.
-type testBackend struct {
+type testBackend [T crypto.PrivateKey,P crypto.PublicKey] struct {
 	db     ethdb.Database
-	chain  *core.BlockChain
-	txpool *core.TxPool
+	chain  *core.BlockChain[P]
+	txpool *core.TxPool[P]
 }
 
 // newTestBackend creates an empty chain and wraps it into a mock backend.
-func newTestBackend(blocks int) *testBackend {
-	return newTestBackendWithGenerator(blocks, nil)
+func newTestBackend[T crypto.PrivateKey,P crypto.PublicKey](blocks int) *testBackend[T,P] {
+	return newTestBackendWithGenerator[T,P](blocks, nil)
 }
 
 // newTestBackend creates a chain with a number of explicitly defined blocks and
 // wraps it into a mock backend.
-func newTestBackendWithGenerator(blocks int, generator func(int, *core.BlockGen)) *testBackend {
+func newTestBackendWithGenerator[T crypto.PrivateKey,P crypto.PublicKey](blocks int, generator func(int, *core.BlockGen[P])) *testBackend[T,P] {
 	// Create a database pre-initialize with a genesis block
 	db := rawdb.NewMemoryDatabase()
-	(&core.Genesis{
+	(&core.Genesis[P]{
 		Config: params.TestChainConfig,
 		Alloc:  core.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
 	}).MustCommit(db)
 
-	chain, _ := core.NewBlockChain[nist.PublicKey](db, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[P](db, nil, params.TestChainConfig,  ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
 
-	bs, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, chain.Genesis(),  ethash.NewFaker[nist.PublicKey](), db, blocks, generator)
+	bs, _ := core.GenerateChain[P](params.TestChainConfig, chain.Genesis(),  ethash.NewFaker[P](), db, blocks, generator)
 	if _, err := chain.InsertChain(bs); err != nil {
 		panic(err)
 	}
 	txconfig := core.DefaultTxPoolConfig
 	txconfig.Journal = "" // Don't litter the disk with test journals
 
-	return &testBackend{
+	return &testBackend[T,P]{
 		db:     db,
 		chain:  chain,
-		txpool: core.NewTxPool(txconfig, params.TestChainConfig, chain),
+		txpool: core.NewTxPool[P](txconfig, params.TestChainConfig, chain),
 	}
 }
 
 // close tears down the transaction pool and chain behind the mock backend.
-func (b *testBackend) close() {
+func (b *testBackend[T,P]) close() {
 	b.txpool.Stop()
 	b.chain.Stop()
 }
 
-func (b *testBackend) Chain() *core.BlockChain     { return b.chain }
-func (b *testBackend) StateBloom() *trie.SyncBloom { return nil }
-func (b *testBackend) TxPool() TxPool              { return b.txpool }
+func (b *testBackend[T,P]) Chain() *core.BlockChain[P]     { return b.chain }
+func (b *testBackend[T,P]) StateBloom() *trie.SyncBloom { return nil }
+func (b *testBackend[T,P]) TxPool() TxPool[P]             { return b.txpool }
 
-func (b *testBackend) RunPeer(peer *Peer, handler Handler) error {
+func (b *testBackend[T,P]) RunPeer(peer *Peer[T,P], handler Handler[T,P]) error {
 	// Normally the backend would do peer mainentance and handshakes. All that
 	// is omitted and we will just give control back to the handler.
 	return handler(peer)
 }
-func (b *testBackend) PeerInfo(enode.ID) interface{} { panic("not implemented") }
+func (b *testBackend[T,P]) PeerInfo(enode.ID) interface{} { panic("not implemented") }
 
-func (b *testBackend) AcceptTxs() bool {
+func (b *testBackend[T,P]) AcceptTxs() bool {
 	panic("data processing tests should be done in the handler package")
 }
-func (b *testBackend) Handle(*Peer, Packet) error {
+func (b *testBackend[T,P]) Handle(*Peer[T,P], Packet) error {
 	panic("data processing tests should be done in the handler package")
 }
 
@@ -117,10 +117,10 @@ func TestGetBlockHeaders66(t *testing.T) { testGetBlockHeaders(t, ETH66) }
 func testGetBlockHeaders(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	backend := newTestBackend(maxHeadersServe + 15)
+	backend := newTestBackend[nist.PrivateKey,nist.PublicKey](maxHeadersServe + 15)
 	defer backend.close()
 
-	peer, _ := newTestPeer("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Create a "random" unknown hash for testing
@@ -306,10 +306,10 @@ func TestGetBlockBodies66(t *testing.T) { testGetBlockBodies(t, ETH66) }
 func testGetBlockBodies(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	backend := newTestBackend(maxBodiesServe + 15)
+	backend := newTestBackend[nist.PrivateKey, nist.PublicKey](maxBodiesServe + 15)
 	defer backend.close()
 
-	peer, _ := newTestPeer("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Create a batch of tests for various scenarios
@@ -344,7 +344,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 		// Collect the hashes to request, and the response to expectva
 		var (
 			hashes []common.Hash
-			bodies []*BlockBody
+			bodies []*BlockBody[nist.PublicKey]
 			seen   = make(map[int64]bool)
 		)
 		for j := 0; j < tt.random; j++ {
@@ -356,7 +356,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 					block := backend.chain.GetBlockByNumber(uint64(num))
 					hashes = append(hashes, block.Hash())
 					if len(bodies) < tt.expected {
-						bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
+						bodies = append(bodies, &BlockBody[nist.PublicKey]{Transactions: block.Transactions(), Uncles: block.Uncles()})
 					}
 					break
 				}
@@ -366,7 +366,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 			hashes = append(hashes, hash)
 			if tt.available[j] && len(bodies) < tt.expected {
 				block := backend.chain.GetBlockByHash(hash)
-				bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
+				bodies = append(bodies, &BlockBody[nist.PublicKey]{Transactions: block.Transactions(), Uncles: block.Uncles()})
 			}
 		}
 		// Send the hash request and verify the response
@@ -380,7 +380,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 				RequestId:            123,
 				GetBlockBodiesPacket: hashes,
 			})
-			if err := p2p.ExpectMsg(peer.app, BlockBodiesMsg, BlockBodiesPacket66{
+			if err := p2p.ExpectMsg(peer.app, BlockBodiesMsg, BlockBodiesPacket66[nist.PublicKey]{
 				RequestId:         123,
 				BlockBodiesPacket: bodies,
 			}); err != nil {
@@ -398,24 +398,24 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Define three accounts to simulate transactions with
-	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
-	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
+	acc1Key, _ := crypto.HexToECDSA[nist.PrivateKey]("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
+	acc2Key, _ := crypto.HexToECDSA[nist.PrivateKey]("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
+	acc1Addr := crypto.PubkeyToAddress[nist.PublicKey](*acc1Key.Public())
+	acc2Addr := crypto.PubkeyToAddress[nist.PublicKey](*acc2Key.Public())
 
-	signer := types.HomesteadSigner{}
+	signer := types.HomesteadSigner[nist.PublicKey]{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
-	generator := func(i int, block *core.BlockGen) {
+	generator := func(i int, block *core.BlockGen[nist.PublicKey]) {
 		switch i {
 		case 0:
 			// In block 1, the test bank sends account #1 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
+			tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
 			block.AddTx(tx)
 		case 1:
 			// In block 2, the test bank sends some more ether to account #1.
 			// acc1Addr passes it on to account #2.
-			tx1, _ := types.SignTx(types.NewTransaction(block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-			tx2, _ := types.SignTx(types.NewTransaction(block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
+			tx1, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 			block.AddTx(tx1)
 			block.AddTx(tx2)
 		case 2:
@@ -433,10 +433,10 @@ func testGetNodeData(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	backend := newTestBackendWithGenerator(4, generator)
+	backend := newTestBackendWithGenerator[nist.PrivateKey,nist.PublicKey](4, generator)
 	defer backend.close()
 
-	peer, _ := newTestPeer("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Fetch for now the entire chain db
@@ -514,24 +514,24 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Define three accounts to simulate transactions with
-	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
-	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
+	acc1Key, _ := crypto.HexToECDSA[nist.PrivateKey]("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
+	acc2Key, _ := crypto.HexToECDSA[nist.PrivateKey]("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
+	acc1Addr := crypto.PubkeyToAddress[nist.PublicKey](*acc1Key.Public())
+	acc2Addr := crypto.PubkeyToAddress[nist.PublicKey](*acc2Key.Public())
 
-	signer := types.HomesteadSigner{}
+	signer := types.HomesteadSigner[nist.PublicKey]{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
-	generator := func(i int, block *core.BlockGen) {
+	generator := func(i int, block *core.BlockGen[nist.PublicKey]) {
 		switch i {
 		case 0:
 			// In block 1, the test bank sends account #1 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
+			tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
 			block.AddTx(tx)
 		case 1:
 			// In block 2, the test bank sends some more ether to account #1.
 			// acc1Addr passes it on to account #2.
-			tx1, _ := types.SignTx(types.NewTransaction(block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-			tx2, _ := types.SignTx(types.NewTransaction(block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
+			tx1, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 			block.AddTx(tx1)
 			block.AddTx(tx2)
 		case 2:
@@ -549,16 +549,16 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	backend := newTestBackendWithGenerator(4, generator)
+	backend := newTestBackendWithGenerator[nist.PrivateKey,nist.PublicKey](4, generator)
 	defer backend.close()
 
-	peer, _ := newTestPeer("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Collect the hashes to request, and the response to expect
 	var (
 		hashes   []common.Hash
-		receipts [][]*types.Receipt
+		receipts [][]*types.Receipt[nist.PublicKey]
 	)
 	for i := uint64(0); i <= backend.chain.CurrentBlock().NumberU64(); i++ {
 		block := backend.chain.GetBlockByNumber(i)
@@ -577,7 +577,7 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 			RequestId:         123,
 			GetReceiptsPacket: hashes,
 		})
-		if err := p2p.ExpectMsg(peer.app, ReceiptsMsg, ReceiptsPacket66{
+		if err := p2p.ExpectMsg(peer.app, ReceiptsMsg, ReceiptsPacket66[nist.PublicKey]{
 			RequestId:      123,
 			ReceiptsPacket: receipts,
 		}); err != nil {

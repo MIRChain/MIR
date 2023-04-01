@@ -148,7 +148,7 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_PMTTransaction(t *
 	}()
 	private.P = mockptm
 
-	tx, err := types.SignTx(types.NewContractCreation(0, big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt private tx")).Bytes()), types.QuorumPrivateTxSigner{}, testKey)
+	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](0, big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt private tx")).Bytes()), types.QuorumPrivateTxSigner{}, testKey)
 	assert.Nil(err)
 	txData := new(bytes.Buffer)
 	err = json.NewEncoder(txData).Encode(tx)
@@ -407,20 +407,20 @@ const (
 )
 
 var (
-	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
+	testKey, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddress = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 )
 
-func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
+func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
-	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
+	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 	})
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block, n+1)
+	blockm := make(map[common.Hash]*types.Block[nist.PublicKey], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()
@@ -431,14 +431,14 @@ func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*typ
 	return blocks, blockm, blockchain
 }
 
-func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
+func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
-	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
+	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner{}
-		tx, err := types.SignTx(types.NewContractCreation(block.TxNonce(testAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testKey)
+		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](block.TxNonce(testAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testKey)
 		if err != nil {
 			panic(err)
 		}
@@ -447,7 +447,7 @@ func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*type
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block, n+1)
+	blockm := make(map[common.Hash]*types.Block[nist.PublicKey], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()
@@ -458,14 +458,14 @@ func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*type
 	return blocks, blockm, blockchain
 }
 
-func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block, map[common.Hash]*types.Block, *core.BlockChain) {
+func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
 	testdb := rawdb.NewMemoryDatabase()
-	genesis := core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen) {
+	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
+	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.LatestSigner(config)
-		tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt inner tx")).Bytes()), signer, testKey)
+		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddress), common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt inner tx")).Bytes()), signer, testKey)
 		if err != nil {
 			panic(err)
 		}
@@ -474,7 +474,7 @@ func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*t
 
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = genesis.Hash()
-	blockm := make(map[common.Hash]*types.Block, n+1)
+	blockm := make(map[common.Hash]*types.Block[nist.PublicKey], n+1)
 	blockm[genesis.Hash()] = genesis
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()

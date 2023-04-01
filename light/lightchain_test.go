@@ -40,7 +40,7 @@ var (
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
 func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
-	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, types.NewBlockWithHeader(parent),  ethash.NewFaker[nist.PublicKey](), db, n, func(i int, b *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, types.NewBlockWithHeader(parent),  ethash.NewFaker[nist.PublicKey](), db, n, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	headers := make([]*types.Header, len(blocks))
@@ -55,7 +55,7 @@ func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) [
 // header only chain.
 func newCanonical(n int) (ethdb.Database, *LightChain, error) {
 	db := rawdb.NewMemoryDatabase()
-	gspec := core.Genesis{Config: params.TestChainConfig}
+	gspec := core.Genesis[nist.PublicKey]{Config: params.TestChainConfig}
 	genesis := gspec.MustCommit(db)
 	blockchain, _ := NewLightChain(&dummyOdr{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config,  ethash.NewFaker[nist.PublicKey](), nil)
 
@@ -72,7 +72,7 @@ func newCanonical(n int) (ethdb.Database, *LightChain, error) {
 // newTestLightChain creates a LightChain that doesn't validate anything.
 func newTestLightChain() *LightChain {
 	db := rawdb.NewMemoryDatabase()
-	gspec := &core.Genesis{
+	gspec := &core.Genesis[nist.PublicKey]{
 		Difficulty: big.NewInt(1),
 		Config:     params.TestChainConfig,
 	}
@@ -244,7 +244,7 @@ func TestBrokenHeaderChain(t *testing.T) {
 	}
 }
 
-func makeHeaderChainWithDiff(genesis *types.Block, d []int, seed byte) []*types.Header {
+func makeHeaderChainWithDiff(genesis *types.Block[nist.PublicKey], d []int, seed byte) []*types.Header {
 	var chain []*types.Header
 	for i, difficulty := range d {
 		header := &types.Header{

@@ -26,6 +26,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 	"github.com/pavelkrolevets/MIR-pro/signer/storage"
@@ -458,7 +459,7 @@ func dummySigned(value *big.Int) *types.Transaction {
 	gas := uint64(21000)
 	gasPrice := big.NewInt(2000000)
 	data := make([]byte, 0)
-	return types.NewTransaction(3, to, value, gas, gasPrice, data)
+	return types.NewTransaction[nist.PublicKey](3, to, value, gas, gasPrice, data)
 }
 
 func TestLimitWindow(t *testing.T) {

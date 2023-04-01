@@ -26,6 +26,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -59,8 +61,8 @@ func testCtx() *vmContext {
 	return &vmContext{blockCtx: vm.BlockContext{BlockNumber: big.NewInt(1)}, txCtx: vm.TxContext{GasPrice: big.NewInt(100000)}}
 }
 
-func runTrace(tracer *Tracer, vmctx *vmContext) (json.RawMessage, error) {
-	env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
+func runTrace[P crypto.PublicKey](tracer *Tracer[P], vmctx *vmContext) (json.RawMessage, error) {
+	env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[P]{Debug: true, Tracer: tracer})
 	var (
 		startGas uint64 = 10000
 		value           = big.NewInt(0)
@@ -81,7 +83,7 @@ func TestTracer(t *testing.T) {
 	execTracer := func(code string) []byte {
 		t.Helper()
 		ctx := &vmContext{blockCtx: vm.BlockContext{BlockNumber: big.NewInt(1)}, txCtx: vm.TxContext{GasPrice: big.NewInt(100000)}}
-		tracer, err := New(code, ctx.txCtx)
+		tracer, err := New[nist.PublicKey](code, ctx.txCtx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -129,7 +131,7 @@ func TestHalt(t *testing.T) {
 
 	timeout := errors.New("stahp")
 	vmctx := testCtx()
-	tracer, err := New("{step: function() { while(1); }, result: function() { return null; }}", vmctx.txCtx)
+	tracer, err := New[nist.PublicKey]("{step: function() { while(1); }, result: function() { return null; }}", vmctx.txCtx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,11 +148,11 @@ func TestHalt(t *testing.T) {
 
 func TestHaltBetweenSteps(t *testing.T) {
 	vmctx := testCtx()
-	tracer, err := New("{step: function() {}, fault: function() {}, result: function() { return null; }}", vmctx.txCtx)
+	tracer, err := New[nist.PublicKey]("{step: function() {}, fault: function() {}, result: function() { return null; }}", vmctx.txCtx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1)}, vm.TxContext{}, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
+	env := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1)}, vm.TxContext{}, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
 	scope := &vm.ScopeContext{
 		Contract: vm.NewContract(&account{}, &account{}, big.NewInt(0), 0),
 	}
@@ -168,8 +170,8 @@ func TestHaltBetweenSteps(t *testing.T) {
 // TestNoStepExec tests a regular value transfer (no exec), and accessing the statedb
 // in 'result'
 func TestNoStepExec(t *testing.T) {
-	runEmptyTrace := func(tracer *Tracer, vmctx *vmContext) (json.RawMessage, error) {
-		env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
+	runEmptyTrace := func(tracer *Tracer[nist.PublicKey], vmctx *vmContext) (json.RawMessage, error) {
+		env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
 		startGas := uint64(10000)
 		contract := vm.NewContract(account{}, account{}, big.NewInt(0), startGas)
 		tracer.CaptureStart(env, contract.Caller(), contract.Address(), false, []byte{}, startGas, big.NewInt(0))
@@ -179,7 +181,7 @@ func TestNoStepExec(t *testing.T) {
 	execTracer := func(code string) []byte {
 		t.Helper()
 		ctx := &vmContext{blockCtx: vm.BlockContext{BlockNumber: big.NewInt(1)}, txCtx: vm.TxContext{GasPrice: big.NewInt(100000)}}
-		tracer, err := New(code, ctx.txCtx)
+		tracer, err := New[nist.PublicKey](code, ctx.txCtx)
 		if err != nil {
 			t.Fatal(err)
 		}

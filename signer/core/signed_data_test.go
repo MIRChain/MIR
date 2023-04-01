@@ -299,7 +299,7 @@ func TestEncodeType(t *testing.T) {
 	}
 
 	mailTypeEncoding := string(typedData.EncodeType(typedData.PrimaryType))
-	if mailTypeEncoding != "Mail(Person from,Person to,string contents)Person(string name,address wallet)" {
+	if mailTypeEncoding != "Mail(Person from,Person to,string contents)Person(string name,address wallet[nist.PublicKey])" {
 		t.Errorf("Expected different encodeType result (got %s)", mailTypeEncoding)
 	}
 }

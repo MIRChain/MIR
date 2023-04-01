@@ -27,15 +27,17 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var (
 	// testTxs is a set of transactions to use during testing that have meaningful hashes.
-	testTxs = []*types.Transaction{
-		types.NewTransaction(5577006791947779410, common.Address{0x0f}, new(big.Int), 0, new(big.Int), nil),
-		types.NewTransaction(15352856648520921629, common.Address{0xbb}, new(big.Int), 0, new(big.Int), nil),
-		types.NewTransaction(3916589616287113937, common.Address{0x86}, new(big.Int), 0, new(big.Int), nil),
-		types.NewTransaction(9828766684487745566, common.Address{0xac}, new(big.Int), 0, new(big.Int), nil),
+	testTxs = []*types.Transaction[nist.PublicKey]{
+		types.NewTransaction[nist.PublicKey](5577006791947779410, common.Address{0x0f}, new(big.Int), 0, new(big.Int), nil),
+		types.NewTransaction[nist.PublicKey](15352856648520921629, common.Address{0xbb}, new(big.Int), 0, new(big.Int), nil),
+		types.NewTransaction[nist.PublicKey](3916589616287113937, common.Address{0x86}, new(big.Int), 0, new(big.Int), nil),
+		types.NewTransaction[nist.PublicKey](9828766684487745566, common.Address{0xac}, new(big.Int), 0, new(big.Int), nil),
 	}
 	// testTxsHashes is the hashes of the test transactions above
 	testTxsHashes = []common.Hash{testTxs[0].Hash(), testTxs[1].Hash(), testTxs[2].Hash(), testTxs[3].Hash()}
@@ -45,9 +47,9 @@ type doTxNotify struct {
 	peer   string
 	hashes []common.Hash
 }
-type doTxEnqueue struct {
+type doTxEnqueue [P crypto.PublicKey] struct {
 	peer   string
-	txs    []*types.Transaction
+	txs    []*types.Transaction[P]
 	direct bool
 }
 type doWait struct {
@@ -67,17 +69,17 @@ type isUnderpriced int
 
 // txFetcherTest represents a test scenario that can be executed by the test
 // runner.
-type txFetcherTest struct {
-	init  func() *TxFetcher
+type txFetcherTest [P crypto.PublicKey] struct {
+	init  func() *TxFetcher[P]
 	steps []interface{}
 }
 
 // Tests that transaction announcements are added to a waitlist, and none
 // of them are scheduled for retrieval until the wait expires.
 func TestTransactionFetcherWaiting(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -165,9 +167,9 @@ func TestTransactionFetcherWaiting(t *testing.T) {
 // Tests that transaction announcements skip the waiting list if they are
 // already scheduled.
 func TestTransactionFetcherSkipWaiting(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -228,9 +230,9 @@ func TestTransactionFetcherSkipWaiting(t *testing.T) {
 // Tests that only a single transaction request gets scheduled to a peer
 // and subsequent announces block or get allotted to someone else.
 func TestTransactionFetcherSingletonRequesting(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -305,9 +307,9 @@ func TestTransactionFetcherFailedRescheduling(t *testing.T) {
 	// Create a channel to control when tx requests can fail
 	proceed := make(chan struct{})
 
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(origin string, hashes []common.Hash) error {
@@ -375,11 +377,11 @@ func TestTransactionFetcherFailedRescheduling(t *testing.T) {
 // Tests that if a transaction retrieval succeeds, all alternate origins
 // are cleaned up.
 func TestTransactionFetcherCleanup(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -404,7 +406,7 @@ func TestTransactionFetcherCleanup(t *testing.T) {
 				},
 			},
 			// Request should be delivered
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}, direct: true},
 			isScheduled{nil, nil, nil},
 		},
 	})
@@ -414,11 +416,11 @@ func TestTransactionFetcherCleanup(t *testing.T) {
 // transactions available, then all are nuked instead of being rescheduled (yes,
 // this was a bug)).
 func TestTransactionFetcherCleanupEmpty(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -443,7 +445,7 @@ func TestTransactionFetcherCleanupEmpty(t *testing.T) {
 				},
 			},
 			// Deliver an empty response and ensure the transaction is cleared, not rescheduled
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{}, direct: true},
 			isScheduled{nil, nil, nil},
 		},
 	})
@@ -452,11 +454,11 @@ func TestTransactionFetcherCleanupEmpty(t *testing.T) {
 // Tests that non-returned transactions are either re-scheduled from a
 // different peer, or self if they are after the cutoff point.
 func TestTransactionFetcherMissingRescheduling(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -482,7 +484,7 @@ func TestTransactionFetcherMissingRescheduling(t *testing.T) {
 			},
 			// Deliver the middle transaction requested, the one before which
 			// should be dropped and the one after re-requested.
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}, direct: true}, // This depends on the deterministic random
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}, direct: true}, // This depends on the deterministic random
 			isScheduled{
 				tracking: map[string][]common.Hash{
 					"A": {testTxsHashes[2]},
@@ -498,11 +500,11 @@ func TestTransactionFetcherMissingRescheduling(t *testing.T) {
 // Tests that out of two transactions, if one is missing and the last is
 // delivered, the peer gets properly cleaned out from the internal state.
 func TestTransactionFetcherMissingCleanup(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -528,7 +530,7 @@ func TestTransactionFetcherMissingCleanup(t *testing.T) {
 			},
 			// Deliver the middle transaction requested, the one before which
 			// should be dropped and the one after re-requested.
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[1]}, direct: true}, // This depends on the deterministic random
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[1]}, direct: true}, // This depends on the deterministic random
 			isScheduled{nil, nil, nil},
 		},
 	})
@@ -536,11 +538,11 @@ func TestTransactionFetcherMissingCleanup(t *testing.T) {
 
 // Tests that transaction broadcasts properly clean up announcements.
 func TestTransactionFetcherBroadcasts(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -568,7 +570,7 @@ func TestTransactionFetcherBroadcasts(t *testing.T) {
 			// Broadcast all the transactions and ensure everything gets cleaned
 			// up, but the dangling request is left alone to avoid doing multiple
 			// concurrent requests.
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0], testTxs[1], testTxs[2]}, direct: false},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0], testTxs[1], testTxs[2]}, direct: false},
 			isWaiting(nil),
 			isScheduled{
 				tracking: nil,
@@ -578,7 +580,7 @@ func TestTransactionFetcherBroadcasts(t *testing.T) {
 				},
 			},
 			// Deliver the requested hashes
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0], testTxs[1], testTxs[2]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0], testTxs[1], testTxs[2]}, direct: true},
 			isScheduled{nil, nil, nil},
 		},
 	})
@@ -586,9 +588,9 @@ func TestTransactionFetcherBroadcasts(t *testing.T) {
 
 // Tests that the waiting list timers properly reset and reschedule.
 func TestTransactionFetcherWaitTimerResets(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -641,11 +643,11 @@ func TestTransactionFetcherWaitTimerResets(t *testing.T) {
 // Tests that if a transaction request is not replied to, it will time
 // out and be re-scheduled for someone else.
 func TestTransactionFetcherTimeoutRescheduling(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -692,7 +694,7 @@ func TestTransactionFetcherTimeoutRescheduling(t *testing.T) {
 				},
 			},
 			// If the dangling request arrives a bit later, do not choke
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}, direct: true},
 			isWaiting(nil),
 			isScheduled{
 				tracking: map[string][]common.Hash{
@@ -708,9 +710,9 @@ func TestTransactionFetcherTimeoutRescheduling(t *testing.T) {
 
 // Tests that the fetching timeout timers properly reset and reschedule.
 func TestTransactionFetcherTimeoutTimerResets(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -767,9 +769,9 @@ func TestTransactionFetcherRateLimiting(t *testing.T) {
 		hashes = append(hashes, common.Hash{byte(i / 256), byte(i % 256)})
 	}
 
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -805,9 +807,9 @@ func TestTransactionFetcherDoSProtection(t *testing.T) {
 	for i := 0; i < maxTxAnnounces+1; i++ {
 		hashesB = append(hashesB, common.Hash{0x02, byte(i / 256), byte(i % 256)})
 	}
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
 				func(string, []common.Hash) error { return nil },
@@ -862,11 +864,11 @@ func TestTransactionFetcherDoSProtection(t *testing.T) {
 
 // Tests that underpriced transactions don't get rescheduled after being rejected.
 func TestTransactionFetcherUnderpricedDedup(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					errs := make([]error, len(txs))
 					for i := 0; i < len(errs); i++ {
 						if i%2 == 0 {
@@ -884,7 +886,7 @@ func TestTransactionFetcherUnderpricedDedup(t *testing.T) {
 			// Deliver a transaction through the fetcher, but reject as underpriced
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0], testTxsHashes[1]}},
 			doWait{time: txArriveTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0], testTxs[1]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0], testTxs[1]}, direct: true},
 			isScheduled{nil, nil, nil},
 
 			// Try to announce the transaction again, ensure it's not scheduled back
@@ -906,9 +908,9 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 	txFetchTimeout = 24 * time.Hour
 
 	// Create a slew of transactions to max out the underpriced set
-	var txs []*types.Transaction
+	var txs []*types.Transaction[nist.PublicKey]
 	for i := 0; i < maxTxUnderpricedSetSize+1; i++ {
-		txs = append(txs, types.NewTransaction(rand.Uint64(), common.Address{byte(rand.Intn(256))}, new(big.Int), 0, new(big.Int), nil))
+		txs = append(txs, types.NewTransaction[nist.PublicKey](rand.Uint64(), common.Address{byte(rand.Intn(256))}, new(big.Int), 0, new(big.Int), nil))
 	}
 	hashes := make([]common.Hash, len(txs))
 	for i, tx := range txs {
@@ -930,16 +932,16 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 				"A": hashes[i*maxTxRetrievals : (i+1)*maxTxRetrievals],
 			},
 		})
-		steps = append(steps, doTxEnqueue{peer: "A", txs: txs[i*maxTxRetrievals : (i+1)*maxTxRetrievals], direct: true})
+		steps = append(steps, doTxEnqueue[nist.PublicKey]{peer: "A", txs: txs[i*maxTxRetrievals : (i+1)*maxTxRetrievals], direct: true})
 		steps = append(steps, isWaiting(nil))
 		steps = append(steps, isScheduled{nil, nil, nil})
 		steps = append(steps, isUnderpriced((i+1)*maxTxRetrievals))
 	}
-	testTransactionFetcher(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcher(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					errs := make([]error, len(txs))
 					for i := 0; i < len(errs); i++ {
 						errs[i] = core.ErrUnderpriced
@@ -953,7 +955,7 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 			// The preparation of the test has already been done in `steps`, add the last check
 			doTxNotify{peer: "A", hashes: []common.Hash{hashes[maxTxUnderpricedSetSize]}},
 			doWait{time: txArriveTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{txs[maxTxUnderpricedSetSize]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{txs[maxTxUnderpricedSetSize]}, direct: true},
 			isUnderpriced(maxTxUnderpricedSetSize),
 		}...),
 	})
@@ -961,11 +963,11 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 
 // Tests that unexpected deliveries don't corrupt the internal state.
 func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -975,7 +977,7 @@ func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
 			// Deliver something out of the blue
 			isWaiting(nil),
 			isScheduled{nil, nil, nil},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}, direct: false},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}, direct: false},
 			isWaiting(nil),
 			isScheduled{nil, nil, nil},
 
@@ -998,7 +1000,7 @@ func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
 				},
 			},
 			// Deliver everything and more out of the blue
-			doTxEnqueue{peer: "B", txs: []*types.Transaction{testTxs[0], testTxs[1], testTxs[2], testTxs[3]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "B", txs: []*types.Transaction[nist.PublicKey]{testTxs[0], testTxs[1], testTxs[2], testTxs[3]}, direct: true},
 			isWaiting(nil),
 			isScheduled{
 				tracking: nil,
@@ -1014,11 +1016,11 @@ func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
 // Tests that dropping a peer cleans out all internal data structures in all the
 // live or danglng stages.
 func TestTransactionFetcherDrop(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -1080,11 +1082,11 @@ func TestTransactionFetcherDrop(t *testing.T) {
 // Tests that dropping a peer instantly reschedules failed announcements to any
 // available peer.
 func TestTransactionFetcherDropRescheduling(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -1125,11 +1127,11 @@ func TestTransactionFetcherDropRescheduling(t *testing.T) {
 // dangling transaction timing out and clashing on readd with a concurrently
 // announced one.
 func TestTransactionFetcherFuzzCrash01(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -1139,7 +1141,7 @@ func TestTransactionFetcherFuzzCrash01(t *testing.T) {
 			// Get a transaction into fetching mode and make it dangling with a broadcast
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0]}},
 			doWait{time: txArriveTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}},
 
 			// Notify the dangling transaction once more and crash via a timeout
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0]}},
@@ -1152,11 +1154,11 @@ func TestTransactionFetcherFuzzCrash01(t *testing.T) {
 // dangling transaction getting peer-dropped and clashing on readd with a
 // concurrently announced one.
 func TestTransactionFetcherFuzzCrash02(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -1166,7 +1168,7 @@ func TestTransactionFetcherFuzzCrash02(t *testing.T) {
 			// Get a transaction into fetching mode and make it dangling with a broadcast
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0]}},
 			doWait{time: txArriveTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}},
 
 			// Notify the dangling transaction once more, re-fetch, and crash via a drop and timeout
 			doTxNotify{peer: "B", hashes: []common.Hash{testTxsHashes[0]}},
@@ -1181,11 +1183,11 @@ func TestTransactionFetcherFuzzCrash02(t *testing.T) {
 // dangling transaction getting rescheduled via a partial delivery, clashing
 // with a concurrent notify.
 func TestTransactionFetcherFuzzCrash03(t *testing.T) {
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
@@ -1195,13 +1197,13 @@ func TestTransactionFetcherFuzzCrash03(t *testing.T) {
 			// Get a transaction into fetching mode and make it dangling with a broadcast
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0], testTxsHashes[1]}},
 			doWait{time: txFetchTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0], testTxs[1]}},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0], testTxs[1]}},
 
 			// Notify the dangling transaction once more, partially deliver, clash&crash with a timeout
 			doTxNotify{peer: "B", hashes: []common.Hash{testTxsHashes[0]}},
 			doWait{time: txArriveTimeout, step: true},
 
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[1]}, direct: true},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[1]}, direct: true},
 			doWait{time: txFetchTimeout, step: true},
 		},
 	})
@@ -1214,11 +1216,11 @@ func TestTransactionFetcherFuzzCrash04(t *testing.T) {
 	// Create a channel to control when tx requests can fail
 	proceed := make(chan struct{})
 
-	testTransactionFetcherParallel(t, txFetcherTest{
-		init: func() *TxFetcher {
-			return NewTxFetcher(
+	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey]{
+			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
-				func(txs []*types.Transaction) []error {
+				func(txs []*types.Transaction[nist.PublicKey]) []error {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error {
@@ -1231,7 +1233,7 @@ func TestTransactionFetcherFuzzCrash04(t *testing.T) {
 			// Get a transaction into fetching mode and make it dangling with a broadcast
 			doTxNotify{peer: "A", hashes: []common.Hash{testTxsHashes[0]}},
 			doWait{time: txArriveTimeout, step: true},
-			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0]}},
+			doTxEnqueue[nist.PublicKey]{peer: "A", txs: []*types.Transaction[nist.PublicKey]{testTxs[0]}},
 
 			// Notify the dangling transaction once more, re-fetch, and crash via an in-flight disconnect
 			doTxNotify{peer: "B", hashes: []common.Hash{testTxsHashes[0]}},
@@ -1245,12 +1247,12 @@ func TestTransactionFetcherFuzzCrash04(t *testing.T) {
 	})
 }
 
-func testTransactionFetcherParallel(t *testing.T, tt txFetcherTest) {
+func testTransactionFetcherParallel(t *testing.T, tt txFetcherTest[nist.PublicKey]) {
 	t.Parallel()
 	testTransactionFetcher(t, tt)
 }
 
-func testTransactionFetcher(t *testing.T, tt txFetcherTest) {
+func testTransactionFetcher(t *testing.T, tt txFetcherTest[nist.PublicKey]) {
 	// Create a fetcher and hook into it's simulated fields
 	clock := new(mclock.Simulated)
 	wait := make(chan struct{})
@@ -1277,7 +1279,7 @@ func testTransactionFetcher(t *testing.T, tt txFetcherTest) {
 			case <-time.After(time.Millisecond):
 			}
 
-		case doTxEnqueue:
+		case doTxEnqueue[nist.PublicKey]:
 			if err := fetcher.Enqueue(step.peer, step.txs, step.direct); err != nil {
 				t.Errorf("step %d: %v", i, err)
 			}

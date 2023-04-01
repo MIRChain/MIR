@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
@@ -37,14 +38,14 @@ func testFastSyncDisabling(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Create an empty handler and ensure it's in fast sync mode
-	empty := newTestHandler()
+	empty := newTestHandler[nist.PrivateKey,nist.PublicKey]()
 	if atomic.LoadUint32(&empty.handler.fastSync) == 0 {
 		t.Fatalf("fast sync disabled on pristine blockchain")
 	}
 	defer empty.close()
 
 	// Create a full handler and ensure fast sync ends up disabled
-	full := newTestHandlerWithBlocks(1024)
+	full := newTestHandlerWithBlocks[nist.PrivateKey,nist.PublicKey](1024)
 	if atomic.LoadUint32(&full.handler.fastSync) == 1 {
 		t.Fatalf("fast sync not disabled on non-empty blockchain")
 	}
@@ -55,16 +56,16 @@ func testFastSyncDisabling(t *testing.T, protocol uint) {
 	defer emptyPipe.Close()
 	defer fullPipe.Close()
 
-	emptyPeer := eth.NewPeer(protocol, p2p.NewPeer(enode.ID{1}, "", nil), emptyPipe, empty.txpool)
-	fullPeer := eth.NewPeer(protocol, p2p.NewPeer(enode.ID{2}, "", nil), fullPipe, full.txpool)
+	emptyPeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), emptyPipe, empty.txpool)
+	fullPeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), fullPipe, full.txpool)
 	defer emptyPeer.Close()
 	defer fullPeer.Close()
 
-	go empty.handler.runEthPeer(emptyPeer, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(empty.handler), peer)
+	go empty.handler.runEthPeer(emptyPeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(empty.handler), peer)
 	})
-	go full.handler.runEthPeer(fullPeer, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(full.handler), peer)
+	go full.handler.runEthPeer(fullPeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(full.handler), peer)
 	})
 	// Wait a bit for the above handlers to start
 	time.Sleep(250 * time.Millisecond)

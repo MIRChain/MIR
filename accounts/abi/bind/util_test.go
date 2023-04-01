@@ -29,9 +29,10 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+var testKey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 var waitDeployedTests = map[string]struct {
 	code        string
@@ -54,17 +55,17 @@ var waitDeployedTests = map[string]struct {
 
 func TestWaitDeployed(t *testing.T) {
 	for name, test := range waitDeployedTests {
-		backend := backends.NewSimulatedBackend(
+		backend := backends.NewSimulatedBackend[nist.PublicKey](
 			core.GenesisAlloc{
-				crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000)},
+				crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public()): {Balance: big.NewInt(10000000000)},
 			},
 			10000000,
 		)
 		defer backend.Close()
 
 		// Create the transaction.
-		tx := types.NewContractCreation(0, big.NewInt(0), test.gas, big.NewInt(1), common.FromHex(test.code))
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx := types.NewContractCreation[nist.PublicKey](0, big.NewInt(0), test.gas, big.NewInt(1), common.FromHex(test.code))
+		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 		// Wait for it to get mined in the background.
 		var (
@@ -74,7 +75,7 @@ func TestWaitDeployed(t *testing.T) {
 			ctx     = context.Background()
 		)
 		go func() {
-			address, err = bind.WaitDeployed(ctx, backend, tx)
+			address, err = bind.WaitDeployed[nist.PublicKey](ctx, backend, tx)
 			close(mined)
 		}()
 
@@ -97,9 +98,9 @@ func TestWaitDeployed(t *testing.T) {
 }
 
 func TestWaitDeployedCornerCases(t *testing.T) {
-	backend := backends.NewSimulatedBackend(
+	backend := backends.NewSimulatedBackend[nist.PublicKey](
 		core.GenesisAlloc{
-			crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000)},
+			crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public()): {Balance: big.NewInt(10000000000)},
 		},
 		10000000,
 	)
@@ -107,24 +108,24 @@ func TestWaitDeployedCornerCases(t *testing.T) {
 
 	// Create a transaction to an account.
 	code := "6060604052600a8060106000396000f360606040526008565b00"
-	tx := types.NewTransaction(0, common.HexToAddress("0x01"), big.NewInt(0), 3000000, big.NewInt(1), common.FromHex(code))
-	tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+	tx := types.NewTransaction[nist.PublicKey](0, common.HexToAddress("0x01"), big.NewInt(0), 3000000, big.NewInt(1), common.FromHex(code))
+	tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	backend.SendTransaction(ctx, tx, bind.PrivateTxArgs{})
 	backend.Commit()
 	notContentCreation := errors.New("tx is not contract creation")
-	if _, err := bind.WaitDeployed(ctx, backend, tx); err.Error() != notContentCreation.Error() {
+	if _, err := bind.WaitDeployed[nist.PublicKey](ctx, backend, tx); err.Error() != notContentCreation.Error() {
 		t.Errorf("error missmatch: want %q, got %q, ", notContentCreation, err)
 	}
 
 	// Create a transaction that is not mined.
-	tx = types.NewContractCreation(1, big.NewInt(0), 3000000, big.NewInt(1), common.FromHex(code))
-	tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+	tx = types.NewContractCreation[nist.PublicKey](1, big.NewInt(0), 3000000, big.NewInt(1), common.FromHex(code))
+	tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 	go func() {
 		contextCanceled := errors.New("context canceled")
-		if _, err := bind.WaitDeployed(ctx, backend, tx); err.Error() != contextCanceled.Error() {
+		if _, err := bind.WaitDeployed[nist.PublicKey](ctx, backend, tx); err.Error() != contextCanceled.Error() {
 			t.Errorf("error missmatch: want %q, got %q, ", contextCanceled, err)
 		}
 	}()

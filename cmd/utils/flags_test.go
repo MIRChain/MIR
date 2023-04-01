@@ -28,7 +28,8 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/eth"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,24 +43,24 @@ func TestAuthorizationList(t *testing.T) {
 		2: common.HexToHash("0x12"),
 	}
 
-	arbitraryNodeConfig := &eth.Config{}
+	arbitraryNodeConfig := &ethconfig.Config[nist.PublicKey]{}
 	fs := &flag.FlagSet{}
 	fs.String(AuthorizationListFlag.Name, value, "")
 	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
 	arbitraryCLIContext.GlobalSet(AuthorizationListFlag.Name, value)
-	setAuthorizationList(arbitraryCLIContext, arbitraryNodeConfig)
+	setAuthorizationList[nist.PrivateKey,nist.PublicKey](arbitraryCLIContext, arbitraryNodeConfig)
 	assert.Equal(t, result, arbitraryNodeConfig.AuthorizationList)
 
 	fs = &flag.FlagSet{}
 	fs.String(AuthorizationListFlag.Name, value, "")
 	arbitraryCLIContext = cli.NewContext(nil, fs, nil)
 	arbitraryCLIContext.GlobalSet(DeprecatedAuthorizationListFlag.Name, value) // old wlist flag
-	setAuthorizationList(arbitraryCLIContext, arbitraryNodeConfig)
+	setAuthorizationList[nist.PrivateKey,nist.PublicKey](arbitraryCLIContext, arbitraryNodeConfig)
 	assert.Equal(t, result, arbitraryNodeConfig.AuthorizationList)
 }
 
 func TestSetPlugins_whenPluginsNotEnabled(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
+	arbitraryNodeConfig := &node.Config[nist.PrivateKey,nist.PublicKey]{}
 	arbitraryCLIContext := cli.NewContext(nil, &flag.FlagSet{}, nil)
 
 	assert.NoError(t, SetPlugins(arbitraryCLIContext, arbitraryNodeConfig))
@@ -68,7 +69,7 @@ func TestSetPlugins_whenPluginsNotEnabled(t *testing.T) {
 }
 
 func TestSetPlugins_whenInvalidFlagsCombination(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
+	arbitraryNodeConfig := &node.Config[nist.PrivateKey,nist.PublicKey]{}
 	fs := &flag.FlagSet{}
 	fs.String(PluginSettingsFlag.Name, "", "")
 	fs.Bool(PluginSkipVerifyFlag.Name, true, "")
@@ -87,7 +88,7 @@ func TestSetPlugins_whenInvalidFlagsCombination(t *testing.T) {
 }
 
 func TestSetPlugins_whenInvalidPluginSettingsURL(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
+	arbitraryNodeConfig := &node.Config[nist.PrivateKey,nist.PublicKey]{}
 	fs := &flag.FlagSet{}
 	fs.String(PluginSettingsFlag.Name, "", "")
 	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
@@ -117,7 +118,7 @@ func TestSetPlugins_whenTypical(t *testing.T) {
 	if err := ioutil.WriteFile(arbitraryJSONFile, []byte("{}"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	arbitraryNodeConfig := &node.Config{}
+	arbitraryNodeConfig := &node.Config[nist.PrivateKey,nist.PublicKey]{}
 	fs := &flag.FlagSet{}
 	fs.String(PluginSettingsFlag.Name, "", "")
 	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
@@ -128,7 +129,7 @@ func TestSetPlugins_whenTypical(t *testing.T) {
 	assert.NotNil(t, arbitraryNodeConfig.Plugins)
 }
 
-func verifyErrorMessage(t *testing.T, ctx *cli.Context, cfg *node.Config, expectedMsg string) {
+func verifyErrorMessage(t *testing.T, ctx *cli.Context, cfg *node.Config[nist.PrivateKey,nist.PublicKey], expectedMsg string) {
 	err := SetPlugins(ctx, cfg)
 	assert.EqualError(t, err, expectedMsg)
 }
@@ -177,7 +178,7 @@ func Test_SplitTagsFlag(t *testing.T) {
 func TestQuorumConfigFlags(t *testing.T) {
 	fs := &flag.FlagSet{}
 	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	arbitraryEthConfig := &eth.Config{}
+	arbitraryEthConfig := &ethconfig.Config[nist.PublicKey]{}
 
 	fs.Int(EVMCallTimeOutFlag.Name, 0, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(EVMCallTimeOutFlag.Name, strconv.Itoa(12)))
@@ -192,7 +193,7 @@ func TestQuorumConfigFlags(t *testing.T) {
 	fs.Bool(RaftModeFlag.Name, false, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(RaftModeFlag.Name, "true"))
 
-	require.NoError(t, setQuorumConfig(arbitraryCLIContext, arbitraryEthConfig))
+	require.NoError(t, setQuorumConfig[nist.PrivateKey,nist.PublicKey](arbitraryCLIContext, arbitraryEthConfig))
 
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(EVMCallTimeOutFlag.Name), "EVMCallTimeOutFlag not set")
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(MultitenancyFlag.Name), "MultitenancyFlag not set")

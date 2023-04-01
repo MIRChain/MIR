@@ -22,6 +22,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/forkid"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
@@ -34,7 +35,7 @@ func testHandshake(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Create a test backend only to have some valid genesis chain
-	backend := newTestBackend(3)
+	backend := newTestBackend[nist.PrivateKey,nist.PublicKey](3)
 	defer backend.close()
 
 	var (
@@ -75,13 +76,13 @@ func testHandshake(t *testing.T, protocol uint) {
 		defer app.Close()
 		defer net.Close()
 
-		peer := NewPeer(protocol, p2p.NewPeer(enode.ID{}, "peer", nil), net, nil)
+		peer := NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{}, "peer", nil), net, nil)
 		defer peer.Close()
 
 		// Send the junk test with one peer, check the handshake failure
 		go p2p.Send(app, test.code, test.data)
 
-		err := peer.Handshake(1, td, head.Hash(), genesis.Hash(), forkID, forkid.NewFilter(backend.chain))
+		err := peer.Handshake(1, td, head.Hash(), genesis.Hash(), forkID, forkid.NewFilter[nist.PublicKey](backend.chain))
 		if err == nil {
 			t.Errorf("test %d: protocol returned nil error, want %q", i, test.want)
 		} else if !errors.Is(err, test.want) {

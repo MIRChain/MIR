@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
 )
 
@@ -283,7 +284,7 @@ func TestWalletNotifierLifecycle(t *testing.T) {
 		t.Errorf("wallet notifier running without subscribers")
 	}
 	// Subscribe to the wallet feed and ensure the updater boots up
-	updates := make(chan accounts.WalletEvent)
+	updates := make(chan accounts.WalletEvent[nist.PublicKey])
 
 	subs := make([]event.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -324,7 +325,7 @@ func TestWalletNotifierLifecycle(t *testing.T) {
 }
 
 type walletEvent struct {
-	accounts.WalletEvent
+	accounts.WalletEvent[nist.PublicKey]
 	a accounts.Account
 }
 
@@ -337,7 +338,7 @@ func TestWalletNotifications(t *testing.T) {
 	// Subscribe to the wallet feed and collect events.
 	var (
 		events  []walletEvent
-		updates = make(chan accounts.WalletEvent)
+		updates = make(chan accounts.WalletEvent[nist.PublicKey])
 		sub     = ks.Subscribe(updates)
 	)
 	defer sub.Unsubscribe()
@@ -366,7 +367,7 @@ func TestWalletNotifications(t *testing.T) {
 				t.Fatalf("failed to create test account: %v", err)
 			}
 			live[account.Address] = account
-			wantEvents = append(wantEvents, walletEvent{accounts.WalletEvent{Kind: accounts.WalletArrived}, account})
+			wantEvents = append(wantEvents, walletEvent{accounts.WalletEvent[nist.PublicKey]{Kind: accounts.WalletArrived}, account})
 		} else {
 			// Delete a random account.
 			var account accounts.Account
@@ -378,7 +379,7 @@ func TestWalletNotifications(t *testing.T) {
 				t.Fatalf("failed to delete test account: %v", err)
 			}
 			delete(live, account.Address)
-			wantEvents = append(wantEvents, walletEvent{accounts.WalletEvent{Kind: accounts.WalletDropped}, account})
+			wantEvents = append(wantEvents, walletEvent{accounts.WalletEvent[nist.PublicKey]{Kind: accounts.WalletDropped}, account})
 		}
 	}
 
@@ -395,7 +396,7 @@ func TestWalletNotifications(t *testing.T) {
 func TestImportECDSA(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
 	defer os.RemoveAll(dir)
-	key, err := crypto.GenerateKey()
+	key, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", key)
 	}
@@ -474,7 +475,7 @@ func TestImportRace(t *testing.T) {
 }
 
 // checkAccounts checks that all known live accounts are present in the wallet list.
-func checkAccounts(t *testing.T, live map[common.Address]accounts.Account, wallets []accounts.Wallet) {
+func checkAccounts(t *testing.T, live map[common.Address]accounts.Account, wallets []accounts.Wallet[nist.PublicKey]) {
 	if len(live) != len(wallets) {
 		t.Errorf("wallet list doesn't match required accounts: have %d, want %d", len(wallets), len(live))
 		return
@@ -509,14 +510,14 @@ func checkEvents(t *testing.T, want []walletEvent, have []walletEvent) {
 	}
 }
 
-func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore) {
+func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKey,nist.PublicKey]) {
 	d, err := ioutil.TempDir("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	newKs := NewPlaintextKeyStore
+	newKs := NewPlaintextKeyStore[nist.PrivateKey,nist.PublicKey]
 	if encrypted {
-		newKs = func(kd string) *KeyStore { return NewKeyStore(kd, veryLightScryptN, veryLightScryptP) }
+		newKs = func(kd string) *KeyStore[nist.PrivateKey,nist.PublicKey] { return NewKeyStore[nist.PrivateKey,nist.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
 	}
 	return d, newKs(d)
 }

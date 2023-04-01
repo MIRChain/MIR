@@ -185,21 +185,21 @@ func TestToFilterArg(t *testing.T) {
 }
 
 var (
-	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr    = crypto.PubkeyToAddress(testKey.PublicKey)
+	testKey, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr    = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 	testBalance = big.NewInt(2e10)
 )
 
-func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
+func newTestBackend(t *testing.T) (*node.Node[nist.PrivateKey,nist.PublicKey], []*types.Block[nist.PublicKey]) {
 	// Generate test chain.
 	genesis, blocks := generateTestChain()
 	// Create node
-	n, err := node.New(&node.Config{})
+	n, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("can't create new node: %v", err)
 	}
 	// Create Ethereum Service
-	config := &ethconfig.Config{Genesis: genesis}
+	config := &ethconfig.Config[nist.PublicKey]{Genesis: genesis}
 	config.Ethash.PowMode = ethash.ModeFake
 	ethservice, err := eth.New(n, config)
 	if err != nil {
@@ -215,23 +215,23 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	return n, blocks
 }
 
-func generateTestChain() (*core.Genesis, []*types.Block) {
+func generateTestChain() (*core.Genesis[nist.PublicKey], []*types.Block[nist.PublicKey]) {
 	db := rawdb.NewMemoryDatabase()
 	config := params.AllEthashProtocolChanges
-	genesis := &core.Genesis{
+	genesis := &core.Genesis[nist.PublicKey]{
 		Config:    config,
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
 	}
-	generate := func(i int, g *core.BlockGen) {
+	generate := func(i int, g *core.BlockGen[nist.PublicKey]) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
 	engine :=  ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, 1, generate)
-	blocks = append([]*types.Block{gblock}, blocks...)
+	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	return genesis, blocks
 }
 
@@ -276,7 +276,7 @@ func TestEthClient(t *testing.T) {
 	}
 }
 
-func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
+func testHeader(t *testing.T, chain []*types.Block[nist.PublicKey], client *rpc.Client) {
 	tests := map[string]struct {
 		block   *big.Int
 		want    *types.Header
@@ -563,7 +563,7 @@ func sendTransaction(ec *Client) error {
 		return err
 	}
 	// Create transaction
-	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
+	tx := types.NewTransaction[nist.PublicKey](0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {

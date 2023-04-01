@@ -71,13 +71,13 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) CurrentBlock() *types.Block {
+func (bc *testBlockChain) CurrentBlock() *types.Block[nist.PublicKey] {
 	return types.NewBlock(&types.Header{
 		GasLimit: bc.gasLimit,
 	}, nil, nil, nil, trie.NewStackTrie(nil))
 }
 
-func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block[nist.PublicKey] {
 	return bc.CurrentBlock()
 }
 
@@ -248,7 +248,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
-	genesis := core.DeveloperGenesisBlock(15, common.HexToAddress("12345"))
+	genesis := core.DeveloperGenesisBlock[nist.PublicKey](15, common.HexToAddress("12345"))
 	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)

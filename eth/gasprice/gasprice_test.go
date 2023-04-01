@@ -34,46 +34,46 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
-type testBackend struct {
-	chain *core.BlockChain
+type testBackend [P crypto.PublicKey] struct {
+	chain *core.BlockChain[P]
 }
 
-func (b *testBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
 	if number == rpc.LatestBlockNumber {
 		return b.chain.CurrentBlock().Header(), nil
 	}
 	return b.chain.GetHeaderByNumber(uint64(number)), nil
 }
 
-func (b *testBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
+func (b *testBackend[P]) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error) {
 	if number == rpc.LatestBlockNumber {
 		return b.chain.CurrentBlock(), nil
 	}
 	return b.chain.GetBlockByNumber(uint64(number)), nil
 }
 
-func (b *testBackend) ChainConfig() *params.ChainConfig {
+func (b *testBackend[P]) ChainConfig() *params.ChainConfig {
 	return b.chain.Config()
 }
 
-func newTestBackend(t *testing.T) *testBackend {
+func newTestBackend(t *testing.T) *testBackend[nist.PublicKey] {
 	var (
-		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = crypto.PubkeyToAddress(key.PublicKey)
-		gspec  = &core.Genesis{
+		key, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		addr   = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		gspec  = &core.Genesis[nist.PublicKey]{
 			Config: params.TestChainConfig,
 			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
 		}
-		signer = types.LatestSigner(gspec.Config)
+		signer = types.LatestSigner[nist.PublicKey](gspec.Config)
 	)
 	engine :=  ethash.NewFaker[nist.PublicKey]()
 	db := rawdb.NewMemoryDatabase()
 	genesis, _ := gspec.Commit(db)
 
 	// Generate testing blocks
-	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 32, func(i int, b *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, db, 32, func(i int, b *core.BlockGen[nist.PublicKey]) {
 		b.SetCoinbase(common.Address{1})
-		tx, err := types.SignTx(types.NewTransaction(b.TxNonce(addr), common.HexToAddress("deadbeef"), big.NewInt(100), 21000, big.NewInt(int64(i+1)*params.GWei), nil), signer, key)
+		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](b.TxNonce(addr), common.HexToAddress("deadbeef"), big.NewInt(100), 21000, big.NewInt(int64(i+1)*params.GWei), nil), signer, key)
 		if err != nil {
 			t.Fatalf("failed to create tx: %v", err)
 		}
@@ -87,14 +87,14 @@ func newTestBackend(t *testing.T) *testBackend {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}
 	chain.InsertChain(blocks)
-	return &testBackend{chain: chain}
+	return &testBackend[nist.PublicKey]{chain: chain}
 }
 
-func (b *testBackend) CurrentHeader() *types.Header {
+func (b *testBackend[P]) CurrentHeader() *types.Header {
 	return b.chain.CurrentHeader()
 }
 
-func (b *testBackend) GetBlockByNumber(number uint64) *types.Block {
+func (b *testBackend[P]) GetBlockByNumber(number uint64) *types.Block[P] {
 	return b.chain.GetBlockByNumber(number)
 }
 
@@ -105,7 +105,7 @@ func TestSuggestPrice(t *testing.T) {
 		Default:    big.NewInt(params.GWei),
 	}
 	backend := newTestBackend(t)
-	oracle := NewOracle(backend, config)
+	oracle := NewOracle[nist.PublicKey](backend, config)
 
 	// The gas price sampled is: 32G, 31G, 30G, 29G, 28G, 27G
 	got, err := oracle.SuggestPrice(context.Background())

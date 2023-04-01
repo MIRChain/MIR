@@ -23,6 +23,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -81,34 +82,34 @@ func TestEth66EmptyMessages(t *testing.T) {
 		BlockHeadersPacket66{1111, nil},
 		// Bodies
 		GetBlockBodiesPacket66{1111, nil},
-		BlockBodiesPacket66{1111, nil},
+		BlockBodiesPacket66[nist.PublicKey]{1111, nil},
 		BlockBodiesRLPPacket66{1111, nil},
 		// Node data
 		GetNodeDataPacket66{1111, nil},
 		NodeDataPacket66{1111, nil},
 		// Receipts
 		GetReceiptsPacket66{1111, nil},
-		ReceiptsPacket66{1111, nil},
+		ReceiptsPacket66[nist.PublicKey]{1111, nil},
 		// Transactions
 		GetPooledTransactionsPacket66{1111, nil},
-		PooledTransactionsPacket66{1111, nil},
+		PooledTransactionsPacket66[nist.PublicKey]{1111, nil},
 		PooledTransactionsRLPPacket66{1111, nil},
 
 		// Headers
 		BlockHeadersPacket66{1111, BlockHeadersPacket([]*types.Header{})},
 		// Bodies
 		GetBlockBodiesPacket66{1111, GetBlockBodiesPacket([]common.Hash{})},
-		BlockBodiesPacket66{1111, BlockBodiesPacket([]*BlockBody{})},
+		BlockBodiesPacket66[nist.PublicKey]{1111, BlockBodiesPacket[nist.PublicKey]([]*BlockBody[nist.PublicKey]{})},
 		BlockBodiesRLPPacket66{1111, BlockBodiesRLPPacket([]rlp.RawValue{})},
 		// Node data
 		GetNodeDataPacket66{1111, GetNodeDataPacket([]common.Hash{})},
 		NodeDataPacket66{1111, NodeDataPacket([][]byte{})},
 		// Receipts
 		GetReceiptsPacket66{1111, GetReceiptsPacket([]common.Hash{})},
-		ReceiptsPacket66{1111, ReceiptsPacket([][]*types.Receipt{})},
+		ReceiptsPacket66[nist.PublicKey]{1111, ReceiptsPacket[nist.PublicKey]([][]*types.Receipt[nist.PublicKey]{})},
 		// Transactions
 		GetPooledTransactionsPacket66{1111, GetPooledTransactionsPacket([]common.Hash{})},
-		PooledTransactionsPacket66{1111, PooledTransactionsPacket([]*types.Transaction{})},
+		PooledTransactionsPacket66[nist.PublicKey]{1111, PooledTransactionsPacket[nist.PublicKey]([]*types.Transaction[nist.PublicKey]{})},
 		PooledTransactionsRLPPacket66{1111, PooledTransactionsRLPPacket([]rlp.RawValue{})},
 	} {
 		if have, _ := rlp.EncodeToBytes(msg); !bytes.Equal(have, want) {
@@ -124,12 +125,12 @@ func TestEth66Messages(t *testing.T) {
 	// Some basic structs used during testing
 	var (
 		header       *types.Header
-		blockBody    *BlockBody
+		blockBody    *BlockBody[nist.PublicKey]
 		blockBodyRlp rlp.RawValue
-		txs          []*types.Transaction
+		txs          []*types.Transaction[nist.PublicKey]
 		txRlps       []rlp.RawValue
 		hashes       []common.Hash
-		receipts     []*types.Receipt
+		receipts     []*types.Receipt[nist.PublicKey]
 		receiptsRlp  rlp.RawValue
 
 		err error
@@ -148,7 +149,7 @@ func TestEth66Messages(t *testing.T) {
 			"f867088504a817c8088302e2489435353535353535353535353535353535353535358202008025a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c12a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c10",
 			"f867098504a817c809830334509435353535353535353535353535353535353535358202d98025a052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afba052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afb",
 		} {
-			var tx *types.Transaction
+			var tx *types.Transaction[nist.PublicKey]
 			rlpdata := common.FromHex(hexrlp)
 			if err := rlp.DecodeBytes(rlpdata, &tx); err != nil {
 				t.Fatal(err)
@@ -158,7 +159,7 @@ func TestEth66Messages(t *testing.T) {
 		}
 	}
 	// init the block body data, both object and rlp form
-	blockBody = &BlockBody{
+	blockBody = &BlockBody[nist.PublicKey]{
 		Transactions: txs,
 		Uncles:       []*types.Header{header},
 	}
@@ -177,7 +178,7 @@ func TestEth66Messages(t *testing.T) {
 	}
 	// init the receipts
 	{
-		receipts = []*types.Receipt{
+		receipts = []*types.Receipt[nist.PublicKey]{
 			{
 				Status:            types.ReceiptStatusFailed,
 				CumulativeGasUsed: 1,
@@ -221,7 +222,7 @@ func TestEth66Messages(t *testing.T) {
 			common.FromHex("f847820457f842a000000000000000000000000000000000000000000000000000000000deadc0dea000000000000000000000000000000000000000000000000000000000feedbeef"),
 		},
 		{
-			BlockBodiesPacket66{1111, BlockBodiesPacket([]*BlockBody{blockBody})},
+			BlockBodiesPacket66[nist.PublicKey]{1111, BlockBodiesPacket[nist.PublicKey]([]*BlockBody[nist.PublicKey]{blockBody})},
 			common.FromHex("f902dc820457f902d6f902d3f8d2f867088504a817c8088302e2489435353535353535353535353535353535353535358202008025a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c12a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c10f867098504a817c809830334509435353535353535353535353535353535353535358202d98025a052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afba052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afbf901fcf901f9a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000940000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000b90100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008208ae820d0582115c8215b3821a0a827788a00000000000000000000000000000000000000000000000000000000000000000880000000000000000"),
 		},
 		{ // Identical to non-rlp-shortcut version
@@ -241,7 +242,7 @@ func TestEth66Messages(t *testing.T) {
 			common.FromHex("f847820457f842a000000000000000000000000000000000000000000000000000000000deadc0dea000000000000000000000000000000000000000000000000000000000feedbeef"),
 		},
 		{
-			ReceiptsPacket66{1111, ReceiptsPacket([][]*types.Receipt{receipts})},
+			ReceiptsPacket66[nist.PublicKey]{1111, ReceiptsPacket[nist.PublicKey]([][]*types.Receipt[nist.PublicKey]{receipts})},
 			common.FromHex("f90172820457f9016cf90169f901668001b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f85ff85d940000000000000000000000000000000000000011f842a0000000000000000000000000000000000000000000000000000000000000deada0000000000000000000000000000000000000000000000000000000000000beef830100ff"),
 		},
 		{
@@ -253,7 +254,7 @@ func TestEth66Messages(t *testing.T) {
 			common.FromHex("f847820457f842a000000000000000000000000000000000000000000000000000000000deadc0dea000000000000000000000000000000000000000000000000000000000feedbeef"),
 		},
 		{
-			PooledTransactionsPacket66{1111, PooledTransactionsPacket(txs)},
+			PooledTransactionsPacket66[nist.PublicKey]{1111, PooledTransactionsPacket[nist.PublicKey](txs)},
 			common.FromHex("f8d7820457f8d2f867088504a817c8088302e2489435353535353535353535353535353535353535358202008025a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c12a064b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c10f867098504a817c809830334509435353535353535353535353535353535353535358202d98025a052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afba052f8f61201b2b11a78d6e866abc9c3db2ae8631fa656bfe5cb53668255367afb"),
 		},
 		{

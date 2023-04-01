@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/bloombits"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/node"
 )
@@ -121,18 +122,18 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 
 	b.Log("Running filter benchmarks...")
 	start = time.Now()
-	var backend *testBackend
+	var backend *testBackend[nist.PublicKey]
 
 	for i := 0; i < benchFilterCnt; i++ {
 		if i%20 == 0 {
 			db.Close()
 			db, _ = rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "", false)
-			backend = &testBackend{db: db, sections: cnt}
+			backend = &testBackend[nist.PublicKey]{db: db, sections: cnt}
 		}
 		var addr common.Address
 		addr[0] = byte(i)
 		addr[1] = byte(i / 256)
-		filter := NewRangeFilter(backend, 0, int64(cnt*sectionSize-1), []common.Address{addr}, nil, "")
+		filter := NewRangeFilter[nist.PublicKey](backend, 0, int64(cnt*sectionSize-1), []common.Address{addr}, nil, "")
 		if _, err := filter.Logs(context.Background()); err != nil {
 			b.Error("filter.Find error:", err)
 		}
@@ -171,8 +172,8 @@ func BenchmarkNoBloomBits(b *testing.B) {
 
 	b.Log("Running filter benchmarks...")
 	start := time.Now()
-	backend := &testBackend{db: db}
-	filter := NewRangeFilter(backend, 0, int64(*headNum), []common.Address{{}}, nil, "")
+	backend := &testBackend[nist.PublicKey]{db: db}
+	filter := NewRangeFilter[nist.PublicKey](backend, 0, int64(*headNum), []common.Address{{}}, nil, "")
 	filter.Logs(context.Background())
 	d := time.Since(start)
 	b.Log("Finished running filter benchmarks")

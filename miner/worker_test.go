@@ -61,12 +61,12 @@ var (
 	cliqueChainConfig *params.ChainConfig
 
 	// Test accounts
-	testBankKey, _  = crypto.GenerateKey()
-	testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	testBankKey, _  = crypto.GenerateKey[nist.PrivateKey]()
+	testBankAddress = crypto.PubkeyToAddress[nist.PublicKey](testBankKey.PublicKey)
 	testBankFunds   = big.NewInt(1000000000000000000)
 
-	testUserKey, _  = crypto.GenerateKey()
-	testUserAddress = crypto.PubkeyToAddress(testUserKey.PublicKey)
+	testUserKey, _  = crypto.GenerateKey[nist.PrivateKey]()
+	testUserAddress = crypto.PubkeyToAddress[nist.PublicKey](testUserKey.PublicKey)
 
 	// Test transactions
 	pendingTxs []*types.Transaction
@@ -121,7 +121,7 @@ type testWorkerBackend struct {
 }
 
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
-	var gspec = core.Genesis{
+	var gspec = core.Genesis[nist.PublicKey]{
 		Config: chainConfig,
 		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
 	}
@@ -144,7 +144,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 
 	// Generate a small n-block chain and an uncle block for it
 	if n > 0 {
-		blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, genesis, engine, db, n, func(i int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, genesis, engine, db, n, func(i int, gen *core.BlockGen[nist.PublicKey]) {
 			gen.SetCoinbase(testBankAddress)
 		})
 		if _, err := chain.InsertChain(blocks); err != nil {
@@ -155,7 +155,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	if n > 0 {
 		parent = chain.GetBlockByHash(chain.CurrentBlock().ParentHash())
 	}
-	blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, parent, engine, db, 1, func(i int, gen *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](chainConfig, parent, engine, db, 1, func(i int, gen *core.BlockGen[nist.PublicKey]) {
 		gen.SetCoinbase(testUserAddress)
 	})
 
@@ -172,7 +172,7 @@ func (b *testWorkerBackend) ChainDb() ethdb.Database      { return b.db }
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *core.TxPool         { return b.txPool }
 
-func (b *testWorkerBackend) newRandomUncle() *types.Block {
+func (b *testWorkerBackend) newRandomUncle() *types.Block[nist.PublicKey] {
 	var parent *types.Block
 	cur := b.chain.CurrentBlock()
 	if cur.NumberU64() == 0 {
@@ -180,7 +180,7 @@ func (b *testWorkerBackend) newRandomUncle() *types.Block {
 	} else {
 		parent = b.chain.GetBlockByHash(b.chain.CurrentBlock().ParentHash())
 	}
-	blocks, _ := core.GenerateChain[nist.PublicKey](b.chain.Config(), parent, b.chain.Engine(), b.db, 1, func(i int, gen *core.BlockGen) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](b.chain.Config(), parent, b.chain.Engine(), b.db, 1, func(i int, gen *core.BlockGen[nist.PublicKey]) {
 		var addr = make([]byte, common.AddressLength)
 		rand.Read(addr)
 		gen.SetCoinbase(common.BytesToAddress(addr))
@@ -190,15 +190,15 @@ func (b *testWorkerBackend) newRandomUncle() *types.Block {
 
 func (b *testWorkerBackend) newRandomTx(creation bool, private bool) *types.Transaction {
 	var signer types.Signer
-	signer = types.HomesteadSigner{}
+	signer = types.HomesteadSigner[nist.PublicKey]{}
 	if private {
 		signer = types.QuorumPrivateTxSigner{}
 	}
 	var tx *types.Transaction
 	if creation {
-		tx, _ = types.SignTx(types.NewContractCreation(b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testBankKey)
+		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testBankKey)
 	} else {
-		tx, _ = types.SignTx(types.NewTransaction(b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), signer, testBankKey)
+		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), signer, testBankKey)
 	}
 	return tx
 }
@@ -264,7 +264,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 		select {
 		case ev := <-sub.Chan():
 			block := ev.Data.(core.NewMinedBlockEvent).Block
-			if _, err := chain.InsertChain([]*types.Block{block}); err != nil {
+			if _, err := chain.InsertChain([]*types.Block[nist.PublicKey]{block}); err != nil {
 				t.Fatalf("failed to insert new mined block %d: %v", block.NumberU64(), err)
 			}
 		case <-time.After(3 * time.Second): // Worker needs 1s to include new changes.
@@ -587,7 +587,7 @@ func TestPrivatePSMRStateCreated(t *testing.T) {
 	w, b := newTestWorker(t, chainConfig, clique.New(chainConfig.Clique, db), db, 0)
 	defer w.close()
 
-	newBlock := make(chan *types.Block)
+	newBlock := make(chan *types.Block[nist.PublicKey])
 	listenNewBlock := func() {
 		sub := w.mux.Subscribe(core.NewMinedBlockEvent{})
 		defer sub.Unsubscribe()
@@ -662,7 +662,7 @@ func TestPrivatePSMRStateCreated(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	logsContractData := "6080604052348015600f57600080fd5b507f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405160405180910390a1603e8060496000396000f3fe6080604052600080fdfea265627a7a72315820937805cb4f2481262ad95d420ab93220f11ceaea518c7ccf119fc2c58f58050d64736f6c63430005110032"
-	tx, _ := types.SignTx(types.NewContractCreation(b.txPool.Nonce(testBankAddress), big.NewInt(0), 470000, nil, common.FromHex(logsContractData)), types.QuorumPrivateTxSigner{}, testBankKey)
+	tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](b.txPool.Nonce(testBankAddress), big.NewInt(0), 470000, nil, common.FromHex(logsContractData)), types.QuorumPrivateTxSigner{}, testBankKey)
 
 	mockptm.EXPECT().Receive(common.BytesToEncryptedPayloadHash(tx.Data())).Return("", []string{"psi1", "psi2"}, common.FromHex(logsContractData), nil, nil).AnyTimes()
 
@@ -699,7 +699,7 @@ func TestPrivateLegacyStateCreated(t *testing.T) {
 	w, b := newTestWorker(t, chainConfig, clique.New(chainConfig.Clique, db), db, 0)
 	defer w.close()
 
-	newBlock := make(chan *types.Block)
+	newBlock := make(chan *types.Block[nist.PublicKey])
 	listenNewBlock := func() {
 		sub := w.mux.Subscribe(core.NewMinedBlockEvent{})
 		defer sub.Unsubscribe()

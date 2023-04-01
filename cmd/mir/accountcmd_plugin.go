@@ -103,7 +103,7 @@ the documentation for the particular 'account' plugin being used as it may suppo
 
 	// makeConfigNodeDelegate is a wrapper for the makeConfigNode function.
 	// It can be replaced with a stub for testing.
-	// makeConfigNodeDelegate configNodeMaker = standardConfigNodeMaker{}
+	makeConfigNodeDelegate configNodeMaker[nist.PrivateKey,nist.PublicKey] = standardConfigNodeMaker[nist.PrivateKey,nist.PublicKey]{}
 )
 
 func listPluginAccountsCLIAction[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
