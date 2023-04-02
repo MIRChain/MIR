@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/plugin/account/internal/testutils"
 	"github.com/golang/mock/gomock"
 	"github.com/jpmorganchase/quorum-account-plugin-sdk-go/mock_proto"
 	"github.com/jpmorganchase/quorum-account-plugin-sdk-go/proto"
+	"github.com/pavelkrolevets/MIR-pro/accounts"
+	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/plugin/account/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,7 +46,7 @@ func TestPluginGateway_Status(t *testing.T) {
 		Status(gomock.Any(), testutils.StatusRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	got, err := g.Status(context.Background())
 
 	assert.NoError(t, err)
@@ -66,7 +67,7 @@ func TestPluginGateway_Open(t *testing.T) {
 		Open(gomock.Any(), testutils.OpenRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	err := g.Open(context.Background(), "pwd")
 
 	assert.NoError(t, err)
@@ -86,7 +87,7 @@ func TestPluginGateway_Close(t *testing.T) {
 		Close(gomock.Any(), testutils.CloseRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	err := g.Close(context.Background())
 
 	assert.NoError(t, err)
@@ -112,7 +113,7 @@ func TestPluginGateway_Accounts(t *testing.T) {
 		Accounts(gomock.Any(), testutils.AccountsRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	got := g.Accounts(context.Background())
 
 	assert.Equal(t, wantAccts, got)
@@ -134,7 +135,7 @@ func TestPluginGateway_Contains(t *testing.T) {
 		Contains(gomock.Any(), testutils.ContainsRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	got := g.Contains(context.Background(), acct1)
 
 	assert.True(t, got)
@@ -159,7 +160,7 @@ func TestPluginGateway_Sign(t *testing.T) {
 		Sign(gomock.Any(), testutils.SignRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	got, err := g.Sign(context.Background(), acct1, toSign)
 
 	assert.NoError(t, err)
@@ -186,7 +187,7 @@ func TestPluginGateway_UnlockAndSign(t *testing.T) {
 		UnlockAndSign(gomock.Any(), testutils.UnlockAndSignRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	got, err := g.UnlockAndSign(context.Background(), acct1, toSign, "pwd")
 
 	assert.NoError(t, err)
@@ -213,7 +214,7 @@ func TestPluginGateway_TimedUnlock(t *testing.T) {
 		TimedUnlock(gomock.Any(), testutils.TimedUnlockRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	err := g.TimedUnlock(context.Background(), acct1, pwd, time.Nanosecond)
 
 	assert.NoError(t, err)
@@ -235,7 +236,7 @@ func TestPluginGateway_Lock(t *testing.T) {
 		Lock(gomock.Any(), testutils.LockRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	err := g.Lock(context.Background(), acct1)
 
 	assert.NoError(t, err)
@@ -266,7 +267,7 @@ func TestPluginGateway_NewAccount(t *testing.T) {
 		NewAccount(gomock.Any(), testutils.NewAccountRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	gotAcct, err := g.NewAccount(context.Background(), newAccountConfig)
 
 	assert.Equal(t, acct1, gotAcct)
@@ -300,7 +301,7 @@ func TestPluginGateway_ImportRawKey(t *testing.T) {
 		ImportRawKey(gomock.Any(), testutils.ImportRawKeyRequestMatcher{R: wantReq}).
 		Return(resp, nil)
 
-	g := &service{client: mockClient}
+	g := &service[nist.PrivateKey,nist.PublicKey]{client: mockClient}
 	gotAcct, err := g.ImportRawKey(context.Background(), rawKey, newAccountConfig)
 
 	assert.Equal(t, acct1, gotAcct)
@@ -314,7 +315,7 @@ func TestPluginGateway_ImportRawKey_InvalidRawKey(t *testing.T) {
 	newAccountConfig := []byte("newacctconfig")
 	var rawKey = "aaaaaa"
 
-	g := &service{}
+	g := &service[nist.PrivateKey,nist.PublicKey]{}
 	_, err := g.ImportRawKey(context.Background(), rawKey, newAccountConfig)
 
 	require.EqualError(t, err, "invalid length, need 256 bits")

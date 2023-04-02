@@ -8,13 +8,14 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
+	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_New_RegistersEthServicePendingLogsFeed(t *testing.T) {
-	conf := &eth.Config{
+	conf := &ethconfig.Config[nist.PublicKey]{
 		RaftMode: true,
 	}
 	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})

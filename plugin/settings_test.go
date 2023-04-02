@@ -7,8 +7,14 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/account"
+	"github.com/hashicorp/go-plugin"
 	"github.com/naoina/toml"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/plugin/account"
+	"github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
+	"github.com/pavelkrolevets/MIR-pro/plugin/qlight"
+	"github.com/pavelkrolevets/MIR-pro/plugin/security"
+	rpc "github.com/pavelkrolevets/MIR-pro/rpc"
 	testifyassert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,7 +197,7 @@ func TestPluginInterfaceName_UnmarshalJSON_whenTypical(t *testing.T) {
 }
 
 func TestAccountAPIProviderFunc_OnlyExposeAccountCreationAPI(t *testing.T) {
-	pm, err := NewPluginManager(
+	pm, err := NewPluginManager[nist.PrivateKey,nist.PublicKey](
 		"arbitraryName",
 		&Settings{
 			Providers: map[PluginInterfaceName]PluginDefinition{
@@ -274,3 +280,59 @@ func TestSettings_CheckSettingsAreSupported_SomeSupported(t *testing.T) {
 
 	require.EqualError(t, err, "unsupported plugins configured: [helloworld]")
 }
+
+var	pluginProviders = map[PluginInterfaceName]pluginProvider[nist.PrivateKey,nist.PublicKey]{
+		HelloWorldPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[nist.PrivateKey,nist.PublicKey]) ([]rpc.API, error) {
+				template := new(HelloWorldPluginTemplate[nist.PrivateKey,nist.PublicKey])
+				if err := pm.GetPluginTemplate(HelloWorldPluginInterfaceName, template); err != nil {
+					return nil, err
+				}
+				service, err := template.Get()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   service,
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				helloworld.ConnectorName: &helloworld.PluginConnector{},
+			},
+		},
+		SecurityPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				security.TLSConfigurationConnectorName: &security.TLSConfigurationSourcePluginConnector{},
+				security.AuthenticationConnectorName:   &security.AuthenticationManagerPluginConnector{},
+			},
+		},
+		AccountPluginInterfaceName: {
+			apiProviderFunc: func(ns string, pm *PluginManager[nist.PrivateKey,nist.PublicKey]) ([]rpc.API, error) {
+				f := new(ReloadableAccountServiceFactory[nist.PrivateKey,nist.PublicKey])
+				if err := pm.GetPluginTemplate(AccountPluginInterfaceName, f); err != nil {
+					return nil, err
+				}
+				service, err := f.Create()
+				if err != nil {
+					return nil, err
+				}
+				return []rpc.API{{
+					Namespace: ns,
+					Version:   "1.0.0",
+					Service:   account.NewCreator(service),
+					Public:    true,
+				}}, nil
+			},
+			pluginSet: plugin.PluginSet{
+				account.ConnectorName: &account.PluginConnector[nist.PrivateKey,nist.PublicKey]{},
+			},
+		},
+		QLightTokenManagerPluginInterfaceName: {
+			pluginSet: plugin.PluginSet{
+				qlight.ConnectorName: &qlight.PluginConnector{},
+			},
+		},
+	}

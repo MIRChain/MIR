@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -39,8 +40,8 @@ var (
 )
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
-	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, types.NewBlockWithHeader(parent),  ethash.NewFaker[nist.PublicKey](), db, n, func(i int, b *core.BlockGen[nist.PublicKey]) {
+func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
+	blocks, _ := core.GenerateChain[P](params.TestChainConfig, types.NewBlockWithHeader[P](parent),  ethash.NewFaker[P](), db, n, func(i int, b *core.BlockGen[P]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	headers := make([]*types.Header, len(blocks))
@@ -53,31 +54,31 @@ func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) [
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(n int) (ethdb.Database, *LightChain, error) {
+func newCanonical[P crypto.PublicKey](n int) (ethdb.Database, *LightChain[P], error) {
 	db := rawdb.NewMemoryDatabase()
 	gspec := core.Genesis[nist.PublicKey]{Config: params.TestChainConfig}
 	genesis := gspec.MustCommit(db)
-	blockchain, _ := NewLightChain(&dummyOdr{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config,  ethash.NewFaker[nist.PublicKey](), nil)
+	blockchain, _ := NewLightChain[P](&dummyOdr[P]{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config,  ethash.NewFaker[P](), nil)
 
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
 	}
 	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, db, canonicalSeed)
+	headers := makeHeaderChain[P](genesis.Header(), n, db, canonicalSeed)
 	_, err := blockchain.InsertHeaderChain(headers, 1)
 	return db, blockchain, err
 }
 
 // newTestLightChain creates a LightChain that doesn't validate anything.
-func newTestLightChain() *LightChain {
+func newTestLightChain[P crypto.PublicKey]() *LightChain[P] {
 	db := rawdb.NewMemoryDatabase()
 	gspec := &core.Genesis[nist.PublicKey]{
 		Difficulty: big.NewInt(1),
 		Config:     params.TestChainConfig,
 	}
 	gspec.MustCommit(db)
-	lc, err := NewLightChain(&dummyOdr{db: db}, gspec.Config, ethash.NewFullFaker(), nil)
+	lc, err := NewLightChain[P](&dummyOdr[P]{db: db}, gspec.Config, ethash.NewFullFaker[P](), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -85,9 +86,9 @@ func newTestLightChain() *LightChain {
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, LightChain *LightChain, i, n int, comparator func(td1, td2 *big.Int)) {
+func testFork[P crypto.PublicKey](t *testing.T, LightChain *LightChain[P], i, n int, comparator func(td1, td2 *big.Int)) {
 	// Copy old chain up to #i into a new db
-	db, LightChain2, err := newCanonical(i)
+	db, LightChain2, err := newCanonical[P](i)
 	if err != nil {
 		t.Fatal("could not make new canonical in testFork", err)
 	}
@@ -99,7 +100,7 @@ func testFork(t *testing.T, LightChain *LightChain, i, n int, comparator func(td
 		t.Errorf("chain content mismatch at %d: have hash %v, want hash %v", i, hash2, hash1)
 	}
 	// Extend the newly created chain
-	headerChainB := makeHeaderChain(LightChain2.CurrentHeader(), n, db, forkSeed)
+	headerChainB := makeHeaderChain[P](LightChain2.CurrentHeader(), n, db, forkSeed)
 	if _, err := LightChain2.InsertHeaderChain(headerChainB, 1); err != nil {
 		t.Fatalf("failed to insert forking chain: %v", err)
 	}
@@ -117,7 +118,7 @@ func testFork(t *testing.T, LightChain *LightChain, i, n int, comparator func(td
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
-func testHeaderChainImport(chain []*types.Header, lightchain *LightChain) error {
+func testHeaderChainImport[P crypto.PublicKey](chain []*types.Header, lightchain *LightChain[P]) error {
 	for _, header := range chain {
 		// Try and validate the header
 		if err := lightchain.engine.VerifyHeader(lightchain.hc, header, true); err != nil {
@@ -138,7 +139,7 @@ func TestExtendCanonicalHeaders(t *testing.T) {
 	length := 5
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(length)
+	_, processor, err := newCanonical[nist.PublicKey](length)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -161,7 +162,7 @@ func TestShorterForkHeaders(t *testing.T) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(length)
+	_, processor, err := newCanonical[nist.PublicKey](length)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -186,7 +187,7 @@ func TestLongerForkHeaders(t *testing.T) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(length)
+	_, processor, err := newCanonical[nist.PublicKey](length)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -211,7 +212,7 @@ func TestEqualForkHeaders(t *testing.T) {
 	length := 10
 
 	// Make first chain starting from genesis
-	_, processor, err := newCanonical(length)
+	_, processor, err := newCanonical[nist.PublicKey](length)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -233,18 +234,18 @@ func TestEqualForkHeaders(t *testing.T) {
 // Tests that chains missing links do not get accepted by the processor.
 func TestBrokenHeaderChain(t *testing.T) {
 	// Make chain starting from genesis
-	db, LightChain, err := newCanonical(10)
+	db, LightChain, err := newCanonical[nist.PublicKey](10)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
 	// Create a forked chain, and try to insert with a missing link
-	chain := makeHeaderChain(LightChain.CurrentHeader(), 5, db, forkSeed)[1:]
+	chain := makeHeaderChain[nist.PublicKey](LightChain.CurrentHeader(), 5, db, forkSeed)[1:]
 	if err := testHeaderChainImport(chain, LightChain); err == nil {
 		t.Errorf("broken header chain not reported")
 	}
 }
 
-func makeHeaderChainWithDiff(genesis *types.Block[nist.PublicKey], d []int, seed byte) []*types.Header {
+func makeHeaderChainWithDiff[P crypto.PublicKey](genesis *types.Block[P], d []int, seed byte) []*types.Header {
 	var chain []*types.Header
 	for i, difficulty := range d {
 		header := &types.Header{
@@ -265,38 +266,38 @@ func makeHeaderChainWithDiff(genesis *types.Block[nist.PublicKey], d []int, seed
 	return chain
 }
 
-type dummyOdr struct {
-	OdrBackend
+type dummyOdr [P crypto.PublicKey]  struct {
+	OdrBackend[P]
 	db            ethdb.Database
 	indexerConfig *IndexerConfig
 }
 
-func (odr *dummyOdr) Database() ethdb.Database {
+func (odr *dummyOdr[P]) Database() ethdb.Database {
 	return odr.db
 }
 
-func (odr *dummyOdr) Retrieve(ctx context.Context, req OdrRequest) error {
+func (odr *dummyOdr[P]) Retrieve(ctx context.Context, req OdrRequest) error {
 	return nil
 }
 
-func (odr *dummyOdr) IndexerConfig() *IndexerConfig {
+func (odr *dummyOdr[P]) IndexerConfig() *IndexerConfig {
 	return odr.indexerConfig
 }
 
 // Tests that reorganizing a long difficult chain after a short easy one
 // overwrites the canonical numbers and links in the database.
 func TestReorgLongHeaders(t *testing.T) {
-	testReorg(t, []int{1, 2, 4}, []int{1, 2, 3, 4}, 10)
+	testReorg[nist.PublicKey](t, []int{1, 2, 4}, []int{1, 2, 3, 4}, 10)
 }
 
 // Tests that reorganizing a short difficult chain after a long easy one
 // overwrites the canonical numbers and links in the database.
 func TestReorgShortHeaders(t *testing.T) {
-	testReorg(t, []int{1, 2, 3, 4}, []int{1, 10}, 11)
+	testReorg[nist.PublicKey](t, []int{1, 2, 3, 4}, []int{1, 10}, 11)
 }
 
-func testReorg(t *testing.T, first, second []int, td int64) {
-	bc := newTestLightChain()
+func testReorg[P crypto.PublicKey](t *testing.T, first, second []int, td int64) {
+	bc := newTestLightChain[P]()
 
 	// Insert an easy and a difficult chain afterwards
 	bc.InsertHeaderChain(makeHeaderChainWithDiff(bc.genesisBlock, first, 11), 1)
@@ -317,7 +318,7 @@ func testReorg(t *testing.T, first, second []int, td int64) {
 
 // Tests that the insertion functions detect banned hashes.
 func TestBadHeaderHashes(t *testing.T) {
-	bc := newTestLightChain()
+	bc := newTestLightChain[nist.PublicKey]()
 
 	// Create a chain, ban a hash and try to import
 	var err error
@@ -331,7 +332,7 @@ func TestBadHeaderHashes(t *testing.T) {
 // Tests that bad hashes are detected on boot, and the chan rolled back to a
 // good state prior to the bad hash.
 func TestReorgBadHeaderHashes(t *testing.T) {
-	bc := newTestLightChain()
+	bc := newTestLightChain[nist.PublicKey]()
 
 	// Create a chain, import and ban afterwards
 	headers := makeHeaderChainWithDiff(bc.genesisBlock, []int{1, 2, 3, 4}, 10)
@@ -346,7 +347,7 @@ func TestReorgBadHeaderHashes(t *testing.T) {
 	defer func() { delete(core.BadHashes, headers[3].Hash()) }()
 
 	// Create a new LightChain and check that it rolled back the state.
-	ncm, err := NewLightChain(&dummyOdr{db: bc.chainDb}, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), nil)
+	ncm, err := NewLightChain[nist.PublicKey](&dummyOdr[nist.PublicKey]{db: bc.chainDb}, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), nil)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}

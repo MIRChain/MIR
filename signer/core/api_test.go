@@ -32,6 +32,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
@@ -40,42 +42,42 @@ import (
 )
 
 //Used for testing
-type headlessUi struct {
+type headlessUi [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	approveCh chan string // to send approve/deny
 	inputCh   chan string // to send password
 }
 
-func (ui *headlessUi) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (ui *headlessUi[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	input := <-ui.inputCh
 	return core.UserInputResponse{Text: input}, nil
 }
 
-func (ui *headlessUi) OnSignerStartup(info core.StartupInfo)        {}
-func (ui *headlessUi) RegisterUIServer(api *core.UIServerAPI)       {}
-func (ui *headlessUi) OnApprovedTx(tx ethapi.SignTransactionResult) {}
+func (ui *headlessUi[T,P]) OnSignerStartup(info core.StartupInfo)        {}
+func (ui *headlessUi[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P])       {}
+func (ui *headlessUi[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {}
 
-func (ui *headlessUi) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
+func (ui *headlessUi[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 
 	switch <-ui.approveCh {
 	case "Y":
-		return core.SignTxResponse{request.Transaction, true}, nil
+		return core.SignTxResponse[P]{request.Transaction, true}, nil
 	case "M": // modify
 		// The headless UI always modifies the transaction
 		old := big.Int(request.Transaction.Value)
 		newVal := big.NewInt(0).Add(&old, big.NewInt(1))
 		request.Transaction.Value = hexutil.Big(*newVal)
-		return core.SignTxResponse{request.Transaction, true}, nil
+		return core.SignTxResponse[P]{request.Transaction, true}, nil
 	default:
-		return core.SignTxResponse{request.Transaction, false}, nil
+		return core.SignTxResponse[P]{request.Transaction, false}, nil
 	}
 }
 
-func (ui *headlessUi) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (ui *headlessUi[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	approved := (<-ui.approveCh == "Y")
 	return core.SignDataResponse{approved}, nil
 }
 
-func (ui *headlessUi) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (ui *headlessUi[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	approval := <-ui.approveCh
 	//fmt.Printf("approval %s\n", approval)
 	switch approval {
@@ -90,19 +92,19 @@ func (ui *headlessUi) ApproveListing(request *core.ListRequest) (core.ListRespon
 	}
 }
 
-func (ui *headlessUi) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (ui *headlessUi[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	if <-ui.approveCh == "Y" {
 		return core.NewAccountResponse{true}, nil
 	}
 	return core.NewAccountResponse{false}, nil
 }
 
-func (ui *headlessUi) ShowError(message string) {
+func (ui *headlessUi[T,P]) ShowError(message string) {
 	//stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
 
-func (ui *headlessUi) ShowInfo(message string) {
+func (ui *headlessUi[T,P]) ShowInfo(message string) {
 	//stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
@@ -119,18 +121,18 @@ func tmpDirName(t *testing.T) string {
 	return d
 }
 
-func setup(t *testing.T) (*core.SignerAPI, *headlessUi) {
-	db, err := fourbyte.New()
+func setup[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*core.SignerAPI[T,P], *headlessUi[T,P]) {
+	db, err := fourbyte.New[P]()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	ui := &headlessUi{make(chan string, 20), make(chan string, 20)}
-	am := core.StartClefAccountManager(tmpDirName(t), true, true, nil, "")
-	api := core.NewSignerAPI(am, 1337, true, ui, db, true, &storage.NoStorage{})
+	ui := &headlessUi[T,P]{make(chan string, 20), make(chan string, 20)}
+	am := core.StartClefAccountManager[T,P](tmpDirName(t), true, true, nil, "")
+	api := core.NewSignerAPI[T,P](am, 1337, true, ui, db, true, &storage.NoStorage{})
 	return api, ui
 
 }
-func createAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
+func createAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) {
 	ui.approveCh <- "Y"
 	ui.inputCh <- "a_long_password"
 	_, err := api.New(context.Background())
@@ -141,7 +143,7 @@ func createAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 }
 
-func failCreateAccountWithPassword(ui *headlessUi, api *core.SignerAPI, password string, t *testing.T) {
+func failCreateAccountWithPassword[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], password string, t *testing.T) {
 
 	ui.approveCh <- "Y"
 	// We will be asked three times to provide a suitable password
@@ -158,7 +160,7 @@ func failCreateAccountWithPassword(ui *headlessUi, api *core.SignerAPI, password
 	}
 }
 
-func failCreateAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
+func failCreateAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) {
 	ui.approveCh <- "N"
 	addr, err := api.New(context.Background())
 	if err != core.ErrRequestDenied {
@@ -169,14 +171,14 @@ func failCreateAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
 	}
 }
 
-func list(ui *headlessUi, api *core.SignerAPI, t *testing.T) ([]common.Address, error) {
+func list[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) ([]common.Address, error) {
 	ui.approveCh <- "A"
 	return api.List(context.Background())
 
 }
 
 func TestNewAcc(t *testing.T) {
-	api, control := setup(t)
+	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
 	verifyNum := func(num int) {
 		list, err := list(control, api, t)
 		if err != nil {
@@ -223,14 +225,14 @@ func TestNewAcc(t *testing.T) {
 	}
 }
 
-func mkTestTx(from common.MixedcaseAddress) core.SendTxArgs {
+func mkTestTx[P crypto.PublicKey](from common.MixedcaseAddress) core.SendTxArgs[P] {
 	to := common.NewMixedcaseAddress(common.HexToAddress("0x1337"))
 	gas := hexutil.Uint64(21000)
 	gasPrice := (hexutil.Big)(*big.NewInt(2000000000))
 	value := (hexutil.Big)(*big.NewInt(1e18))
 	nonce := (hexutil.Uint64)(0)
 	data := hexutil.Bytes(common.Hex2Bytes("01020304050607080a"))
-	tx := core.SendTxArgs{
+	tx := core.SendTxArgs[P]{
 		From:     from,
 		To:       &to,
 		Gas:      gas,
@@ -244,11 +246,11 @@ func mkTestTx(from common.MixedcaseAddress) core.SendTxArgs {
 func TestSignTx(t *testing.T) {
 	var (
 		list      []common.Address
-		res, res2 *ethapi.SignTransactionResult
+		res, res2 *ethapi.SignTransactionResult[nist.PublicKey]
 		err       error
 	)
 
-	api, control := setup(t)
+	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
 	createAccount(control, api, t)
 	control.approveCh <- "A"
 	list, err = api.List(context.Background())
@@ -258,7 +260,7 @@ func TestSignTx(t *testing.T) {
 	a := common.NewMixedcaseAddress(list[0])
 
 	methodSig := "test(uint)"
-	tx := mkTestTx(a)
+	tx := mkTestTx[nist.PublicKey](a)
 
 	control.approveCh <- "Y"
 	control.inputCh <- "wrongpassword"
@@ -285,7 +287,7 @@ func TestSignTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedTx := &types.Transaction{}
+	parsedTx := &types.Transaction[nist.PublicKey]{}
 	rlp.Decode(bytes.NewReader(res.Raw), parsedTx)
 
 	//The tx should NOT be modified by the UI
@@ -311,7 +313,7 @@ func TestSignTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedTx2 := &types.Transaction{}
+	parsedTx2 := &types.Transaction[nist.PublicKey]{}
 	rlp.Decode(bytes.NewReader(res.Raw), parsedTx2)
 
 	//The tx should be modified by the UI

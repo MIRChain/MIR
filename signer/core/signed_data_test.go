@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 )
 
@@ -181,7 +182,7 @@ var typedData = core.TypedData{
 }
 
 func TestSignData(t *testing.T) {
-	api, control := setup(t)
+	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
 	//Create two accounts
 	createAccount(control, api, t)
 	createAccount(control, api, t)
@@ -516,7 +517,7 @@ func TestGnosisTypedData(t *testing.T) {
 // TestGnosisCustomData tests the scenario where a user submits only the gnosis-safe
 // specific data, and we fill the TypedData struct on our side
 func TestGnosisCustomData(t *testing.T) {
-	var tx core.GnosisSafeTx
+	var tx core.GnosisSafeTx[nist.PublicKey]
 	err := json.Unmarshal([]byte(gnosisTx), &tx)
 	if err != nil {
 		t.Fatal(err)

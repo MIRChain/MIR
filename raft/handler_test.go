@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +16,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
+	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/miner"
 	"github.com/pavelkrolevets/MIR-pro/node"
@@ -40,14 +40,14 @@ func TestProtocolManager_whenAppliedIndexOutOfSync(t *testing.T) {
 	}()
 	count := 3
 	ports := make([]uint16, count)
-	nodeKeys := make([]*ecdsa.PrivateKey, count)
-	peers := make([]*enode.Node, count)
+	nodeKeys := make([]nist.PrivateKey, count)
+	peers := make([]*enode.Node[nist.PublicKey], count)
 	for i := 0; i < count; i++ {
 		ports[i] = nextPort(t)
 		nodeKeys[i] = mustNewNodeKey(t)
-		peers[i] = enode.NewV4Hostname(&(nodeKeys[i].PublicKey), net.IPv4(127, 0, 0, 1).String(), 0, 0, int(ports[i]))
+		peers[i] = enode.NewV4Hostname[nist.PublicKey](*nodeKeys[i].Public(), net.IPv4(127, 0, 0, 1).String(), 0, 0, int(ports[i]))
 	}
-	raftNodes := make([]*RaftService, count)
+	raftNodes := make([]*RaftService[nist.PrivateKey,nist.PublicKey], count)
 	for i := 0; i < count; i++ {
 		if s, err := startRaftNode(uint16(i+1), ports[i], tmpWorkingDir, nodeKeys[i], peers); err != nil {
 			t.Fatal(err)
@@ -121,7 +121,7 @@ func writeAppliedIndex(workingDir string, node int, index uint64) error {
 	return db.Put(appliedDbKey, buf, noFsync)
 }
 
-func mustNewNodeKey(t *testing.T) *ecdsa.PrivateKey {
+func mustNewNodeKey(t *testing.T) nist.PrivateKey {
 	k, err := crypto.GenerateKey[nist.PrivateKey]()
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func nextPort(t *testing.T) uint16 {
 	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
-func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node[nist.PrivateKey,nist.PublicKey], cfg *node.Config[nist.PrivateKey,nist.PublicKey], err error) {
+func prepareServiceContext(key nist.PrivateKey) (stack *node.Node[nist.PrivateKey,nist.PublicKey], cfg *node.Config[nist.PrivateKey,nist.PublicKey], err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s", r)
@@ -146,7 +146,7 @@ func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node[nist.Private
 		}
 	}()
 	cfg = &node.Config[nist.PrivateKey,nist.PublicKey]{
-		P2P: p2p.Config{
+		P2P: p2p.Config[nist.PrivateKey,nist.PublicKey]{
 			PrivateKey: key,
 		},
 	}
@@ -154,7 +154,7 @@ func prepareServiceContext(key *ecdsa.PrivateKey) (stack *node.Node[nist.Private
 	return
 }
 
-func startRaftNode(id, port uint16, tmpWorkingDir string, key *ecdsa.PrivateKey, nodes []*enode.Node) (*RaftService, error) {
+func startRaftNode(id, port uint16, tmpWorkingDir string, key nist.PrivateKey, nodes []*enode.Node[nist.PublicKey]) (*RaftService[nist.PrivateKey,nist.PublicKey], error) {
 	raftlogdir := fmt.Sprintf("%s/node%d", tmpWorkingDir, id)
 
 	stack, _, err := prepareServiceContext(key)
@@ -163,7 +163,7 @@ func startRaftNode(id, port uint16, tmpWorkingDir string, key *ecdsa.PrivateKey,
 	}
 
 	const testAddress = "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
-	e, err := eth.New(stack, &eth.Config{
+	e, err := eth.New(stack, &ethconfig.Config[nist.PublicKey]{
 		Genesis: &core.Genesis[nist.PublicKey]{Config: params.QuorumTestChainConfig},
 		Miner:   miner.Config{Etherbase: common.HexToAddress(testAddress)},
 	})

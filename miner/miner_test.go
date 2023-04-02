@@ -29,6 +29,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
@@ -37,60 +38,60 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
-type mockBackend struct {
-	bc     *core.BlockChain
-	txPool *core.TxPool
+type mockBackend [P crypto.PublicKey] struct {
+	bc     *core.BlockChain[P]
+	txPool *core.TxPool[P]
 	db     ethdb.Database
 }
 
-var _ Backend = &mockBackend{} // check implementation
+var _ Backend[nist.PrivateKey,nist.PublicKey] = &mockBackend[nist.PublicKey]{} // check implementation
 
-func NewMockBackend(bc *core.BlockChain, txPool *core.TxPool) *mockBackend {
-	return &mockBackend{
+func NewMockBackend[P crypto.PublicKey] (bc *core.BlockChain[P], txPool *core.TxPool[P]) *mockBackend[P] {
+	return &mockBackend[P]{
 		bc:     bc,
 		txPool: txPool,
 	}
 }
 
-func (m *mockBackend) BlockChain() *core.BlockChain {
+func (m *mockBackend[P]) BlockChain() *core.BlockChain[P] {
 	return m.bc
 }
 
-func (m *mockBackend) TxPool() *core.TxPool {
+func (m *mockBackend[P]) TxPool() *core.TxPool[P] {
 	return m.txPool
 }
 
-func (m *mockBackend) ChainDb() ethdb.Database {
+func (m *mockBackend[P]) ChainDb() ethdb.Database {
 	return m.db
 }
 
-type testBlockChain struct {
+type testBlockChain [P crypto.PublicKey] struct {
 	statedb *state.StateDB
 
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) CurrentBlock() *types.Block[nist.PublicKey] {
-	return types.NewBlock(&types.Header{
+func (bc *testBlockChain[P]) CurrentBlock() *types.Block[P] {
+	return types.NewBlock[P](&types.Header{
 		GasLimit: bc.gasLimit,
 	}, nil, nil, nil, trie.NewStackTrie(nil))
 }
 
-func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block[nist.PublicKey] {
+func (bc *testBlockChain[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P] {
 	return bc.CurrentBlock()
 }
 
-func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, mps.PrivateStateRepository, error) {
+func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error) {
 	return bc.statedb, nil, nil
 }
 
-func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (bc *testBlockChain[P]) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
 func TestMiner(t *testing.T) {
-	miner, mux := createMiner(t)
+	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -117,7 +118,7 @@ func TestMiner(t *testing.T) {
 // An initial FailedEvent should allow mining to stop on a subsequent
 // downloader StartEvent.
 func TestMinerDownloaderFirstFails(t *testing.T) {
-	miner, mux := createMiner(t)
+	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -148,7 +149,7 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 }
 
 func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
-	miner, mux := createMiner(t)
+	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
 
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -171,7 +172,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 }
 
 func TestStartWhileDownload(t *testing.T) {
-	miner, mux := createMiner(t)
+	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -184,7 +185,7 @@ func TestStartWhileDownload(t *testing.T) {
 }
 
 func TestStartStopMiner(t *testing.T) {
-	miner, _ := createMiner(t)
+	miner, _ := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -193,7 +194,7 @@ func TestStartStopMiner(t *testing.T) {
 }
 
 func TestCloseMiner(t *testing.T) {
-	miner, _ := createMiner(t)
+	miner, _ := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -205,7 +206,7 @@ func TestCloseMiner(t *testing.T) {
 // TestMinerSetEtherbase checks that etherbase becomes set even if mining isn't
 // possible at the moment
 func TestMinerSetEtherbase(t *testing.T) {
-	miner, mux := createMiner(t)
+	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
 	// Start with a 'bad' mining address
 	miner.Start(common.HexToAddress("0xdead"))
 	waitForMiningState(t, miner, true)
@@ -227,7 +228,7 @@ func TestMinerSetEtherbase(t *testing.T) {
 // waitForMiningState waits until either
 // * the desired mining state was reached
 // * a timeout was reached which fails the test
-func waitForMiningState(t *testing.T, m *Miner, mining bool) {
+func waitForMiningState[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, m *Miner[T,P], mining bool) {
 	t.Helper()
 
 	var state bool
@@ -240,7 +241,7 @@ func waitForMiningState(t *testing.T, m *Miner, mining bool) {
 	t.Fatalf("Mining() == %t, want %t", state, mining)
 }
 
-func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
+func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[T,P], *event.TypeMux) {
 	// Create Ethash config
 	config := Config{
 		Etherbase: common.HexToAddress("123456789"),
@@ -248,25 +249,25 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
-	genesis := core.DeveloperGenesisBlock[nist.PublicKey](15, common.HexToAddress("12345"))
+	genesis := core.DeveloperGenesisBlock[P](15, common.HexToAddress("12345"))
 	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)
 	}
 	// Create consensus engine
-	engine := clique.New(chainConfig.Clique, chainDB)
+	engine := clique.New[P](chainConfig.Clique, chainDB)
 	// Create Ethereum backend
-	bc, err := core.NewBlockChain[nist.PublicKey](chainDB, nil, chainConfig, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	bc, err := core.NewBlockChain[P](chainDB, nil, chainConfig, engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(chainDB), nil)
-	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
+	blockchain := &testBlockChain[P]{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, chainConfig, blockchain)
-	backend := NewMockBackend(bc, pool)
+	pool := core.NewTxPool[P](testTxPoolConfig, chainConfig, blockchain)
+	backend := NewMockBackend[P](bc, pool)
 	// Create event Mux
 	mux := new(event.TypeMux)
 	// Create Miner
-	return New(backend, &config, chainConfig, mux, engine, nil), mux
+	return New[T,P](backend, &config, chainConfig, mux, engine, nil), mux
 }

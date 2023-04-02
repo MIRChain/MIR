@@ -22,6 +22,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 )
 
@@ -36,7 +38,7 @@ func toHexUint(h string) hexutil.Uint64 {
 	b := big.NewInt(0).SetBytes(common.FromHex(h))
 	return hexutil.Uint64(b.Uint64())
 }
-func dummyTxArgs(t txtestcase) *core.SendTxArgs {
+func dummyTxArgs[P crypto.PublicKey](t txtestcase) *core.SendTxArgs[P] {
 	to, _ := mixAddr(t.to)
 	from, _ := mixAddr(t.from)
 	n := toHexUint(t.n)
@@ -55,7 +57,7 @@ func dummyTxArgs(t txtestcase) *core.SendTxArgs {
 		input = &a
 
 	}
-	return &core.SendTxArgs{
+	return &core.SendTxArgs[P]{
 		From:     *from,
 		To:       to,
 		Value:    value,
@@ -76,7 +78,7 @@ type txtestcase struct {
 func TestTransactionValidation(t *testing.T) {
 	var (
 		// use empty db, there are other tests for the abi-specific stuff
-		db = newEmpty()
+		db = newEmpty[nist.PublicKey]()
 	)
 	testcases := []txtestcase{
 		// Invalid to checksum
@@ -108,7 +110,7 @@ func TestTransactionValidation(t *testing.T) {
 			n: "0x01", g: "0x20", gp: "0x40", value: "0x01", d: "0x01", numMessages: 1},
 	}
 	for i, test := range testcases {
-		msgs, err := db.ValidateTransaction(nil, dummyTxArgs(test))
+		msgs, err := db.ValidateTransaction(nil, dummyTxArgs[nist.PublicKey](test))
 		if err == nil && test.expectErr {
 			t.Errorf("Test %d, expected error", i)
 			for _, msg := range msgs.Messages {

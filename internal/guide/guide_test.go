@@ -46,7 +46,7 @@ func TestAccountManagement(t *testing.T) {
 	defer os.RemoveAll(workdir)
 
 	// Create an encrypted keystore with standard crypto parameters
-	ks := keystore.NewKeyStore(filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore[nist.PrivateKey,nist.PublicKey](filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
 
 	// Create a new account with the specified encryption passphrase
 	newAcc, err := ks.NewAccount("Creation password")

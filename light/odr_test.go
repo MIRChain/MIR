@@ -42,32 +42,32 @@ import (
 
 var (
 	testBankKey, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testBankAddress = crypto.PubkeyToAddress[nist.PublicKey](testBankKey.PublicKey)
+	testBankAddress = crypto.PubkeyToAddress[nist.PublicKey](*testBankKey.Public())
 	testBankFunds   = big.NewInt(100000000)
 
 	acc1Key, _ = crypto.HexToECDSA[nist.PrivateKey]("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	acc2Key, _ = crypto.HexToECDSA[nist.PrivateKey]("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr   = crypto.PubkeyToAddress[nist.PublicKey](acc1Key.PublicKey)
-	acc2Addr   = crypto.PubkeyToAddress[nist.PublicKey](acc2Key.PublicKey)
+	acc1Addr   = crypto.PubkeyToAddress[nist.PublicKey](*acc1Key.Public())
+	acc2Addr   = crypto.PubkeyToAddress[nist.PublicKey](*acc2Key.Public())
 
 	testContractCode = common.Hex2Bytes("606060405260cc8060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360cd2685146041578063c16431b914606b57603f565b005b6055600480803590602001909190505060a9565b6040518082815260200191505060405180910390f35b60886004808035906020019091908035906020019091905050608a565b005b80600060005083606481101560025790900160005b50819055505b5050565b6000600060005082606481101560025790900160005b5054905060c7565b91905056")
 	testContractAddr common.Address
 )
 
-type testOdr struct {
-	OdrBackend
+type testOdr [P crypto.PublicKey]  struct {
+	OdrBackend[P]
 	indexerConfig *IndexerConfig
 	sdb, ldb      ethdb.Database
 	disable       bool
 }
 
-func (odr *testOdr) Database() ethdb.Database {
+func (odr *testOdr[P]) Database() ethdb.Database {
 	return odr.ldb
 }
 
 var ErrOdrDisabled = errors.New("ODR disabled")
 
-func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
+func (odr *testOdr[P]) Retrieve(ctx context.Context, req OdrRequest) error {
 	if odr.disable {
 		return ErrOdrDisabled
 	}
@@ -77,10 +77,10 @@ func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
 		if number != nil {
 			req.Rlp = rawdb.ReadBodyRLP(odr.sdb, req.Hash, *number)
 		}
-	case *ReceiptsRequest:
+	case *ReceiptsRequest[P]:
 		number := rawdb.ReadHeaderNumber(odr.sdb, req.Hash)
 		if number != nil {
-			req.Receipts = rawdb.ReadRawReceipts(odr.sdb, req.Hash, *number)
+			req.Receipts = rawdb.ReadRawReceipts[P](odr.sdb, req.Hash, *number)
 		}
 	case *TrieRequest:
 		t, _ := trie.New(req.Id.Root, trie.NewDatabase(odr.sdb))
@@ -94,16 +94,16 @@ func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
 	return nil
 }
 
-func (odr *testOdr) IndexerConfig() *IndexerConfig {
+func (odr *testOdr[P]) IndexerConfig() *IndexerConfig {
 	return odr.indexerConfig
 }
 
-type odrTestFn func(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error)
+type odrTestFn[P crypto.PublicKey] func(ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error)
 
-func TestOdrGetBlockLes2(t *testing.T) { testChainOdr(t, 1, odrGetBlock) }
+func TestOdrGetBlockLes2(t *testing.T) { testChainOdr(t, 1, odrGetBlock[nist.PublicKey]) }
 
-func odrGetBlock(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
-	var block *types.Block
+func odrGetBlock[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+	var block *types.Block[P]
 	if bc != nil {
 		block = bc.GetBlockByHash(bhash)
 	} else {
@@ -116,14 +116,14 @@ func odrGetBlock(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc
 	return rlp, nil
 }
 
-func TestOdrGetReceiptsLes2(t *testing.T) { testChainOdr(t, 1, odrGetReceipts) }
+func TestOdrGetReceiptsLes2(t *testing.T) { testChainOdr(t, 1, odrGetReceipts[nist.PublicKey]) }
 
-func odrGetReceipts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
-	var receipts types.Receipts
+func odrGetReceipts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+	var receipts types.Receipts[P]
 	if bc != nil {
 		number := rawdb.ReadHeaderNumber(db, bhash)
 		if number != nil {
-			receipts = rawdb.ReadReceipts(db, bhash, *number, bc.Config())
+			receipts = rawdb.ReadReceipts[P](db, bhash, *number, bc.Config())
 		}
 	} else {
 		number := rawdb.ReadHeaderNumber(db, bhash)
@@ -138,9 +138,9 @@ func odrGetReceipts(ctx context.Context, db ethdb.Database, bc *core.BlockChain,
 	return rlp, nil
 }
 
-func TestOdrAccountsLes2(t *testing.T) { testChainOdr(t, 1, odrAccounts) }
+func TestOdrAccountsLes2(t *testing.T) { testChainOdr(t, 1, odrAccounts[nist.PublicKey]) }
 
-func odrAccounts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
+func odrAccounts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	dummyAddr := common.HexToAddress("1234567812345678123456781234567812345678")
 	acc := []common.Address{testBankAddress, acc1Addr, acc2Addr, dummyAddr}
 
@@ -162,7 +162,7 @@ func odrAccounts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc
 	return res, st.Error()
 }
 
-func TestOdrContractCallLes2(t *testing.T) { testChainOdr(t, 1, odrContractCall) }
+func TestOdrContractCallLes2(t *testing.T) { testChainOdr(t, 1, odrContractCall[nist.PublicKey]) }
 
 type callmsg struct {
 	types.Message
@@ -170,7 +170,7 @@ type callmsg struct {
 
 func (callmsg) CheckNonce() bool { return false }
 
-func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
+func odrContractCall[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	data := common.Hex2Bytes("60CD26850000000000000000000000000000000000000000000000000000000000000000")
 	config := params.TestChainConfig
 
@@ -181,7 +181,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 		var (
 			st     *state.StateDB
 			header *types.Header
-			chain  core.ChainContext
+			chain  core.ChainContext[P]
 		)
 		if bc == nil {
 			chain = lc
@@ -250,7 +250,7 @@ func testChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 	}
 }
 
-func testChainOdr(t *testing.T, protocol int, fn odrTestFn) {
+func testChainOdr(t *testing.T, protocol int, fn odrTestFn[nist.PublicKey]) {
 	var (
 		sdb     = rawdb.NewMemoryDatabase()
 		ldb     = rawdb.NewMemoryDatabase()
@@ -259,14 +259,14 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn) {
 	)
 	gspec.MustCommit(ldb)
 	// Assemble the test environment
-	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker(), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), sdb, 4, testChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		t.Fatal(err)
 	}
 
-	odr := &testOdr{sdb: sdb, ldb: ldb, indexerConfig: TestClientIndexerConfig}
-	lightchain, err := NewLightChain(odr, params.TestChainConfig, ethash.NewFullFaker(), nil)
+	odr := &testOdr[nist.PublicKey]{sdb: sdb, ldb: ldb, indexerConfig: TestClientIndexerConfig}
+	lightchain, err := NewLightChain[nist.PublicKey](odr, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

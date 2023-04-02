@@ -24,11 +24,12 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that all the selectors contained in the 4byte database are valid.
 func TestEmbeddedDatabase(t *testing.T) {
-	db, err := New()
+	db, err := New[nist.PublicKey]()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestCustomDatabase(t *testing.T) {
 	}
 	filename := fmt.Sprintf("%s/4byte_custom.json", tmpdir)
 
-	db, err := NewWithFile(filename)
+	db, err := NewWithFile[nist.PublicKey](filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +82,7 @@ func TestCustomDatabase(t *testing.T) {
 		t.Fatalf("Failed to find a match for abi signature: %v", err)
 	}
 	// Check that the file as persisted to disk by creating a new instance
-	db2, err := NewFromFile(filename)
+	db2, err := NewFromFile[nist.PublicKey](filename)
 	if err != nil {
 		t.Fatalf("Failed to create new abidb: %v", err)
 	}

@@ -600,7 +600,7 @@ func createNode(t *testing.T, httpPort, wsPort int) *Node[nist.PrivateKey, nist.
 		WSPort:   wsPort,
 	}
 	node, err := New(conf)
-	node.pluginManager = plugin.NewEmptyPluginManager()
+	node.pluginManager = plugin.NewEmptyPluginManager[nist.PrivateKey,nist.PublicKey]()
 	if err != nil {
 		t.Fatalf("could not create a new node: %v", err)
 	}

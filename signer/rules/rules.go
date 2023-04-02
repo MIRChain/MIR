@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 	"github.com/pavelkrolevets/MIR-pro/signer/rules/deps"
 	"github.com/pavelkrolevets/MIR-pro/signer/storage"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -47,14 +48,14 @@ func consoleOutput(call goja.FunctionCall) goja.Value {
 
 // rulesetUI provides an implementation of UIClientAPI that evaluates a javascript
 // file for each defined UI-method
-type rulesetUI struct {
-	next    core.UIClientAPI // The next handler, for manual processing
+type rulesetUI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	next    core.UIClientAPI[T,P] // The next handler, for manual processing
 	storage storage.Storage
 	jsRules string // The rules to use
 }
 
-func NewRuleEvaluator(next core.UIClientAPI, jsbackend storage.Storage) (*rulesetUI, error) {
-	c := &rulesetUI{
+func NewRuleEvaluator[T crypto.PrivateKey, P crypto.PublicKey](next core.UIClientAPI[T,P], jsbackend storage.Storage) (*rulesetUI[T,P], error) {
+	c := &rulesetUI[T,P]{
 		next:    next,
 		storage: jsbackend,
 		jsRules: "",
@@ -62,15 +63,15 @@ func NewRuleEvaluator(next core.UIClientAPI, jsbackend storage.Storage) (*rulese
 
 	return c, nil
 }
-func (r *rulesetUI) RegisterUIServer(api *core.UIServerAPI) {
+func (r *rulesetUI[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
 	// TODO, make it possible to query from js
 }
 
-func (r *rulesetUI) Init(javascriptRules string) error {
+func (r *rulesetUI[T,P]) Init(javascriptRules string) error {
 	r.jsRules = javascriptRules
 	return nil
 }
-func (r *rulesetUI) execute(jsfunc string, jsarg interface{}) (goja.Value, error) {
+func (r *rulesetUI[T,P]) execute(jsfunc string, jsarg interface{}) (goja.Value, error) {
 
 	// Instantiate a fresh vm engine every time
 	vm := goja.New()
@@ -133,7 +134,7 @@ func (r *rulesetUI) execute(jsfunc string, jsarg interface{}) (goja.Value, error
 	return vm.RunString(call)
 }
 
-func (r *rulesetUI) checkApproval(jsfunc string, jsarg []byte, err error) (bool, error) {
+func (r *rulesetUI[T,P]) checkApproval(jsfunc string, jsarg []byte, err error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
@@ -153,7 +154,7 @@ func (r *rulesetUI) checkApproval(jsfunc string, jsarg []byte, err error) (bool,
 	return false, fmt.Errorf("unknown response")
 }
 
-func (r *rulesetUI) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
+func (r *rulesetUI[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	jsonreq, err := json.Marshal(request)
 	approved, err := r.checkApproval("ApproveTx", jsonreq, err)
 	if err != nil {
@@ -162,15 +163,15 @@ func (r *rulesetUI) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse,
 	}
 
 	if approved {
-		return core.SignTxResponse{
+		return core.SignTxResponse[P]{
 				Transaction: request.Transaction,
 				Approved:    true},
 			nil
 	}
-	return core.SignTxResponse{Approved: false}, err
+	return core.SignTxResponse[P]{Approved: false}, err
 }
 
-func (r *rulesetUI) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (r *rulesetUI[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	jsonreq, err := json.Marshal(request)
 	approved, err := r.checkApproval("ApproveSignData", jsonreq, err)
 	if err != nil {
@@ -184,11 +185,11 @@ func (r *rulesetUI) ApproveSignData(request *core.SignDataRequest) (core.SignDat
 }
 
 // OnInputRequired not handled by rules
-func (r *rulesetUI) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (r *rulesetUI[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	return r.next.OnInputRequired(info)
 }
 
-func (r *rulesetUI) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (r *rulesetUI[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	jsonreq, err := json.Marshal(request)
 	approved, err := r.checkApproval("ApproveListing", jsonreq, err)
 	if err != nil {
@@ -201,23 +202,23 @@ func (r *rulesetUI) ApproveListing(request *core.ListRequest) (core.ListResponse
 	return core.ListResponse{}, err
 }
 
-func (r *rulesetUI) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (r *rulesetUI[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	// This cannot be handled by rules, requires setting a password
 	// dispatch to next
 	return r.next.ApproveNewAccount(request)
 }
 
-func (r *rulesetUI) ShowError(message string) {
+func (r *rulesetUI[T,P]) ShowError(message string) {
 	log.Error(message)
 	r.next.ShowError(message)
 }
 
-func (r *rulesetUI) ShowInfo(message string) {
+func (r *rulesetUI[T,P]) ShowInfo(message string) {
 	log.Info(message)
 	r.next.ShowInfo(message)
 }
 
-func (r *rulesetUI) OnSignerStartup(info core.StartupInfo) {
+func (r *rulesetUI[T,P]) OnSignerStartup(info core.StartupInfo) {
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
 		log.Warn("failed marshalling data", "data", info)
@@ -230,7 +231,7 @@ func (r *rulesetUI) OnSignerStartup(info core.StartupInfo) {
 	}
 }
 
-func (r *rulesetUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (r *rulesetUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	jsonTx, err := json.Marshal(tx)
 	if err != nil {
 		log.Warn("failed marshalling transaction", "tx", tx)

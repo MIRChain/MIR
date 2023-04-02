@@ -46,7 +46,7 @@ var (
 	arbitraryPrivateFrom  = "arbitrary private from"
 	arbitraryPrivateFor   = []string{"arbitrary party 1", "arbitrary party 2"}
 	arbitraryMandatoryFor = []string{"arbitrary party 2"}
-	privateTxArgs         = &PrivateTxArgs{
+	privateTxArgs         = &PrivateTxArgs[nist.PrivateKey, nist.PublicKey]{
 		PrivateFrom: arbitraryPrivateFrom,
 		PrivateFor:  arbitraryPrivateFor,
 	}
@@ -88,9 +88,9 @@ var (
 	arbitraryStandardPrivateSimpleStorageContractAddress     common.Address
 	arbitraryMandatoryRecipientsSimpleStorageContractAddress common.Address
 
-	simpleStorageContractMessageCallTx                   *types.Transaction
-	standardPrivateSimpleStorageContractMessageCallTx    *types.Transaction
-	rawStandardPrivateSimpleStorageContractMessageCallTx *types.Transaction
+	simpleStorageContractMessageCallTx                   *types.Transaction[nist.PublicKey]
+	standardPrivateSimpleStorageContractMessageCallTx    *types.Transaction[nist.PublicKey]
+	rawStandardPrivateSimpleStorageContractMessageCallTx *types.Transaction[nist.PublicKey]
 
 	arbitraryCurrentBlockNumber = big.NewInt(1)
 
@@ -123,7 +123,7 @@ func setup() {
 		panic(err)
 	}
 
-	private.P = &StubPrivateTransactionManager{}
+	private.Ptm = &StubPrivateTransactionManager{}
 
 	key, _ := crypto.GenerateKey[nist.PrivateKey]()
 	from := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -170,7 +170,7 @@ func teardown() {
 func TestDoEstimateGas_whenNoValueTx_Pre_Istanbul(t *testing.T) {
 	assert := assert.New(t)
 
-	estimation, err := DoEstimateGas(arbitraryCtx, &StubBackend{CurrentHeadNumber: big.NewInt(10)}, callTxArgs, rpc.BlockNumberOrHashWithNumber(10), math.MaxInt64)
+	estimation, err := DoEstimateGas[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{CurrentHeadNumber: big.NewInt(10)}, callTxArgs, rpc.BlockNumberOrHashWithNumber(10), math.MaxInt64)
 
 	assert.NoError(err, "gas estimation")
 	assert.Equal(hexutil.Uint64(25352), estimation, "estimation for a public or private tx")
@@ -179,7 +179,7 @@ func TestDoEstimateGas_whenNoValueTx_Pre_Istanbul(t *testing.T) {
 func TestDoEstimateGas_whenNoValueTx_Istanbul(t *testing.T) {
 	assert := assert.New(t)
 
-	estimation, err := DoEstimateGas(arbitraryCtx, &StubBackend{IstanbulBlock: big.NewInt(0), CurrentHeadNumber: big.NewInt(10)}, callTxArgs, rpc.BlockNumberOrHashWithNumber(10), math.MaxInt64)
+	estimation, err := DoEstimateGas[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{IstanbulBlock: big.NewInt(0), CurrentHeadNumber: big.NewInt(10)}, callTxArgs, rpc.BlockNumberOrHashWithNumber(10), math.MaxInt64)
 
 	assert.NoError(err, "gas estimation")
 	assert.Equal(hexutil.Uint64(22024), estimation, "estimation for a public or private tx")
@@ -189,7 +189,7 @@ func TestSimulateExecution_whenStandardPrivateCreation(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
 
 	assert.NoError(err, "simulate execution")
 	assert.Empty(affectedCACreationTxHashes, "creation tx should not have any affected contract creation tx hashes")
@@ -200,7 +200,7 @@ func TestSimulateExecution_whenPartyProtectionCreation(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagPartyProtection
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
 
 	assert.NoError(err, "simulation execution")
 	assert.Empty(affectedCACreationTxHashes, "creation tx should not have any affected contract creation tx hashes")
@@ -211,7 +211,7 @@ func TestSimulateExecution_whenCreationWithStateValidation(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStateValidation
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractCreationTx, privateTxArgs)
 
 	assert.NoError(err, "simulate execution")
 	assert.Empty(affectedCACreationTxHashes, "creation tx should not have any affected contract creation tx hashes")
@@ -226,7 +226,7 @@ func TestSimulateExecution_whenStandardPrivateMessageCall(t *testing.T) {
 	privateStateDB.SetState(arbitraryStandardPrivateSimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitraryStandardPrivateSimpleStorageContractAddress, common.Hash{0}))
 
@@ -239,7 +239,7 @@ func TestSimulateExecution_StandardPrivateMessageCallSucceedsWheContractNotAvail
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitraryStandardPrivateSimpleStorageContractAddress, common.Hash{0}))
 
@@ -261,7 +261,7 @@ func TestSimulateExecution_whenPartyProtectionMessageCall(t *testing.T) {
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	expectedCACreationTxHashes := []common.EncryptedPayloadHash{arbitrarySimpleStorageContractEncryptedPayloadHash}
 
@@ -280,8 +280,8 @@ func TestSimulateExecution_whenPartyProtectionMessageCallAndPrivacyEnhancementsD
 	params.QuorumTestChainConfig.PrivacyEnhancementsBlock = nil
 	defer func() { params.QuorumTestChainConfig.PrivacyEnhancementsBlock = big.NewInt(0) }()
 
-	stbBackend := &StubBackend{}
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, stbBackend, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	stbBackend := &StubBackend[nist.PrivateKey,nist.PublicKey]{}
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, stbBackend, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	// the simulation returns early without executing the transaction
 	assert.False(stbBackend.getEVMCalled, "simulation is ended early - before getEVM is called")
@@ -303,7 +303,7 @@ func TestSimulateExecution_whenStateValidationMessageCall(t *testing.T) {
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	affectedCACreationTxHashes, merkleRoot, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	expectedCACreationTxHashes := []common.EncryptedPayloadHash{arbitrarySimpleStorageContractEncryptedPayloadHash}
 
@@ -324,7 +324,7 @@ func TestSimulateExecution_PrivacyFlagPartyProtectionCallingStandardPrivateContr
 	privateStateDB.SetState(arbitraryStandardPrivateSimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
+	_, _, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs)
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitraryStandardPrivateSimpleStorageContractAddress, common.Hash{0}))
 
@@ -344,7 +344,7 @@ func TestSimulateExecution_StandardPrivateFlagCallingPartyProtectionContract_Err
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	_, _, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	assert.Error(err, "simulate execution")
 }
@@ -362,7 +362,7 @@ func TestSimulateExecution_StandardPrivateFlagCallingStateValidationContract_Err
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	_, _, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitrarySimpleStorageContractAddress, common.Hash{0}))
 
@@ -382,7 +382,7 @@ func TestSimulateExecution_PartyProtectionFlagCallingStateValidationContract_Err
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	_, _, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitrarySimpleStorageContractAddress, common.Hash{0}))
 
@@ -402,7 +402,7 @@ func TestSimulateExecution_StateValidationFlagCallingPartyProtectionContract_Err
 	privateStateDB.SetState(arbitrarySimpleStorageContractAddress, common.Hash{0}, common.Hash{100})
 	privateStateDB.Commit(true)
 
-	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
+	_, _, err := simulateExecutionForPE[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
 	//expectedCACreationTxHashes := []common.EncryptedPayloadHash{arbitrarySimpleStorageContractEncryptedPayloadHash}
 
@@ -415,7 +415,7 @@ func TestHandlePrivateTransaction_whenInvalidFlag(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = 4
 
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "invalid privacyFlag")
 }
@@ -425,10 +425,10 @@ func TestHandlePrivateTransaction_whenPrivateFromDoesNotMatchPrivateState(t *tes
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(mockCtrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](mockCtrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(mps.NewPrivateStateMetadata("PS1", "PS1", "", mps.Resident, []string{"some address"}), nil).AnyTimes()
 
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &MPSStubBackend{psmr: mockpsm}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &MPSStubBackend[nist.PrivateKey,nist.PublicKey]{psmr: mockpsm}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "The PrivateFrom (arbitrary private from) address does not match the specified private state (PS1) ")
 }
@@ -438,7 +438,7 @@ func TestHandlePrivateTransaction_whenPrivateFromMatchesPrivateState(t *testing.
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(mockCtrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](mockCtrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(mps.NewPrivateStateMetadata("PS1", "PS1", "", mps.Resident, []string{"some address"}), nil).AnyTimes()
 
 	// empty data field means that checkAndHandlePrivateTransaction exits without doing handlePrivateTransaction
@@ -449,11 +449,11 @@ func TestHandlePrivateTransaction_whenPrivateFromMatchesPrivateState(t *testing.
 		big.NewInt(0),
 		nil)
 
-	mpsTxArgs := &PrivateTxArgs{
+	mpsTxArgs := &PrivateTxArgs[nist.PrivateKey,nist.PublicKey]{
 		PrivateFrom: "some address",
 		PrivateFor:  []string{"arbitrary party 1", "arbitrary party 2"},
 	}
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &MPSStubBackend{psmr: mockpsm}, emptyTx, mpsTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &MPSStubBackend[nist.PrivateKey,nist.PublicKey]{psmr: mockpsm}, emptyTx, mpsTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Nil(err)
 }
@@ -464,7 +464,7 @@ func TestHandlePrivateTransaction_withPartyProtectionTxAndPrivacyEnhancementsIsD
 	params.QuorumTestChainConfig.PrivacyEnhancementsBlock = nil
 	defer func() { params.QuorumTestChainConfig.PrivacyEnhancementsBlock = big.NewInt(0) }()
 
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "PrivacyEnhancements are disabled. Can only accept transactions with PrivacyFlag=0(StandardPrivate).")
 }
@@ -473,7 +473,7 @@ func TestHandlePrivateTransaction_whenStandardPrivateCreation(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	isPrivate, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	isPrivate, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	if err != nil {
 		t.Fatalf("%s", err)
@@ -486,7 +486,7 @@ func TestHandlePrivateTransaction_whenStandardPrivateCallingContractThatIsNotAva
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	isPrivate, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	isPrivate, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.NoError(err, "no error expected")
 
@@ -497,7 +497,7 @@ func TestHandlePrivateTransaction_whenPartyProtectionCallingContractThatIsNotAva
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagPartyProtection
 
-	isPrivate, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	isPrivate, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "handle invalid message call")
 
@@ -508,7 +508,7 @@ func TestHandlePrivateTransaction_whenPartyProtectionCallingStandardPrivate(t *t
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagPartyProtection
 
-	isPrivate, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	isPrivate, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, standardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "handle invalid message call")
 
@@ -517,10 +517,10 @@ func TestHandlePrivateTransaction_whenPartyProtectionCallingStandardPrivate(t *t
 
 func TestHandlePrivateTransaction_whenRawStandardPrivateCreation(t *testing.T) {
 	assert := assert.New(t)
-	private.P = &StubPrivateTransactionManager{creation: true}
+	private.Ptm = &StubPrivateTransactionManager{creation: true}
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	isPrivate, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, rawSimpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, RawTransaction)
+	isPrivate, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, rawSimpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, RawTransaction)
 
 	assert.NoError(err, "raw standard private creation succeeded")
 	assert.True(isPrivate, "must be a private transaction")
@@ -528,10 +528,10 @@ func TestHandlePrivateTransaction_whenRawStandardPrivateCreation(t *testing.T) {
 
 func TestHandlePrivateTransaction_whenRawStandardPrivateMessageCall(t *testing.T) {
 	assert := assert.New(t)
-	private.P = &StubPrivateTransactionManager{creation: false}
+	private.Ptm = &StubPrivateTransactionManager{creation: false}
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
 
-	_, err := handlePrivateTransaction(arbitraryCtx, &StubBackend{}, rawStandardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, RawTransaction)
+	_, err := handlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, rawStandardPrivateSimpleStorageContractMessageCallTx, privateTxArgs, arbitraryFrom, RawTransaction)
 
 	assert.NoError(err, "raw standard private msg call succeeded")
 
@@ -544,12 +544,12 @@ func TestHandlePrivateTransaction_whenMandatoryRecipients(t *testing.T) {
 
 	mockTM := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 		privateTxArgs.MandatoryRecipients = nil
 	}()
-	private.P = mockTM
+	private.Ptm = mockTM
 	privateTxArgs.MandatoryRecipients = arbitraryMandatoryFor
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagMandatoryRecipients
 
@@ -560,7 +560,7 @@ func TestHandlePrivateTransaction_whenMandatoryRecipients(t *testing.T) {
 			capturedMetadata = *arg4
 		}).Times(1)
 
-	_, err := handlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, err := handlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.NoError(err)
 	assert.Equal(engine.PrivacyFlagMandatoryRecipients, capturedMetadata.PrivacyFlag)
@@ -575,12 +575,12 @@ func TestHandlePrivateTransaction_whenRawPrivateWithMandatoryRecipients(t *testi
 
 	mockTM := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 		privateTxArgs.MandatoryRecipients = nil
 	}()
-	private.P = mockTM
+	private.Ptm = mockTM
 	privateTxArgs.MandatoryRecipients = arbitraryMandatoryFor
 
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagMandatoryRecipients
@@ -594,7 +594,7 @@ func TestHandlePrivateTransaction_whenRawPrivateWithMandatoryRecipients(t *testi
 			capturedMetadata = *arg3
 		}).Times(1)
 
-	_, err := handlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, RawTransaction)
+	_, err := handlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, RawTransaction)
 
 	assert.NoError(err)
 	assert.Equal(engine.PrivacyFlagMandatoryRecipients, capturedMetadata.PrivacyFlag)
@@ -607,7 +607,7 @@ func TestHandlePrivateTransaction_whenMandatoryRecipientsDataInvalid(t *testing.
 
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagMandatoryRecipients
 
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "missing mandatory recipients data. if no mandatory recipients required consider using PrivacyFlag=1(PartyProtection)")
 
@@ -622,7 +622,7 @@ func TestHandlePrivateTransaction_whenNoMandatoryRecipientsData(t *testing.T) {
 	}()
 	privateTxArgs.MandatoryRecipients = arbitraryMandatoryFor
 
-	_, _, _, err := checkAndHandlePrivateTransaction(arbitraryCtx, &StubBackend{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
+	_, _, _, err := checkAndHandlePrivateTransaction[nist.PrivateKey,nist.PublicKey](arbitraryCtx, &StubBackend[nist.PrivateKey,nist.PublicKey]{}, simpleStorageContractCreationTx, privateTxArgs, arbitraryFrom, NormalTransaction)
 
 	assert.Error(err, "privacy metadata invalid. mandatory recipients are only applicable for PrivacyFlag=2(MandatoryRecipients)")
 
@@ -631,16 +631,16 @@ func TestHandlePrivateTransaction_whenNoMandatoryRecipientsData(t *testing.T) {
 func TestGetContractPrivacyMetadata(t *testing.T) {
 	assert := assert.New(t)
 
-	keystore, _, _ := createKeystore(t)
+	keystore, _, _ := createKeystore[nist.PrivateKey,nist.PublicKey](t)
 
-	stbBackend := &StubBackend{}
+	stbBackend := &StubBackend[nist.PrivateKey,nist.PublicKey]{}
 	stbBackend.multitenancySupported = false
 	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
-	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
+	stbBackend.accountManager = accounts.NewManager[nist.PublicKey](&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
 
-	public := NewPublicTransactionPoolAPI(stbBackend, nil)
+	public := NewPublicTransactionPoolAPI[nist.PrivateKey,nist.PublicKey](stbBackend, nil)
 
 	privacyMetadata, _ := public.GetContractPrivacyMetadata(arbitraryCtx, arbitrarySimpleStorageContractAddress)
 
@@ -652,27 +652,27 @@ func TestGetContractPrivacyMetadata(t *testing.T) {
 func TestGetContractPrivacyMetadataWhenMandatoryRecipients(t *testing.T) {
 	assert := assert.New(t)
 
-	keystore, _, _ := createKeystore(t)
+	keystore, _, _ := createKeystore[nist.PrivateKey,nist.PublicKey](t)
 
-	stbBackend := &StubBackend{}
+	stbBackend := &StubBackend[nist.PrivateKey,nist.PublicKey]{}
 	stbBackend.multitenancySupported = false
 	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
-	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
+	stbBackend.accountManager = accounts.NewManager[nist.PublicKey](&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
 
-	public := NewPublicTransactionPoolAPI(stbBackend, nil)
+	public := NewPublicTransactionPoolAPI[nist.PrivateKey,nist.PublicKey](stbBackend, nil)
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	mockTM := private.NewMockPrivateTransactionManager(mockCtrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockTM
+	private.Ptm = mockTM
 
 	var capturedTxHash common.EncryptedPayloadHash
 
@@ -694,22 +694,22 @@ func TestGetContractPrivacyMetadataWhenMandatoryRecipients(t *testing.T) {
 func TestSubmitPrivateTransaction(t *testing.T) {
 	assert := assert.New(t)
 
-	keystore, fromAcct, toAcct := createKeystore(t)
+	keystore, fromAcct, toAcct := createKeystore[nist.PrivateKey,nist.PublicKey](t)
 
-	stbBackend := &StubBackend{}
+	stbBackend := &StubBackend[nist.PrivateKey,nist.PublicKey]{}
 	stbBackend.multitenancySupported = false
 	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
-	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
+	stbBackend.accountManager = accounts.NewManager[nist.PublicKey](&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
 
-	privateAccountAPI := NewPrivateAccountAPI(stbBackend, nil)
+	privateAccountAPI := NewPrivateAccountAPI[nist.PrivateKey,nist.PublicKey](stbBackend, nil)
 
 	gas := hexutil.Uint64(999999)
 	nonce := hexutil.Uint64(123)
 	payload := hexutil.Bytes(([]byte("0x43d3e767000000000000000000000000000000000000000000000000000000000000000a"))[:])
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
-	txArgs := SendTxArgs{PrivateTxArgs: *privateTxArgs, From: fromAcct.Address, To: &toAcct.Address, Gas: &gas, Nonce: &nonce, Data: &payload}
+	txArgs := SendTxArgs[nist.PrivateKey,nist.PublicKey]{PrivateTxArgs: *privateTxArgs, From: fromAcct.Address, To: &toAcct.Address, Gas: &gas, Nonce: &nonce, Data: &payload}
 
 	_, err := privateAccountAPI.SendTransaction(arbitraryCtx, txArgs, "")
 
@@ -724,24 +724,24 @@ func TestSubmitPrivateTransaction(t *testing.T) {
 func TestSubmitPrivateTransactionWithPrivacyMarkerEnabled(t *testing.T) {
 	assert := assert.New(t)
 
-	keystore, fromAcct, toAcct := createKeystore(t)
+	keystore, fromAcct, toAcct := createKeystore[nist.PrivateKey,nist.PublicKey](t)
 
 	params.QuorumTestChainConfig.PrivacyPrecompileBlock = big.NewInt(0)
 	defer func() { params.QuorumTestChainConfig.PrivacyPrecompileBlock = nil }()
 
-	stbBackend := &StubBackend{}
+	stbBackend := &StubBackend[nist.PrivateKey,nist.PublicKey]{}
 	stbBackend.multitenancySupported = false
 	stbBackend.isPrivacyMarkerTransactionCreationEnabled = true
 	stbBackend.ks = keystore
-	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
+	stbBackend.accountManager = accounts.NewManager[nist.PublicKey](&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 
-	privateAccountAPI := NewPrivateAccountAPI(stbBackend, nil)
+	privateAccountAPI := NewPrivateAccountAPI[nist.PrivateKey,nist.PublicKey](stbBackend, nil)
 
 	gas := hexutil.Uint64(999999)
 	nonce := hexutil.Uint64(123)
 	payload := hexutil.Bytes(([]byte("0x43d3e767000000000000000000000000000000000000000000000000000000000000000a"))[:])
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
-	txArgs := SendTxArgs{PrivateTxArgs: *privateTxArgs, From: fromAcct.Address, To: &toAcct.Address, Gas: &gas, Nonce: &nonce, Data: &payload}
+	txArgs := SendTxArgs[nist.PrivateKey,nist.PublicKey]{PrivateTxArgs: *privateTxArgs, From: fromAcct.Address, To: &toAcct.Address, Gas: &gas, Nonce: &nonce, Data: &payload}
 
 	_, err := privateAccountAPI.SendTransaction(arbitraryCtx, txArgs, "")
 
@@ -790,25 +790,25 @@ func TestSetRawTransactionPrivateFrom(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			savedPTM := private.P
-			defer func() { private.P = savedPTM }()
+			savedPTM := private.Ptm
+			defer func() { private.Ptm = savedPTM }()
 
 			mockPTM := private.NewMockPrivateTransactionManager(ctrl)
 			mockPTM.EXPECT().ReceiveRaw(gomock.Any()).Return(nil, somePTMAddr, nil, nil).Times(1)
-			private.P = mockPTM
+			private.Ptm = mockPTM
 
 			psm := mps.NewPrivateStateMetadata(psiID, "", "", 0, mpsPTMAddrs)
 
 			mockPSMR := mps.NewMockPrivateStateMetadataResolver(ctrl)
 			mockPSMR.EXPECT().ResolveForUserContext(gomock.Any()).Return(psm, nil).Times(1)
 
-			b := &MPSStubBackend{
+			b := &MPSStubBackend[nist.PrivateKey,nist.PublicKey]{
 				psmr: mockPSMR,
 			}
 
 			tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
-			args := &PrivateTxArgs{
+			args := &PrivateTxArgs[nist.PrivateKey,nist.PublicKey]{
 				PrivateFor:  []string{"some-ptm-recipient"},
 				PrivateFrom: tt.argsPrivateFrom,
 			}
@@ -825,21 +825,21 @@ func TestSetRawTransactionPrivateFrom_DifferentArgPrivateFromAndReceiveRawPrivat
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	savedPTM := private.P
-	defer func() { private.P = savedPTM }()
+	savedPTM := private.Ptm
+	defer func() { private.Ptm = savedPTM }()
 
 	receiveRawPrivateFrom := "some-ptm-addr"
 	argsPrivateFrom := "other-ptm-addr"
 
 	mockPTM := private.NewMockPrivateTransactionManager(ctrl)
 	mockPTM.EXPECT().ReceiveRaw(gomock.Any()).Return(nil, receiveRawPrivateFrom, nil, nil).Times(1)
-	private.P = mockPTM
+	private.Ptm = mockPTM
 
-	b := &MPSStubBackend{}
+	b := &MPSStubBackend[nist.PrivateKey,nist.PublicKey]{}
 
 	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
-	args := &PrivateTxArgs{
+	args := &PrivateTxArgs[nist.PrivateKey,nist.PublicKey]{
 		PrivateFor:  []string{"some-ptm-recipient"},
 		PrivateFrom: argsPrivateFrom,
 	}
@@ -853,8 +853,8 @@ func TestSetRawTransactionPrivateFrom_ResolvePrivateFromIsNotMPSTenantAddr(t *te
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	savedPTM := private.P
-	defer func() { private.P = savedPTM }()
+	savedPTM := private.Ptm
+	defer func() { private.Ptm = savedPTM }()
 
 	receiveRawPrivateFrom := "some-ptm-addr"
 	psiID := types.PrivateStateIdentifier("myPSI")
@@ -863,20 +863,20 @@ func TestSetRawTransactionPrivateFrom_ResolvePrivateFromIsNotMPSTenantAddr(t *te
 
 	mockPTM := private.NewMockPrivateTransactionManager(ctrl)
 	mockPTM.EXPECT().ReceiveRaw(gomock.Any()).Return(nil, receiveRawPrivateFrom, nil, nil).Times(1)
-	private.P = mockPTM
+	private.Ptm = mockPTM
 
 	psm := mps.NewPrivateStateMetadata(psiID, "", "", 0, mpsPTMAddrs)
 
 	mockPSMR := mps.NewMockPrivateStateMetadataResolver(ctrl)
 	mockPSMR.EXPECT().ResolveForUserContext(gomock.Any()).Return(psm, nil).Times(1)
 
-	b := &MPSStubBackend{
+	b := &MPSStubBackend[nist.PrivateKey,nist.PublicKey]{
 		psmr: mockPSMR,
 	}
 
 	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, nil, 0, nil, []byte("ptm-hash"))
 
-	args := &PrivateTxArgs{
+	args := &PrivateTxArgs[nist.PrivateKey,nist.PublicKey]{
 		PrivateFor: []string{"some-ptm-recipient"},
 	}
 
@@ -885,10 +885,10 @@ func TestSetRawTransactionPrivateFrom_ResolvePrivateFromIsNotMPSTenantAddr(t *te
 	require.EqualError(t, err, "The PrivateFrom address does not match the specified private state (myPSI)")
 }
 
-func createKeystore(t *testing.T) (*keystore.KeyStore, accounts.Account, accounts.Account) {
+func createKeystore[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*keystore.KeyStore[T,P], accounts.Account, accounts.Account) {
 	assert := assert.New(t)
 
-	keystore := keystore.NewKeyStore(filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
+	keystore := keystore.NewKeyStore[T,P](filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
 	fromAcct, err := keystore.NewAccount("")
 	assert.NoError(err)
 	toAcct, err := keystore.NewAccount("")
@@ -897,15 +897,15 @@ func createKeystore(t *testing.T) (*keystore.KeyStore, accounts.Account, account
 	return keystore, fromAcct, toAcct
 }
 
-type StubBackend struct {
+type StubBackend [T crypto.PrivateKey,P crypto.PublicKey]struct {
 	getEVMCalled                              bool
 	sendTxCalled                              bool
-	txThatWasSent                             *types.Transaction
+	txThatWasSent                             *types.Transaction[P]
 	mockAccountExtraDataStateGetter           *vm.MockAccountExtraDataStateGetter
 	multitenancySupported                     bool
 	isPrivacyMarkerTransactionCreationEnabled bool
-	accountManager                            *accounts.Manager
-	ks                                        *keystore.KeyStore
+	accountManager                            *accounts.Manager[P]
+	ks                                        *keystore.KeyStore[T,P]
 	poolNonce                                 uint64
 	allowUnprotectedTxs                       bool
 
@@ -913,35 +913,35 @@ type StubBackend struct {
 	CurrentHeadNumber *big.Int
 }
 
-var _ Backend = &StubBackend{}
+var _ Backend[nist.PrivateKey, nist.PublicKey] = &StubBackend[nist.PrivateKey, nist.PublicKey]{}
 
-func (sb *StubBackend) UnprotectedAllowed() bool {
+func (sb *StubBackend[T,P]) UnprotectedAllowed() bool {
 	return sb.allowUnprotectedTxs
 }
 
-func (sb *StubBackend) CurrentHeader() *types.Header {
+func (sb *StubBackend[T,P]) CurrentHeader() *types.Header {
 	return &types.Header{Number: sb.CurrentHeadNumber}
 }
 
-func (sb *StubBackend) Engine() consensus.Engine {
+func (sb *StubBackend[T,P]) Engine() consensus.Engine[P] {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
+func (sb *StubBackend[T,P]) SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
 	return nil, false
 }
 
-func (sb *StubBackend) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
+func (sb *StubBackend[T,P]) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
 	return sb.mockAccountExtraDataStateGetter, nil
 }
 
-func (sb *StubBackend) IsAuthorized(authToken *proto.PreAuthenticatedAuthenticationToken, attributes ...*multitenancy.PrivateStateSecurityAttribute) (bool, error) {
+func (sb *StubBackend[T,P]) IsAuthorized(authToken *proto.PreAuthenticatedAuthenticationToken, attributes ...*multitenancy.PrivateStateSecurityAttribute) (bool, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmconfig *vm.Config) (*vm.EVM, func() error, error) {
+func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmconfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
 	sb.getEVMCalled = true
-	vmCtx := core.NewEVMBlockContext(&types.Header{
+	vmCtx := core.NewEVMBlockContext[P](&types.Header{
 		Coinbase:   arbitraryFrom,
 		Number:     arbitraryCurrentBlockNumber,
 		Time:       0,
@@ -954,199 +954,199 @@ func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.Mi
 	}
 	config := params.QuorumTestChainConfig
 	config.IstanbulBlock = sb.IstanbulBlock
-	return vm.NewEVM(vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config[nist.PublicKey]{}), vmError, nil
+	return vm.NewEVM[P](vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config[P]{}), vmError, nil
 }
 
-func (sb *StubBackend) CurrentBlock() *types.Block[nist.PublicKey] {
-	return types.NewBlock(&types.Header{
+func (sb *StubBackend[T,P]) CurrentBlock() *types.Block[P] {
+	return types.NewBlock[P](&types.Header{
 		Number: arbitraryCurrentBlockNumber,
 	}, nil, nil, nil, new(trie.Trie))
 }
 
-func (sb *StubBackend) Downloader() *downloader.Downloader {
+func (sb *StubBackend[T,P]) Downloader() *downloader.Downloader[T,P] {
 	panic("implement me")
 }
 
-func (sb *StubBackend) ProtocolVersion() int {
+func (sb *StubBackend[T,P]) ProtocolVersion() int {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
+func (sb *StubBackend[T,P]) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (sb *StubBackend) ChainDb() ethdb.Database {
+func (sb *StubBackend[T,P]) ChainDb() ethdb.Database {
 	panic("implement me")
 }
 
-func (sb *StubBackend) EventMux() *event.TypeMux {
+func (sb *StubBackend[T,P]) EventMux() *event.TypeMux {
 	panic("implement me")
 }
 
-func (sb *StubBackend) Wallets() []accounts.Wallet {
+func (sb *StubBackend[T,P]) Wallets() []accounts.Wallet[P] {
 	return sb.ks.Wallets()
 }
 
-func (sb *StubBackend) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription {
+func (sb *StubBackend[T,P]) Subscribe(sink chan<- accounts.WalletEvent[P]) event.Subscription {
 	return nil
 }
 
-func (sb *StubBackend) AccountManager() *accounts.Manager {
+func (sb *StubBackend[T,P]) AccountManager() *accounts.Manager[P] {
 	return sb.accountManager
 }
 
-func (sb *StubBackend) ExtRPCEnabled() bool {
+func (sb *StubBackend[T,P]) ExtRPCEnabled() bool {
 	panic("implement me")
 }
 
-func (sb *StubBackend) CallTimeOut() time.Duration {
+func (sb *StubBackend[T,P]) CallTimeOut() time.Duration {
 	panic("implement me")
 }
 
-func (sb *StubBackend) RPCTxFeeCap() float64 {
+func (sb *StubBackend[T,P]) RPCTxFeeCap() float64 {
 	return 25000000
 }
 
-func (sb *StubBackend) RPCGasCap() uint64 {
+func (sb *StubBackend[T,P]) RPCGasCap() uint64 {
 	return 25000000
 }
 
-func (sb *StubBackend) SetHead(number uint64) {
+func (sb *StubBackend[T,P]) SetHead(number uint64) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block[nist.PublicKey], error) {
+func (sb *StubBackend[T,P]) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[nist.PublicKey], error) {
+func (sb *StubBackend[T,P]) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[nist.PublicKey], error) {
+func (sb *StubBackend[T,P]) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[P], error) {
 	return sb.CurrentBlock(), nil
 }
 
-func (sb *StubBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 
-func (sb *StubBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 
-func (sb *StubBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
+func (sb *StubBackend[T,P]) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetTd(ctx context.Context, hash common.Hash) *big.Int {
+func (sb *StubBackend[T,P]) GetTd(ctx context.Context, hash common.Hash) *big.Int {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent[P]) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction[nist.PublicKey]) error {
+func (sb *StubBackend[T,P]) SendTx(ctx context.Context, signedTx *types.Transaction[P]) error {
 	sb.sendTxCalled = true
 	sb.txThatWasSent = signedTx
 	return nil
 }
 
-func (sb *StubBackend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
+func (sb *StubBackend[T,P]) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction[P], common.Hash, uint64, uint64, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetPoolTransactions() (types.Transactions, error) {
+func (sb *StubBackend[T,P]) GetPoolTransactions() (types.Transactions[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetPoolTransaction(txHash common.Hash) *types.Transaction {
+func (sb *StubBackend[T,P]) GetPoolTransaction(txHash common.Hash) *types.Transaction[P] {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
+func (sb *StubBackend[T,P]) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
 	return sb.poolNonce, nil
 }
 
-func (sb *StubBackend) Stats() (pending int, queued int) {
+func (sb *StubBackend[T,P]) Stats() (pending int, queued int) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+func (sb *StubBackend[T,P]) TxPoolContent() (map[common.Address]types.Transactions[P], map[common.Address]types.Transactions[P]) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeNewTxsEvent(chan<- core.NewTxsEvent[P]) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) BloomStatus() (uint64, uint64) {
+func (sb *StubBackend[T,P]) BloomStatus() (uint64, uint64) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
+func (sb *StubBackend[T,P]) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
+func (sb *StubBackend[T,P]) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent[P]) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) ChainConfig() *params.ChainConfig {
+func (sb *StubBackend[T,P]) ChainConfig() *params.ChainConfig {
 	return params.QuorumTestChainConfig
 }
 
-func (sb *StubBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (sb *StubBackend[T,P]) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	panic("implement me")
 }
 
-func (sb *StubBackend) PSMR() mps.PrivateStateMetadataResolver {
+func (sb *StubBackend[T,P]) PSMR() mps.PrivateStateMetadataResolver {
 	panic("implement me")
 }
 
-type MPSStubBackend struct {
-	StubBackend
+type MPSStubBackend [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	StubBackend[T,P]
 	psmr mps.PrivateStateMetadataResolver
 }
 
-func (msb *MPSStubBackend) ChainConfig() *params.ChainConfig {
+func (msb *MPSStubBackend[T,P]) ChainConfig() *params.ChainConfig {
 	return params.QuorumMPSTestChainConfig
 }
 
-func (sb *MPSStubBackend) PSMR() mps.PrivateStateMetadataResolver {
+func (sb *MPSStubBackend[T,P]) PSMR() mps.PrivateStateMetadataResolver {
 	return sb.psmr
 }
 
-func (sb *StubBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
+func (sb *StubBackend[T,P]) IsPrivacyMarkerTransactionCreationEnabled() bool {
 	return sb.isPrivacyMarkerTransactionCreationEnabled
 }
 

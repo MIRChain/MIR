@@ -3,15 +3,16 @@ package qlight
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 	"github.com/pavelkrolevets/MIR-pro/plugin/qlight"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTokenHolder(t *testing.T) {
-	th := NewTokenHolderWithPlugin("test", 0, nil, nil)
+	th := NewTokenHolderWithPlugin[nist.PrivateKey,nist.PublicKey]("test", 0, nil, nil)
 	require.NotNil(t, th)
 
 	// API mode

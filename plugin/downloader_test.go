@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,7 +24,7 @@ func TestDownloader_Download_whenPluginIsAvailableLocally(t *testing.T) {
 	if err := ioutil.WriteFile(arbitraryPluginDistPath, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
-	arbitraryPm, _ := NewPluginManager("arbitraryName", &Settings{
+	arbitraryPm, _ := NewPluginManager[nist.PrivateKey,nist.PublicKey]("arbitraryName", &Settings{
 		BaseDir: EnvironmentAwaredValue(tmpDir),
 	}, false, false, "")
 	testObject := NewDownloader(arbitraryPm)

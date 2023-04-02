@@ -7,11 +7,12 @@ package test
 import (
 	reflect "reflect"
 
+	gomock "github.com/golang/mock/gomock"
 	common "github.com/pavelkrolevets/MIR-pro/common"
 	types "github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	qlightptm "github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
 	qlight "github.com/pavelkrolevets/MIR-pro/qlight"
-	gomock "github.com/golang/mock/gomock"
 )
 
 // MockPrivateStateRootHashValidator is a mock of PrivateStateRootHashValidator interface.
@@ -138,7 +139,7 @@ func (m *MockPrivateBlockDataResolver) EXPECT() *MockPrivateBlockDataResolverMoc
 }
 
 // PrepareBlockPrivateData mocks base method.
-func (m *MockPrivateBlockDataResolver) PrepareBlockPrivateData(block *types.Block, psi string) (*qlight.BlockPrivateData, error) {
+func (m *MockPrivateBlockDataResolver) PrepareBlockPrivateData(block *types.Block[nist.PublicKey], psi string) (*qlight.BlockPrivateData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareBlockPrivateData", block, psi)
 	ret0, _ := ret[0].(*qlight.BlockPrivateData)

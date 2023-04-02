@@ -32,21 +32,21 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_EmptyBlock(t *test
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockptm := private.NewMockPrivateTransactionManager(ctrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().HasFeature(engine.MultiplePrivateStates).Return(true)
 	mockptm.EXPECT().Groups().Return(PrivacyGroups, nil).AnyTimes()
 
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
 
-	pbdr := qlight.NewPrivateBlockDataResolver(mockpsm, mockptm)
+	pbdr := qlight.NewPrivateBlockDataResolver[nist.PublicKey](mockpsm, mockptm)
 	blocks, _, _ := buildTestChainWithZeroTxPerBlock(1, params.QuorumMPSTestChainConfig)
 
 	blockPrivateData, err := pbdr.PrepareBlockPrivateData(blocks[0], PSI1PSM.ID.String())
@@ -60,15 +60,15 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_PartyTransaction(t
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockptm := private.NewMockPrivateTransactionManager(ctrl)
-	mockstaterepo := mps.NewMockPrivateStateRepository(ctrl)
+	mockstaterepo := mps.NewMockPrivateStateRepository[nist.PublicKey](ctrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("AAA", []string{"AAA", "CCC"}, common.FromHex(testCode), &engine.ExtraMetadata{
 		ACHashes:            nil,
@@ -88,7 +88,7 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_PartyTransaction(t
 
 	mockstaterepo.EXPECT().PrivateStateRoot(gomock.Any()).Return(common.StringToHash("PrivateStateRoot"), nil)
 
-	pbdr := qlight.NewPrivateBlockDataResolver(mockpsm, mockptm)
+	pbdr := qlight.NewPrivateBlockDataResolver[nist.PublicKey](mockpsm, mockptm)
 	blocks, _, _ := buildTestChainWithOneTxPerBlock(1, params.QuorumMPSTestChainConfig)
 
 	blockPrivateData, err := pbdr.PrepareBlockPrivateData(blocks[0], PSI1PSM.ID.String())
@@ -109,14 +109,14 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_NonPartyTransactio
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockptm := private.NewMockPrivateTransactionManager(ctrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
 	mockptm.EXPECT().Receive(gomock.Not(common.EncryptedPayloadHash{})).Return("", nil, nil, nil, nil).AnyTimes()
 	mockptm.EXPECT().HasFeature(engine.MultiplePrivateStates).Return(true)
@@ -124,7 +124,7 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_NonPartyTransactio
 
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
 
-	pbdr := qlight.NewPrivateBlockDataResolver(mockpsm, mockptm)
+	pbdr := qlight.NewPrivateBlockDataResolver[nist.PublicKey](mockpsm, mockptm)
 	blocks, _, _ := buildTestChainWithOneTxPerBlock(1, params.QuorumMPSTestChainConfig)
 
 	blockPrivateData, err := pbdr.PrepareBlockPrivateData(blocks[0], PSI1PSM.ID.String())
@@ -138,17 +138,17 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_PMTTransaction(t *
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockptm := private.NewMockPrivateTransactionManager(ctrl)
-	mockstaterepo := mps.NewMockPrivateStateRepository(ctrl)
+	mockstaterepo := mps.NewMockPrivateStateRepository[nist.PublicKey](ctrl)
 
-	saved := private.P
+	saved := private.Ptm
 	defer func() {
-		private.P = saved
+		private.Ptm = saved
 	}()
-	private.P = mockptm
+	private.Ptm = mockptm
 
-	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](0, big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt private tx")).Bytes()), types.QuorumPrivateTxSigner{}, testKey)
+	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](0, big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt private tx")).Bytes()), types.QuorumPrivateTxSigner[nist.PublicKey]{}, testKey)
 	assert.Nil(err)
 	txData := new(bytes.Buffer)
 	err = json.NewEncoder(txData).Encode(tx)
@@ -180,7 +180,7 @@ func TestPrivateBlockDataResolverImpl_PrepareBlockPrivateData_PMTTransaction(t *
 
 	mockstaterepo.EXPECT().PrivateStateRoot(gomock.Any()).Return(common.StringToHash("PrivateStateRoot"), nil)
 
-	pbdr := qlight.NewPrivateBlockDataResolver(mockpsm, mockptm)
+	pbdr := qlight.NewPrivateBlockDataResolver[nist.PublicKey](mockpsm, mockptm)
 	blocks, _, _ := buildTestChainWithOnePMTTxPerBlock(1, params.QuorumMPSTestChainConfig)
 
 	blockPrivateData, err := pbdr.PrepareBlockPrivateData(blocks[0], PSI1PSM.ID.String())
@@ -207,9 +207,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerNil(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager { return nil })
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager { return nil })
 
 	err := authProvider.Initialize()
 	assert.Nil(err)
@@ -223,9 +223,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager {
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager {
 		return &testAuthManager{
 			enabled:   false,
 			authError: nil,
@@ -245,9 +245,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerEnabledAuthError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager {
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager {
 		return &testAuthManager{
 			enabled:   true,
 			authError: fmt.Errorf("auth error"),
@@ -267,9 +267,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerEnabledNotEntitledToPSI(t *testin
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager {
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager {
 		return &testAuthManager{
 			enabled:   true,
 			authError: nil,
@@ -303,9 +303,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerEnabledMissingEntitlement(t *test
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager {
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager {
 		return &testAuthManager{
 			enabled:   true,
 			authError: nil,
@@ -347,9 +347,9 @@ func TestAuthProviderImpl_Authorize_AuthManagerEnabledSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockpsm := mps.NewMockPrivateStateManager(ctrl)
+	mockpsm := mps.NewMockPrivateStateManager[nist.PublicKey](ctrl)
 	mockpsm.EXPECT().ResolveForUserContext(gomock.Any()).Return(PSI1PSM, nil).AnyTimes()
-	authProvider := qlight.NewAuthProvider(mockpsm, func() security.AuthenticationManager {
+	authProvider := qlight.NewAuthProvider[nist.PublicKey](mockpsm, func() security.AuthenticationManager {
 		return &testAuthManager{
 			enabled:   true,
 			authError: nil,
@@ -411,7 +411,7 @@ var (
 	testAddress = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 )
 
-func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
+func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
@@ -431,13 +431,13 @@ func buildTestChainWithZeroTxPerBlock(n int, config *params.ChainConfig) ([]*typ
 	return blocks, blockm, blockchain
 }
 
-func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
+func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
-		signer := types.QuorumPrivateTxSigner{}
+		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
 		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](block.TxNonce(testAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, testKey)
 		if err != nil {
 			panic(err)
@@ -458,13 +458,13 @@ func buildTestChainWithOneTxPerBlock(n int, config *params.ChainConfig) ([]*type
 	return blocks, blockm, blockchain
 }
 
-func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain) {
+func buildTestChainWithOnePMTTxPerBlock(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *core.BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
-		signer := types.LatestSigner(config)
+		signer := types.LatestSigner[nist.PublicKey](config)
 		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddress), common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), testGas, nil, common.BytesToEncryptedPayloadHash([]byte("pmt inner tx")).Bytes()), signer, testKey)
 		if err != nil {
 			panic(err)

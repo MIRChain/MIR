@@ -39,7 +39,7 @@ func (r *noopChainRetriever) GetBlockByNumber(number uint64) *types.Block[nist.P
 func TestUnconfirmedInsertBounds(t *testing.T) {
 	limit := uint(10)
 
-	pool := newUnconfirmedBlocks(new(noopChainRetriever), limit)
+	pool := newUnconfirmedBlocks[nist.PublicKey](new(noopChainRetriever), limit)
 	for depth := uint64(0); depth < 2*uint64(limit); depth++ {
 		// Insert multiple blocks for the same level just to stress it
 		for i := 0; i < int(depth); i++ {
@@ -61,7 +61,7 @@ func TestUnconfirmedShifts(t *testing.T) {
 	// Create a pool with a few blocks on various depths
 	limit, start := uint(10), uint64(25)
 
-	pool := newUnconfirmedBlocks(new(noopChainRetriever), limit)
+	pool := newUnconfirmedBlocks[nist.PublicKey](new(noopChainRetriever), limit)
 	for depth := start; depth < start+uint64(limit); depth++ {
 		pool.Insert(depth, [32]byte{byte(depth)})
 	}

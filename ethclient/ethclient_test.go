@@ -45,17 +45,17 @@ import (
 
 // Verify that Client implements the ethereum interfaces.
 var (
-	_ = ethereum.ChainReader(&Client{})
-	_ = ethereum.TransactionReader(&Client{})
-	_ = ethereum.ChainStateReader(&Client{})
-	_ = ethereum.ChainSyncReader(&Client{})
-	_ = ethereum.ContractCaller(&Client{})
-	_ = ethereum.GasEstimator(&Client{})
-	_ = ethereum.GasPricer(&Client{})
-	_ = ethereum.LogFilterer(&Client{})
-	_ = ethereum.PendingStateReader(&Client{})
+	_ = ethereum.ChainReader[nist.PublicKey](&Client[nist.PublicKey]{})
+	_ = ethereum.TransactionReader[nist.PublicKey](&Client[nist.PublicKey]{})
+	_ = ethereum.ChainStateReader(&Client[nist.PublicKey]{})
+	_ = ethereum.ChainSyncReader(&Client[nist.PublicKey]{})
+	_ = ethereum.ContractCaller(&Client[nist.PublicKey]{})
+	_ = ethereum.GasEstimator(&Client[nist.PublicKey]{})
+	_ = ethereum.GasPricer(&Client[nist.PublicKey]{})
+	_ = ethereum.LogFilterer(&Client[nist.PublicKey]{})
+	_ = ethereum.PendingStateReader(&Client[nist.PublicKey]{})
 	// _ = ethereum.PendingStateEventer(&Client{})
-	_ = ethereum.PendingContractCaller(&Client{})
+	_ = ethereum.PendingContractCaller(&Client[nist.PublicKey]{})
 )
 
 func TestToFilterArg(t *testing.T) {
@@ -248,25 +248,25 @@ func TestEthClient(t *testing.T) {
 			func(t *testing.T) { testHeader(t, chain, client) },
 		},
 		"TestBalanceAt": {
-			func(t *testing.T) { testBalanceAt(t, client) },
+			func(t *testing.T) { testBalanceAt[nist.PublicKey](t, client) },
 		},
 		"TestTxInBlockInterrupted": {
-			func(t *testing.T) { testTransactionInBlockInterrupted(t, client) },
+			func(t *testing.T) { testTransactionInBlockInterrupted[nist.PublicKey](t, client) },
 		},
 		"TestChainID": {
-			func(t *testing.T) { testChainID(t, client) },
+			func(t *testing.T) { testChainID[nist.PublicKey](t, client) },
 		},
 		"TestGetBlock": {
-			func(t *testing.T) { testGetBlock(t, client) },
+			func(t *testing.T) { testGetBlock[nist.PublicKey](t, client) },
 		},
 		"TestStatusFunctions": {
-			func(t *testing.T) { testStatusFunctions(t, client) },
+			func(t *testing.T) { testStatusFunctions[nist.PublicKey](t, client) },
 		},
 		"TestCallContract": {
-			func(t *testing.T) { testCallContract(t, client) },
+			func(t *testing.T) { testCallContract[nist.PublicKey](t, client) },
 		},
 		"TestAtFunctions": {
-			func(t *testing.T) { testAtFunctions(t, client) },
+			func(t *testing.T) { testAtFunctions[nist.PublicKey](t, client) },
 		},
 	}
 
@@ -276,7 +276,7 @@ func TestEthClient(t *testing.T) {
 	}
 }
 
-func testHeader(t *testing.T, chain []*types.Block[nist.PublicKey], client *rpc.Client) {
+func testHeader[P crypto.PublicKey](t *testing.T, chain []*types.Block[P], client *rpc.Client) {
 	tests := map[string]struct {
 		block   *big.Int
 		want    *types.Header
@@ -298,7 +298,7 @@ func testHeader(t *testing.T, chain []*types.Block[nist.PublicKey], client *rpc.
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			ec := NewClient(client)
+			ec := NewClient[P](client)
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 
@@ -316,7 +316,7 @@ func testHeader(t *testing.T, chain []*types.Block[nist.PublicKey], client *rpc.
 	}
 }
 
-func testBalanceAt(t *testing.T, client *rpc.Client) {
+func testBalanceAt[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
 	tests := map[string]struct {
 		account common.Address
 		block   *big.Int
@@ -342,7 +342,7 @@ func testBalanceAt(t *testing.T, client *rpc.Client) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			ec := NewClient(client)
+			ec := NewClient[P](client)
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 
@@ -357,8 +357,8 @@ func testBalanceAt(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testTransactionInBlockInterrupted(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testTransactionInBlockInterrupted[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 
 	// Get current block by number
 	block, err := ec.BlockByNumber(context.Background(), nil)
@@ -381,8 +381,8 @@ func testTransactionInBlockInterrupted(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testChainID(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testChainID[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 	id, err := ec.ChainID(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -392,8 +392,8 @@ func testChainID(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testGetBlock(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testGetBlock[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 	// Get current block number
 	blockNumber, err := ec.BlockNumber(context.Background())
 	if err != nil {
@@ -436,8 +436,8 @@ func testGetBlock(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testStatusFunctions(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testStatusFunctions[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 
 	// Sync progress
 	progress, err := ec.SyncProgress(context.Background())
@@ -465,8 +465,8 @@ func testStatusFunctions(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testCallContract(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testCallContract[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 
 	// EstimateGas
 	msg := ethereum.CallMsg{
@@ -493,8 +493,8 @@ func testCallContract(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testAtFunctions(t *testing.T, client *rpc.Client) {
-	ec := NewClient(client)
+func testAtFunctions[P crypto.PublicKey](t *testing.T, client *rpc.Client) {
+	ec := NewClient[P](client)
 	// send a transaction for some interesting pending status
 	sendTransaction(ec)
 	time.Sleep(100 * time.Millisecond)
@@ -556,15 +556,15 @@ func testAtFunctions(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func sendTransaction(ec *Client) error {
+func sendTransaction[P crypto.PublicKey](ec *Client[P]) error {
 	// Retrieve chainID
 	chainID, err := ec.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
 	// Create transaction
-	tx := types.NewTransaction[nist.PublicKey](0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
-	signer := types.LatestSignerForChainID(chainID)
+	tx := types.NewTransaction[P](0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
+	signer := types.LatestSignerForChainID[P](chainID)
 	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {
 		return err
@@ -580,7 +580,7 @@ func sendTransaction(ec *Client) error {
 // Quorum
 
 func TestClient_PreparePrivateTransaction_whenTypical(t *testing.T) {
-	testObject := NewClient(nil)
+	testObject := NewClient[nist.PublicKey](nil)
 
 	_, err := testObject.PreparePrivateTransaction([]byte("arbitrary payload"), "arbitrary private from")
 
@@ -590,7 +590,7 @@ func TestClient_PreparePrivateTransaction_whenTypical(t *testing.T) {
 func TestClient_PreparePrivateTransaction_whenClientIsConfigured(t *testing.T) {
 	expectedData := []byte("arbitrary payload")
 	expectedDataEPH := common.BytesToEncryptedPayloadHash(expectedData)
-	testObject := NewClient(nil)
+	testObject := NewClient[nist.PublicKey](nil)
 	testObject.pc = &privateTransactionManagerStubClient{expectedData}
 
 	actualData, err := testObject.PreparePrivateTransaction([]byte("arbitrary payload"), "arbitrary private from")

@@ -29,26 +29,27 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
-type testTxRelay struct {
+type testTxRelay [P crypto.PublicKey] struct {
 	send, discard, mined chan int
 }
 
-func (self *testTxRelay) Send(txs types.Transactions) {
+func (self *testTxRelay[P]) Send(txs types.Transactions[P]) {
 	self.send <- len(txs)
 }
 
-func (self *testTxRelay) NewHead(head common.Hash, mined []common.Hash, rollback []common.Hash) {
+func (self *testTxRelay[P]) NewHead(head common.Hash, mined []common.Hash, rollback []common.Hash) {
 	m := len(mined)
 	if m != 0 {
 		self.mined <- m
 	}
 }
 
-func (self *testTxRelay) Discard(hashes []common.Hash) {
+func (self *testTxRelay[P]) Discard(hashes []common.Hash) {
 	self.discard <- len(hashes)
 }
 
@@ -56,7 +57,7 @@ const poolTestTxs = 1000
 const poolTestBlocks = 100
 
 // test tx 0..n-1
-var testTx [poolTestTxs]*types.Transaction
+var testTx [poolTestTxs]*types.Transaction[nist.PublicKey]
 
 // txs sent before block i
 func sentTx(i int) int {
@@ -89,21 +90,21 @@ func TestTxPool(t *testing.T) {
 	)
 	gspec.MustCommit(ldb)
 	// Assemble the test environment
-	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker(), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), sdb, poolTestBlocks, txPoolTestChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		panic(err)
 	}
 
-	odr := &testOdr{sdb: sdb, ldb: ldb, indexerConfig: TestClientIndexerConfig}
-	relay := &testTxRelay{
+	odr := &testOdr[nist.PublicKey]{sdb: sdb, ldb: ldb, indexerConfig: TestClientIndexerConfig}
+	relay := &testTxRelay[nist.PublicKey]{
 		send:    make(chan int, 1),
 		discard: make(chan int, 1),
 		mined:   make(chan int, 1),
 	}
-	lightchain, _ := NewLightChain(odr, params.TestChainConfig, ethash.NewFullFaker(), nil)
+	lightchain, _ := NewLightChain[nist.PublicKey](odr, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), nil)
 	txPermanent = 50
-	pool := NewTxPool(params.TestChainConfig, lightchain, relay)
+	pool := NewTxPool[nist.PublicKey](params.TestChainConfig, lightchain, relay)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 

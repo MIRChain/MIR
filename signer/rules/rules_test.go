@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
 	"github.com/pavelkrolevets/MIR-pro/signer/core"
 	"github.com/pavelkrolevets/MIR-pro/signer/storage"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const JS = `
@@ -73,47 +74,47 @@ func mixAddr(a string) (*common.MixedcaseAddress, error) {
 	return common.NewMixedcaseAddressFromString(a)
 }
 
-type alwaysDenyUI struct{}
+type alwaysDenyUI [T crypto.PrivateKey, P crypto.PublicKey] struct{}
 
-func (alwaysDenyUI) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (alwaysDenyUI[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	return core.UserInputResponse{}, nil
 }
-func (alwaysDenyUI) RegisterUIServer(api *core.UIServerAPI) {
+func (alwaysDenyUI[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
 }
 
-func (alwaysDenyUI) OnSignerStartup(info core.StartupInfo) {
+func (alwaysDenyUI[T,P]) OnSignerStartup(info core.StartupInfo) {
 }
 
-func (alwaysDenyUI) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
-	return core.SignTxResponse{Transaction: request.Transaction, Approved: false}, nil
+func (alwaysDenyUI[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
+	return core.SignTxResponse[P]{Transaction: request.Transaction, Approved: false}, nil
 }
 
-func (alwaysDenyUI) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (alwaysDenyUI[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	return core.SignDataResponse{Approved: false}, nil
 }
 
-func (alwaysDenyUI) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (alwaysDenyUI[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	return core.ListResponse{Accounts: nil}, nil
 }
 
-func (alwaysDenyUI) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (alwaysDenyUI[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	return core.NewAccountResponse{Approved: false}, nil
 }
 
-func (alwaysDenyUI) ShowError(message string) {
+func (alwaysDenyUI[T,P]) ShowError(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI) ShowInfo(message string) {
+func (alwaysDenyUI[T,P]) ShowInfo(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (alwaysDenyUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	panic("implement me")
 }
 
-func initRuleEngine(js string) (*rulesetUI, error) {
-	r, err := NewRuleEvaluator(&alwaysDenyUI{}, storage.NewEphemeralStorage())
+func initRuleEngine[T crypto.PrivateKey, P crypto.PublicKey](js string) (*rulesetUI[T,P], error) {
+	r, err := NewRuleEvaluator[T,P](&alwaysDenyUI[T,P]{}, storage.NewEphemeralStorage())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create js engine: %v", err)
 	}
@@ -137,7 +138,7 @@ func TestListRequest(t *testing.T) {
 
 	js := `function ApproveListing(){ return "Approve" }`
 
-	r, err := initRuleEngine(js)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -163,7 +164,7 @@ func TestSignTxRequest(t *testing.T) {
 		if(r.transaction.from.toLowerCase()=="0x000000000000000000000000000000000000dead"){ return "Reject"}
 	}`
 
-	r, err := initRuleEngine(js)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -180,8 +181,8 @@ func TestSignTxRequest(t *testing.T) {
 		return
 	}
 	t.Logf("to %v", to.Address().String())
-	resp, err := r.ApproveTx(&core.SignTxRequest{
-		Transaction: core.SendTxArgs{
+	resp, err := r.ApproveTx(&core.SignTxRequest[nist.PublicKey]{
+		Transaction: core.SendTxArgs[nist.PublicKey]{
 			From: *from,
 			To:   to},
 		Callinfo: nil,
@@ -195,61 +196,61 @@ func TestSignTxRequest(t *testing.T) {
 	}
 }
 
-type dummyUI struct {
+type dummyUI [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	calls []string
 }
 
-func (d *dummyUI) RegisterUIServer(api *core.UIServerAPI) {
+func (d *dummyUI[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
 	panic("implement me")
 }
 
-func (d *dummyUI) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (d *dummyUI[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	d.calls = append(d.calls, "OnInputRequired")
 	return core.UserInputResponse{}, nil
 }
 
-func (d *dummyUI) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
+func (d *dummyUI[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	d.calls = append(d.calls, "ApproveTx")
-	return core.SignTxResponse{}, core.ErrRequestDenied
+	return core.SignTxResponse[P]{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (d *dummyUI[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	d.calls = append(d.calls, "ApproveSignData")
 	return core.SignDataResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (d *dummyUI[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	d.calls = append(d.calls, "ApproveListing")
 	return core.ListResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (d *dummyUI[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	d.calls = append(d.calls, "ApproveNewAccount")
 	return core.NewAccountResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI) ShowError(message string) {
+func (d *dummyUI[T,P]) ShowError(message string) {
 	d.calls = append(d.calls, "ShowError")
 }
 
-func (d *dummyUI) ShowInfo(message string) {
+func (d *dummyUI[T,P]) ShowInfo(message string) {
 	d.calls = append(d.calls, "ShowInfo")
 }
 
-func (d *dummyUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (d *dummyUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	d.calls = append(d.calls, "OnApprovedTx")
 }
 
-func (d *dummyUI) OnSignerStartup(info core.StartupInfo) {
+func (d *dummyUI[T,P]) OnSignerStartup(info core.StartupInfo) {
 }
 
 //TestForwarding tests that the rule-engine correctly dispatches requests to the next caller
 func TestForwarding(t *testing.T) {
 
 	js := ""
-	ui := &dummyUI{make([]string, 0)}
+	ui := &dummyUI[nist.PrivateKey,nist.PublicKey]{make([]string, 0)}
 	jsBackend := storage.NewEphemeralStorage()
-	r, err := NewRuleEvaluator(ui, jsBackend)
+	r, err := NewRuleEvaluator[nist.PrivateKey,nist.PublicKey](ui, jsBackend)
 	if err != nil {
 		t.Fatalf("Failed to create js engine: %v", err)
 	}
@@ -264,7 +265,7 @@ func TestForwarding(t *testing.T) {
 	r.ShowInfo("test")
 
 	//This one is not forwarded
-	r.OnApprovedTx(ethapi.SignTransactionResult{})
+	r.OnApprovedTx(ethapi.SignTransactionResult[nist.PublicKey]{})
 
 	expCalls := 6
 	if len(ui.calls) != expCalls {
@@ -276,7 +277,7 @@ func TestForwarding(t *testing.T) {
 }
 
 func TestMissingFunc(t *testing.T) {
-	r, err := initRuleEngine(JS)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](JS)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -327,7 +328,7 @@ func TestStorage(t *testing.T) {
 		return a
 	}
 `
-	r, err := initRuleEngine(js)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -425,15 +426,15 @@ const ExampleTxWindow = `
 
 `
 
-func dummyTx(value hexutil.Big) *core.SignTxRequest {
+func dummyTx[P crypto.PublicKey](value hexutil.Big) *core.SignTxRequest[P] {
 	to, _ := mixAddr("000000000000000000000000000000000000dead")
 	from, _ := mixAddr("000000000000000000000000000000000000dead")
 	n := hexutil.Uint64(3)
 	gas := hexutil.Uint64(21000)
 	gasPrice := hexutil.Big(*big.NewInt(2000000))
 
-	return &core.SignTxRequest{
-		Transaction: core.SendTxArgs{
+	return &core.SignTxRequest[P]{
+		Transaction: core.SendTxArgs[P]{
 			From:     *from,
 			To:       to,
 			Value:    value,
@@ -448,22 +449,22 @@ func dummyTx(value hexutil.Big) *core.SignTxRequest {
 	}
 }
 
-func dummyTxWithV(value uint64) *core.SignTxRequest {
+func dummyTxWithV[P crypto.PublicKey](value uint64) *core.SignTxRequest[P] {
 	v := big.NewInt(0).SetUint64(value)
 	h := hexutil.Big(*v)
-	return dummyTx(h)
+	return dummyTx[P](h)
 }
 
-func dummySigned(value *big.Int) *types.Transaction {
+func dummySigned[P crypto.PublicKey](value *big.Int) *types.Transaction[P] {
 	to := common.HexToAddress("000000000000000000000000000000000000dead")
 	gas := uint64(21000)
 	gasPrice := big.NewInt(2000000)
 	data := make([]byte, 0)
-	return types.NewTransaction[nist.PublicKey](3, to, value, gas, gasPrice, data)
+	return types.NewTransaction[P](3, to, value, gas, gasPrice, data)
 }
 
 func TestLimitWindow(t *testing.T) {
-	r, err := initRuleEngine(ExampleTxWindow)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](ExampleTxWindow)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -473,7 +474,7 @@ func TestLimitWindow(t *testing.T) {
 	h := hexutil.Big(*v)
 	// The first three should succeed
 	for i := 0; i < 3; i++ {
-		unsigned := dummyTx(h)
+		unsigned := dummyTx[nist.PublicKey](h)
 		resp, err := r.ApproveTx(unsigned)
 		if err != nil {
 			t.Errorf("Unexpected error %v", err)
@@ -483,64 +484,64 @@ func TestLimitWindow(t *testing.T) {
 		}
 		// Create a dummy signed transaction
 
-		response := ethapi.SignTransactionResult{
-			Tx:  dummySigned(v),
+		response := ethapi.SignTransactionResult[nist.PublicKey]{
+			Tx:  dummySigned[nist.PublicKey](v),
 			Raw: common.Hex2Bytes("deadbeef"),
 		}
 		r.OnApprovedTx(response)
 	}
 	// Fourth should fail
-	resp, _ := r.ApproveTx(dummyTx(h))
+	resp, _ := r.ApproveTx(dummyTx[nist.PublicKey](h))
 	if resp.Approved {
 		t.Errorf("Expected check to resolve to 'Reject'")
 	}
 }
 
 // dontCallMe is used as a next-handler that does not want to be called - it invokes test failure
-type dontCallMe struct {
+type dontCallMe [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	t *testing.T
 }
 
-func (d *dontCallMe) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (d *dontCallMe[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.UserInputResponse{}, nil
 }
 
-func (d *dontCallMe) RegisterUIServer(api *core.UIServerAPI) {
+func (d *dontCallMe[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
 }
 
-func (d *dontCallMe) OnSignerStartup(info core.StartupInfo) {
+func (d *dontCallMe[T,P]) OnSignerStartup(info core.StartupInfo) {
 }
 
-func (d *dontCallMe) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
+func (d *dontCallMe[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
-	return core.SignTxResponse{}, core.ErrRequestDenied
+	return core.SignTxResponse[P]{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (d *dontCallMe[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.SignDataResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (d *dontCallMe[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.ListResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (d *dontCallMe[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.NewAccountResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe) ShowError(message string) {
+func (d *dontCallMe[T,P]) ShowError(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe) ShowInfo(message string) {
+func (d *dontCallMe[T,P]) ShowInfo(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (d *dontCallMe[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
@@ -563,15 +564,15 @@ func TestContextIsCleared(t *testing.T) {
 		return foobar
 	}
 	`
-	ui := &dontCallMe{t}
-	r, err := NewRuleEvaluator(ui, storage.NewEphemeralStorage())
+	ui := &dontCallMe[nist.PrivateKey,nist.PublicKey]{t}
+	r, err := NewRuleEvaluator[nist.PrivateKey,nist.PublicKey](ui, storage.NewEphemeralStorage())
 	if err != nil {
 		t.Fatalf("Failed to create js engine: %v", err)
 	}
 	if err = r.Init(js); err != nil {
 		t.Fatalf("Failed to load bootstrap js: %v", err)
 	}
-	tx := dummyTxWithV(0)
+	tx := dummyTxWithV[nist.PublicKey](0)
 	r1, _ := r.ApproveTx(tx)
 	r2, _ := r.ApproveTx(tx)
 	if r1.Approved != r2.Approved {
@@ -594,7 +595,7 @@ function ApproveSignData(r){
     }
     // Otherwise goes to manual processing
 }`
-	r, err := initRuleEngine(js)
+	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
