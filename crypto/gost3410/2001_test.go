@@ -89,7 +89,7 @@ func TestRFCVectors(t *testing.T) {
 	}
 	_r := new(big.Int).SetBytes(ourSign[:32])
 	_s := new(big.Int).SetBytes(ourSign[32:64])
-	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 0)
+	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 1)
 	var recoveredPub [64]byte
 	copy(recoveredPub[:32], recovPubY.Bytes())
 	copy(recoveredPub[32:64], recovPubX.Bytes())

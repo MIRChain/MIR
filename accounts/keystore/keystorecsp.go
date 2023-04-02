@@ -54,7 +54,7 @@ func (ks *KeyStore[T,P]) SignHashCsp(a accounts.Account, hash []byte) ([]byte, e
 	}
 	defer crt.Close()
 	// Sign the hash using plain ECDSA operations
-	return crypto.Sign(hash, &crt)
+	return crypto.Sign(hash, crt)
 }
 
 func (ks *KeyStore[T,P]) DeleteCsp(a accounts.Account, passphrase string) error {

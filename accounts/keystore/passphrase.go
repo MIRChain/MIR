@@ -187,14 +187,14 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 // EncryptKey encrypts a key using the specified scrypt parameters into a json
 // blob that can be decrypted later on.
 func EncryptKey[T crypto.PrivateKey, P crypto.PublicKey](key *Key[T], auth string, scryptN, scryptP int) ([]byte, error) {
-	var D *big.Int
+	var D big.Int
 	switch t:= any(&key.PrivateKey).(type) {
 	case *nist.PrivateKey:
-		*D = *t.D
+		D = *t.D
 	case *gost3410.PrivateKey:
-		*D = *t.Key
+		D = *t.Key
 	}
-	keyBytes := math.PaddedBigBytes(D, 32)
+	keyBytes := math.PaddedBigBytes(&D, 32)
 	cryptoStruct, err := EncryptDataV3(keyBytes, []byte(auth), scryptN, scryptP)
 	if err != nil {
 		return nil, err

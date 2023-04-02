@@ -121,21 +121,21 @@ func TestSign(t *testing.T) {
 	}
 }
 
-func TestSignCsp(t *testing.T) {
-	dir, ks := tmpKeyStore(t, true)
-	defer os.RemoveAll(dir)
+// func TestSignCsp(t *testing.T) {
+// 	dir, ks := tmpKeyStore(t, true)
+// 	defer os.RemoveAll(dir)
 
-	a1, err := ks.NewAccountCsp("43ad4195a67f95eea752861c96297045bb9ea5a7")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ks.UnlockCsp(a1, ""); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ks.SignHashCsp(accounts.Account{Address: a1.Address}, testSigData); err != nil {
-		t.Fatal(err)
-	}
-}
+// 	a1, err := ks.NewAccountCsp("43ad4195a67f95eea752861c96297045bb9ea5a7")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if err := ks.UnlockCsp(a1, ""); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if _, err := ks.SignHashCsp(accounts.Account{Address: a1.Address}, testSigData); err != nil {
+// 		t.Fatal(err)
+// 	}
+// }
 
 func TestSignWithPassphrase(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)

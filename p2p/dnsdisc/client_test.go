@@ -286,7 +286,7 @@ func updateSomeNodes(keySeed int64, nodes []*enode.Node[nist.PublicKey]) {
 		r := n.Record()
 		r.Set(enr.IP{127, 0, 0, 1})
 		r.SetSeq(55)
-		enode.SignV4[nist.PrivateKey ,nist.PublicKey](r, *keys[i])
+		enode.SignV4[nist.PrivateKey ,nist.PublicKey](r, keys[i])
 		n2, _ := enode.New[nist.PublicKey](enode.ValidSchemes, r)
 		nodes[i] = n2
 	}
@@ -370,7 +370,7 @@ func makeTestTree(domain string, nodes []*enode.Node[nist.PublicKey] , links []s
 	if err != nil {
 		panic(err)
 	}
-	url, err := tree.Sign(*testKey(signingKeySeed), domain)
+	url, err := tree.Sign(testKey(signingKeySeed), domain)
 	if err != nil {
 		panic(err)
 	}
@@ -378,20 +378,20 @@ func makeTestTree(domain string, nodes []*enode.Node[nist.PublicKey] , links []s
 }
 
 // testKeys creates deterministic private keys for testing.
-func testKeys(seed int64, n int) []*nist.PrivateKey {
+func testKeys(seed int64, n int) []nist.PrivateKey {
 	rand := rand.New(rand.NewSource(seed))
-	keys := make([]*nist.PrivateKey, n)
+	keys := make([]nist.PrivateKey, n)
 	for i := 0; i < n; i++ {
 		key, err := ecdsa.GenerateKey(crypto.S256(), rand)
 		if err != nil {
 			panic("can't generate key: " + err.Error())
 		}
-		keys[i] = &nist.PrivateKey{key}
+		keys[i] = nist.PrivateKey{key}
 	}
 	return keys
 }
 
-func testKey(seed int64) *nist.PrivateKey {
+func testKey(seed int64) nist.PrivateKey {
 	return testKeys(seed, 1)[0]
 }
 
@@ -401,7 +401,7 @@ func testNodes(seed int64, n int) []*enode.Node[nist.PublicKey] {
 	for i, key := range keys {
 		record := new(enr.Record)
 		record.SetSeq(uint64(i))
-		enode.SignV4[nist.PrivateKey,nist.PublicKey] (record, *key)
+		enode.SignV4[nist.PrivateKey,nist.PublicKey] (record, key)
 		n, err := enode.New[nist.PublicKey] (enode.ValidSchemes, record)
 		if err != nil {
 			panic(err)

@@ -184,8 +184,8 @@ var typedData = core.TypedData{
 func TestSignData(t *testing.T) {
 	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
 	//Create two accounts
-	createAccount(control, api, t)
-	createAccount(control, api, t)
+	createAccount[nist.PrivateKey,nist.PublicKey](control, api, t)
+	createAccount[nist.PrivateKey,nist.PublicKey](control, api, t)
 	control.approveCh <- "1"
 	list, err := api.List(context.Background())
 	if err != nil {
