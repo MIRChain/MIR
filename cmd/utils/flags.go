@@ -18,6 +18,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -2367,17 +2368,18 @@ func RegisterRaftService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.No
 	raftPort := uint16(ctx.GlobalInt(RaftPortFlag.Name))
 
 	privkey := nodeCfg.NodeKey()
-	// Mir
-	var pub P
+	//--> Mir
+	var strId string
+	var enodeid enode.EnodeID
 	switch t:=any(&privkey).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
-		*p = *t.Public()
+		strId = enode.PubkeyToIDV4(t.Public()).String()
+		enodeid = enode.PubkeyToEnodeID(t.Public())
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
-		*p = *t.Public()
+		strId = enode.PubkeyToIDV4(t.Public()).String()
+		enodeid = enode.PubkeyToEnodeID(t.Public())
 	}
-	strId := enode.PubkeyToIDV4(pub).String()
+	//<--
 	blockTimeNanos := time.Duration(blockTimeMillis) * time.Millisecond
 	peers := nodeCfg.StaticNodes()
 
@@ -2405,7 +2407,7 @@ func RegisterRaftService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.No
 		}
 
 		if myId == 0 {
-			Fatalf("failed to find local enode ID (%v) amongst peer IDs: %v", strId, peerIds)
+			Fatalf("failed to find local enode ID (%v) amongst peer IDs: %v, EnodeID: %s", strId, peerIds, hex.EncodeToString(enodeid[:]))
 		}
 	}
 
