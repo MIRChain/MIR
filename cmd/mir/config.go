@@ -134,7 +134,7 @@ func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,
 	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
 	cfg.HTTPModules = append(cfg.HTTPModules, "eth")
 	cfg.WSModules = append(cfg.WSModules, "eth")
-	cfg.IPCPath = "geth.ipc"
+	cfg.IPCPath = "mir.ipc"
 	return cfg
 }
 

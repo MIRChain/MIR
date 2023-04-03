@@ -269,7 +269,7 @@ func TestResolvePSIProvider_whenEnvVariableTakesPrecedence(t *testing.T) {
 }
 
 func TestResolvePSIProvider_whenNoPSI(t *testing.T) {
-	endpoint := "data/geth.ipc"
+	endpoint := "data/mir.ipc"
 	actualCtx := resolvePSIProvider(context.Background(), endpoint)
 
 	testifyassert.Nil(t, PSIProviderFromContext(actualCtx))

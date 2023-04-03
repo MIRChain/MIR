@@ -218,11 +218,11 @@ func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 				path = filepath.Join(path, "yolo-v3")
 			}
 		}
-		endpoint = fmt.Sprintf("%s/geth.ipc", path)
+		endpoint = fmt.Sprintf("%s/mir.ipc", path)
 	}
 	client, err := dialRPC[T,P](endpoint, ctx)
 	if err != nil {
-		utils.Fatalf("Unable to attach to remote geth: %v", err)
+		utils.Fatalf("Unable to attach to remote mir: %v", err)
 	}
 	config := console.Config{
 		DataDir: utils.MakeDataDir(ctx),

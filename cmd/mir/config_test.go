@@ -524,7 +524,7 @@ DataDir = "/data"
 RaftLogDir = ""
 InsecureUnlockAllowed = true
 NoUSB = true
-IPCPath = "geth.ipc"
+IPCPath = "mir.ipc"
 HTTPHost = "0.0.0.0"
 HTTPPort = 8545
 HTTPCors = ["'*'"]
@@ -647,7 +647,7 @@ func testConfig(t *testing.T, cfg *gethConfig[nist.PrivateKey,nist.PublicKey]) {
 	assert.Equal(t, "/data", node.DataDir)
 	assert.Equal(t, true, node.InsecureUnlockAllowed)
 	assert.Equal(t, true, node.NoUSB)
-	assert.Equal(t, "geth.ipc", node.IPCPath)
+	assert.Equal(t, "mir.ipc", node.IPCPath)
 	assert.Equal(t, "0.0.0.0", node.HTTPHost)
 	assert.Equal(t, 8545, node.HTTPPort)
 	assert.Equal(t, []string{"'*'"}, node.HTTPCors)
