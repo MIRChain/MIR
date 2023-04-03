@@ -14,7 +14,7 @@ echo "Starting node1 ..."
   --http.port 8545 \
   --http.corsdomain "*" \
   --http.api shh,personal,db,eth,net,web3,txpool,miner,admin \
-  --bootnodes 'enode://b68b4762248b8cb21e83fb16c14a8f2e360bc20d2b811d5b15a899d9fb9d59b698a47a0d335883db9318cf99f19b60f4426d9e4633d8d9129b59b9ece3e1b599@127.0.0.1:30312' \
+  --bootnodes 'enode://fd8b7d623070867bd0458369f5e9f6f4031d105fe559180719846d4a2a82f96d5a5cb987047e86b55b0dafcca786349173f18a3565db9d7ba8c2aecbdfd1ea8d@127.0.0.1:30310' \
   --networkid 6581 \
   --unlock 0xb47f736b9b15dcc888ab790c38a6ad930217cbee \
   --password node1/password.txt \

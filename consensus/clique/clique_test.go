@@ -112,3 +112,15 @@ func TestReimportMirroredState(t *testing.T) {
 		t.Fatalf("chain head mismatch: have %d, want %d", head, 3)
 	}
 }
+
+func TestSealHash(t *testing.T) {
+	have := SealHash(&types.Header{
+		Difficulty: new(big.Int),
+		Number:     new(big.Int),
+		Extra:      make([]byte, 32+65),
+	})
+	want := common.HexToHash("0x32c78209d47a02ec711062084b8f4dc8761e3b4a9582d35c74b1d1844cce1db4")
+	if have != want {
+		t.Errorf("have %x, want %x", have, want)
+	}
+}
