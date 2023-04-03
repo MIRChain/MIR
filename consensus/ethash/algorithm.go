@@ -29,7 +29,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/bitutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"golang.org/x/crypto/sha3"
 )
@@ -344,15 +344,16 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	copy(seed, hash)
 	binary.LittleEndian.PutUint64(seed[32:], nonce)
 
-	// seed = crypto.Keccak512(seed)
+	seed = crypto.Keccak512(seed)
 
 	// Mir - GOST hash 34.11
-	gostHash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_512})
-	if err != nil {
-		panic(err)
-	}
+	// gostHash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_512})
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	seed =  gostHash.Sum(seed)
+	// seed =  gostHash.Sum(seed)
+
 	seedHead := binary.LittleEndian.Uint32(seed)
 
 	// Start the mix with replicated seed
@@ -380,7 +381,8 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	for i, val := range mix {
 		binary.LittleEndian.PutUint32(digest[i*4:], val)
 	}
-	return digest, gostHash.Sum(append(seed, digest...))
+	// return digest, gostHash.Sum(append(seed, digest...))
+	return digest, crypto.Keccak256(append(seed, digest...))
 }
 
 // hashimotoLight aggregates data from the full dataset (using only a small
