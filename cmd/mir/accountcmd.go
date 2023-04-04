@@ -19,12 +19,15 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"gopkg.in/urfave/cli.v1"
@@ -105,7 +108,7 @@ Print a short summary of all accounts`,
 			{
 				Name:   "new",
 				Usage:  "Create a new account",
-				Action: utils.MigrateFlags(accountCreate[nist.PrivateKey, nist.PublicKey]),
+				Action: utils.MigrateFlags(accountCreate),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
@@ -262,31 +265,81 @@ func ambiguousAddrRecovery[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore
 }
 
 // accountCreate creates a new account into the keystore defined by the CLI flags.
-func accountCreate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	cfg := gethConfig[T,P]{Node: defaultNodeConfig[T,P]()}
-	// Load config file.
-	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
-		if err := loadConfig(file, &cfg); err != nil {
-			utils.Fatalf("%v", err)
+func accountCreate(ctx *cli.Context) error {
+	cryptoType := os.Getenv("MIR_CRYPTO")
+	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
+		if cryptoType == "nist"{
+			cfg := gethConfig[nist.PrivateKey,nist.PublicKey]{Node: defaultNodeConfig[nist.PrivateKey,nist.PublicKey]()}
+				// Load config file.
+			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
+				if err := loadConfig(file, &cfg); err != nil {
+					utils.Fatalf("%v", err)
+				}
+			}
+			utils.SetNodeConfig(ctx, &cfg.Node)
+			scryptN, scryptP, keydir, err := cfg.Node.AccountConfig()
+
+			if err != nil {
+				utils.Fatalf("Failed to read configuration: %v", err)
+			}
+			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+			account, err := keystore.StoreKey[nist.PrivateKey,nist.PublicKey](keydir, password, scryptN, scryptP)
+			fmt.Printf("\nYour new key was generated\n\n")
+			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
+			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
+			if err != nil {
+				utils.Fatalf("Failed to create account: %v", err)
+			}
 		}
+		if cryptoType == "gost"{
+			cfg := gethConfig[gost3410.PrivateKey,gost3410.PublicKey]{Node: defaultNodeConfig[gost3410.PrivateKey,gost3410.PublicKey]()}
+				// Load config file.
+			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
+				if err := loadConfig(file, &cfg); err != nil {
+					utils.Fatalf("%v", err)
+				}
+			}
+			utils.SetNodeConfig(ctx, &cfg.Node)
+			scryptN, scryptP, keydir, err := cfg.Node.AccountConfig()
+
+			if err != nil {
+				utils.Fatalf("Failed to read configuration: %v", err)
+			}
+			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+			account, err := keystore.StoreKey[gost3410.PrivateKey,gost3410.PublicKey](keydir, password, scryptN, scryptP)
+			fmt.Printf("\nYour new key was generated\n\n")
+			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
+			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
+			if err != nil {
+				utils.Fatalf("Failed to create account: %v", err)
+			}
+		}
+		if cryptoType == "gost_csp" {
+			cfg := gethConfig[csp.Cert,csp.PublicKey]{Node: defaultNodeConfig[csp.Cert,csp.PublicKey]()}
+				// Load config file.
+			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
+				if err := loadConfig(file, &cfg); err != nil {
+					utils.Fatalf("%v", err)
+				}
+			}
+			utils.SetNodeConfig(ctx, &cfg.Node)
+			scryptN, scryptP, keydir, err := cfg.Node.AccountConfig()
+
+			if err != nil {
+				utils.Fatalf("Failed to read configuration: %v", err)
+			}
+			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+			account, err := keystore.StoreKey[csp.Cert,csp.PublicKey](keydir, password, scryptN, scryptP)
+			fmt.Printf("\nYour new key was generated\n\n")
+			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
+			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
+			if err != nil {
+				utils.Fatalf("Failed to create account: %v", err)
+			}
+		}
+	} else {
+		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
 	}
-	utils.SetNodeConfig(ctx, &cfg.Node)
-	scryptN, scryptP, keydir, err := cfg.Node.AccountConfig()
-
-	if err != nil {
-		utils.Fatalf("Failed to read configuration: %v", err)
-	}
-
-	password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
-
-	account, err := keystore.StoreKey[T,P](keydir, password, scryptN, scryptP)
-
-	if err != nil {
-		utils.Fatalf("Failed to create account: %v", err)
-	}
-	fmt.Printf("\nYour new key was generated\n\n")
-	fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
-	fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
 	fmt.Printf("- You can share your public address with anyone. Others need it to interact with you.\n")
 	fmt.Printf("- You must NEVER share the secret key with anyone! The key controls access to your funds!\n")
 	fmt.Printf("- You must BACKUP your key file! Without the key, it's impossible to access account funds!\n")
