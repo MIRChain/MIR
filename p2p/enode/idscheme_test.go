@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -34,6 +35,8 @@ import (
 var (
 	privkey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	pubkey     = &privkey.PublicKey
+	privkey_gost, _ = crypto.HexToECDSA[gost3410.PrivateKey]("f4c50f96a2e64a2c7aba6c86dc0f2e731b13cd495855ed35ca2b1c215457a784")
+	pubkey_gost     = &privkey_gost.PublicKey
 )
 
 func TestEmptyNodeID(t *testing.T) {
@@ -72,4 +75,18 @@ func TestGetSetSecp256k1(t *testing.T) {
 	var pk Secp256k1
 	require.NoError(t, r.Load(&pk))
 	assert.EqualValues(t, pubkey, pk.PublicKey)
+}
+
+// TestGetSetSecp256k1 tests encoding/decoding and setting/getting of the Secp256k1 key.
+func TestGetSetGost3410(t *testing.T) {
+	var r enr.Record
+	t.Log("Gost key", hex.EncodeToString(privkey_gost.Raw()))
+	if err := SignV4[gost3410.PrivateKey,gost3410.PublicKey](&r, privkey_gost); err != nil {
+		t.Fatal(err)
+	}
+
+	var pk Gost3410
+	require.NoError(t, r.Load(&pk))
+	assert.EqualValues(t, pubkey_gost.X, pk.X)
+	assert.EqualValues(t, pubkey_gost.Y, pk.Y)
 }

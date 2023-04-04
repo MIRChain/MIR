@@ -48,7 +48,6 @@ func main() {
 		verbosity   = flag.Int("verbosity", int(log.LvlInfo), "log verbosity (0-5)")
 		vmodule     = flag.String("vmodule", "", "log verbosity pattern")
 
-		cryptoType     = flag.String("crypto", "nist", "type of crypto to use")
 		// nodeKey *ecdsa.PrivateKey
 		err     error
 	)
@@ -59,12 +58,19 @@ func main() {
 	glogger.Vmodule(*vmodule)
 	log.Root().SetHandler(glogger)
 
-	if *cryptoType == "nist" {
-		runNode[nist.PrivateKey, nist.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
-	} else if *cryptoType == "gost" {
-		runNode[gost3410.PrivateKey, gost3410.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
-	} else if *cryptoType == "csp"{
-		runNode[csp.Cert, csp.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+	cryptoType := os.Getenv("MIR_CRYPTO")
+	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
+		if cryptoType == "nist"{
+			runNode[nist.PrivateKey, nist.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+		}
+		if cryptoType == "gost"{
+			runNode[gost3410.PrivateKey, gost3410.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+		}
+		if cryptoType == "gost_csp" {
+			runNode[csp.Cert, csp.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
+		}
+	} else {
+		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
 	}
 	select {}
 }
@@ -73,7 +79,7 @@ func printNotice[P crypto.PublicKey](nodeKey P, addr net.UDPAddr) {
 	if addr.IP.IsUnspecified() {
 		addr.IP = net.IP{127, 0, 0, 1}
 	}
-	n := enode.NewV4[P](nodeKey, addr.IP, 0, addr.Port)
+	n := enode.NewV4(nodeKey, addr.IP, 0, addr.Port)
 	fmt.Println(n.URLv4())
 	fmt.Println("Note: you're using cmd/bootnode, a developer tool.")
 	fmt.Println("We recommend using a regular node as bootstrap node for production deployments.")

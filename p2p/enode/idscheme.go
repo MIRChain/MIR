@@ -31,12 +31,12 @@ import (
 )
 
 // List of known secure identity schemes.
-var ValidSchemes  = enr.SchemeMap[nist.PrivateKey, nist.PublicKey]{
-	"v4": V4ID[nist.PublicKey]{},
+var ValidSchemes  = enr.SchemeMap[gost3410.PrivateKey, gost3410.PublicKey]{
+	"v4": V4ID[gost3410.PublicKey]{},
 }
 
-var ValidSchemesForTesting = enr.SchemeMap[nist.PrivateKey, nist.PublicKey]{
-	"v4":   V4ID[nist.PublicKey]{},
+var ValidSchemesForTesting = enr.SchemeMap[gost3410.PrivateKey, gost3410.PublicKey]{
+	"v4":   V4ID[gost3410.PublicKey]{},
 	"null": NullID{},
 }
 
@@ -84,31 +84,63 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 }
 
 func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
-	var entry s256raw
-	if err := r.Load(&entry); err != nil {
-		return err
-	} else if len(entry) != 33 {
-		return fmt.Errorf("invalid public key")
-	}
-
-	h := sha3.NewLegacyKeccak256()
-	rlp.Encode(h, r.AppendElements(nil))
-	if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
-		return enr.ErrInvalidSig
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		var entry s256raw
+		if err := r.Load(&entry); err != nil {
+			return err
+		} else if len(entry) != 33 {
+			return fmt.Errorf("invalid public key")
+		}
+	
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, r.AppendElements(nil))
+		if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
+			return enr.ErrInvalidSig
+		}
+	case *gost3410.PublicKey:
+		var entry gost3410raw
+		if err := r.Load(&entry); err != nil {
+			return err
+		} else if len(entry) != 64 {
+			return fmt.Errorf("invalid public key")
+		}
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, r.AppendElements(nil))
+		if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
+			return enr.ErrInvalidSig
+		}
 	}
 	return nil
 }
 
 func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
-	var pubkey Secp256k1
-	err := r.Load(&pubkey)
-	if err != nil {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		var pubkey Secp256k1
+		err := r.Load(&pubkey)
+		if err != nil {
+			return nil
+		}
+		buf := make([]byte, 64)
+		math.ReadBits(pubkey.X, buf[:32])
+		math.ReadBits(pubkey.Y, buf[32:])
+		return crypto.Keccak256(buf)
+	case *gost3410.PublicKey:
+		var pubkey Gost3410
+		err := r.Load(&pubkey)
+		if err != nil {
+			return nil
+		}
+		buf := make([]byte, 64)
+		math.ReadBits(pubkey.X, buf[:32])
+		math.ReadBits(pubkey.Y, buf[32:])
+		return crypto.Keccak256(buf)
+	default:
 		return nil
 	}
-	buf := make([]byte, 64)
-	math.ReadBits(pubkey.X, buf[:32])
-	math.ReadBits(pubkey.Y, buf[32:])
-	return crypto.Keccak256(buf)
 }
 
 // Secp256k1 is the "secp256k1" key, which holds a public key.
@@ -187,6 +219,11 @@ type s256raw []byte
 
 func (s256raw) ENRKey() string { return "secp256k1" }
 
+// gost3410raw is an unparsed gost3410 public key entry.
+type gost3410raw []byte
+func (gost3410raw) ENRKey() string { return "gost3410" }
+
+
 // v4CompatID is a weaker and insecure version of the "v4" scheme which only checks for the
 // presence of a secp256k1 public key, but doesn't verify the signature.
 type v4CompatID [P crypto.PublicKey] struct {
@@ -194,16 +231,23 @@ type v4CompatID [P crypto.PublicKey] struct {
 }
 
 func (v4CompatID[P]) Verify(r *enr.Record, sig []byte) error {
-	var pubkey Secp256k1
-	return r.Load(&pubkey)
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		var pubkey Secp256k1
+		return r.Load(&pubkey)
+	case *gost3410.PublicKey:
+		var pubkey Gost3410
+		return r.Load(&pubkey)
+	default:
+		return fmt.Errorf("cant identify pub key type")
+	}
 }
 
 func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
 	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		r.Set((*Secp256k1)(pubkey))
-		var p Secp256k1
-		r.Load(&p)
 		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}

@@ -33,7 +33,7 @@ func NewPublicKey(c *Curve, raw []byte) (*PublicKey, error) {
 	pointSize := c.PointSize()
 	key := make([]byte, 2*pointSize)
 	if len(raw) != len(key) {
-		return nil, fmt.Errorf("gogost/gost3410: len(key) != %d", len(key))
+		return &PublicKey{}, fmt.Errorf("gogost/gost3410: len(key) != %d", len(raw))
 	}
 	for i := 0; i < len(key); i++ {
 		key[i] = raw[len(raw)-i-1]

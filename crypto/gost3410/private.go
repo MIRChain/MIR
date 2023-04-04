@@ -57,7 +57,7 @@ func GenPrivateKey(c *Curve, rand io.Reader) (*PrivateKey, error) {
 
 func (prv *PrivateKey) Raw() []byte {
 	raw := pad(prv.Key.Bytes(), prv.C.PointSize())
-	reverse(raw)
+	// reverse(raw)
 	return raw
 }
 

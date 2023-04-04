@@ -98,6 +98,34 @@ func TestUnmarshalPubkey(t *testing.T) {
 	}
 }
 
+
+func TestUnmarshalPubkeyGost(t *testing.T) {
+	key, err := UnmarshalPubkey[gost3410.PublicKey](nil)
+	if err != errInvalidPubkey || key.X != nil {
+		t.Fatalf("expected error, got %v, %v", err, key)
+	}
+	key, err = UnmarshalPubkey[gost3410.PublicKey]([]byte{1, 2, 3})
+	if err != errInvalidPubkey || key.X != nil {
+		t.Fatalf("expected error, got %v, %v", err, key)
+	}
+
+	var (
+		enc, _ = hex.DecodeString("21c4db540114cdb0c8308cb06da448dd233332c25a5a36ac2b2b15f0ba10f9e475e736be92ad064af764770b50332d21e9830a7e3bc24eb15e2b3c009ea69684")
+		dec    = gost3410.PublicKey{
+			C:     gost3410.GostCurve,
+			X:     hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
+			Y:     hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
+		}
+	)
+	key, err = UnmarshalPubkey[gost3410.PublicKey](enc)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !reflect.DeepEqual(key, dec) {
+		t.Fatal("wrong result")
+	}
+}
+
 func TestSign(t *testing.T) {
 	CryptoAlg = NIST
 	key, _ := HexToECDSA[nist.PrivateKey](testPrivHex)
@@ -140,6 +168,8 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
+	assert.Equal(t, true, ver)
+	ver = VerifySignature[gost3410.PublicKey](gostKey.Public().Raw(), gostMsg.Sum(nil), gostSig)
 	assert.Equal(t, true, ver)
 	r := new(big.Int).SetBytes(gostSig[:32])
 	s := new(big.Int).SetBytes(gostSig[32:64])

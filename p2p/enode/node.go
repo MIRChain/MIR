@@ -219,8 +219,17 @@ func (n *Node[P]) ValidateComplete() error {
 		return errors.New("invalid IP (multicast/unspecified)")
 	}
 	// Validate the node key (on curve, etc.).
-	var key Secp256k1
-	return n.Load(&key)
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		var key Secp256k1
+		return n.Load(&key)
+	case *gost3410.PublicKey:
+		var key Gost3410
+		return n.Load(&key)
+	default:
+		return fmt.Errorf("error validating the node key (on curve, etc.)")
+	}
 }
 
 // String returns the text representation of the record.

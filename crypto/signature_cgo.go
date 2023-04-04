@@ -207,7 +207,7 @@ func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
 		if err != nil {
 			return false
 		}
-		ver, err := pub.VerifyDigest(digestHash, signature[:128])
+		ver, err := pub.VerifyDigest(digestHash, signature[:64])
 		if err != nil {
 			return false
 		}

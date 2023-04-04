@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
 )
@@ -121,6 +122,24 @@ func TestSign(t *testing.T) {
 	}
 }
 
+func TestSignGost(t *testing.T) {
+	dir, ks := tmpKeyStoreGost(t, true)
+	defer os.RemoveAll(dir)
+
+	pass := "" // not used but required by API
+	a1, err := ks.NewAccount(pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ks.Unlock(a1, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ks.SignHash(accounts.Account{Address: a1.Address}, testSigData); err != nil {
+		t.Fatal(err)
+	}
+}
+
+
 // func TestSignCsp(t *testing.T) {
 // 	dir, ks := tmpKeyStore(t, true)
 // 	defer os.RemoveAll(dir)
@@ -139,6 +158,34 @@ func TestSign(t *testing.T) {
 
 func TestSignWithPassphrase(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
+	defer os.RemoveAll(dir)
+
+	pass := "passwd"
+	acc, err := ks.NewAccount(pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, unlocked := ks.unlocked[acc.Address]; unlocked {
+		t.Fatal("expected account to be locked")
+	}
+
+	_, err = ks.SignHashWithPassphrase(acc, pass, testSigData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, unlocked := ks.unlocked[acc.Address]; unlocked {
+		t.Fatal("expected account to be locked")
+	}
+
+	if _, err = ks.SignHashWithPassphrase(acc, "invalid passwd", testSigData); err == nil {
+		t.Fatal("expected SignHashWithPassphrase to fail with invalid password")
+	}
+}
+
+func TestSignWithPassphraseGost(t *testing.T) {
+	dir, ks := tmpKeyStoreGost(t, true)
 	defer os.RemoveAll(dir)
 
 	pass := "passwd"
@@ -441,6 +488,35 @@ func TestImportExport(t *testing.T) {
 
 }
 
+func TestImportExportGost(t *testing.T) {
+	dir, ks := tmpKeyStoreGost(t, true)
+	defer os.RemoveAll(dir)
+	acc, err := ks.NewAccount("old")
+	if err != nil {
+		t.Fatalf("failed to create account: %v", acc)
+	}
+	json, err := ks.Export(acc, "old", "new")
+	if err != nil {
+		t.Fatalf("failed to export account: %v", acc)
+	}
+	dir2, ks2 := tmpKeyStoreGost(t, true)
+	defer os.RemoveAll(dir2)
+	if _, err = ks2.Import(json, "old", "old"); err == nil {
+		t.Errorf("importing with invalid password succeeded")
+	}
+	acc2, err := ks2.Import(json, "new", "new")
+	if err != nil {
+		t.Errorf("importing failed: %v", err)
+	}
+	if acc.Address != acc2.Address {
+		t.Error("imported account does not match exported account")
+	}
+	if _, err = ks2.Import(json, "new", "new"); err == nil {
+		t.Errorf("importing a key twice succeeded")
+	}
+
+}
+
 // TestImportRace tests the keystore on races.
 // This test should fail under -race if importing races.
 func TestImportRace(t *testing.T) {
@@ -518,6 +594,18 @@ func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKe
 	newKs := NewPlaintextKeyStore[nist.PrivateKey,nist.PublicKey]
 	if encrypted {
 		newKs = func(kd string) *KeyStore[nist.PrivateKey,nist.PublicKey] { return NewKeyStore[nist.PrivateKey,nist.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
+	}
+	return d, newKs(d)
+}
+
+func tmpKeyStoreGost(t *testing.T, encrypted bool) (string, *KeyStore[gost3410.PrivateKey,gost3410.PublicKey]) {
+	d, err := ioutil.TempDir("", "eth-keystore-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newKs := NewPlaintextKeyStore[gost3410.PrivateKey,gost3410.PublicKey]
+	if encrypted {
+		newKs = func(kd string) *KeyStore[gost3410.PrivateKey,gost3410.PublicKey] { return NewKeyStore[gost3410.PrivateKey,gost3410.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
 	}
 	return d, newKs(d)
 }

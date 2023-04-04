@@ -56,12 +56,6 @@ var (
 
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
 
-// Mir config values
-// var (
-// 	gost3410N  = gost3410.GostCurve.Q
-// 	gost3410halfN = new(big.Int).Div(gost3410N, big.NewInt(2))
-// )
-
 type CryptoType int 
 
 const (
@@ -187,6 +181,29 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 			return ZeroPrivateKey[T](), errors.New("invalid private key")
 		}
 		*p = nist.PrivateKey{priv}
+	case *gost3410.PrivateKey:
+		priv := new(gost3410.PrivateKey)
+		priv.C = gost3410.GostCurve
+		priv.PublicKey.C = priv.C
+		if strict && 8*len(d) != priv.C.Params().BitSize {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid length, need %d bits", priv.C.Params().BitSize)
+		}
+		// reverse(d)
+		priv.Key = new(big.Int).SetBytes(d)
+	
+		// The priv.D must < N
+		if priv.Key.Cmp(gost3410.GostCurve.Q) >= 0 {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, >=N")
+		}
+		// The priv.D must not be zero or negative.
+		if priv.Key.Sign() <= 0 {
+			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, zero or negative")
+		}
+		priv.PublicKey.X, priv.PublicKey.Y = priv.C.ScalarBaseMult(d)
+		if priv.PublicKey.X == nil {
+			return ZeroPrivateKey[T](), errors.New("invalid private key")
+		}
+		*p = *priv
 	}
 	return prv, nil
 }
@@ -223,8 +240,8 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 		}
 		*p=nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
 	case *gost3410.PublicKey:
-		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub) 
-		if err == nil {
+		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub)
+		if err != nil {
 			return ZeroPublicKey[P](), err
 		}
 		*p=*k

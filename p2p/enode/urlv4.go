@@ -219,7 +219,11 @@ func parsePubkey[P crypto.PublicKey](in string) (P, error) {
 	} else if len(b) != 64 {
 		return crypto.ZeroPublicKey[P](), fmt.Errorf("wrong length, want %d hex chars", 128)
 	}
-	b = append([]byte{0x4}, b...)
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		b = append([]byte{0x4}, b...)
+	}
 	return crypto.UnmarshalPubkey[P](b)
 }
 
@@ -248,15 +252,26 @@ func (n *Node[P]) URLv4() string {
 	var (
 		scheme enr.ID
 		nodeid string
-		key    nist.PublicKey
+		key    P
 	)
 	n.Load(&scheme)
-	n.Load((*Secp256k1)(&key))
-	switch {
-	case scheme == "v4" || key != nist.PublicKey{}:
-		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(key)[1:])
-	default:
-		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
+	switch p:=any(&key).(type){
+	case *nist.PublicKey:
+		n.Load((*Secp256k1)(p))
+		switch {
+		case scheme == "v4" || p != &nist.PublicKey{nil}:
+			nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(key)[1:])
+		default:
+			nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
+		}
+	case *gost3410.PublicKey:
+		n.Load((*Gost3410)(p))
+		switch {
+		case scheme == "v4" || p != &gost3410.PublicKey{}:
+			nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(key))
+		default:
+			nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
+		}
 	}
 	u := url.URL{Scheme: "enode"}
 	if n.Incomplete() {

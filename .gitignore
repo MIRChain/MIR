@@ -56,14 +56,12 @@ generated-release-notes.md
 build/PEEPS
 
 # MIR
-/devchain*/*/node*/keystore/
 /devchain*/*/node*/mir/
 /devchain*/*/node*/quorum-raft-state/
 /devchain*/*/node*/raft-snap/
 /devchain*/*/node*/raft-wal/
 /devchain/node*/mir.ipc
 
-/devchain*/*/learner*/keystore/
 /devchain*/*/learner*/mir/
 /devchain*/*/learner*/quorum-raft-state/
 /devchain*/*/learner*/raft-snap/

@@ -275,7 +275,17 @@ var (
 
 func init() {
 	// Initialize the CLI app and start Mir
-	app.Action = mir[nist.PrivateKey, nist.PublicKey]
+	cryptoType := os.Getenv("MIR_CRYPTO")
+	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
+		if cryptoType == "nist"{
+			app.Action = mir[nist.PrivateKey, nist.PublicKey]
+		}
+		if cryptoType == "gost"{
+			app.Action = mir[gost3410.PrivateKey, gost3410.PublicKey]
+		}
+	} else {
+		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
+	}
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2023 The go-ethereum and Mir Authors"
 	app.Commands = []cli.Command{
