@@ -309,7 +309,7 @@ func (ln *LocalNode[T,P]) sign() {
 	if err := SignV4[T,P](&r, ln.key); err != nil {
 		panic(fmt.Errorf("enode: can't sign record: %v", err))
 	}
-	n, err := New[P](ValidSchemes, &r)
+	n, err := New[P](enr.SchemeMap{"v4": V4ID[P]{}}, &r)
 	if err != nil {
 		panic(fmt.Errorf("enode: can't verify local record: %v", err))
 	}

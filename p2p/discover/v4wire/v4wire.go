@@ -320,11 +320,12 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
 	case *gost3410.PublicKey:
 		k := &gost3410.PublicKey{C: gost3410.GostCurve, X: new(big.Int), Y: new(big.Int)}
 		half := len(e) / 2
+		// crypto.Reverse(e[:])
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])
-		if !k.C.IsOnCurve(k.X, k.Y) {
-			return crypto.ZeroPublicKey[P](), ErrBadPoint
-		}
+		// if !k.C.IsOnCurve(k.X, k.Y) {
+		// 	return crypto.ZeroPublicKey[P](), ErrBadPoint
+		// }
 		*p = *k
 	case *csp.PublicKey:
 		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}

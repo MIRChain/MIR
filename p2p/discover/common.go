@@ -54,7 +54,7 @@ func (cfg Config[T,P]) withDefaults() Config[T,P] {
 		cfg.Log = log.Root()
 	}
 	if cfg.ValidSchemes == nil {
-		cfg.ValidSchemes = enode.ValidSchemes
+		cfg.ValidSchemes = enr.SchemeMap{"v4": enode.V4ID[P]{}}
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = mclock.System{}

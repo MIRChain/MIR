@@ -599,7 +599,7 @@ func (c *Codec[T,P]) decodeHandshakeRecord(local *enode.Node[P], wantID enode.ID
 			return nil, err
 		}
 		if local == nil || local.Seq() < record.Seq() {
-			n, err := enode.New[P](enode.ValidSchemes, &record)
+			n, err := enode.New[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, &record)
 			if err != nil {
 				return nil, fmt.Errorf("invalid node record: %v", err)
 			}

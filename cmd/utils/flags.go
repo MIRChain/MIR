@@ -77,6 +77,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -1172,7 +1173,7 @@ func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context
 	cfg.BootstrapNodes = make([]*enode.Node[P], 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse[P](enode.ValidSchemes, url)
+			node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 			if err != nil {
 				log.Crit("Bootstrap URL invalid", "enode", url, "err", err)
 				continue
@@ -1196,7 +1197,7 @@ func setBootstrapNodesV5[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Conte
 	cfg.BootstrapNodesV5 = make([]*enode.Node[P], 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse[P](enode.ValidSchemes, url)
+			node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 			if err != nil {
 				log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 				continue

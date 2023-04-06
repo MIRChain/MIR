@@ -41,6 +41,7 @@ var (
 
 func TestEmptyNodeID(t *testing.T) {
 	var r enr.Record
+	ValidSchemes := enr.SchemeMap{"v4": V4ID[nist.PublicKey]{}}
 	if addr := ValidSchemes.NodeAddr(&r); addr != nil {
 		t.Errorf("wrong address on empty record: got %v, want %v", addr, nil)
 	}

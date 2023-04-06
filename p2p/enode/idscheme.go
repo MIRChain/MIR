@@ -31,14 +31,14 @@ import (
 )
 
 // List of known secure identity schemes.
-var ValidSchemes  = enr.SchemeMap[gost3410.PrivateKey, gost3410.PublicKey]{
-	"v4": V4ID[gost3410.PublicKey]{},
-}
+// var ValidSchemes  = enr.SchemeMap{
+// 	"v4": V4ID[gost3410.PublicKey]{},
+// }
 
-var ValidSchemesForTesting = enr.SchemeMap[gost3410.PrivateKey, gost3410.PublicKey]{
-	"v4":   V4ID[gost3410.PublicKey]{},
-	"null": NullID{},
-}
+// var ValidSchemesForTesting = enr.SchemeMap{
+// 	"v4":   V4ID[gost3410.PublicKey]{},
+// 	"null": NullID{},
+// }
 
 // v4ID is the "v4" identity scheme.
 type V4ID [P crypto.PublicKey] struct{}
@@ -103,8 +103,8 @@ func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 		var entry gost3410raw
 		if err := r.Load(&entry); err != nil {
 			return err
-		} else if len(entry) != 64 {
-			return fmt.Errorf("invalid public key")
+		} else if len(entry) != 65 {
+			return fmt.Errorf("invalid public key: size %d", len(entry))
 		}
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, r.AppendElements(nil))
@@ -174,7 +174,10 @@ func (v Gost3410) ENRKey() string { return "gost3410" }
 
 // EncodeRLP implements rlp.Encoder.
 func (v Gost3410) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, (*gost3410.PublicKey)(&v).Raw())
+	ret := make([]byte, 1)
+	ret[0] = 4 // uncompressed point
+	ret = append(ret, (*gost3410.PublicKey)(&v).Raw()...)
+	return rlp.Encode(w, ret)
 }
 
 // DecodeRLP implements rlp.Decoder.
@@ -183,11 +186,11 @@ func (v *Gost3410) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
-	pk, err := gost3410.NewPublicKey(gost3410.GostCurve, buf)
+	pk, err := crypto.DecompressPubkey[gost3410.PublicKey](buf)
 	if err != nil {
 		return err
 	}
-	*v = (Gost3410)(*pk)
+	*v = (Gost3410)(pk)
 	return nil
 }
 

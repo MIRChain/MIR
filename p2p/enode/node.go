@@ -56,7 +56,7 @@ func New[P crypto.PublicKey] (validSchemes enr.IdentityScheme, r *enr.Record) (*
 
 // MustParse parses a node record or enode:// URL. It panics if the input is invalid.
 func MustParse[P crypto.PublicKey] (rawurl string) *Node[P] {
-	n, err := Parse[P](ValidSchemes, rawurl)
+	n, err := Parse[P](enr.SchemeMap{"v4": V4ID[P]{}}, rawurl)
 	if err != nil {
 		panic("invalid node: " + err.Error())
 	}
@@ -249,7 +249,7 @@ func (n *Node[P]) MarshalText() ([]byte, error) {
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (n *Node[P]) UnmarshalText(text []byte) error {
-	dec, err := Parse[P](ValidSchemes, string(text))
+	dec, err := Parse[P](enr.SchemeMap{"v4": V4ID[P]{}}, string(text))
 	if err == nil {
 		*n = *dec
 	}

@@ -38,7 +38,7 @@ import (
 
 // Client discovers nodes by querying DNS servers.
 type Client [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	cfg          Config
+	cfg          Config[P]
 	clock        mclock.Clock
 	entries      *lru.Cache
 	ratelimit    *rate.Limiter
@@ -46,7 +46,7 @@ type Client [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // Config holds configuration options for the client.
-type Config struct {
+type Config [P crypto.PublicKey]struct {
 	Timeout         time.Duration      // timeout used for DNS lookups (default 5s)
 	RecheckInterval time.Duration      // time between tree root update checks (default 30min)
 	CacheLimit      int                // maximum number of cached records (default 1000)
@@ -61,7 +61,7 @@ type Resolver interface {
 	LookupTXT(ctx context.Context, domain string) ([]string, error)
 }
 
-func (cfg Config) withDefaults() Config {
+func (cfg Config[P]) withDefaults() Config[P] {
 	const (
 		defaultTimeout   = 5 * time.Second
 		defaultRecheck   = 30 * time.Minute
@@ -81,7 +81,7 @@ func (cfg Config) withDefaults() Config {
 		cfg.RateLimit = defaultRateLimit
 	}
 	if cfg.ValidSchemes == nil {
-		cfg.ValidSchemes = enode.ValidSchemes
+		cfg.ValidSchemes = enr.SchemeMap{"v4": enode.V4ID[P]{}}
 	}
 	if cfg.Resolver == nil {
 		cfg.Resolver = new(net.Resolver)
@@ -93,7 +93,7 @@ func (cfg Config) withDefaults() Config {
 }
 
 // NewClient creates a client.
-func NewClient[T crypto.PrivateKey, P crypto.PublicKey] (cfg Config) *Client[T,P] {
+func NewClient[T crypto.PrivateKey, P crypto.PublicKey] (cfg Config[P]) *Client[T,P] {
 	cfg = cfg.withDefaults()
 	cache, err := lru.New(cfg.CacheLimit)
 	if err != nil {

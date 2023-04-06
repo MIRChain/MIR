@@ -60,7 +60,7 @@ func testPingReplace(t *testing.T, newNodeIsResponding, lastInBucketIsResponding
 	pingKey, _ := crypto.HexToECDSA[nist.PrivateKey]("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
 	node := enode.NewV4(*pingKey.Public(), net.IP{127, 0, 0, 1}, 99, 99)
 	pingSender := wrapNode(node)
-	last := fillBucket(tab, pingSender)
+	last := fillBucket[nist.PrivateKey](tab, pingSender)
 
 	// Add the sender as if it just pinged us. Revalidate should replace the last node in
 	// its bucket if it is unresponsive. Revalidate again to ensure that
@@ -103,7 +103,7 @@ func TestBucket_bumpNoDuplicates(t *testing.T) {
 			n := rand.Intn(bucketSize-1) + 1
 			nodes := make([]*node[nist.PublicKey], n)
 			for i := range nodes {
-				nodes[i] = nodeAtDistance(enode.ID{}, 200, intIP(200))
+				nodes[i] = nodeAtDistance[nist.PrivateKey,nist.PublicKey](enode.ID{}, 200, intIP(200))
 			}
 			args[0] = reflect.ValueOf(nodes)
 			// generate random bump positions.
@@ -148,7 +148,7 @@ func TestTable_IPLimit(t *testing.T) {
 	defer tab.close()
 
 	for i := 0; i < tableIPLimit+1; i++ {
-		n := nodeAtDistance(tab.self().ID(), i, net.IP{172, 0, 1, byte(i)})
+		n := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), i, net.IP{172, 0, 1, byte(i)})
 		tab.addSeenNode(n)
 	}
 	if tab.len() > tableIPLimit {
@@ -166,7 +166,7 @@ func TestTable_BucketIPLimit(t *testing.T) {
 
 	d := 3
 	for i := 0; i < bucketIPLimit+1; i++ {
-		n := nodeAtDistance(tab.self().ID(), d, net.IP{172, 0, 1, byte(i)})
+		n := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), d, net.IP{172, 0, 1, byte(i)})
 		tab.addSeenNode(n)
 	}
 	if tab.len() > bucketIPLimit {
@@ -265,7 +265,7 @@ func TestTable_ReadRandomNodesGetAll(t *testing.T) {
 
 		for i := 0; i < len(buf); i++ {
 			ld := cfg.Rand.Intn(len(tab.buckets))
-			fillTable(tab, []*node[nist.PublicKey]{nodeAtDistance(tab.self().ID(), ld, intIP(ld))})
+			fillTable(tab, []*node[nist.PublicKey]{nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), ld, intIP(ld))})
 		}
 		gotN := tab.ReadRandomNodes(buf)
 		if gotN != tab.len() {
@@ -313,8 +313,8 @@ func TestTable_addVerifiedNode(t *testing.T) {
 	defer tab.close()
 
 	// Insert two nodes.
-	n1 := nodeAtDistance(tab.self().ID(), 256, net.IP{88, 77, 66, 1})
-	n2 := nodeAtDistance(tab.self().ID(), 256, net.IP{88, 77, 66, 2})
+	n1 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
+	n2 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
 	tab.addSeenNode(n1)
 	tab.addSeenNode(n2)
 
@@ -345,8 +345,8 @@ func TestTable_addSeenNode(t *testing.T) {
 	defer tab.close()
 
 	// Insert two nodes.
-	n1 := nodeAtDistance(tab.self().ID(), 256, net.IP{88, 77, 66, 1})
-	n2 := nodeAtDistance(tab.self().ID(), 256, net.IP{88, 77, 66, 2})
+	n1 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
+	n2 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
 	tab.addSeenNode(n1)
 	tab.addSeenNode(n2)
 
@@ -420,10 +420,10 @@ func quickcfg() *quick.Config {
 	}
 }
 
-func newkey() *nist.PrivateKey {
-	key, err := crypto.GenerateKey[nist.PrivateKey]()
+func newkey[T crypto.PrivateKey]() T {
+	key, err := crypto.GenerateKey[T]()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}
-	return &key
+	return key
 }

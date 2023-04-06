@@ -41,7 +41,7 @@ func TestPythonInterop(t *testing.T) {
 	if err := rlp.DecodeBytes(pyRecord, &r); err != nil {
 		t.Fatalf("can't decode: %v", err)
 	}
-	n, err := New[nist.PublicKey](ValidSchemes, &r)
+	n, err := New[nist.PublicKey](enr.SchemeMap{"v4": V4ID[nist.PublicKey]{}}, &r)
 	if err != nil {
 		t.Fatalf("can't verify record: %v", err)
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
 func TestParseRoot(t *testing.T) {
@@ -122,7 +123,7 @@ func TestParseEntry(t *testing.T) {
 		{input: "enrtree-x=", err: errUnknownEntry},
 	}
 	for i, test := range tests {
-		e, err := parseEntry[nist.PublicKey](test.input, enode.ValidSchemes)
+		e, err := parseEntry[nist.PublicKey](test.input, enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}})
 		if !reflect.DeepEqual(e, test.e) {
 			t.Errorf("test %d: wrong entry %s, want %s", i, spew.Sdump(e), spew.Sdump(test.e))
 		}

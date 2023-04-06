@@ -15,7 +15,9 @@
 
 package gost3410
 
-import "math/big"
+import (
+	"math/big"
+)
 
 var GostCurve *Curve = CurveDefault()
 

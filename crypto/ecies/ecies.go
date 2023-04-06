@@ -55,7 +55,7 @@ var (
 )
 
 // PublicKey is a representation of an elliptic curve public key.
-type PublicKey struct {
+type PublicKey [P crypto.PublicKey] struct {
 	X *big.Int
 	Y *big.Int
 	elliptic.Curve
@@ -63,26 +63,26 @@ type PublicKey struct {
 }
 
 // Export an ECIES public key as an ECDSA public key.
-func (pub *PublicKey) ExportECDSA() *ecdsa.PublicKey {
+func (pub *PublicKey[P]) ExportECDSA() *ecdsa.PublicKey {
 	return &ecdsa.PublicKey{Curve: pub.Curve, X: pub.X, Y: pub.Y}
 }
 
 // Import an ECDSA public key as an ECIES public key.
-func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey {
+func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey[P] {
 	switch p:=any(&pub).(type){
 	case *nist.PublicKey:
-		return &PublicKey{
+		return &PublicKey[P]{
 			X:      p.X,
 			Y:      p.Y,
 			Curve:  p.Curve,
-			Params: ParamsFromCurve(p.Curve),
+			Params: ParamsFromCurve(p.Curve.Params().Name),
 		}
 	case *gost3410.PublicKey:
-		return &PublicKey{
+		return &PublicKey[P]{
 			X:      p.X,
 			Y:      p.Y,
 			Curve:  p.C,
-			Params: ParamsFromCurve(p.C),
+			Params: ParamsFromCurve(p.C.Params().Name),
 		}
 	default:
 		panic("cant infer pub key")
@@ -90,13 +90,13 @@ func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey {
 }
 
 // PrivateKey is a representation of an elliptic curve private key.
-type PrivateKey [T crypto.PrivateKey] struct {
-	PublicKey
+type PrivateKey [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	PublicKey[P]
 	D *big.Int
 }
 
 // Export an ECIES private key as an ECDSA private key.
-func (prv *PrivateKey[T]) ExportECDSA() T {
+func (prv *PrivateKey[T,P]) ExportECDSA() T {
 	pub := &prv.PublicKey
 	pubECDSA := pub.ExportECDSA()
 	var privGeneric T
@@ -110,20 +110,20 @@ func (prv *PrivateKey[T]) ExportECDSA() T {
 }
 
 // Import an ECDSA private key as an ECIES private key.
-func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey[T] {
+func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey[T,P] {
 	switch t:= any(&prv).(type) {
 	case *nist.PrivateKey:
 		var pub P
 		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 		pubKey := ImportECDSAPublic[P](pub)
-		return &PrivateKey[T]{*pubKey, t.D}
+		return &PrivateKey[T,P]{*pubKey, t.D}
 	case *gost3410.PrivateKey:
 		var pub P
 		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 		pubKey := ImportECDSAPublic[P](pub)
-		return &PrivateKey[T]{*pubKey, t.Key}
+		return &PrivateKey[T,P]{*pubKey, t.Key}
 	default :
 		panic("cant infer priv key for ecies")
 	}
@@ -131,7 +131,7 @@ func ImportECDSA[T crypto.PrivateKey, P crypto.PublicKey](prv T) *PrivateKey[T] 
 
 // Generate an elliptic curve public / private keypair. If params is nil,
 // the recommended default parameters for the key will be chosen.
-func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, params *ECIESParams) (*PrivateKey[T], error) {
+func GenerateKey[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, curve elliptic.Curve, params *ECIESParams) (*PrivateKey[T,P], error) {
 	var privKey T
 	switch any(&privKey).(type) {
 	case *nist.PrivateKey:
@@ -139,13 +139,13 @@ func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, para
 		if err != nil {
 			return nil, err
 		}
-		prv := new(PrivateKey[T])
+		prv := new(PrivateKey[T,P])
 		prv.PublicKey.X = x
 		prv.PublicKey.Y = y
 		prv.PublicKey.Curve = curve
 		prv.D = new(big.Int).SetBytes(pb)
 		if params == nil {
-			params = ParamsFromCurve(curve)
+			params = ParamsFromCurve(curve.Params().Name)
 		}
 		prv.PublicKey.Params = params
 		return prv, nil
@@ -154,13 +154,13 @@ func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, para
 		if err != nil {
 			return nil, err
 		}
-		prv := new(PrivateKey[T])
+		prv := new(PrivateKey[T,P])
 		prv.PublicKey.X = key.X
 		prv.PublicKey.Y = key.Y
 		prv.PublicKey.Curve = key.C
 		prv.D = key.Key
 		if params == nil {
-			params = ParamsFromCurve(gost3410.GostCurve)
+			params = ParamsFromCurve(gost3410.GostCurve.Params().Name)
 		}
 		prv.PublicKey.Params = params
 		return prv, nil
@@ -171,12 +171,12 @@ func GenerateKey[T crypto.PrivateKey](rand io.Reader, curve elliptic.Curve, para
 
 // MaxSharedKeyLength returns the maximum length of the shared key the
 // public key can produce.
-func MaxSharedKeyLength(pub *PublicKey) int {
+func MaxSharedKeyLength[P crypto.PublicKey](pub *PublicKey[P]) int {
 	return (pub.Curve.Params().BitSize + 7) / 8
 }
 
 // ECDH key agreement method used to establish secret keys for encryption.
-func (prv *PrivateKey[T]) GenerateShared(pub *PublicKey, skLen, macLen int) (sk []byte, err error) {
+func (prv *PrivateKey[T,P]) GenerateShared(pub *PublicKey[P], skLen, macLen int) (sk []byte, err error) {
 	if prv.PublicKey.Curve != pub.Curve {
 		return nil, ErrInvalidCurve
 	}
@@ -287,13 +287,13 @@ func symDecrypt(params *ECIESParams, key, ct []byte) (m []byte, err error) {
 // s1 and s2 contain shared information that is not part of the resulting
 // ciphertext. s1 is fed into key derivation, s2 is fed into the MAC. If the
 // shared information parameters aren't being used, they should be nil.
-func Encrypt[T crypto.PrivateKey](rand io.Reader, pub *PublicKey, m, s1, s2 []byte) (ct []byte, err error) {
+func Encrypt[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, pub *PublicKey[P], m, s1, s2 []byte) (ct []byte, err error) {
 	params, err := pubkeyParams(pub)
 	if err != nil {
 		return nil, err
 	}
 
-	R, err := GenerateKey[T](rand, pub.Curve, params)
+	R, err := GenerateKey[T,P](rand, pub.Curve, params)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func Encrypt[T crypto.PrivateKey](rand io.Reader, pub *PublicKey, m, s1, s2 []by
 }
 
 // Decrypt decrypts an ECIES ciphertext.
-func (prv *PrivateKey[T]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
+func (prv *PrivateKey[T,P]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
 	if len(c) == 0 {
 		return nil, ErrInvalidMessage
 	}
@@ -353,7 +353,7 @@ func (prv *PrivateKey[T]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
 	mStart = rLen
 	mEnd = len(c) - hLen
 
-	R := new(PublicKey)
+	R := new(PublicKey[P])
 	R.Curve = prv.PublicKey.Curve
 	R.X, R.Y = elliptic.Unmarshal(R.Curve, c[:rLen])
 	if R.X == nil {

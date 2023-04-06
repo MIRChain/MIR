@@ -469,7 +469,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 	eth.APIBackend.gpo = gasprice.NewOracle[P](eth.APIBackend, gpoParams)
 
 	// Setup DNS discovery iterators.
-	dnsclient := dnsdisc.NewClient[T,P](dnsdisc.Config{})
+	dnsclient := dnsdisc.NewClient[T](dnsdisc.Config[P]{})
 	eth.ethDialCandidates, err = dnsclient.NewIterator(eth.config.EthDiscoveryURLs...)
 	if err != nil {
 		return nil, err

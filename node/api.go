@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
@@ -70,7 +71,7 @@ func (api *privateAdminAPI[T,P]) AddPeer(url string) (bool, error) {
 		return false, ErrNodeStopped
 	}
 	// Try to add the url as a static peer and return
-	node, err := enode.Parse[P](enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -86,7 +87,7 @@ func (api *privateAdminAPI[T,P]) RemovePeer(url string) (bool, error) {
 		return false, ErrNodeStopped
 	}
 	// Try to remove the url as a static peer and return
-	node, err := enode.Parse[P](enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -101,7 +102,7 @@ func (api *privateAdminAPI[T,P]) AddTrustedPeer(url string) (bool, error) {
 	if server == nil {
 		return false, ErrNodeStopped
 	}
-	node, err := enode.Parse[P](enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}
@@ -117,7 +118,7 @@ func (api *privateAdminAPI[T,P]) RemoveTrustedPeer(url string) (bool, error) {
 	if server == nil {
 		return false, ErrNodeStopped
 	}
-	node, err := enode.Parse[P](enode.ValidSchemes, url)
+	node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 	if err != nil {
 		return false, fmt.Errorf("invalid enode: %v", err)
 	}

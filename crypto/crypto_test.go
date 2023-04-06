@@ -169,7 +169,7 @@ func TestSign(t *testing.T) {
 		t.Errorf("Sign error: %s", err)
 	}
 	assert.Equal(t, true, ver)
-	ver = VerifySignature[gost3410.PublicKey](gostKey.Public().Raw(), gostMsg.Sum(nil), gostSig)
+	ver = VerifySignature[gost3410.PublicKey](FromECDSAPub(*gostKey.Public()), gostMsg.Sum(nil), gostSig)
 	assert.Equal(t, true, ver)
 	r := new(big.Int).SetBytes(gostSig[:32])
 	s := new(big.Int).SetBytes(gostSig[32:64])
@@ -180,17 +180,24 @@ func TestSign(t *testing.T) {
 			t.Log("Recovered Y ", Y.String())
 		}
 	}
+	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](gostMsg.Sum(nil), gostSig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	if !bytes.Equal(gostKey.Public().Raw(), recoveredGostPub[1:]) {
+		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub)
+	}
 
 	CryptoAlg = GOST_CSP
 	store, err := csp.SystemStore("My")
 	if err != nil {
-		t.Errorf("Store error: %s", err)
+		t.Fatalf("Store error: %s", err)
 	}
 	defer store.Close()
 	// Cert should be without set pin
 	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
 	if err != nil {
-		t.Errorf("Get cert error: %s", err)
+		t.Fatalf("Get cert error: %s", err)
 	}
 	defer crt.Close()
 	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
@@ -210,15 +217,15 @@ func TestSign(t *testing.T) {
 	t.Logf("hash digest: %x", digest)
 	sig, err = Sign(digest, crt)
 	if err != nil {
-		t.Errorf("Sign error: %s", err)
+		t.Fatalf("Sign error: %s", err)
 	}
 	t.Log("Sig csp", len(sig))
-	recoveredGostPub, err := Ecrecover[csp.PublicKey](digest, sig)
+	recoveredGostPub, err = Ecrecover[csp.PublicKey](digest, sig)
 	if err != nil {
-		t.Errorf("ECRecover error: %s", err)
+		t.Fatalf("ECRecover error: %s", err)
 	}
 	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], recoveredGostPub) {
-		t.Errorf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
 	}
 }
 

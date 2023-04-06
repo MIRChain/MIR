@@ -5,9 +5,9 @@ echo "Starting node3 ..."
     --identity node3 \
     --syncmode full \
     --port 30313 \
-    --bootnodes 'enode://21c4db540114cdb0c8308cb06da448dd233332c25a5a36ac2b2b15f0ba10f9e475e736be92ad064af764770b50332d21e9830a7e3bc24eb15e2b3c009ea69684@127.0.0.1:30310' \
+    --bootnodes 'enode://161df3a5f868dc64c0f778b2fb3c3724311b9b7f4fdec9eccac3f9a40e065ffb04932ee860d7224fc2972db93ee8a4e43d50e0dca79953ebb0c849d5083f9ab3@127.0.0.1:30310' \
     --networkid 6581 \
-    --unlock 0x7219B2cF87ce8760d21cC1ec174402e1bcEd0425 \
+    --unlock 0xBEa7BA164BCB6fa4ba57c79C4f95864E43Df1b69 \
     --password node3/password.txt \
     --mine \
     --verbosity 4 \

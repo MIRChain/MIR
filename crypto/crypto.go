@@ -188,7 +188,6 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 		if strict && 8*len(d) != priv.C.Params().BitSize {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid length, need %d bits", priv.C.Params().BitSize)
 		}
-		// reverse(d)
 		priv.Key = new(big.Int).SetBytes(d)
 	
 		// The priv.D must < N
@@ -240,7 +239,7 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 		}
 		*p=nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
 	case *gost3410.PublicKey:
-		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub)
+		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub[1:])
 		if err != nil {
 			return ZeroPublicKey[P](), err
 		}
@@ -266,7 +265,7 @@ func FromECDSAPub[P PublicKey](pub P) []byte {
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
-		return p.Raw()
+		return gost3410.Marshal(*gost3410.GostCurve, p.X, p.Y)
 	case *csp.PublicKey:
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")

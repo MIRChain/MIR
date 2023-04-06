@@ -61,14 +61,6 @@ func (prv *PrivateKey) Raw() []byte {
 	return raw
 }
 
-// func (prv *PrivateKey) PublicKey() *PublicKey {
-// 	x, y, err := prv.C.Exp(prv.Key, prv.C.X, prv.C.Y)
-// 	if err != nil {
-// 		return &PublicKey{prv.C, new(big.Int), new(big.Int)}
-// 	}
-// 	return &PublicKey{prv.C, x, y}
-// }
-
 func (prv *PrivateKey) SignDigest(digest []byte, rand io.Reader) ([]byte, error) {
 	// 1. Select random nonce k in [1, N-1]
 	// 2. Compute kG
@@ -125,39 +117,4 @@ func (prv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpt
 
 func (prv *PrivateKey) Public() *PublicKey {
 	return &prv.PublicKey
-}
-
-type PrivateKeyReverseDigest struct {
-	Prv *PrivateKey
-}
-
-func (prv *PrivateKeyReverseDigest) Public() *PublicKey {
-	return prv.Prv.Public()
-}
-
-func (prv *PrivateKeyReverseDigest) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	d := make([]byte, len(digest))
-	copy(d, digest)
-	reverse(d)
-	return prv.Prv.Sign(rand, d, opts)
-}
-
-type PrivateKeyReverseDigestAndSignature struct {
-	Prv *PrivateKey
-}
-
-func (prv *PrivateKeyReverseDigestAndSignature) Public() *PublicKey {
-	return prv.Prv.Public()
-}
-
-func (prv *PrivateKeyReverseDigestAndSignature) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	d := make([]byte, len(digest))
-	copy(d, digest)
-	reverse(d)
-	sign, err := prv.Prv.Sign(rand, d, opts)
-	if err != nil {
-		return sign, err
-	}
-	reverse(sign)
-	return sign, err
 }

@@ -20,121 +20,22 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-// shared test variables
-var (
-	futureExp          = uint64(time.Now().Add(10 * time.Hour).Unix())
-	testTarget         = v4wire.Pubkey{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
-	testRemote         = v4wire.Endpoint{IP: net.ParseIP("1.1.1.1").To4(), UDP: 1, TCP: 2}
-	testLocalAnnounced = v4wire.Endpoint{IP: net.ParseIP("2.2.2.2").To4(), UDP: 3, TCP: 4}
-	testLocal          = v4wire.Endpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
-)
 
-type udpTest [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	t                   *testing.T
-	pipe                *dgramPipe
-	table               *Table[P]
-	db                  *enode.DB[P]
-	udp                 *UDPv4[T,P]
-	sent                [][]byte
-	localkey, remotekey T
-	remoteaddr          *net.UDPAddr
-}
-
-func newUDPTest[T crypto.PrivateKey, P crypto.PublicKey] (t *testing.T) *udpTest[T,P] {
-	test := &udpTest[T,P]{
-		t:          t,
-		pipe:       newpipe(),
-		localkey:   newkey[T](),
-		remotekey:  newkey[T](),
-		remoteaddr: &net.UDPAddr{IP: net.IP{10, 0, 1, 99}, Port: 30303},
-	}
-
-	test.db, _ = enode.OpenDB[P]("")
-	ln := enode.NewLocalNode(test.db, test.localkey)
-	test.udp, _ = ListenV4(test.pipe, ln, Config[T,P]{
-		PrivateKey: test.localkey,
-		Log:        testlog.Logger(t, log.LvlTrace),
-	})
-	test.table = test.udp.tab
-	// Wait for initial refresh so the table doesn't send unexpected findnode.
-	<-test.table.initDone
-	return test
-}
-
-func (test *udpTest[T,P]) close() {
-	test.udp.Close()
-	test.db.Close()
-}
-
-// handles a packet as if it had been sent to the transport.
-func (test *udpTest[T,P]) packetIn(wantError error, data v4wire.Packet) {
-	test.t.Helper()
-
-	test.packetInFrom(wantError, test.remotekey, test.remoteaddr, data)
-}
-
-// handles a packet as if it had been sent to the transport by the key/endpoint.
-func (test *udpTest[T,P]) packetInFrom(wantError error, key T, addr *net.UDPAddr, data v4wire.Packet) {
-	test.t.Helper()
-
-	enc, _, err := v4wire.Encode(key, data)
-	if err != nil {
-		test.t.Errorf("%s encode error: %v", data.Name(), err)
-	}
-	test.sent = append(test.sent, enc)
-	if err = test.udp.handlePacket(addr, enc); err != wantError {
-		test.t.Errorf("error mismatch: got %q, want %q", err, wantError)
-	}
-}
-
-// waits for a packet to be sent by the transport.
-// validate should have type func(X, *net.UDPAddr, []byte), where X is a packet type.
-func (test *udpTest[T,P]) waitPacketOut(validate interface{}) (closed bool) {
-	test.t.Helper()
-
-	dgram, err := test.pipe.receive()
-	if err == errClosed {
-		return true
-	} else if err != nil {
-		test.t.Error("packet receive error:", err)
-		return false
-	}
-	p, _, hash, err := v4wire.Decode[P](dgram.data)
-	if err != nil {
-		test.t.Errorf("sent packet decode error: %v", err)
-		return false
-	}
-	fn := reflect.ValueOf(validate)
-	exptype := fn.Type().In(0)
-	if !reflect.TypeOf(p).AssignableTo(exptype) {
-		test.t.Errorf("sent packet type mismatch, got: %v, want: %v", reflect.TypeOf(p), exptype)
-		return false
-	}
-	fn.Call([]reflect.Value{reflect.ValueOf(p), reflect.ValueOf(&dgram.to), reflect.ValueOf(hash)})
-	return false
-}
-
-func TestUDPv4_packetErrors(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_packetErrorsGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(errExpired, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4})
@@ -143,12 +44,12 @@ func TestUDPv4_packetErrors(t *testing.T) {
 	test.packetIn(errUnsolicitedReply, &v4wire.Neighbors{Expiration: futureExp})
 }
 
-func TestUDPv4_pingTimeout(t *testing.T) {
+func TestUDPv4_pingTimeoutGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
-	key := newkey[nist.PrivateKey]()
+	key := newkey[gost3410.PrivateKey]()
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
 	node := enode.NewV4(*key.Public(), toaddr.IP, 0, toaddr.Port)
 	if _, err := test.udp.ping(node); err != errTimeout {
@@ -156,14 +57,9 @@ func TestUDPv4_pingTimeout(t *testing.T) {
 	}
 }
 
-type testPacket byte
-
-func (req testPacket) Kind() byte   { return byte(req) }
-func (req testPacket) Name() string { return "" }
-
-func TestUDPv4_responseTimeouts(t *testing.T) {
+func TestUDPv4_responseTimeoutsGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	rand.Seed(time.Now().UnixNano())
@@ -233,9 +129,9 @@ func TestUDPv4_responseTimeouts(t *testing.T) {
 	}
 }
 
-func TestUDPv4_findnodeTimeout(t *testing.T) {
+func TestUDPv4_findnodeTimeoutGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
@@ -250,18 +146,18 @@ func TestUDPv4_findnodeTimeout(t *testing.T) {
 	}
 }
 
-func TestUDPv4_findnode(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_findnodeGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	// put a few nodes into the table. their exact
 	// distribution shouldn't matter much, although we need to
 	// take care not to overflow any bucket.
-	nodes := &nodesByDistance[nist.PublicKey]{target: testTarget.ID()}
+	nodes := &nodesByDistance[gost3410.PublicKey]{target: testTarget.ID()}
 	live := make(map[enode.ID]bool)
 	numCandidates := 2 * bucketSize
 	for i := 0; i < numCandidates; i++ {
-		key := newkey[nist.PrivateKey]()
+		key := newkey[gost3410.PrivateKey]()
 		ip := net.IP{10, 13, 0, byte(i)}
 		n := wrapNode(enode.NewV4(*key.Public(), ip, 0, 2000))
 		// Ensure half of table content isn't verified live yet.
@@ -271,7 +167,7 @@ func TestUDPv4_findnode(t *testing.T) {
 		}
 		nodes.push(n, numCandidates)
 	}
-	fillTable(test.table, nodes.entries)
+	fillTable[gost3410.PublicKey](test.table, nodes.entries)
 
 	// ensure there's a bond with the test node,
 	// findnode won't be accepted otherwise.
@@ -281,7 +177,7 @@ func TestUDPv4_findnode(t *testing.T) {
 	// check that closest neighbors are returned.
 	expected := test.table.findnodeByID(testTarget.ID(), bucketSize, true)
 	test.packetIn(nil, &v4wire.Findnode{Target: testTarget, Expiration: futureExp})
-	waitNeighbors := func(want []*node[nist.PublicKey]) {
+	waitNeighbors := func(want []*node[gost3410.PublicKey]) {
 		test.waitPacketOut(func(p *v4wire.Neighbors, to *net.UDPAddr, hash []byte) {
 			if len(p.Nodes) != len(want) {
 				t.Errorf("wrong number of results: got %d, want %d", len(p.Nodes), bucketSize)
@@ -305,15 +201,15 @@ func TestUDPv4_findnode(t *testing.T) {
 	waitNeighbors(want)
 }
 
-func TestUDPv4_findnodeMultiReply(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_findnodeMultiReplyGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	rid := enode.PubkeyToIDV4(test.remotekey.Public())
 	test.table.db.UpdateLastPingReceived(rid, test.remoteaddr.IP, time.Now())
 
 	// queue a pending findnode request
-	resultc, errc := make(chan []*node[nist.PublicKey]), make(chan error)
+	resultc, errc := make(chan []*node[gost3410.PublicKey]), make(chan error)
 	go func() {
 		rid := encodePubkey(test.remotekey.Public()).id()
 		ns, err := test.udp.findnode(rid, test.remoteaddr, testTarget)
@@ -333,11 +229,11 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	})
 
 	// send the reply as two packets.
-	list := []*node[nist.PublicKey]{
-		wrapNode(enode.MustParse[nist.PublicKey]("enode://ba85011c70bcc5c04d8607d3a0ed29aa6179c092cbdda10d5d32684fb33ed01bd94f588ca8f91ac48318087dcb02eaf36773a7a453f0eedd6742af668097b29c@10.0.1.16:30303?discport=30304")),
-		wrapNode(enode.MustParse[nist.PublicKey]("enode://81fa361d25f157cd421c60dcc28d8dac5ef6a89476633339c5df30287474520caca09627da18543d9079b5b288698b542d56167aa5c09111e55acdbbdf2ef799@10.0.1.16:30303")),
-		wrapNode(enode.MustParse[nist.PublicKey]("enode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17")),
-		wrapNode(enode.MustParse[nist.PublicKey]("enode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303")),
+	list := []*node[gost3410.PublicKey]{
+		wrapNode(enode.MustParse[gost3410.PublicKey]("enode://ba6303fbb832ef2a24a5a2b8603bc18981073dd7634b9c6454aa8183ccf07c3b60aabbca2fd8601a29958dd7d7799eb725051d25244635417b9f5a34f1c29a28@10.0.1.16:30303?discport=30304")),
+		wrapNode(enode.MustParse[gost3410.PublicKey]("enode://6143426d8cda5e8182def4a679ae4415f371d428d53dd6ee63f841b58791dff23149a8c5e029ca466f0e1c0829d4499e959dd30e08fe36fedc84db0f7f67b3ec@10.0.1.16:30303")),
+		wrapNode(enode.MustParse[gost3410.PublicKey]("enode://152738b84a9c9b02cbd0be3cca8f89533cff5b4c81819d122f6c62e03713afd90add6783c4d92aa4b9530172c17a07c8b337771db37be3f2ab230365050476e7@10.0.1.36:30301?discport=17")),
+		wrapNode(enode.MustParse[gost3410.PublicKey]("enode://161df3a5f868dc64c0f778b2fb3c3724311b9b7f4fdec9eccac3f9a40e065ffb04932ee860d7224fc2972db93ee8a4e43d50e0dca79953ebb0c849d5083f9ab3@10.0.1.16:30303")),
 	}
 	rpclist := make([]v4wire.Node, len(list))
 	for i := range list {
@@ -361,8 +257,8 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 }
 
 // This test checks that reply matching of pong verifies the ping hash.
-func TestUDPv4_pingMatch(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_pingMatchGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	randToken := make([]byte, 32)
@@ -375,8 +271,8 @@ func TestUDPv4_pingMatch(t *testing.T) {
 }
 
 // This test checks that reply matching of pong verifies the sender IP address.
-func TestUDPv4_pingMatchIP(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_pingMatchIPGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(nil, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4, Expiration: futureExp})
@@ -392,10 +288,10 @@ func TestUDPv4_pingMatchIP(t *testing.T) {
 	})
 }
 
-func TestUDPv4_successfulPing(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
-	added := make(chan *node[nist.PublicKey], 1)
-	test.table.nodeAddedHook = func(n *node[nist.PublicKey]) { added <- n }
+func TestUDPv4_successfulPingGost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	added := make(chan *node[gost3410.PublicKey], 1)
+	test.table.nodeAddedHook = func(n *node[gost3410.PublicKey]) { added <- n }
 	defer test.close()
 
 	// The remote side sends a ping packet to initiate the exchange.
@@ -439,7 +335,7 @@ func TestUDPv4_successfulPing(t *testing.T) {
 	// pong packet.
 	select {
 	case n := <-added:
-		rid := encodePubkey[nist.PublicKey](*test.remotekey.Public()).id()
+		rid := encodePubkey(*test.remotekey.Public()).id()
 		if n.ID() != rid {
 			t.Errorf("node has wrong ID: got %v, want %v", n.ID(), rid)
 		}
@@ -458,8 +354,8 @@ func TestUDPv4_successfulPing(t *testing.T) {
 }
 
 // This test checks that EIP-868 requests work.
-func TestUDPv4_EIP868(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+func TestUDPv4_EIP868Gost(t *testing.T) {
+	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
 	defer test.close()
 
 	test.udp.localNode.Set(enr.WithEntry("foo", "bar"))
@@ -485,7 +381,7 @@ func TestUDPv4_EIP868(t *testing.T) {
 	// Request should work now.
 	test.packetIn(nil, &v4wire.ENRRequest{Expiration: futureExp})
 	test.waitPacketOut(func(p *v4wire.ENRResponse, addr *net.UDPAddr, hash []byte) {
-		n, err := enode.New[nist.PublicKey](enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}}, &p.Record)
+		n, err := enode.New[gost3410.PublicKey](enr.SchemeMap{"v4": enode.V4ID[gost3410.PublicKey]{}}, &p.Record)
 		if err != nil {
 			t.Fatalf("invalid record: %v", err)
 		}
@@ -496,16 +392,16 @@ func TestUDPv4_EIP868(t *testing.T) {
 }
 
 // This test verifies that a small network of nodes can boot up into a healthy state.
-func TestUDPv4_smallNetConvergence(t *testing.T) {
+func TestUDPv4_smallNetConvergenceGost(t *testing.T) {
 	t.Parallel()
 
 	// Start the network.
-	nodes := make([]*UDPv4[nist.PrivateKey,nist.PublicKey], 4)
+	nodes := make([]*UDPv4[gost3410.PrivateKey,gost3410.PublicKey], 4)
 	for i := range nodes {
-		var cfg Config[nist.PrivateKey,nist.PublicKey]
+		var cfg Config[gost3410.PrivateKey,gost3410.PublicKey]
 		if i > 0 {
 			bn := nodes[0].Self()
-			cfg.Bootnodes = []*enode.Node[nist.PublicKey]{bn}
+			cfg.Bootnodes = []*enode.Node[gost3410.PublicKey]{bn}
 		}
 		nodes[i] = startLocalhostV4(t, cfg)
 		defer nodes[i].Close()
@@ -547,121 +443,4 @@ func TestUDPv4_smallNetConvergence(t *testing.T) {
 			}
 		}
 	}
-}
-
-func startLocalhostV4[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, cfg Config[T,P]) *UDPv4[T,P] {
-	t.Helper()
-
-	cfg.PrivateKey = newkey[T]()
-	db, _ := enode.OpenDB[P]("")
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
-
-	// Prefix logs with node ID.
-	lprefix := fmt.Sprintf("(%s)", ln.ID().TerminalString())
-	lfmt := log.TerminalFormat(false)
-	cfg.Log = testlog.Logger(t, log.LvlTrace)
-	cfg.Log.SetHandler(log.FuncHandler(func(r *log.Record) error {
-		t.Logf("%s %s", lprefix, lfmt.Format(r))
-		return nil
-	}))
-
-	// Listen.
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IP{127, 0, 0, 1}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	realaddr := socket.LocalAddr().(*net.UDPAddr)
-	ln.SetStaticIP(realaddr.IP)
-	ln.SetFallbackUDP(realaddr.Port)
-	udp, err := ListenV4(socket, ln, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return udp
-}
-
-// dgramPipe is a fake UDP socket. It queues all sent datagrams.
-type dgramPipe struct {
-	mu      *sync.Mutex
-	cond    *sync.Cond
-	closing chan struct{}
-	closed  bool
-	queue   []dgram
-}
-
-type dgram struct {
-	to   net.UDPAddr
-	data []byte
-}
-
-func newpipe() *dgramPipe {
-	mu := new(sync.Mutex)
-	return &dgramPipe{
-		closing: make(chan struct{}),
-		cond:    &sync.Cond{L: mu},
-		mu:      mu,
-	}
-}
-
-// WriteToUDP queues a datagram.
-func (c *dgramPipe) WriteToUDP(b []byte, to *net.UDPAddr) (n int, err error) {
-	msg := make([]byte, len(b))
-	copy(msg, b)
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.closed {
-		return 0, errors.New("closed")
-	}
-	c.queue = append(c.queue, dgram{*to, b})
-	c.cond.Signal()
-	return len(b), nil
-}
-
-// ReadFromUDP just hangs until the pipe is closed.
-func (c *dgramPipe) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
-	<-c.closing
-	return 0, nil, io.EOF
-}
-
-func (c *dgramPipe) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.closed {
-		close(c.closing)
-		c.closed = true
-	}
-	c.cond.Broadcast()
-	return nil
-}
-
-func (c *dgramPipe) LocalAddr() net.Addr {
-	return &net.UDPAddr{IP: testLocal.IP, Port: int(testLocal.UDP)}
-}
-
-func (c *dgramPipe) receive() (dgram, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	var timedOut bool
-	timer := time.AfterFunc(3*time.Second, func() {
-		c.mu.Lock()
-		timedOut = true
-		c.mu.Unlock()
-		c.cond.Broadcast()
-	})
-	defer timer.Stop()
-
-	for len(c.queue) == 0 && !c.closed && !timedOut {
-		c.cond.Wait()
-	}
-	if c.closed {
-		return dgram{}, errClosed
-	}
-	if timedOut {
-		return dgram{}, errTimeout
-	}
-	p := c.queue[0]
-	copy(c.queue, c.queue[1:])
-	c.queue = c.queue[:len(c.queue)-1]
-	return p, nil
 }

@@ -72,9 +72,10 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])
-		if !k.C.IsOnCurve(k.X, k.Y) {
-			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
-		}
+		// TODO check if a point on gost curve
+		// if !k.C.IsOnCurve(k.X, k.Y) {
+		// 	return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
+		// }
 		*p = *k
 	case *csp.PublicKey:
 		if len(e) != len(encPubkey{}) {

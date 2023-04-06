@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/accounts/external"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
+
 	// "github.com/pavelkrolevets/MIR-pro/accounts/scwallet"
 	// "github.com/pavelkrolevets/MIR-pro/accounts/usbwallet"
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -38,6 +39,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/plugin"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
@@ -444,7 +446,7 @@ func (c *Config[T,P]) parsePersistentNodes(w *bool, path string) []*enode.Node[P
 		if url == "" {
 			continue
 		}
-		node, err := enode.Parse[P](enode.ValidSchemes, url)
+		node, err := enode.Parse[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, url)
 		if err != nil {
 			log.Error(fmt.Sprintf("Node URL %s: %v\n", url, err))
 			continue

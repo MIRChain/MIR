@@ -28,30 +28,26 @@ type PublicKey struct {
 	X *big.Int
 	Y *big.Int
 }
-
+// The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 func NewPublicKey(c *Curve, raw []byte) (*PublicKey, error) {
 	pointSize := c.PointSize()
 	key := make([]byte, 2*pointSize)
 	if len(raw) != len(key) {
 		return &PublicKey{}, fmt.Errorf("gogost/gost3410: len(key) != %d", len(raw))
 	}
-	for i := 0; i < len(key); i++ {
-		key[i] = raw[len(raw)-i-1]
-	}
 	return &PublicKey{
 		c,
-		bytes2big(key[pointSize : 2*pointSize]),
-		bytes2big(key[:pointSize]),
+		bytes2big(raw[:pointSize]),
+		bytes2big(raw[pointSize : 2*pointSize]),
 	}, nil
 }
 
 func (pub *PublicKey) Raw() []byte {
 	pointSize := pub.C.Params().BitSize / 8
 	raw := append(
-		pad(pub.Y.Bytes(), pointSize),
-		pad(pub.X.Bytes(), pointSize)...,
+		pad(pub.X.Bytes(), pointSize),
+		pad(pub.Y.Bytes(), pointSize)...,
 	)
-	reverse(raw)
 	return raw
 }
 

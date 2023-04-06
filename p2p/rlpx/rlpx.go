@@ -344,10 +344,10 @@ type Secrets [T crypto.PrivateKey, P crypto.PublicKey] struct {
 // encHandshake contains the state of the encryption handshake.
 type encHandshake [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	initiator            bool
-	remote               *ecies.PublicKey  // remote-pubk
+	remote               *ecies.PublicKey[P]  // remote-pubk
 	initNonce, respNonce []byte            // nonce
-	randomPrivKey        *ecies.PrivateKey[T] // ecdhe-random
-	remoteRandomPub      *ecies.PublicKey  // ecdhe-random-pubk
+	randomPrivKey        *ecies.PrivateKey[T,P] // ecdhe-random
+	remoteRandomPub      *ecies.PublicKey[P]  // ecdhe-random-pubk
 }
 
 // RLPx v4 handshake auth (defined in EIP-8).
@@ -419,7 +419,7 @@ func (h *encHandshake[T,P]) handleAuthMsg(msg *authMsgV4[T,P], prv T) error {
 	// Generate random keypair for ECDH.
 	// If a private key is already set, use it instead of generating one (for testing).
 	if h.randomPrivKey == nil {
-		h.randomPrivKey, err = ecies.GenerateKey[T](rand.Reader, crypto.S256(), nil)
+		h.randomPrivKey, err = ecies.GenerateKey[T,P](rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			return err
 		}
@@ -524,7 +524,7 @@ func (h *encHandshake[T,P]) makeAuthMsg(prv T) (*authMsgV4[T,P], error) {
 		return nil, err
 	}
 	// Generate random keypair to for ECDH.
-	h.randomPrivKey, err = ecies.GenerateKey[T](rand.Reader, crypto.S256(), nil)
+	h.randomPrivKey, err = ecies.GenerateKey[T,P](rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -653,7 +653,7 @@ func readHandshakeMsg[T crypto.PrivateKey, P crypto.PublicKey](msg plainDecoder,
 }
 
 // importPublicKey unmarshals 512 bit public keys.
-func importPublicKey[T crypto.PrivateKey, P crypto.PublicKey](pubKey []byte) (*ecies.PublicKey, error) {
+func importPublicKey[T crypto.PrivateKey, P crypto.PublicKey](pubKey []byte) (*ecies.PublicKey[P], error) {
 	var pubKey65 []byte
 	switch len(pubKey) {
 	case 64:
@@ -672,7 +672,7 @@ func importPublicKey[T crypto.PrivateKey, P crypto.PublicKey](pubKey []byte) (*e
 	return ecies.ImportECDSAPublic(pub), nil
 }
 
-func exportPubkey(pub *ecies.PublicKey) []byte {
+func exportPubkey[P crypto.PublicKey](pub *ecies.PublicKey[P]) []byte {
 	if pub == nil {
 		panic("nil pubkey")
 	}

@@ -35,6 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
@@ -398,7 +399,7 @@ func (t *UDPv4[T,P]) RequestENR(n *enode.Node[P]) (*enode.Node[P], error) {
 		return nil, err
 	}
 	// Verify the response record.
-	respN, err := enode.New[P](enode.ValidSchemes, &rm.reply.(*v4wire.ENRResponse).Record)
+	respN, err := enode.New[P](enr.SchemeMap{"v4": enode.V4ID[P]{}}, &rm.reply.(*v4wire.ENRResponse).Record)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +410,7 @@ func (t *UDPv4[T,P]) RequestENR(n *enode.Node[P]) (*enode.Node[P], error) {
 		return n, nil // response record is older
 	}
 	if err := netutil.CheckRelayIP(addr.IP, respN.IP()); err != nil {
-		return nil, fmt.Errorf("invalid IP in response record: %v", err)
+		return nil, fmt.Errorf("invalid IP in response record: %v: IP: %v: ", err, respN.IP())
 	}
 	return respN, nil
 }
@@ -634,10 +635,17 @@ func (t *UDPv4[T,P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node) (*node[P],
 }
 
 func nodeToRPC[P crypto.PublicKey](n *node[P]) v4wire.Node {
-	var key nist.PublicKey
+	var key P
 	var ekey v4wire.Pubkey
-	if err := n.Load((*enode.Secp256k1)(&key)); err == nil {
-		ekey = v4wire.EncodePubkey(&key)
+	switch p:=any(&key).(type){
+	case *nist.PublicKey:
+		if err := n.Load((*enode.Secp256k1)(p)); err == nil {
+			ekey = v4wire.EncodePubkey(p)
+		}
+	case *gost3410.PublicKey:
+		if err := n.Load((*enode.Gost3410)(p)); err == nil {
+			ekey = v4wire.EncodePubkey(p)
+		}
 	}
 	return v4wire.Node{ID: ekey, IP: n.IP(), UDP: uint16(n.UDP()), TCP: uint16(n.TCP())}
 }

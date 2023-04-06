@@ -52,7 +52,7 @@ var parseNodeTests = []struct {
 			r.Set(enr.UDP(30303))
 			r.SetSeq(99)
 			SignV4[nist.PrivateKey,nist.PublicKey](&r, testKey)
-			n, _ := New[nist.PublicKey](ValidSchemes, &r)
+			n, _ := New[nist.PublicKey](enr.SchemeMap{"v4": V4ID[nist.PublicKey]{}}, &r)
 			return n
 		}(),
 	},
@@ -182,7 +182,7 @@ func hexPubkey(h string) nist.PublicKey {
 
 func TestParseNode(t *testing.T) {
 	for _, test := range parseNodeTests {
-		n, err := Parse[nist.PublicKey](ValidSchemes, test.input)
+		n, err := Parse[nist.PublicKey](enr.SchemeMap{"v4": V4ID[nist.PublicKey]{}}, test.input)
 		if test.wantError != "" {
 			if err == nil {
 				t.Errorf("test %q:\n  got nil error, expected %#q", test.input, test.wantError)

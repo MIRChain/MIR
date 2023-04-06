@@ -37,9 +37,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
@@ -75,13 +77,13 @@ func cmpParams(p1, p2 *ECIESParams) bool {
 
 // Validate the ECDH component.
 func TestSharedKey(t *testing.T) {
-	prv1, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv1, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	skLen := MaxSharedKeyLength(&prv1.PublicKey) / 2
 
-	prv2, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[nist.PrivateKey,nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,12 +144,12 @@ func TestSharedKeyPadding(t *testing.T) {
 // Verify that the key generation code fails when too much key data is
 // requested.
 func TestTooBigSharedKey(t *testing.T) {
-	prv1, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv1, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	prv2, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +168,7 @@ func TestTooBigSharedKey(t *testing.T) {
 // Benchmark the generation of P256 keys.
 func BenchmarkGenerateKeyP256(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := GenerateKey[nist.PrivateKey](rand.Reader, elliptic.P256(), nil); err != nil {
+		if _, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, elliptic.P256(), nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -174,7 +176,7 @@ func BenchmarkGenerateKeyP256(b *testing.B) {
 
 // Benchmark the generation of P256 shared keys.
 func BenchmarkGenSharedKeyP256(b *testing.B) {
-	prv, err := GenerateKey[nist.PrivateKey](rand.Reader, elliptic.P256(), nil)
+	prv, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, elliptic.P256(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -189,7 +191,7 @@ func BenchmarkGenSharedKeyP256(b *testing.B) {
 
 // Benchmark the generation of S256 shared keys.
 func BenchmarkGenSharedKeyS256(b *testing.B) {
-	prv, err := GenerateKey[nist.PrivateKey](rand.Reader, crypto.S256(), nil)
+	prv, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -204,12 +206,12 @@ func BenchmarkGenSharedKeyS256(b *testing.B) {
 
 // Verify that an encrypted message can be successfully decrypted.
 func TestEncryptDecrypt(t *testing.T) {
-	prv1, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv1, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	prv2, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +238,7 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestDecryptShared2(t *testing.T) {
-	prv, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,6 +289,11 @@ var testCases = []testCase{
 		Name:     "P521",
 		Expected: ECIES_AES256_SHA512,
 	},
+	{
+		Curve:    gost3410.CurveDefault(),
+		Name:     "Gost3410256",
+		Expected: ECIES_AES128_SHA256,
+	},
 }
 
 // Test parameter selection for each curve, and that P224 fails automatic
@@ -299,19 +306,20 @@ func TestParamSelection(t *testing.T) {
 }
 
 func testParamSelection(t *testing.T, c testCase) {
-	params := ParamsFromCurve(c.Curve)
+	t.Log("Type of curve", reflect.TypeOf(c.Curve))
+	params := ParamsFromCurve(c.Curve.Params().Name)
 	if params == nil {
 		t.Fatal("ParamsFromCurve returned nil")
 	} else if params != nil && !cmpParams(params, c.Expected) {
 		t.Fatalf("ecies: parameters should be invalid (%s)\n", c.Name)
 	}
 
-	prv1, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv1, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatalf("%s (%s)\n", err.Error(), c.Name)
 	}
 
-	prv2, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatalf("%s (%s)\n", err.Error(), c.Name)
 	}
@@ -343,7 +351,7 @@ func testParamSelection(t *testing.T, c testCase) {
 func TestBasicKeyValidation(t *testing.T) {
 	badBytes := []byte{0, 1, 5, 6, 7, 8, 9}
 
-	prv, err := GenerateKey[nist.PrivateKey](rand.Reader, DefaultCurve, nil)
+	prv, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +422,7 @@ func TestSharedKeyStatic(t *testing.T) {
 	}
 }
 
-func hexKey(prv string) *PrivateKey[nist.PrivateKey] {
+func hexKey(prv string) *PrivateKey[nist.PrivateKey, nist.PublicKey] {
 	key, err := crypto.HexToECDSA[nist.PrivateKey](prv)
 	if err != nil {
 		panic(err)

@@ -65,15 +65,23 @@ func TestRFCVectors(t *testing.T) {
 		t.FailNow()
 	}
 	pub := prv.Public()
-	if bytes.Compare(pub.Raw()[:32], pubX) != 0 {
+	pubX_ := pub.Raw()[:32]
+	reverse(pubX_)
+	pubY_ := pub.Raw()[32:]
+	reverse(pubY_)
+	if bytes.Compare(pubX_, pubX) != 0 {
 		t.Fatalf("Wrong X %x", pub)
 	}
-	if bytes.Compare(pub.Raw()[32:], pubY) != 0 {
+	if bytes.Compare(pubY_, pubY) != 0 {
 		t.Fatalf("Wrong Y %x", pub)
 	}
 	ourSign, err := prv.SignDigest(digest, rand.Reader)
 	if err != nil {
 		t.Fatal("Sig error ", err)
+	}
+	pub, err = NewPublicKey(c, prv.Public().Raw()) 
+	if err != nil {
+		t.Fatal(err)
 	}
 	valid, err := pub.VerifyDigest(digest, ourSign)
 	if err != nil || !valid {
@@ -90,24 +98,38 @@ func TestRFCVectors(t *testing.T) {
 	_r := new(big.Int).SetBytes(ourSign[:32])
 	_s := new(big.Int).SetBytes(ourSign[32:64])
 	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 1)
-	var recoveredPub [64]byte
-	copy(recoveredPub[:32], recovPubY.Bytes())
-	copy(recoveredPub[32:64], recovPubX.Bytes())
-	reverse(recoveredPub[:])
+	recoveredPub := PublicKey{
+		C: prv.C,
+		X: recovPubX,
+		Y: recovPubY,
+	}
+
 	if err != nil {
 		t.Fatal("Recover error ", err)
 	}
-	if bytes.Compare(pubX, recoveredPub[:32]) != 0 {
-		t.Fatal("Recover X error ", err)
+	pubX_ = recoveredPub.Raw()[:32]
+	reverse(pubX_)
+	pubY_ = recoveredPub.Raw()[32:]
+	reverse(pubY_)
+	if bytes.Compare(pubX_, pubX) != 0 {
+		t.Fatal("Recover X error ")
 	}
-	if bytes.Compare(pubY, recoveredPub[32:64]) != 0 {
-		t.Fatal("Recover Y error ", err)
+	if bytes.Compare(pubY_, pubY) != 0 {
+		t.Fatal("Recover Y error ")
 	}
 	if recovPubX.Cmp(prv.PublicKey.X) != 0 {
-		t.Fatal("Recover X error ", err)
+		t.Fatal("Recover X error ")
 	}
 	if recovPubY.Cmp(prv.PublicKey.Y) != 0 {
-		t.Fatal("Recover Y error ", err)
+		t.Fatal("Recover Y error ")
+	}
+	x := new(big.Int).SetBytes(recoveredPub.Raw()[:32])
+	y := new(big.Int).SetBytes(recoveredPub.Raw()[32:])
+	if recovPubX.Cmp(x) != 0 {
+		t.Fatal("Recover X error ")
+	}
+	if recovPubY.Cmp(y) != 0 {
+		t.Fatal("Recover X error ")
 	}
 }
 

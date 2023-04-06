@@ -203,7 +203,7 @@ func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
 	case *nist.PublicKey:
 		return secp256k1.VerifySignature(pubkey, digestHash, signature)
 	case *gost3410.PublicKey:
-		pub, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
+		pub, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey[1:])
 		if err != nil {
 			return false
 		}
@@ -223,7 +223,8 @@ func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
 	}
 }
 
-// DecompressPubkey parses a public key in the 33-byte compressed format.
+// DecompressPubkey parses a public key in the 33-byte compressed format
+// TODO GOST decompression
 func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 	var pubKey P
 	switch p := any(&pubKey).(type) {
@@ -234,7 +235,7 @@ func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 		}
 		*p = nist.PublicKey{&ecdsa.PublicKey{X: x, Y: y, Curve: S256()}}
 	case *gost3410.PublicKey:
-		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey)
+		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pubkey[1:])
 		if err != nil {
 			return ZeroPublicKey[P](), fmt.Errorf("invalid gost 3410 public key")
 		}
@@ -252,14 +253,15 @@ func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 }
 
 // CompressPubkey encodes a public key to the 33-byte compressed format.
+// TODO GOST compression
 func CompressPubkey[P PublicKey](pubkey P) []byte {
-	switch pubkey := any(&pubkey).(type) {
+	switch p := any(&pubkey).(type) {
 	case *nist.PublicKey:
-		return secp256k1.CompressPubkey(pubkey.X, pubkey.Y)
+		return secp256k1.CompressPubkey(p.X, p.Y)
 	case *gost3410.PublicKey:
-		return pubkey.Raw()
+		return gost3410.Marshal(*gost3410.GostCurve, p.X, p.Y)
 	case *csp.PublicKey:
-		return pubkey.Raw()
+		return p.Raw()
 	default:
 		return nil
 	}

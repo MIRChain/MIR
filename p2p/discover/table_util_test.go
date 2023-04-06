@@ -49,17 +49,17 @@ func newTestTable(t transport[nist.PublicKey]) (*Table[nist.PublicKey], *enode.D
 }
 
 // nodeAtDistance creates a node for which enode.LogDist(base, n.id) == ld.
-func nodeAtDistance(base enode.ID, ld int, ip net.IP) *node[nist.PublicKey] {
+func nodeAtDistance[T crypto.PrivateKey, P crypto.PublicKey](base enode.ID, ld int, ip net.IP) *node[P] {
 	var r enr.Record
 	r.Set(enr.IP(ip))
-	return wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, idAtDistance(base, ld)))
+	return wrapNode(enode.SignNull[T,P](&r, idAtDistance(base, ld)))
 }
 
 // nodesAtDistance creates n nodes for which enode.LogDist(base, node.ID()) == ld.
-func nodesAtDistance(base enode.ID, ld int, n int) []*enode.Node[nist.PublicKey] {
-	results := make([]*enode.Node[nist.PublicKey], n)
+func nodesAtDistance[T crypto.PrivateKey, P crypto.PublicKey](base enode.ID, ld int, n int) []*enode.Node[P] {
+	results := make([]*enode.Node[P], n)
 	for i := range results {
-		results[i] = unwrapNode(nodeAtDistance(base, ld, intIP(i)))
+		results[i] = unwrapNode(nodeAtDistance[T,P](base, ld, intIP(i)))
 	}
 	return results
 }
@@ -97,18 +97,18 @@ func intIP(i int) net.IP {
 }
 
 // fillBucket inserts nodes into the given bucket until it is full.
-func fillBucket(tab *Table[nist.PublicKey], n *node[nist.PublicKey]) (last *node[nist.PublicKey]) {
+func fillBucket[T crypto.PrivateKey, P crypto.PublicKey](tab *Table[P], n *node[P]) (last *node[P]) {
 	ld := enode.LogDist(tab.self().ID(), n.ID())
 	b := tab.bucket(n.ID())
 	for len(b.entries) < bucketSize {
-		b.entries = append(b.entries, nodeAtDistance(tab.self().ID(), ld, intIP(ld)))
+		b.entries = append(b.entries, nodeAtDistance[T,P](tab.self().ID(), ld, intIP(ld)))
 	}
 	return b.entries[bucketSize-1]
 }
 
 // fillTable adds nodes the table to the end of their corresponding bucket
 // if the bucket is not full. The caller must not hold tab.mutex.
-func fillTable(tab *Table[nist.PublicKey], nodes []*node[nist.PublicKey]) {
+func fillTable[P crypto.PublicKey](tab *Table[P], nodes []*node[P]) {
 	for _, n := range nodes {
 		tab.addSeenNode(n)
 	}
@@ -173,7 +173,7 @@ func (t *pingRecorder) RequestENR(n *enode.Node[nist.PublicKey]) (*enode.Node[ni
 	return t.records[n.ID()], nil
 }
 
-func hasDuplicates(slice []*node[nist.PublicKey]) bool {
+func hasDuplicates[P crypto.PublicKey] (slice []*node[P]) bool {
 	seen := make(map[enode.ID]bool)
 	for i, e := range slice {
 		if e == nil {
@@ -188,7 +188,7 @@ func hasDuplicates(slice []*node[nist.PublicKey]) bool {
 }
 
 // checkNodesEqual checks whether the two given node lists contain the same nodes.
-func checkNodesEqual(got, want []*enode.Node[nist.PublicKey]) error {
+func checkNodesEqual[P crypto.PublicKey](got, want []*enode.Node[P]) error {
 	if len(got) == len(want) {
 		for i := range got {
 			if !nodeEqual(got[i], want[i]) {
@@ -211,33 +211,33 @@ NotEqual:
 	return errors.New(output.String())
 }
 
-func nodeEqual(n1 *enode.Node[nist.PublicKey], n2 *enode.Node[nist.PublicKey]) bool {
+func nodeEqual[P crypto.PublicKey](n1 *enode.Node[P], n2 *enode.Node[P]) bool {
 	return n1.ID() == n2.ID() && n1.IP().Equal(n2.IP())
 }
 
-func sortByID(nodes []*enode.Node[nist.PublicKey]) {
+func sortByID[P crypto.PublicKey](nodes []*enode.Node[P]) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return string(nodes[i].ID().Bytes()) < string(nodes[j].ID().Bytes())
 	})
 }
 
-func sortedByDistanceTo(distbase enode.ID, slice []*node[nist.PublicKey]) bool {
+func sortedByDistanceTo[P crypto.PublicKey](distbase enode.ID, slice []*node[P]) bool {
 	return sort.SliceIsSorted(slice, func(i, j int) bool {
 		return enode.DistCmp(distbase, slice[i].ID(), slice[j].ID()) < 0
 	})
 }
 
 // hexEncPrivkey decodes h as a private key.
-func hexEncPrivkey(h string) *nist.PrivateKey {
+func hexEncPrivkey[T crypto.PrivateKey](h string) T {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)
 	}
-	key, err := crypto.ToECDSA[nist.PrivateKey](b)
+	key, err := crypto.ToECDSA[T](b)
 	if err != nil {
 		panic(err)
 	}
-	return &key
+	return key
 }
 
 // hexEncPubkey decodes h as a public key.

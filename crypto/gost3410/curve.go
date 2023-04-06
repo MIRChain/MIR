@@ -111,6 +111,10 @@ func (c *Curve) Params() *elliptic.CurveParams {
 	}
 }
 
+func (c *Curve) AsElliptic() elliptic.Curve {
+	return c
+}
+
 func (c *Curve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) {
 	var t, tx, ty, X, Y big.Int
 	if x1.Cmp(x2) == 0 && y1.Cmp(y2) == 0 {
