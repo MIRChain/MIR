@@ -63,8 +63,15 @@ type PublicKey [P crypto.PublicKey] struct {
 }
 
 // Export an ECIES public key as an ECDSA public key.
-func (pub *PublicKey[P]) ExportECDSA() *ecdsa.PublicKey {
-	return &ecdsa.PublicKey{Curve: pub.Curve, X: pub.X, Y: pub.Y}
+func (e *PublicKey[P]) ExportECDSA() P {
+	var pub P
+	switch p:=any(&pub).(type){
+	case *nist.PublicKey:
+		*p = nist.PublicKey{&ecdsa.PublicKey{Curve: e.Curve, X: e.X, Y: e.Y}}
+	case *gost3410.PublicKey:
+		*p = gost3410.PublicKey{C: e.Curve, X: e.X, Y: e.Y}
+	}
+	return pub
 }
 
 // Import an ECDSA public key as an ECIES public key.
@@ -75,14 +82,14 @@ func ImportECDSAPublic[P crypto.PublicKey](pub P) *PublicKey[P] {
 			X:      p.X,
 			Y:      p.Y,
 			Curve:  p.Curve,
-			Params: ParamsFromCurve(p.Curve.Params().Name),
+			Params: ParamsFromCurve(p.Curve),
 		}
 	case *gost3410.PublicKey:
 		return &PublicKey[P]{
 			X:      p.X,
 			Y:      p.Y,
 			Curve:  p.C,
-			Params: ParamsFromCurve(p.C.Params().Name),
+			Params: ECIES_AES128_SHA256,
 		}
 	default:
 		panic("cant infer pub key")
@@ -102,9 +109,11 @@ func (prv *PrivateKey[T,P]) ExportECDSA() T {
 	var privGeneric T
 	switch t:=any(&privGeneric).(type) {
 	case *nist.PrivateKey:
-		*t =  nist.PrivateKey{&ecdsa.PrivateKey{PublicKey: *pubECDSA, D: prv.D}}
+		p:=any(&pubECDSA).(*nist.PublicKey)
+		*t =  nist.PrivateKey{&ecdsa.PrivateKey{PublicKey: *p.PublicKey, D: prv.D}}
 	case *gost3410.PrivateKey:
-		*t = gost3410.PrivateKey{PublicKey: gost3410.PublicKey{C: pubECDSA.Curve, X: pubECDSA.X, Y: pubECDSA.Y}, C: gost3410.GostCurve, Key: prv.D}
+		p:=any(&pubECDSA).(*gost3410.PublicKey)
+		*t = gost3410.PrivateKey{PublicKey: *p, C: gost3410.GostCurve, Key: prv.D}
 	}
 	return privGeneric
 }
@@ -145,7 +154,7 @@ func GenerateKey[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, curve 
 		prv.PublicKey.Curve = curve
 		prv.D = new(big.Int).SetBytes(pb)
 		if params == nil {
-			params = ParamsFromCurve(curve.Params().Name)
+			params = ParamsFromCurve(curve)
 		}
 		prv.PublicKey.Params = params
 		return prv, nil
@@ -160,7 +169,7 @@ func GenerateKey[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, curve 
 		prv.PublicKey.Curve = key.C
 		prv.D = key.Key
 		if params == nil {
-			params = ParamsFromCurve(gost3410.GostCurve.Params().Name)
+			params = ECIES_AES128_SHA256
 		}
 		prv.PublicKey.Params = params
 		return prv, nil
@@ -288,11 +297,17 @@ func symDecrypt(params *ECIESParams, key, ct []byte) (m []byte, err error) {
 // ciphertext. s1 is fed into key derivation, s2 is fed into the MAC. If the
 // shared information parameters aren't being used, they should be nil.
 func Encrypt[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, pub *PublicKey[P], m, s1, s2 []byte) (ct []byte, err error) {
-	params, err := pubkeyParams(pub)
-	if err != nil {
-		return nil, err
+	var params *ECIESParams
+	var pubType P
+	switch any(&pubType).(type){
+	case *nist.PublicKey:
+		params, err = pubkeyParams(pub)
+		if err != nil {
+			return nil, err
+		}
+	case *gost3410.PublicKey:
+		params = ECIES_AES128_SHA256
 	}
-
 	R, err := GenerateKey[T,P](rand, pub.Curve, params)
 	if err != nil {
 		return nil, err
@@ -313,7 +328,13 @@ func Encrypt[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader, pub *Publi
 
 	d := messageTag(params.Hash, Km, em, s2)
 
-	Rb := elliptic.Marshal(pub.Curve, R.PublicKey.X, R.PublicKey.Y)
+	var Rb []byte
+	switch any(&pubType).(type){
+	case *nist.PublicKey:
+		Rb = elliptic.Marshal(pub.Curve, R.PublicKey.X, R.PublicKey.Y)
+	case *gost3410.PublicKey:
+		Rb = gost3410.Marshal(pub.Curve, R.PublicKey.X, R.PublicKey.Y)
+	}
 	ct = make([]byte, len(Rb)+len(em)+len(d))
 	copy(ct, Rb)
 	copy(ct[len(Rb):], em)

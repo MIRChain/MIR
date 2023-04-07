@@ -52,7 +52,7 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		if err != nil{
 			return nil, err
 		}
-		return gost3410.Marshal(*gost3410.GostCurve, pubKey.X, pubKey.Y), nil
+		return gost3410.Marshal(gost3410.GostCurve, pubKey.X, pubKey.Y), nil
 	case *csp.PublicKey:
 		hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 		if err != nil {
@@ -259,7 +259,7 @@ func CompressPubkey[P PublicKey](pubkey P) []byte {
 	case *nist.PublicKey:
 		return secp256k1.CompressPubkey(p.X, p.Y)
 	case *gost3410.PublicKey:
-		return gost3410.Marshal(*gost3410.GostCurve, p.X, p.Y)
+		return gost3410.Marshal(gost3410.GostCurve, p.X, p.Y)
 	case *csp.PublicKey:
 		return p.Raw()
 	default:

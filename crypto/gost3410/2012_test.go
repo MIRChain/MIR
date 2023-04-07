@@ -72,6 +72,10 @@ func TestStdVector1(t *testing.T) {
 	_r := new(big.Int).SetBytes(r)
 	_s := new(big.Int).SetBytes(s)
 	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 0)
+	isOnCurve := prv.C.IsOnCurve(recovPubX, recovPubY)
+	if !isOnCurve {
+		t.Fatal("Recovered point is not on Curve ")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

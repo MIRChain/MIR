@@ -43,7 +43,6 @@ import (
 	"hash"
 
 	ethcrypto "github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	mir_crypto "github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
@@ -107,22 +106,20 @@ var (
 	}
 )
 
-var paramsFromCurve = map[string]*ECIESParams{
-	ethcrypto.S256().Params().Name: ECIES_AES128_SHA256,
-	elliptic.P256().Params().Name:  ECIES_AES128_SHA256,
-	//Mir
-	gost3410.CurveIdGostR34102001CryptoProAParamSet().Params().Name: ECIES_AES128_SHA256,
-	elliptic.P384().Params().Name:  ECIES_AES256_SHA384,
-	elliptic.P521().Params().Name:  ECIES_AES256_SHA512,
+var paramsFromCurve = map[elliptic.Curve]*ECIESParams{
+	ethcrypto.S256(): ECIES_AES128_SHA256,
+	elliptic.P256():  ECIES_AES128_SHA256,
+	elliptic.P384():  ECIES_AES256_SHA384,
+	elliptic.P521():  ECIES_AES256_SHA512,
 }
 
-func AddParamsForCurve(curve string, params *ECIESParams) {
+func AddParamsForCurve(curve elliptic.Curve, params *ECIESParams) {
 	paramsFromCurve[curve] = params
 }
 
 // ParamsFromCurve selects parameters optimal for the selected elliptic curve.
 // Only the curves P256, P384, and P512 are supported.
-func ParamsFromCurve(curve string) (params *ECIESParams) {
+func ParamsFromCurve(curve elliptic.Curve) (params *ECIESParams) {
 	return paramsFromCurve[curve]
 }
 
@@ -130,8 +127,7 @@ func ParamsFromCurve(curve string) (params *ECIESParams) {
 func pubkeyParams[P mir_crypto.PublicKey](key *PublicKey[P]) (*ECIESParams, error) {
 	params := key.Params
 	if params == nil {
-		fmt.Printf("Curve ecies %v", key.Curve)
-		if params = ParamsFromCurve(key.Curve.Params().Name); params == nil {
+		if params = ParamsFromCurve(key.Curve); params == nil {
 			return nil, ErrUnsupportedECIESParameters
 		}
 	}

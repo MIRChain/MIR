@@ -218,8 +218,8 @@ func (curve *Curve) DecompressPoint(x *big.Int, ybit bool) (*big.Int, error) {
 // Marshal converts a point on the curve into the uncompressed form specified in
 // SEC 1, Version 2.0, Section 2.3.3. If the point is not on the curve (or is
 // the conventional point at infinity), the behavior is undefined.
-func Marshal(curve Curve, x, y *big.Int) []byte {
-	byteLen := (curve.P.BitLen() + 7) / 8
+func Marshal(curve elliptic.Curve, x, y *big.Int) []byte {
+	byteLen := (curve.Params().BitSize + 7) / 8
 
 	ret := make([]byte, 1+2*byteLen)
 	ret[0] = 4 // uncompressed point
@@ -247,9 +247,9 @@ func Unmarshal(curve Curve, data []byte) (x, y *big.Int) {
 	if x.Cmp(p) >= 0 || y.Cmp(p) >= 0 {
 		return nil, nil
 	}
-	// if !curve.IsOnCurve(x, y) {
-	// 	return nil, nil
-	// }
+	if !curve.IsOnCurve(x, y) {
+		return nil, nil
+	}
 	return
 }
 
@@ -259,24 +259,14 @@ func (curve *Curve) IsOnCurve(x, y *big.Int) bool {
 		y.Sign() < 0 || y.Cmp(curve.P) >= 0 {
 		return false
 	}
-
-	// y² = x³ + ax + b
-	y2 := new(big.Int).Mul(y, y)
-	y2.Mod(y2, curve.P)
-
-	return curve.polynomial(x).Cmp(y2) == 0
-}
-
-// polynomial returns x³ + ax + b.
-func (curve *Curve) polynomial(x *big.Int) *big.Int {
+	// y = +-sqrt(x^3 + ax + b)
 	x3 := new(big.Int).Mul(x, x)
 	x3.Mul(x3, x)
-
-	ax3 :=new(big.Int).Add(curve.A, x)
-
-	x3.Add(x3, ax3)
+	aX := new(big.Int).Mul(x, curve.A)
+	x3.Add(x3, aX)
 	x3.Add(x3, curve.B)
-	x3.Mod(x3, curve.P)
-
-	return x3
+	res_y := x3.ModSqrt(x3, curve.P)
+	
+	res_y.Sub(curve.P, res_y)
+	return res_y.Cmp(y) == 0
 }

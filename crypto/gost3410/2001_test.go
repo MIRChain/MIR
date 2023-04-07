@@ -98,6 +98,11 @@ func TestRFCVectors(t *testing.T) {
 	_r := new(big.Int).SetBytes(ourSign[:32])
 	_s := new(big.Int).SetBytes(ourSign[32:64])
 	recovPubX, recovPubY, err := RecoverCompact(*prv.C, digest, _r, _s, 1)
+	t.Logf("Curve params P: %s, \n Q: %s, \n A: %s \n B: %s \n", c.P.String(), c.Q.String(), c.A.String(), c.B.String())
+	isOnCurve := c.IsOnCurve(recovPubX, recovPubY)
+	if !isOnCurve {
+		t.Fatal("Recovered point is not on Curve ")
+	}
 	recoveredPub := PublicKey{
 		C: prv.C,
 		X: recovPubX,

@@ -265,7 +265,7 @@ func FromECDSAPub[P PublicKey](pub P) []byte {
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
-		return gost3410.Marshal(*gost3410.GostCurve, p.X, p.Y)
+		return gost3410.Marshal(gost3410.GostCurve, p.X, p.Y)
 	case *csp.PublicKey:
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")

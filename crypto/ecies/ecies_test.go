@@ -37,11 +37,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
@@ -289,11 +287,6 @@ var testCases = []testCase{
 		Name:     "P521",
 		Expected: ECIES_AES256_SHA512,
 	},
-	{
-		Curve:    gost3410.CurveDefault(),
-		Name:     "Gost3410256",
-		Expected: ECIES_AES128_SHA256,
-	},
 }
 
 // Test parameter selection for each curve, and that P224 fails automatic
@@ -306,8 +299,7 @@ func TestParamSelection(t *testing.T) {
 }
 
 func testParamSelection(t *testing.T, c testCase) {
-	t.Log("Type of curve", reflect.TypeOf(c.Curve))
-	params := ParamsFromCurve(c.Curve.Params().Name)
+	params := ParamsFromCurve(c.Curve)
 	if params == nil {
 		t.Fatal("ParamsFromCurve returned nil")
 	} else if params != nil && !cmpParams(params, c.Expected) {
