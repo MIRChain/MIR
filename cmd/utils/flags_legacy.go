@@ -59,7 +59,7 @@ var (
 	LegacyRPCVirtualHostsFlag = cli.StringFlag{
 		Name:  "rpcvhosts",
 		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard. (deprecated and will be removed in the future, use --http.vhosts)",
-		Value: strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		Value: strings.Join([]string{"localhost"}, ","),
 	}
 	LegacyRPCApiFlag = cli.StringFlag{
 		Name:  "rpcapi",

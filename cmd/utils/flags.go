@@ -599,7 +599,7 @@ var (
 	HTTPVirtualHostsFlag = cli.StringFlag{
 		Name:  "http.vhosts",
 		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
-		Value: strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		Value: strings.Join([]string{"localhost"}, ","),
 	}
 	HTTPApiFlag = cli.StringFlag{
 		Name:  "http.api",
@@ -623,7 +623,7 @@ var (
 	GraphQLVirtualHostsFlag = cli.StringFlag{
 		Name:  "graphql.vhosts",
 		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
-		Value: strings.Join(node.DefaultConfig.GraphQLVirtualHosts, ","),
+		Value: strings.Join([]string{"localhost"}, ","),
 	}
 	WSEnabledFlag = cli.BoolFlag{
 		Name:  "ws",
@@ -671,12 +671,12 @@ var (
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",
 		Usage: "Maximum number of network peers (network disabled if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPeers,
+		Value: 50,
 	}
 	MaxPendingPeersFlag = cli.IntFlag{
 		Name:  "maxpendpeers",
 		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPendingPeers,
+		Value: 10,
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
@@ -2590,14 +2590,14 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		engine = ethash.NewFaker[P]()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {
 			engine = ethash.New[P](ethash.Config{
-				CacheDir:         stack.ResolvePath(ethconfig.Defaults[nist.PublicKey]().Ethash.CacheDir),
-				CachesInMem:      ethconfig.Defaults[nist.PublicKey]().Ethash.CachesInMem,
-				CachesOnDisk:     ethconfig.Defaults[nist.PublicKey]().Ethash.CachesOnDisk,
-				CachesLockMmap:   ethconfig.Defaults[nist.PublicKey]().Ethash.CachesLockMmap,
-				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetDir),
-				DatasetsInMem:    ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsInMem,
-				DatasetsOnDisk:   ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsOnDisk,
-				DatasetsLockMmap: ethconfig.Defaults[nist.PublicKey]().Ethash.DatasetsLockMmap,
+				CacheDir:         stack.ResolvePath(ethconfig.Defaults[P]().Ethash.CacheDir),
+				CachesInMem:      ethconfig.Defaults[P]().Ethash.CachesInMem,
+				CachesOnDisk:     ethconfig.Defaults[P]().Ethash.CachesOnDisk,
+				CachesLockMmap:   ethconfig.Defaults[P]().Ethash.CachesLockMmap,
+				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[P]().Ethash.DatasetDir),
+				DatasetsInMem:    ethconfig.Defaults[P]().Ethash.DatasetsInMem,
+				DatasetsOnDisk:   ethconfig.Defaults[P]().Ethash.DatasetsOnDisk,
+				DatasetsLockMmap: ethconfig.Defaults[P]().Ethash.DatasetsLockMmap,
 			}, nil, false)
 		}
 	}
@@ -2605,12 +2605,12 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
 	cache := &core.CacheConfig{
-		TrieCleanLimit:      ethconfig.Defaults[nist.PublicKey]().TrieCleanCache,
+		TrieCleanLimit:      ethconfig.Defaults[P]().TrieCleanCache,
 		TrieCleanNoPrefetch: ctx.GlobalBool(CacheNoPrefetchFlag.Name),
-		TrieDirtyLimit:      ethconfig.Defaults[nist.PublicKey]().TrieDirtyCache,
+		TrieDirtyLimit:      ethconfig.Defaults[P]().TrieDirtyCache,
 		TrieDirtyDisabled:   ctx.GlobalString(GCModeFlag.Name) == "archive",
-		TrieTimeLimit:       ethconfig.Defaults[nist.PublicKey]().TrieTimeout,
-		SnapshotLimit:       ethconfig.Defaults[nist.PublicKey]().SnapshotCache,
+		TrieTimeLimit:       ethconfig.Defaults[P]().TrieTimeout,
+		SnapshotLimit:       ethconfig.Defaults[P]().SnapshotCache,
 		Preimages:           ctx.GlobalBool(CachePreimagesFlag.Name),
 	}
 	if true || cache.TrieDirtyDisabled && !cache.Preimages { // TODO: Quorum; force preimages for contract extension and dump of states compatibility, until a fix is found

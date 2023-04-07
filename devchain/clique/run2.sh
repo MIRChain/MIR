@@ -10,5 +10,5 @@ echo "Starting node2 ..."
     --unlock 0x01665a4eb869efbf3af991e0b791d5347718a49d \
     --password node2/password.txt \
     --mine \
-    --verbosity 4 \
+    --verbosity 9 \
     --allow-insecure-unlock
