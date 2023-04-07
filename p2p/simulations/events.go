@@ -19,6 +19,8 @@ package simulations
 import (
 	"fmt"
 	"time"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // EventType is the type of event emitted by a simulation network
@@ -39,7 +41,7 @@ const (
 )
 
 // Event is an event emitted by a simulation network
-type Event struct {
+type Event [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Type is the type of the event
 	Type EventType `json:"type"`
 
@@ -51,10 +53,10 @@ type Event struct {
 	Control bool `json:"control"`
 
 	// Node is set if the type is EventTypeNode
-	Node *Node `json:"node,omitempty"`
+	Node *Node[T,P] `json:"node,omitempty"`
 
 	// Conn is set if the type is EventTypeConn
-	Conn *Conn `json:"conn,omitempty"`
+	Conn *Conn[T,P] `json:"conn,omitempty"`
 
 	// Msg is set if the type is EventTypeMsg
 	Msg *Msg `json:"msg,omitempty"`
@@ -68,13 +70,13 @@ type Event struct {
 //
 // The object is copied so that the event represents the state of the object
 // when NewEvent is called.
-func NewEvent(v interface{}) *Event {
-	event := &Event{Time: time.Now()}
+func NewEvent[T crypto.PrivateKey, P crypto.PublicKey](v interface{}) *Event[T,P] {
+	event := &Event[T,P]{Time: time.Now()}
 	switch v := v.(type) {
-	case *Node:
+	case *Node[T,P]:
 		event.Type = EventTypeNode
 		event.Node = v.copy()
-	case *Conn:
+	case *Conn[T,P]:
 		event.Type = EventTypeConn
 		conn := *v
 		event.Conn = &conn
@@ -89,14 +91,14 @@ func NewEvent(v interface{}) *Event {
 }
 
 // ControlEvent creates a new control event
-func ControlEvent(v interface{}) *Event {
-	event := NewEvent(v)
+func ControlEvent[T crypto.PrivateKey, P crypto.PublicKey](v interface{}) *Event[T,P] {
+	event := NewEvent[T,P](v)
 	event.Control = true
 	return event
 }
 
 // String returns the string representation of the event
-func (e *Event) String() string {
+func (e *Event[T,P]) String() string {
 	switch e.Type {
 	case EventTypeNode:
 		return fmt.Sprintf("<node-event> id: %s up: %t", e.Node.ID().TerminalString(), e.Node.Up())

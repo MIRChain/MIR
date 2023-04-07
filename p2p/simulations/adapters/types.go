@@ -17,17 +17,19 @@
 package adapters
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/gorilla/websocket"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
@@ -68,24 +70,24 @@ type Node interface {
 }
 
 // NodeAdapter is used to create Nodes in a simulation network
-type NodeAdapter interface {
+type NodeAdapter  [T crypto.PrivateKey, P crypto.PublicKey]  interface {
 	// Name returns the name of the adapter for logging purposes
 	Name() string
 
 	// NewNode creates a new node with the given configuration
-	NewNode(config *NodeConfig) (Node, error)
+	NewNode(config *NodeConfig[T,P]) (Node, error)
 }
 
 // NodeConfig is the configuration used to start a node in a simulation
 // network
-type NodeConfig struct {
+type NodeConfig  [T crypto.PrivateKey, P crypto.PublicKey]  struct {
 	// ID is the node's ID which is used to identify the node in the
 	// simulation network
 	ID enode.ID
 
 	// PrivateKey is the node's private key which is used by the devp2p
 	// stack to encrypt communications
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey T
 
 	// Enable peer events for Msgs
 	EnableMsgEvents bool
@@ -111,7 +113,7 @@ type NodeConfig struct {
 	ExternalSigner string
 
 	// Enode
-	node *enode.Node
+	node *enode.Node[P]
 
 	// ENR Record with entries to overwrite
 	Record enr.Record
@@ -149,7 +151,7 @@ type nodeConfigJSON struct {
 
 // MarshalJSON implements the json.Marshaler interface by encoding the config
 // fields as strings
-func (n *NodeConfig) MarshalJSON() ([]byte, error) {
+func (n *NodeConfig[T,P]) MarshalJSON() ([]byte, error) {
 	confJSON := nodeConfigJSON{
 		ID:              n.ID.String(),
 		Name:            n.Name,
@@ -160,7 +162,7 @@ func (n *NodeConfig) MarshalJSON() ([]byte, error) {
 		LogFile:         n.LogFile,
 		LogVerbosity:    int(n.LogVerbosity),
 	}
-	if n.PrivateKey != nil {
+	if !reflect.ValueOf(&n.PrivateKey).IsZero(){
 		confJSON.PrivateKey = hex.EncodeToString(crypto.FromECDSA(n.PrivateKey))
 	}
 	return json.Marshal(confJSON)
@@ -168,7 +170,7 @@ func (n *NodeConfig) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements the json.Unmarshaler interface by decoding the json
 // string values into the config fields
-func (n *NodeConfig) UnmarshalJSON(data []byte) error {
+func (n *NodeConfig[T,P]) UnmarshalJSON(data []byte) error {
 	var confJSON nodeConfigJSON
 	if err := json.Unmarshal(data, &confJSON); err != nil {
 		return err
@@ -185,7 +187,7 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		privKey, err := crypto.ToECDSA(key)
+		privKey, err := crypto.ToECDSA[T](key)
 		if err != nil {
 			return err
 		}
@@ -204,14 +206,14 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 }
 
 // Node returns the node descriptor represented by the config.
-func (n *NodeConfig) Node() *enode.Node {
+func (n *NodeConfig[T,P]) Node() *enode.Node[P] {
 	return n.node
 }
 
 // RandomNodeConfig returns node configuration with a randomly generated ID and
 // PrivateKey
-func RandomNodeConfig() *NodeConfig {
-	prvkey, err := crypto.GenerateKey()
+func RandomNodeConfig [T crypto.PrivateKey, P crypto.PublicKey] () *NodeConfig[T,P] {
+	prvkey, err := crypto.GenerateKey[T]()
 	if err != nil {
 		panic("unable to generate key")
 	}
@@ -220,9 +222,17 @@ func RandomNodeConfig() *NodeConfig {
 	if err != nil {
 		panic("unable to assign tcp port")
 	}
-
-	enodId := enode.PubkeyToIDV4(&prvkey.PublicKey)
-	return &NodeConfig{
+	var pub P
+	switch t:=any(&prvkey).(type) {
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	}
+	enodId := enode.PubkeyToIDV4(pub)
+	return &NodeConfig[T,P]{
 		PrivateKey:      prvkey,
 		ID:              enodId,
 		Name:            fmt.Sprintf("node_%s", enodId.String()),
@@ -251,10 +261,10 @@ func assignTCPPort() (uint16, error) {
 
 // ServiceContext is a collection of options and methods which can be utilised
 // when starting services
-type ServiceContext struct {
+type ServiceContext  [T crypto.PrivateKey, P crypto.PublicKey]  struct {
 	RPCDialer
 
-	Config   *NodeConfig
+	Config   *NodeConfig[T,P]
 	Snapshot []byte
 }
 
@@ -268,10 +278,10 @@ type RPCDialer interface {
 // LifecycleConstructor allows a Lifecycle to be constructed during node start-up.
 // While the service-specific package usually takes care of Lifecycle creation and registration,
 // for testing purposes, it is useful to be able to construct a Lifecycle on spot.
-type LifecycleConstructor func(ctx *ServiceContext, stack *node.Node) (node.Lifecycle, error)
+type LifecycleConstructor [T crypto.PrivateKey, P crypto.PublicKey]  func(ctx *ServiceContext[T,P], stack *node.Node[T,P]) (node.Lifecycle, error)
 
 // LifecycleConstructors stores LifecycleConstructor functions to call during node start-up.
-type LifecycleConstructors map[string]LifecycleConstructor
+type LifecycleConstructors [T crypto.PrivateKey, P crypto.PublicKey]  map[string]LifecycleConstructor[T,P]
 
 // lifecycleConstructorFuncs is a map of registered services which are used to boot devp2p
 // nodes
@@ -282,7 +292,7 @@ var lifecycleConstructorFuncs = make(LifecycleConstructors)
 //
 // It should be called in an init function so that it has the opportunity to
 // execute the services before main() is called.
-func RegisterLifecycles(lifecycles LifecycleConstructors) {
+func RegisterLifecycles [T crypto.PrivateKey, P crypto.PublicKey] (lifecycles LifecycleConstructors[T,P]) {
 	for name, f := range lifecycles {
 		if _, exists := lifecycleConstructorFuncs[name]; exists {
 			panic(fmt.Sprintf("node service already exists: %q", name))
@@ -300,7 +310,7 @@ func RegisterLifecycles(lifecycles LifecycleConstructors) {
 
 // adds the host part to the configuration's ENR, signs it
 // creates and  the corresponding enode object to the configuration
-func (n *NodeConfig) initEnode(ip net.IP, tcpport int, udpport int) error {
+func (n *NodeConfig[T,P]) initEnode(ip net.IP, tcpport int, udpport int) error {
 	enrIp := enr.IP(ip)
 	n.Record.Set(&enrIp)
 	enrTcpPort := enr.TCP(tcpport)
@@ -308,11 +318,11 @@ func (n *NodeConfig) initEnode(ip net.IP, tcpport int, udpport int) error {
 	enrUdpPort := enr.UDP(udpport)
 	n.Record.Set(&enrUdpPort)
 
-	err := enode.SignV4(&n.Record, n.PrivateKey)
+	err := enode.SignV4[T,P](&n.Record, n.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("unable to generate ENR: %v", err)
 	}
-	nod, err := enode.New(enode.V4ID{}, &n.Record)
+	nod, err := enode.New[P](enode.V4ID[P]{}, &n.Record)
 	if err != nil {
 		return fmt.Errorf("unable to create enode: %v", err)
 	}
@@ -321,6 +331,6 @@ func (n *NodeConfig) initEnode(ip net.IP, tcpport int, udpport int) error {
 	return nil
 }
 
-func (n *NodeConfig) initDummyEnode() error {
+func (n *NodeConfig[T,P]) initDummyEnode() error {
 	return n.initEnode(net.IPv4(127, 0, 0, 1), int(n.Port), 0)
 }

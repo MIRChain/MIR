@@ -36,45 +36,63 @@ import (
 
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/gorilla/websocket"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 func init() {
 	// Register a reexec function to start a simulation node when the current binary is
 	// executed as "p2p-node" (rather than whatever the main() function would normally do).
-	reexec.Register("p2p-node", execP2PNode)
+	cryptoType := os.Getenv("MIR_CRYPTO")
+	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
+		if cryptoType == "nist"{
+			reexec.Register("p2p-node", execP2PNode[nist.PrivateKey,nist.PublicKey])
+		}
+		if cryptoType == "gost"{
+			reexec.Register("p2p-node", execP2PNode[gost3410.PrivateKey,gost3410.PublicKey])
+		}
+		if cryptoType == "gost_csp" {
+			reexec.Register("p2p-node", execP2PNode[csp.Cert, csp.PublicKey])
+		}
+	} else {
+		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
+	}
 }
 
 // ExecAdapter is a NodeAdapter which runs simulation nodes by executing the current binary
 // as a child process.
-type ExecAdapter struct {
+type ExecAdapter [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// BaseDir is the directory under which the data directories for each
 	// simulation node are created.
 	BaseDir string
 
-	nodes map[enode.ID]*ExecNode
+	nodes map[enode.ID]*ExecNode[T,P]
 }
 
 // NewExecAdapter returns an ExecAdapter which stores node data in
 // subdirectories of the given base directory
-func NewExecAdapter(baseDir string) *ExecAdapter {
-	return &ExecAdapter{
+func NewExecAdapter[T crypto.PrivateKey, P crypto.PublicKey](baseDir string) *ExecAdapter[T,P] {
+	return &ExecAdapter[T,P]{
 		BaseDir: baseDir,
-		nodes:   make(map[enode.ID]*ExecNode),
+		nodes:   make(map[enode.ID]*ExecNode[T,P]),
 	}
 }
 
 // Name returns the name of the adapter for logging purposes
-func (e *ExecAdapter) Name() string {
+func (e *ExecAdapter[T,P]) Name() string {
 	return "exec-adapter"
 }
 
 // NewNode returns a new ExecNode using the given config
-func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
+func (e *ExecAdapter[T,P]) NewNode(config *NodeConfig[T,P]) (Node, error) {
 	if len(config.Lifecycles) == 0 {
 		return nil, errors.New("node must have at least one service lifecycle")
 	}
@@ -97,8 +115,22 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 	}
 
 	// generate the config
-	conf := &execNodeConfig{
-		Stack: node.DefaultConfig,
+	conf := &execNodeConfig[T,P]{
+		Stack: node.Config[T,P]{
+			DataDir:             node.DefaultDataDir(),
+			HTTPPort:            node.DefaultHTTPPort,
+			HTTPModules:         []string{"net", "web3"},
+			HTTPVirtualHosts:    []string{"localhost"},
+			HTTPTimeouts:        rpc.DefaultHTTPTimeouts,
+			WSPort:              node.DefaultWSPort,
+			WSModules:           []string{"net", "web3"},
+			GraphQLVirtualHosts: []string{"localhost"},
+			P2P: p2p.Config[T,P]{
+				ListenAddr: ":30303",
+				MaxPeers:   50,
+				NAT:        nat.Any(),
+			},
+		},
 		Node:  config,
 	}
 	if config.DataDir != "" {
@@ -120,7 +152,7 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 	// initialise NodeConfig (usually a random port)
 	conf.Stack.P2P.ListenAddr = fmt.Sprintf(":%d", config.Port)
 
-	node := &ExecNode{
+	node := &ExecNode[T,P]{
 		ID:      config.ID,
 		Dir:     dir,
 		Config:  conf,
@@ -133,21 +165,21 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 
 // ExecNode starts a simulation node by exec'ing the current binary and
 // running the configured services
-type ExecNode struct {
+type ExecNode [T crypto.PrivateKey, P crypto.PublicKey]struct {
 	ID     enode.ID
 	Dir    string
-	Config *execNodeConfig
+	Config *execNodeConfig[T,P]
 	Cmd    *exec.Cmd
 	Info   *p2p.NodeInfo
 
-	adapter *ExecAdapter
+	adapter *ExecAdapter[T,P]
 	client  *rpc.Client
 	wsAddr  string
 	newCmd  func() *exec.Cmd
 }
 
 // Addr returns the node's enode URL
-func (n *ExecNode) Addr() []byte {
+func (n *ExecNode[T,P]) Addr() []byte {
 	if n.Info == nil {
 		return nil
 	}
@@ -156,13 +188,13 @@ func (n *ExecNode) Addr() []byte {
 
 // Client returns an rpc.Client which can be used to communicate with the
 // underlying services (it is set once the node has started)
-func (n *ExecNode) Client() (*rpc.Client, error) {
+func (n *ExecNode[T,P]) Client() (*rpc.Client, error) {
 	return n.client, nil
 }
 
 // Start exec's the node passing the ID and service as command line arguments
 // and the node config encoded as JSON in an environment variable.
-func (n *ExecNode) Start(snapshots map[string][]byte) (err error) {
+func (n *ExecNode[T,P]) Start(snapshots map[string][]byte) (err error) {
 	if n.Cmd != nil {
 		return errors.New("already started")
 	}
@@ -232,7 +264,7 @@ func (n *ExecNode) Start(snapshots map[string][]byte) (err error) {
 }
 
 // waitForStartupJSON runs a one-shot HTTP server to receive a startup report.
-func (n *ExecNode) waitForStartupJSON(ctx context.Context) (string, chan nodeStartupJSON) {
+func (n *ExecNode[T,P]) waitForStartupJSON(ctx context.Context) (string, chan nodeStartupJSON) {
 	var (
 		ch       = make(chan nodeStartupJSON, 1)
 		quitOnce sync.Once
@@ -271,7 +303,7 @@ func (n *ExecNode) waitForStartupJSON(ctx context.Context) (string, chan nodeSta
 // execCommand returns a command which runs the node locally by exec'ing
 // the current binary but setting argv[0] to "p2p-node" so that the child
 // runs execP2PNode
-func (n *ExecNode) execCommand() *exec.Cmd {
+func (n *ExecNode[T,P]) execCommand() *exec.Cmd {
 	return &exec.Cmd{
 		Path: reexec.Self(),
 		Args: []string{"p2p-node", strings.Join(n.Config.Node.Lifecycles, ","), n.ID.String()},
@@ -280,7 +312,7 @@ func (n *ExecNode) execCommand() *exec.Cmd {
 
 // Stop stops the node by first sending SIGTERM and then SIGKILL if the node
 // doesn't stop within 5s
-func (n *ExecNode) Stop() error {
+func (n *ExecNode[T,P]) Stop() error {
 	if n.Cmd == nil {
 		return nil
 	}
@@ -311,7 +343,7 @@ func (n *ExecNode) Stop() error {
 }
 
 // NodeInfo returns information about the node
-func (n *ExecNode) NodeInfo() *p2p.NodeInfo {
+func (n *ExecNode[T,P]) NodeInfo() *p2p.NodeInfo {
 	info := &p2p.NodeInfo{
 		ID: n.ID.String(),
 	}
@@ -323,7 +355,7 @@ func (n *ExecNode) NodeInfo() *p2p.NodeInfo {
 
 // ServeRPC serves RPC requests over the given connection by dialling the
 // node's WebSocket address and joining the two connections
-func (n *ExecNode) ServeRPC(clientConn *websocket.Conn) error {
+func (n *ExecNode[T,P]) ServeRPC(clientConn *websocket.Conn) error {
 	conn, _, err := websocket.DefaultDialer.Dial(n.wsAddr, nil)
 	if err != nil {
 		return err
@@ -356,7 +388,7 @@ func wsCopy(wg *sync.WaitGroup, src, dst *websocket.Conn) {
 
 // Snapshots creates snapshots of the services by calling the
 // simulation_snapshot RPC method
-func (n *ExecNode) Snapshots() (map[string][]byte, error) {
+func (n *ExecNode[T,P]) Snapshots() (map[string][]byte, error) {
 	if n.client == nil {
 		return nil, errors.New("RPC not started")
 	}
@@ -366,14 +398,14 @@ func (n *ExecNode) Snapshots() (map[string][]byte, error) {
 
 // execNodeConfig is used to serialize the node configuration so it can be
 // passed to the child process as a JSON encoded environment variable
-type execNodeConfig struct {
-	Stack     node.Config       `json:"stack"`
-	Node      *NodeConfig       `json:"node"`
+type execNodeConfig [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	Stack     node.Config[T,P]       `json:"stack"`
+	Node      *NodeConfig[T,P]       `json:"node"`
 	Snapshots map[string][]byte `json:"snapshots,omitempty"`
 	PeerAddrs map[string]string `json:"peer_addrs,omitempty"`
 }
 
-func initLogging() {
+func initLogging[T crypto.PrivateKey, P crypto.PublicKey]() {
 	// Initialize the logging by default first.
 	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.LogfmtFormat()))
 	glogger.Verbosity(log.LvlInfo)
@@ -383,7 +415,7 @@ func initLogging() {
 	if confEnv == "" {
 		return
 	}
-	var conf execNodeConfig
+	var conf execNodeConfig[T,P]
 	if err := json.Unmarshal([]byte(confEnv), &conf); err != nil {
 		return
 	}
@@ -408,8 +440,8 @@ func initLogging() {
 // execP2PNode starts a simulation node when the current binary is executed with
 // argv[0] being "p2p-node", reading the service / ID from argv[1] / argv[2]
 // and the node config from an environment variable.
-func execP2PNode() {
-	initLogging()
+func execP2PNode[T crypto.PrivateKey, P crypto.PublicKey]() {
+	initLogging[T,P]()
 
 	statusURL := os.Getenv(envStatusURL)
 	if statusURL == "" {
@@ -418,7 +450,7 @@ func execP2PNode() {
 
 	// Start the node and gather startup report.
 	var status nodeStartupJSON
-	stack, stackErr := startExecNodeStack()
+	stack, stackErr := startExecNodeStack[T,P]()
 	if stackErr != nil {
 		status.Err = stackErr.Error()
 	} else {
@@ -447,7 +479,7 @@ func execP2PNode() {
 	stack.Wait() // Wait for the stack to exit.
 }
 
-func startExecNodeStack() (*node.Node, error) {
+func startExecNodeStack[T crypto.PrivateKey, P crypto.PublicKey]() (*node.Node[T,P], error) {
 	// read the services from argv
 	serviceNames := strings.Split(os.Args[1], ",")
 
@@ -456,7 +488,7 @@ func startExecNodeStack() (*node.Node, error) {
 	if confEnv == "" {
 		return nil, fmt.Errorf("missing " + envNodeConfig)
 	}
-	var conf execNodeConfig
+	var conf execNodeConfig[T,P]
 	if err := json.Unmarshal([]byte(confEnv), &conf); err != nil {
 		return nil, fmt.Errorf("error decoding %s: %v", envNodeConfig, err)
 	}
@@ -484,7 +516,7 @@ func startExecNodeStack() (*node.Node, error) {
 		if !exists {
 			return nil, fmt.Errorf("unknown node service %q", err)
 		}
-		ctx := &ServiceContext{
+		ctx := &ServiceContext[T,P]{
 			RPCDialer: &wsRPCDialer{addrs: conf.PeerAddrs},
 			Config:    conf.Node,
 		}

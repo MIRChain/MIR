@@ -22,12 +22,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/node"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/simulations/adapters"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-func newTestNetwork(t *testing.T, nodeCount int) (*Network, []enode.ID) {
+func newTestNetwork[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, nodeCount int) (*Network, []enode.ID) {
 	t.Helper()
 	adapter := adapters.NewSimAdapter(adapters.LifecycleConstructors{
-		"noopwoop": func(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
+		"noopwoop": func(ctx *adapters.ServiceContext, stack *node.Node[T,P]) (node.Lifecycle, error) {
 			return NewNoopService(nil), nil
 		},
 	})

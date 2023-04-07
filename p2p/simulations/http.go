@@ -36,52 +36,53 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 	"github.com/pavelkrolevets/MIR-pro/p2p/simulations/adapters"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // DefaultClient is the default simulation API client which expects the API
 // to be running at http://localhost:8888
-var DefaultClient = NewClient("http://localhost:8888")
+// var DefaultClient = NewClient("http://localhost:8888")
 
 // Client is a client for the simulation HTTP API which supports creating
 // and managing simulation networks
-type Client struct {
+type Client [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	URL string
 
 	client *http.Client
 }
 
 // NewClient returns a new simulation API client
-func NewClient(url string) *Client {
-	return &Client{
+func NewClient[T crypto.PrivateKey, P crypto.PublicKey](url string) *Client[T,P] {
+	return &Client[T,P]{
 		URL:    url,
 		client: http.DefaultClient,
 	}
 }
 
 // GetNetwork returns details of the network
-func (c *Client) GetNetwork() (*Network, error) {
-	network := &Network{}
+func (c *Client[T,P]) GetNetwork() (*Network[T,P], error) {
+	network := &Network[T,P]{}
 	return network, c.Get("/", network)
 }
 
 // StartNetwork starts all existing nodes in the simulation network
-func (c *Client) StartNetwork() error {
+func (c *Client[T,P]) StartNetwork() error {
 	return c.Post("/start", nil, nil)
 }
 
 // StopNetwork stops all existing nodes in a simulation network
-func (c *Client) StopNetwork() error {
+func (c *Client[T,P]) StopNetwork() error {
 	return c.Post("/stop", nil, nil)
 }
 
 // CreateSnapshot creates a network snapshot
-func (c *Client) CreateSnapshot() (*Snapshot, error) {
-	snap := &Snapshot{}
+func (c *Client[T,P]) CreateSnapshot() (*Snapshot[T,P], error) {
+	snap := &Snapshot[T,P]{}
 	return snap, c.Get("/snapshot", snap)
 }
 
 // LoadSnapshot loads a snapshot into the network
-func (c *Client) LoadSnapshot(snap *Snapshot) error {
+func (c *Client[T,P]) LoadSnapshot(snap *Snapshot[T,P]) error {
 	return c.Post("/snapshot", snap, nil)
 }
 
@@ -99,7 +100,7 @@ type SubscribeOpts struct {
 // SubscribeNetwork subscribes to network events which are sent from the server
 // as a server-sent-events stream, optionally receiving events for existing
 // nodes and connections and filtering message events
-func (c *Client) SubscribeNetwork(events chan *Event, opts SubscribeOpts) (event.Subscription, error) {
+func (c *Client[T,P]) SubscribeNetwork(events chan *Event[T,P], opts SubscribeOpts) (event.Subscription, error) {
 	url := fmt.Sprintf("%s/events?current=%t&filter=%s", c.URL, opts.Current, opts.Filter)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -147,7 +148,7 @@ func (c *Client) SubscribeNetwork(events chan *Event, opts SubscribeOpts) (event
 					continue
 				}
 				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-				event := &Event{}
+				event := &Event[T,P]{}
 				if err := json.Unmarshal([]byte(data), event); err != nil {
 					return fmt.Errorf("error decoding SSE event: %s", err)
 				}
@@ -168,69 +169,69 @@ func (c *Client) SubscribeNetwork(events chan *Event, opts SubscribeOpts) (event
 }
 
 // GetNodes returns all nodes which exist in the network
-func (c *Client) GetNodes() ([]*p2p.NodeInfo, error) {
+func (c *Client[T,P]) GetNodes() ([]*p2p.NodeInfo, error) {
 	var nodes []*p2p.NodeInfo
 	return nodes, c.Get("/nodes", &nodes)
 }
 
 // CreateNode creates a node in the network using the given configuration
-func (c *Client) CreateNode(config *adapters.NodeConfig) (*p2p.NodeInfo, error) {
+func (c *Client[T,P]) CreateNode(config *adapters.NodeConfig[T,P]) (*p2p.NodeInfo, error) {
 	node := &p2p.NodeInfo{}
 	return node, c.Post("/nodes", config, node)
 }
 
 // GetNode returns details of a node
-func (c *Client) GetNode(nodeID string) (*p2p.NodeInfo, error) {
+func (c *Client[T,P]) GetNode(nodeID string) (*p2p.NodeInfo, error) {
 	node := &p2p.NodeInfo{}
 	return node, c.Get(fmt.Sprintf("/nodes/%s", nodeID), node)
 }
 
 // StartNode starts a node
-func (c *Client) StartNode(nodeID string) error {
+func (c *Client[T,P]) StartNode(nodeID string) error {
 	return c.Post(fmt.Sprintf("/nodes/%s/start", nodeID), nil, nil)
 }
 
 // StopNode stops a node
-func (c *Client) StopNode(nodeID string) error {
+func (c *Client[T,P]) StopNode(nodeID string) error {
 	return c.Post(fmt.Sprintf("/nodes/%s/stop", nodeID), nil, nil)
 }
 
 // ConnectNode connects a node to a peer node
-func (c *Client) ConnectNode(nodeID, peerID string) error {
+func (c *Client[T,P]) ConnectNode(nodeID, peerID string) error {
 	return c.Post(fmt.Sprintf("/nodes/%s/conn/%s", nodeID, peerID), nil, nil)
 }
 
 // DisconnectNode disconnects a node from a peer node
-func (c *Client) DisconnectNode(nodeID, peerID string) error {
+func (c *Client[T,P]) DisconnectNode(nodeID, peerID string) error {
 	return c.Delete(fmt.Sprintf("/nodes/%s/conn/%s", nodeID, peerID))
 }
 
 // RPCClient returns an RPC client connected to a node
-func (c *Client) RPCClient(ctx context.Context, nodeID string) (*rpc.Client, error) {
+func (c *Client[T,P]) RPCClient(ctx context.Context, nodeID string) (*rpc.Client, error) {
 	baseURL := strings.Replace(c.URL, "http", "ws", 1)
 	return rpc.DialWebsocket(ctx, fmt.Sprintf("%s/nodes/%s/rpc", baseURL, nodeID), "")
 }
 
 // Get performs a HTTP GET request decoding the resulting JSON response
 // into "out"
-func (c *Client) Get(path string, out interface{}) error {
+func (c *Client[T,P]) Get(path string, out interface{}) error {
 	return c.Send("GET", path, nil, out)
 }
 
 // Post performs a HTTP POST request sending "in" as the JSON body and
 // decoding the resulting JSON response into "out"
-func (c *Client) Post(path string, in, out interface{}) error {
+func (c *Client[T,P]) Post(path string, in, out interface{}) error {
 	return c.Send("POST", path, in, out)
 }
 
 // Delete performs a HTTP DELETE request
-func (c *Client) Delete(path string) error {
+func (c *Client[T,P]) Delete(path string) error {
 	return c.Send("DELETE", path, nil, nil)
 }
 
 // Send performs a HTTP request, sending "in" as the JSON request body and
 // decoding the JSON response into "out"
-func (c *Client) Send(method, path string, in, out interface{}) error {
+func (c *Client[T,P]) Send(method, path string, in, out interface{}) error {
 	var body []byte
 	if in != nil {
 		var err error
@@ -263,16 +264,16 @@ func (c *Client) Send(method, path string, in, out interface{}) error {
 }
 
 // Server is an HTTP server providing an API to manage a simulation network
-type Server struct {
+type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	router     *httprouter.Router
-	network    *Network
+	network    *Network[T,P]
 	mockerStop chan struct{} // when set, stops the current mocker
 	mockerMtx  sync.Mutex    // synchronises access to the mockerStop field
 }
 
 // NewServer returns a new simulation API server
-func NewServer(network *Network) *Server {
-	s := &Server{
+func NewServer[T crypto.PrivateKey, P crypto.PublicKey](network *Network[T,P]) *Server[T,P] {
+	s := &Server[T,P]{
 		router:  httprouter.New(),
 		network: network,
 	}
@@ -301,12 +302,12 @@ func NewServer(network *Network) *Server {
 }
 
 // GetNetwork returns details of the network
-func (s *Server) GetNetwork(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) GetNetwork(w http.ResponseWriter, req *http.Request) {
 	s.JSON(w, http.StatusOK, s.network)
 }
 
 // StartNetwork starts all nodes in the network
-func (s *Server) StartNetwork(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) StartNetwork(w http.ResponseWriter, req *http.Request) {
 	if err := s.network.StartAll(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -316,7 +317,7 @@ func (s *Server) StartNetwork(w http.ResponseWriter, req *http.Request) {
 }
 
 // StopNetwork stops all nodes in the network
-func (s *Server) StopNetwork(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) StopNetwork(w http.ResponseWriter, req *http.Request) {
 	if err := s.network.StopAll(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -326,7 +327,7 @@ func (s *Server) StopNetwork(w http.ResponseWriter, req *http.Request) {
 }
 
 // StartMocker starts the mocker node simulation
-func (s *Server) StartMocker(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) StartMocker(w http.ResponseWriter, req *http.Request) {
 	s.mockerMtx.Lock()
 	defer s.mockerMtx.Unlock()
 	if s.mockerStop != nil {
@@ -334,7 +335,7 @@ func (s *Server) StartMocker(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	mockerType := req.FormValue("mocker-type")
-	mockerFn := LookupMocker(mockerType)
+	mockerFn := LookupMocker[T,P](mockerType)
 	if mockerFn == nil {
 		http.Error(w, fmt.Sprintf("unknown mocker type %q", mockerType), http.StatusBadRequest)
 		return
@@ -351,7 +352,7 @@ func (s *Server) StartMocker(w http.ResponseWriter, req *http.Request) {
 }
 
 // StopMocker stops the mocker node simulation
-func (s *Server) StopMocker(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) StopMocker(w http.ResponseWriter, req *http.Request) {
 	s.mockerMtx.Lock()
 	defer s.mockerMtx.Unlock()
 	if s.mockerStop == nil {
@@ -365,22 +366,22 @@ func (s *Server) StopMocker(w http.ResponseWriter, req *http.Request) {
 }
 
 // GetMockerList returns a list of available mockers
-func (s *Server) GetMockers(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) GetMockers(w http.ResponseWriter, req *http.Request) {
 
-	list := GetMockerList()
+	list := GetMockerList[T,P]()
 	s.JSON(w, http.StatusOK, list)
 }
 
 // ResetNetwork resets all properties of a network to its initial (empty) state
-func (s *Server) ResetNetwork(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) ResetNetwork(w http.ResponseWriter, req *http.Request) {
 	s.network.Reset()
 
 	w.WriteHeader(http.StatusOK)
 }
 
 // StreamNetworkEvents streams network events as a server-sent-events stream
-func (s *Server) StreamNetworkEvents(w http.ResponseWriter, req *http.Request) {
-	events := make(chan *Event)
+func (s *Server[T,P]) StreamNetworkEvents(w http.ResponseWriter, req *http.Request) {
+	events := make(chan *Event[T,P])
 	sub := s.network.events.Subscribe(events)
 	defer sub.Unsubscribe()
 
@@ -396,7 +397,7 @@ func (s *Server) StreamNetworkEvents(w http.ResponseWriter, req *http.Request) {
 			fw.Flush()
 		}
 	}
-	writeEvent := func(event *Event) error {
+	writeEvent := func(event *Event[T,P]) error {
 		data, err := json.Marshal(event)
 		if err != nil {
 			return err
@@ -434,14 +435,14 @@ func (s *Server) StreamNetworkEvents(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		for _, node := range snap.Nodes {
-			event := NewEvent(&node.Node)
+			event := NewEvent[T,P](&node.Node)
 			if err := writeEvent(event); err != nil {
 				writeErr(err)
 				return
 			}
 		}
 		for _, conn := range snap.Conns {
-			event := NewEvent(&conn)
+			event := NewEvent[T,P](&conn)
 			if err := writeEvent(event); err != nil {
 				writeErr(err)
 				return
@@ -528,7 +529,7 @@ type MsgFilter struct {
 }
 
 // CreateSnapshot creates a network snapshot
-func (s *Server) CreateSnapshot(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) CreateSnapshot(w http.ResponseWriter, req *http.Request) {
 	snap, err := s.network.Snapshot()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -539,8 +540,8 @@ func (s *Server) CreateSnapshot(w http.ResponseWriter, req *http.Request) {
 }
 
 // LoadSnapshot loads a snapshot into the network
-func (s *Server) LoadSnapshot(w http.ResponseWriter, req *http.Request) {
-	snap := &Snapshot{}
+func (s *Server[T,P]) LoadSnapshot(w http.ResponseWriter, req *http.Request) {
+	snap := &Snapshot[T,P]{}
 	if err := json.NewDecoder(req.Body).Decode(snap); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -555,8 +556,8 @@ func (s *Server) LoadSnapshot(w http.ResponseWriter, req *http.Request) {
 }
 
 // CreateNode creates a node in the network using the given configuration
-func (s *Server) CreateNode(w http.ResponseWriter, req *http.Request) {
-	config := &adapters.NodeConfig{}
+func (s *Server[T,P]) CreateNode(w http.ResponseWriter, req *http.Request) {
+	config := &adapters.NodeConfig[T,P]{}
 
 	err := json.NewDecoder(req.Body).Decode(config)
 	if err != nil && err != io.EOF {
@@ -574,7 +575,7 @@ func (s *Server) CreateNode(w http.ResponseWriter, req *http.Request) {
 }
 
 // GetNodes returns all nodes which exist in the network
-func (s *Server) GetNodes(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) GetNodes(w http.ResponseWriter, req *http.Request) {
 	nodes := s.network.GetNodes()
 
 	infos := make([]*p2p.NodeInfo, len(nodes))
@@ -586,15 +587,15 @@ func (s *Server) GetNodes(w http.ResponseWriter, req *http.Request) {
 }
 
 // GetNode returns details of a node
-func (s *Server) GetNode(w http.ResponseWriter, req *http.Request) {
-	node := req.Context().Value("node").(*Node)
+func (s *Server[T,P]) GetNode(w http.ResponseWriter, req *http.Request) {
+	node := req.Context().Value("node").(*Node[T,P])
 
 	s.JSON(w, http.StatusOK, node.NodeInfo())
 }
 
 // StartNode starts a node
-func (s *Server) StartNode(w http.ResponseWriter, req *http.Request) {
-	node := req.Context().Value("node").(*Node)
+func (s *Server[T,P]) StartNode(w http.ResponseWriter, req *http.Request) {
+	node := req.Context().Value("node").(*Node[T,P])
 
 	if err := s.network.Start(node.ID()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -605,8 +606,8 @@ func (s *Server) StartNode(w http.ResponseWriter, req *http.Request) {
 }
 
 // StopNode stops a node
-func (s *Server) StopNode(w http.ResponseWriter, req *http.Request) {
-	node := req.Context().Value("node").(*Node)
+func (s *Server[T,P]) StopNode(w http.ResponseWriter, req *http.Request) {
+	node := req.Context().Value("node").(*Node[T,P])
 
 	if err := s.network.Stop(node.ID()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -617,9 +618,9 @@ func (s *Server) StopNode(w http.ResponseWriter, req *http.Request) {
 }
 
 // ConnectNode connects a node to a peer node
-func (s *Server) ConnectNode(w http.ResponseWriter, req *http.Request) {
-	node := req.Context().Value("node").(*Node)
-	peer := req.Context().Value("peer").(*Node)
+func (s *Server[T,P]) ConnectNode(w http.ResponseWriter, req *http.Request) {
+	node := req.Context().Value("node").(*Node[T,P])
+	peer := req.Context().Value("peer").(*Node[T,P])
 
 	if err := s.network.Connect(node.ID(), peer.ID()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -630,9 +631,9 @@ func (s *Server) ConnectNode(w http.ResponseWriter, req *http.Request) {
 }
 
 // DisconnectNode disconnects a node from a peer node
-func (s *Server) DisconnectNode(w http.ResponseWriter, req *http.Request) {
-	node := req.Context().Value("node").(*Node)
-	peer := req.Context().Value("peer").(*Node)
+func (s *Server[T,P]) DisconnectNode(w http.ResponseWriter, req *http.Request) {
+	node := req.Context().Value("node").(*Node[T,P])
+	peer := req.Context().Value("peer").(*Node[T,P])
 
 	if err := s.network.Disconnect(node.ID(), peer.ID()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -644,7 +645,7 @@ func (s *Server) DisconnectNode(w http.ResponseWriter, req *http.Request) {
 
 // Options responds to the OPTIONS HTTP method by returning a 200 OK response
 // with the "Access-Control-Allow-Headers" header set to "Content-Type"
-func (s *Server) Options(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) Options(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.WriteHeader(http.StatusOK)
 }
@@ -655,44 +656,44 @@ var wsUpgrade = websocket.Upgrader{
 
 // NodeRPC forwards RPC requests to a node in the network via a WebSocket
 // connection
-func (s *Server) NodeRPC(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) NodeRPC(w http.ResponseWriter, req *http.Request) {
 	conn, err := wsUpgrade.Upgrade(w, req, nil)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
-	node := req.Context().Value("node").(*Node)
+	node := req.Context().Value("node").(*Node[T,P])
 	node.ServeRPC(conn)
 }
 
 // ServeHTTP implements the http.Handler interface by delegating to the
 // underlying httprouter.Router
-func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (s *Server[T,P]) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	s.router.ServeHTTP(w, req)
 }
 
 // GET registers a handler for GET requests to a particular path
-func (s *Server) GET(path string, handle http.HandlerFunc) {
+func (s *Server[T,P]) GET(path string, handle http.HandlerFunc) {
 	s.router.GET(path, s.wrapHandler(handle))
 }
 
 // POST registers a handler for POST requests to a particular path
-func (s *Server) POST(path string, handle http.HandlerFunc) {
+func (s *Server[T,P]) POST(path string, handle http.HandlerFunc) {
 	s.router.POST(path, s.wrapHandler(handle))
 }
 
 // DELETE registers a handler for DELETE requests to a particular path
-func (s *Server) DELETE(path string, handle http.HandlerFunc) {
+func (s *Server[T,P]) DELETE(path string, handle http.HandlerFunc) {
 	s.router.DELETE(path, s.wrapHandler(handle))
 }
 
 // OPTIONS registers a handler for OPTIONS requests to a particular path
-func (s *Server) OPTIONS(path string, handle http.HandlerFunc) {
+func (s *Server[T,P]) OPTIONS(path string, handle http.HandlerFunc) {
 	s.router.OPTIONS("/*path", s.wrapHandler(handle))
 }
 
 // JSON sends "data" as a JSON HTTP response
-func (s *Server) JSON(w http.ResponseWriter, status int, data interface{}) {
+func (s *Server[T,P]) JSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
@@ -700,7 +701,7 @@ func (s *Server) JSON(w http.ResponseWriter, status int, data interface{}) {
 
 // wrapHandler returns an httprouter.Handle which wraps an http.HandlerFunc by
 // populating request.Context with any objects from the URL params
-func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
+func (s *Server[T,P]) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -709,7 +710,7 @@ func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 
 		if id := params.ByName("nodeid"); id != "" {
 			var nodeID enode.ID
-			var node *Node
+			var node *Node[T,P]
 			if nodeID.UnmarshalText([]byte(id)) == nil {
 				node = s.network.GetNode(nodeID)
 			} else {
@@ -724,7 +725,7 @@ func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 
 		if id := params.ByName("peerid"); id != "" {
 			var peerID enode.ID
-			var peer *Node
+			var peer *Node[T,P]
 			if peerID.UnmarshalText([]byte(id)) == nil {
 				peer = s.network.GetNode(peerID)
 			} else {

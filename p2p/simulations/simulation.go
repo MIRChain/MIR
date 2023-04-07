@@ -20,26 +20,27 @@ import (
 	"context"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
 // Simulation provides a framework for running actions in a simulated network
 // and then waiting for expectations to be met
-type Simulation struct {
-	network *Network
+type Simulation [T crypto.PrivateKey, P crypto.PublicKey] struct {
+	network *Network[T,P]
 }
 
 // NewSimulation returns a new simulation which runs in the given network
-func NewSimulation(network *Network) *Simulation {
-	return &Simulation{
+func NewSimulation[T crypto.PrivateKey, P crypto.PublicKey](network *Network[T,P]) *Simulation[T,P] {
+	return &Simulation[T,P]{
 		network: network,
 	}
 }
 
 // Run performs a step of the simulation by performing the step's action and
 // then waiting for the step's expectation to be met
-func (s *Simulation) Run(ctx context.Context, step *Step) (result *StepResult) {
-	result = newStepResult()
+func (s *Simulation[T,P]) Run(ctx context.Context, step *Step) (result *StepResult[T,P]) {
+	result = newStepResult[T,P]()
 
 	result.StartedAt = time.Now()
 	defer func() { result.FinishedAt = time.Now() }()
@@ -90,10 +91,10 @@ func (s *Simulation) Run(ctx context.Context, step *Step) (result *StepResult) {
 	return
 }
 
-func (s *Simulation) watchNetwork(result *StepResult) func() {
+func (s *Simulation[T,P]) watchNetwork(result *StepResult[T,P]) func() {
 	stop := make(chan struct{})
 	done := make(chan struct{})
-	events := make(chan *Event)
+	events := make(chan *Event[T,P])
 	sub := s.network.Events().Subscribe(events)
 	go func() {
 		defer close(done)
@@ -133,13 +134,13 @@ type Expectation struct {
 	Check func(context.Context, enode.ID) (bool, error)
 }
 
-func newStepResult() *StepResult {
-	return &StepResult{
+func newStepResult[T crypto.PrivateKey, P crypto.PublicKey]() *StepResult[T,P] {
+	return &StepResult[T,P]{
 		Passes: make(map[enode.ID]time.Time),
 	}
 }
 
-type StepResult struct {
+type StepResult [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Error is the error encountered whilst running the step
 	Error error
 
@@ -153,5 +154,5 @@ type StepResult struct {
 	Passes map[enode.ID]time.Time
 
 	// NetworkEvents are the network events which occurred during the step
-	NetworkEvents []*Event
+	NetworkEvents []*Event[T,P]
 }
