@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -59,7 +61,7 @@ func uintID(i uint16) enode.ID {
 }
 
 // newNode creates a node record with the given address.
-func newNode(id enode.ID, addr string) *enode.Node[nist.PublicKey] {
+func newNode[T crypto.PrivateKey, P crypto.PublicKey](id enode.ID, addr string) *enode.Node[P] {
 	var r enr.Record
 	if addr != "" {
 		// Set the port if present.
@@ -83,19 +85,38 @@ func newNode(id enode.ID, addr string) *enode.Node[nist.PublicKey] {
 		}
 		r.Set(enr.IP(ip))
 	}
-	return enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, id)
+	return enode.SignNull[T,P](&r, id)
 }
 
-func testPeer(protos []Protocol[nist.PrivateKey,nist.PublicKey]) (func(), *conn[nist.PrivateKey, nist.PublicKey], *Peer[nist.PrivateKey, nist.PublicKey], <-chan error) {
+func testPeer[T crypto.PrivateKey, P crypto.PublicKey](protos []Protocol[T,P]) (func(), *conn[T,P], *Peer[T,P], <-chan error) {
 	var (
 		fd1, fd2   = net.Pipe()
-		key1, key2 = newkey(), newkey()
-		t1         = newTestTransport(key2.Public(), fd1, &nist.PublicKey{})
-		t2         = newTestTransport(key1.Public(), fd2, key1.Public())
+		key1, key2 = newkey[T](), newkey[T]()
+		t1 transport[T, P]
+		t2 transport[T, P]
 	)
-
-	c1 := &conn[nist.PrivateKey, nist.PublicKey]{fd: fd1, node: newNode(uintID(1), ""), transport: t1}
-	c2 := &conn[nist.PrivateKey, nist.PublicKey]{fd: fd2, node: newNode(uintID(2), ""), transport: t2}
+	var pub2 P
+	switch t2:=any(&key2).(type){
+	case *nist.PrivateKey:
+		p2:=any(&pub2).(*nist.PublicKey)
+		*p2=*t2.Public()
+	case *gost3410.PrivateKey:
+		p2:=any(&pub2).(*gost3410.PublicKey)
+		*p2=*t2.Public()
+	}
+	t1 = newTestTransport[T,P](pub2, fd1, crypto.ZeroPublicKey[P]())
+	var pub1 P
+	switch t1:=any(&key1).(type){
+	case *nist.PrivateKey:
+		p1:=any(&pub1).(*nist.PublicKey)
+		*p1=*t1.Public()
+	case *gost3410.PrivateKey:
+		p1:=any(&pub1).(*gost3410.PublicKey)
+		*p1=*t1.Public()
+	}
+	t2 = newTestTransport[T,P](pub1, fd2, pub1)
+	c1 := &conn[T,P]{fd: fd1, node: newNode[T,P](uintID(1), ""), transport: t1}
+	c2 := &conn[T,P]{fd: fd2, node: newNode[T,P](uintID(2), ""), transport: t2}
 	for _, p := range protos {
 		c1.caps = append(c1.caps, p.cap())
 		c2.caps = append(c2.caps, p.cap())
@@ -170,7 +191,7 @@ func TestPeerProtoEncodeMsg(t *testing.T) {
 }
 
 func TestPeerPing(t *testing.T) {
-	closer, rw, _, _ := testPeer(nil)
+	closer, rw, _, _ := testPeer[nist.PrivateKey,nist.PublicKey](nil)
 	defer closer()
 	if err := SendItems(rw, pingMsg); err != nil {
 		t.Fatal(err)
@@ -183,7 +204,7 @@ func TestPeerPing(t *testing.T) {
 // This test checks that a disconnect message sent by a peer is returned
 // as the error from Peer.run.
 func TestPeerDisconnect(t *testing.T) {
-	closer, rw, _, disc := testPeer(nil)
+	closer, rw, _, disc := testPeer[nist.PrivateKey,nist.PublicKey](nil)
 	defer closer()
 
 	if err := SendItems(rw, discMsg, DiscQuitting); err != nil {

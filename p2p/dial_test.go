@@ -48,23 +48,23 @@ func TestDialSchedDynDial(t *testing.T) {
 		// 9 nodes are discovered, but only 2 are dialed.
 		{
 			peersAdded: []*conn[nist.PrivateKey, nist.PublicKey]{
-				{flags: staticDialedConn, node: newNode(uintID(0x00), "")},
-				{flags: dynDialedConn, node: newNode(uintID(0x01), "")},
-				{flags: dynDialedConn, node: newNode(uintID(0x02), "")},
+				{flags: staticDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x00), "")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "")},
 			},
 			discovered: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x00), "127.0.0.1:30303"), // not dialed because already connected as static peer
-				newNode(uintID(0x02), "127.0.0.1:30303"), // ...
-				newNode(uintID(0x03), "127.0.0.1:30303"),
-				newNode(uintID(0x04), "127.0.0.1:30303"),
-				newNode(uintID(0x05), "127.0.0.1:30303"), // not dialed because there are only two slots
-				newNode(uintID(0x06), "127.0.0.1:30303"), // ...
-				newNode(uintID(0x07), "127.0.0.1:30303"), // ...
-				newNode(uintID(0x08), "127.0.0.1:30303"), // ...
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x00), "127.0.0.1:30303"), // not dialed because already connected as static peer
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.1:30303"), // ...
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x04), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x05), "127.0.0.1:30303"), // not dialed because there are only two slots
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x06), "127.0.0.1:30303"), // ...
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x07), "127.0.0.1:30303"), // ...
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x08), "127.0.0.1:30303"), // ...
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x03), "127.0.0.1:30303"),
-				newNode(uintID(0x04), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x04), "127.0.0.1:30303"),
 			},
 		},
 
@@ -74,7 +74,7 @@ func TestDialSchedDynDial(t *testing.T) {
 				uintID(0x04),
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x05), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x05), "127.0.0.1:30303"),
 			},
 		},
 
@@ -87,7 +87,7 @@ func TestDialSchedDynDial(t *testing.T) {
 				uintID(0x05),
 			},
 			discovered: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x09), "127.0.0.1:30303"), // not dialed because there are no free slots
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x09), "127.0.0.1:30303"), // not dialed because there are no free slots
 			},
 		},
 
@@ -100,18 +100,18 @@ func TestDialSchedDynDial(t *testing.T) {
 				uintID(0x02),
 			},
 			discovered: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x0a), "127.0.0.1:30303"),
-				newNode(uintID(0x0b), "127.0.0.1:30303"),
-				newNode(uintID(0x0c), "127.0.0.1:30303"),
-				newNode(uintID(0x0d), "127.0.0.1:30303"),
-				newNode(uintID(0x0f), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0a), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0b), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0c), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0d), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0f), "127.0.0.1:30303"),
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x06), "127.0.0.1:30303"),
-				newNode(uintID(0x07), "127.0.0.1:30303"),
-				newNode(uintID(0x08), "127.0.0.1:30303"),
-				newNode(uintID(0x09), "127.0.0.1:30303"),
-				newNode(uintID(0x0a), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x06), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x07), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x08), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x09), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0a), "127.0.0.1:30303"),
 			},
 		},
 	})
@@ -122,14 +122,14 @@ func TestDialSchedNetRestrict(t *testing.T) {
 	t.Parallel()
 
 	nodes := []*enode.Node[nist.PublicKey]{
-		newNode(uintID(0x01), "127.0.0.1:30303"),
-		newNode(uintID(0x02), "127.0.0.2:30303"),
-		newNode(uintID(0x03), "127.0.0.3:30303"),
-		newNode(uintID(0x04), "127.0.0.4:30303"),
-		newNode(uintID(0x05), "127.0.2.5:30303"),
-		newNode(uintID(0x06), "127.0.2.6:30303"),
-		newNode(uintID(0x07), "127.0.2.7:30303"),
-		newNode(uintID(0x08), "127.0.2.8:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x04), "127.0.0.4:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x05), "127.0.2.5:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x06), "127.0.2.6:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x07), "127.0.2.7:30303"),
+		newNode[nist.PrivateKey,nist.PublicKey](uintID(0x08), "127.0.2.8:30303"),
 	}
 	config := dialConfig[nist.PublicKey]{
 		netRestrict:    new(netutil.Netlist),
@@ -166,28 +166,28 @@ func TestDialSchedStaticDial(t *testing.T) {
 		// aren't yet connected.
 		{
 			peersAdded: []*conn[nist.PrivateKey,nist.PublicKey]{
-				{flags: dynDialedConn, node: newNode(uintID(0x01), "127.0.0.1:30303")},
-				{flags: dynDialedConn, node: newNode(uintID(0x02), "127.0.0.2:30303")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303")},
 			},
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {
 				// These two are not dialed because they're already connected
 				// as dynamic peers.
-				d.addStatic(newNode(uintID(0x01), "127.0.0.1:30303"))
-				d.addStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"))
 				// These nodes will be dialed:
-				d.addStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
-				d.addStatic(newNode(uintID(0x04), "127.0.0.4:30303"))
-				d.addStatic(newNode(uintID(0x05), "127.0.0.5:30303"))
-				d.addStatic(newNode(uintID(0x06), "127.0.0.6:30303"))
-				d.addStatic(newNode(uintID(0x07), "127.0.0.7:30303"))
-				d.addStatic(newNode(uintID(0x08), "127.0.0.8:30303"))
-				d.addStatic(newNode(uintID(0x09), "127.0.0.9:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x04), "127.0.0.4:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x05), "127.0.0.5:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x06), "127.0.0.6:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x07), "127.0.0.7:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x08), "127.0.0.8:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x09), "127.0.0.9:30303"))
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x03), "127.0.0.3:30303"),
-				newNode(uintID(0x04), "127.0.0.4:30303"),
-				newNode(uintID(0x05), "127.0.0.5:30303"),
-				newNode(uintID(0x06), "127.0.0.6:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x04), "127.0.0.4:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x05), "127.0.0.5:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x06), "127.0.0.6:30303"),
 			},
 		},
 		// Dial to 0x03 completes, filling a peer slot. One slot remains,
@@ -207,21 +207,21 @@ func TestDialSchedStaticDial(t *testing.T) {
 				uintID(0x06): nil,
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x08), "127.0.0.8:30303"),
-				newNode(uintID(0x09), "127.0.0.9:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x08), "127.0.0.8:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x09), "127.0.0.9:30303"),
 			},
 		},
 		// Peer 0x01 drops and 0x07 connects as inbound peer.
 		// Only 0x01 is dialed.
 		{
 			peersAdded: []*conn[nist.PrivateKey,nist.PublicKey]{
-				{flags: inboundConn, node: newNode(uintID(0x07), "127.0.0.7:30303")},
+				{flags: inboundConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0x07), "127.0.0.7:30303")},
 			},
 			peersRemoved: []enode.ID{
 				uintID(0x01),
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x01), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"),
 			},
 		},
 	})
@@ -239,12 +239,12 @@ func TestDialSchedRemoveStatic(t *testing.T) {
 		// Add static nodes.
 		{
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {
-				d.addStatic(newNode(uintID(0x01), "127.0.0.1:30303"))
-				d.addStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
-				d.addStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"))
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x01), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"),
 			},
 		},
 		// Dial to 0x01 fails.
@@ -256,16 +256,16 @@ func TestDialSchedRemoveStatic(t *testing.T) {
 				uintID(0x01): nil,
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x02), "127.0.0.2:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"),
 			},
 		},
 		// All static nodes are removed. 0x01 is in history, 0x02 is being
 		// dialed, 0x03 is in staticPool.
 		{
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {
-				d.removeStatic(newNode(uintID(0x01), "127.0.0.1:30303"))
-				d.removeStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
-				d.removeStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
+				d.removeStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"))
+				d.removeStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"))
+				d.removeStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"))
 			},
 			failed: []enode.ID{
 				uintID(0x02),
@@ -287,12 +287,12 @@ func TestDialSchedManyStaticNodes(t *testing.T) {
 	runDialTest(t, config, []dialTestRound{
 		{
 			peersAdded: []*conn[nist.PrivateKey, nist.PublicKey]{
-				{flags: dynDialedConn, node: newNode(uintID(0xFFFE), "")},
-				{flags: dynDialedConn, node: newNode(uintID(0xFFFF), "")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0xFFFE), "")},
+				{flags: dynDialedConn, node: newNode[nist.PrivateKey,nist.PublicKey](uintID(0xFFFF), "")},
 			},
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {
 				for id := uint16(0); id < 2000; id++ {
-					n := newNode(uintID(id), "127.0.0.1:30303")
+					n := newNode[nist.PrivateKey,nist.PublicKey](uintID(id), "127.0.0.1:30303")
 					d.addStatic(n)
 				}
 			},
@@ -303,10 +303,10 @@ func TestDialSchedManyStaticNodes(t *testing.T) {
 				uintID(0xFFFF),
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x0085), "127.0.0.1:30303"),
-				newNode(uintID(0x02dc), "127.0.0.1:30303"),
-				newNode(uintID(0x0285), "127.0.0.1:30303"),
-				newNode(uintID(0x00cb), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0085), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02dc), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x0285), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x00cb), "127.0.0.1:30303"),
 			},
 		},
 	})
@@ -323,14 +323,14 @@ func TestDialSchedHistory(t *testing.T) {
 	runDialTest(t, config, []dialTestRound{
 		{
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {
-				d.addStatic(newNode(uintID(0x01), "127.0.0.1:30303"))
-				d.addStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
-				d.addStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"))
+				d.addStatic(newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"))
 			},
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x01), "127.0.0.1:30303"),
-				newNode(uintID(0x02), "127.0.0.2:30303"),
-				newNode(uintID(0x03), "127.0.0.3:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x02), "127.0.0.2:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"),
 			},
 		},
 		// No new tasks are launched in this round because all static
@@ -353,7 +353,7 @@ func TestDialSchedHistory(t *testing.T) {
 		// The cache entry for node 0x03 has expired and is retried.
 		{
 			wantNewDials: []*enode.Node[nist.PublicKey]{
-				newNode(uintID(0x03), "127.0.0.3:30303"),
+				newNode[nist.PrivateKey,nist.PublicKey](uintID(0x03), "127.0.0.3:30303"),
 			},
 		},
 	})
@@ -366,9 +366,9 @@ func TestDialSchedResolve(t *testing.T) {
 		maxActiveDials: 1,
 		maxDialPeers:   1,
 	}
-	node := newNode(uintID(0x01), "")
-	resolved := newNode(uintID(0x01), "127.0.0.1:30303")
-	resolved2 := newNode(uintID(0x01), "127.0.0.55:30303")
+	node := newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "")
+	resolved := newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.1:30303")
+	resolved2 := newNode[nist.PrivateKey,nist.PublicKey](uintID(0x01), "127.0.0.55:30303")
 	runDialTest(t, config, []dialTestRound{
 		{
 			update: func(d *dialScheduler[nist.PrivateKey,nist.PublicKey]) {

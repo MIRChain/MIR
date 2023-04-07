@@ -347,11 +347,17 @@ func (prv *PrivateKey[T,P]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
 	if len(c) == 0 {
 		return nil, ErrInvalidMessage
 	}
-	params, err := pubkeyParams(&prv.PublicKey)
-	if err != nil {
-		return nil, err
+	var params *ECIESParams
+	var pubType P
+	switch any(&pubType).(type){
+	case *nist.PublicKey:
+		params, err = pubkeyParams(&prv.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	case *gost3410.PublicKey:
+		params = ECIES_AES128_SHA256
 	}
-
 	hash := params.Hash()
 
 	var (
@@ -376,7 +382,12 @@ func (prv *PrivateKey[T,P]) Decrypt(c, s1, s2 []byte) (m []byte, err error) {
 
 	R := new(PublicKey[P])
 	R.Curve = prv.PublicKey.Curve
-	R.X, R.Y = elliptic.Unmarshal(R.Curve, c[:rLen])
+	switch any(&pubType).(type){
+	case *nist.PublicKey:
+		R.X, R.Y = elliptic.Unmarshal(R.Curve, c[:rLen])
+	case *gost3410.PublicKey:
+		R.X, R.Y = gost3410.Unmarshal(R.Curve, c[:rLen])
+	}
 	if R.X == nil {
 		return nil, ErrInvalidPublicKey
 	}

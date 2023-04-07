@@ -233,15 +233,15 @@ func Marshal(curve elliptic.Curve, x, y *big.Int) []byte {
 // Unmarshal converts a point, serialized by Marshal, into an x, y pair. It is
 // an error if the point is not in uncompressed form, is not on the curve, or is
 // the point at infinity. On error, x = nil.
-func Unmarshal(curve Curve, data []byte) (x, y *big.Int) {
-	byteLen := (curve.P.BitLen() + 7) / 8
+func Unmarshal(curve elliptic.Curve, data []byte) (x, y *big.Int) {
+	byteLen := (curve.Params().BitSize + 7) / 8
 	if len(data) != 1+2*byteLen {
 		return nil, nil
 	}
 	if data[0] != 4 { // uncompressed form
 		return nil, nil
 	}
-	p := curve.P
+	p := curve.Params().P
 	x = new(big.Int).SetBytes(data[1 : 1+byteLen])
 	y = new(big.Int).SetBytes(data[1+byteLen:])
 	if x.Cmp(p) >= 0 || y.Cmp(p) >= 0 {
@@ -266,7 +266,11 @@ func (curve *Curve) IsOnCurve(x, y *big.Int) bool {
 	x3.Add(x3, aX)
 	x3.Add(x3, curve.B)
 	res_y := x3.ModSqrt(x3, curve.P)
-	
-	res_y.Sub(curve.P, res_y)
-	return res_y.Cmp(y) == 0
+	if res_y.Cmp(y) != 0 {
+		res_y.Sub(curve.P, res_y)
+		if res_y.Cmp(y) != 0 {
+			return false
+		}
+	}
+	return true
 }

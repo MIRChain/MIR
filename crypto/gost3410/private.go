@@ -115,6 +115,6 @@ func (prv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpt
 	return prv.SignDigest(digest, rand)
 }
 
-func (prv *PrivateKey) Public() *PublicKey {
+func (prv PrivateKey) Public() *PublicKey {
 	return &prv.PublicKey
 }
