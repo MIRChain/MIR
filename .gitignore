@@ -60,7 +60,7 @@ build/PEEPS
 /devchain*/*/node*/quorum-raft-state/
 /devchain*/*/node*/raft-snap/
 /devchain*/*/node*/raft-wal/
-/devchain/node*/mir.ipc
+/devchain/*/node*/mir.ipc
 
 /devchain*/*/learner*/mir/
 /devchain*/*/learner*/quorum-raft-state/
