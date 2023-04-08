@@ -1,7 +1,9 @@
 #!/bin/bash
 echo "Starting node3 ..."
 
-../../build/bin/mir --datadir node3 \
+../../build/bin/mir --crypto gost \
+    --gostcurve id-GostR3410-2001-CryptoPro-A-ParamSet \
+    --datadir node3 \
     --identity node3 \
     --syncmode full \
     --port 30313 \

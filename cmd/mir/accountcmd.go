@@ -19,14 +19,12 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"reflect"
 
 	"github.com/pavelkrolevets/MIR-pro/accounts"
 	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -58,6 +56,8 @@ passwordfile as argument containing the wallet password in plaintext.`,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
 					utils.LightKDFFlag,
+					utils.CryptoSwitchFlag,
+					utils.CryptoGostCurveFlag,
 				},
 				Description: `
 	geth wallet [options] /path/to/my/presale.wallet
@@ -114,6 +114,8 @@ Print a short summary of all accounts`,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
 					utils.LightKDFFlag,
+					utils.CryptoSwitchFlag,
+					utils.CryptoGostCurveFlag,
 				},
 				Description: `
     geth account new
@@ -139,6 +141,8 @@ password to file or expose in any other way.
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
 					utils.LightKDFFlag,
+					utils.CryptoSwitchFlag,
+					utils.CryptoGostCurveFlag,
 				},
 				Description: `
     geth account update <address>
@@ -162,12 +166,14 @@ changing your password is only possible interactively.
 			{
 				Name:   "import",
 				Usage:  "Import a private key into a new account",
-				Action: utils.MigrateFlags(accountImport[nist.PrivateKey, nist.PublicKey]),
+				Action: utils.MigrateFlags(accountImport),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
 					utils.LightKDFFlag,
+					utils.CryptoSwitchFlag,
+					utils.CryptoGostCurveFlag,
 				},
 				ArgsUsage: "<keyFile>",
 				Description: `
@@ -266,32 +272,21 @@ func ambiguousAddrRecovery[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore
 
 // accountCreate creates a new account into the keystore defined by the CLI flags.
 func accountCreate(ctx *cli.Context) error {
-	cryptoType := os.Getenv("MIR_CRYPTO")
-	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
-		if cryptoType == "nist"{
-			cfg := gethConfig[nist.PrivateKey,nist.PublicKey]{Node: defaultNodeConfig[nist.PrivateKey,nist.PublicKey]()}
-				// Load config file.
-			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
-				if err := loadConfig(file, &cfg); err != nil {
-					utils.Fatalf("%v", err)
-				}
-			}
-			utils.SetNodeConfig(ctx, &cfg.Node)
-			scryptN, scryptP, keydir, err := cfg.Node.AccountConfig()
 
-			if err != nil {
-				utils.Fatalf("Failed to read configuration: %v", err)
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
 			}
-			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
-			account, err := keystore.StoreKey[nist.PrivateKey,nist.PublicKey](keydir, password, scryptN, scryptP)
-			fmt.Printf("\nYour new key was generated\n\n")
-			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
-			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
-			if err != nil {
-				utils.Fatalf("Failed to create account: %v", err)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
 			}
-		}
-		if cryptoType == "gost"{
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
 			cfg := gethConfig[gost3410.PrivateKey,gost3410.PublicKey]{Node: defaultNodeConfig[gost3410.PrivateKey,gost3410.PublicKey]()}
 				// Load config file.
 			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
@@ -313,9 +308,10 @@ func accountCreate(ctx *cli.Context) error {
 			if err != nil {
 				utils.Fatalf("Failed to create account: %v", err)
 			}
-		}
-		if cryptoType == "gost_csp" {
-			cfg := gethConfig[csp.Cert,csp.PublicKey]{Node: defaultNodeConfig[csp.Cert,csp.PublicKey]()}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			//TODO
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			cfg := gethConfig[nist.PrivateKey,nist.PublicKey]{Node: defaultNodeConfig[nist.PrivateKey,nist.PublicKey]()}
 				// Load config file.
 			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 				if err := loadConfig(file, &cfg); err != nil {
@@ -329,16 +325,18 @@ func accountCreate(ctx *cli.Context) error {
 				utils.Fatalf("Failed to read configuration: %v", err)
 			}
 			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
-			account, err := keystore.StoreKey[csp.Cert,csp.PublicKey](keydir, password, scryptN, scryptP)
+			account, err := keystore.StoreKey[nist.PrivateKey,nist.PublicKey](keydir, password, scryptN, scryptP)
 			fmt.Printf("\nYour new key was generated\n\n")
 			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
 			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
 			if err != nil {
 				utils.Fatalf("Failed to create account: %v", err)
 			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			//TODO
+		} else {
+			fmt.Errorf("wrong crypto flag")
 		}
-	} else {
-		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
 	}
 	fmt.Printf("- You can share your public address with anyone. Others need it to interact with you.\n")
 	fmt.Printf("- You must NEVER share the secret key with anyone! The key controls access to your funds!\n")
@@ -388,23 +386,60 @@ func importWallet[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) err
 	return nil
 }
 
-func accountImport[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+func accountImport(ctx *cli.Context) error {
 	keyfile := ctx.Args().First()
 	if len(keyfile) == 0 {
 		utils.Fatalf("keyfile must be given as argument")
 	}
-	key, err := crypto.LoadECDSA[T](keyfile)
-	if err != nil {
-		utils.Fatalf("Failed to load the private key: %v", err)
-	}
-	stack, _ := makeConfigNode[T,P](ctx)
-	passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
 
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
-	acct, err := ks.ImportECDSA(key, passphrase)
-	if err != nil {
-		utils.Fatalf("Could not create the account: %v", err)
+			key, err := crypto.LoadECDSA[gost3410.PrivateKey](keyfile)
+			if err != nil {
+				utils.Fatalf("Failed to load the private key: %v", err)
+			}
+			stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+			passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
+			acct, err := ks.ImportECDSA(key, passphrase)
+			if err != nil {
+				utils.Fatalf("Could not create the account: %v", err)
+			}
+			fmt.Printf("Address: {%x}\n", acct.Address)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" { 
+			key, err := crypto.LoadECDSA[nist.PrivateKey](keyfile)
+			if err != nil {
+				utils.Fatalf("Failed to load the private key: %v", err)
+			}
+			stack, _ := makeConfigNode[nist.PrivateKey,nist.PublicKey](ctx)
+			passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey,nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey,nist.PublicKey])
+			acct, err := ks.ImportECDSA(key, passphrase)
+			if err != nil {
+				utils.Fatalf("Could not create the account: %v", err)
+			}
+			fmt.Printf("Address: {%x}\n", acct.Address)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" { 
+			//TODO
+		}else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			//TODO
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
 	}
-	fmt.Printf("Address: {%x}\n", acct.Address)
 	return nil
 }

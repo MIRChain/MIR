@@ -23,7 +23,7 @@
 
 ## Building the source
 
-Building `mir` requires both a Go (version 1.16 or later) and a C compiler. You can install
+Building `mir` requires both a Go (version 1.18 or later) and a C compiler. You can install
 them using your favourite package manager. Once the dependencies are installed, run
 
 ```shell

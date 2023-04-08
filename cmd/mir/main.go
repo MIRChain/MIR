@@ -274,18 +274,8 @@ var (
 )
 
 func init() {
-	// Initialize the CLI app and start Mir
-	cryptoType := os.Getenv("MIR_CRYPTO")
-	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
-		if cryptoType == "nist"{
-			app.Action = mir[nist.PrivateKey, nist.PublicKey]
-		}
-		if cryptoType == "gost"{
-			app.Action = mir[gost3410.PrivateKey, gost3410.PublicKey]
-		}
-	} else {
-		panic("Crypto type should be set: nist, gost, gost_csp, pqc")
-	}
+	// Initialize the CLI app and start Mirc
+	app.Action = mir
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2023 The go-ethereum and Mir Authors"
 	app.Commands = []cli.Command{
@@ -394,44 +384,46 @@ func prepare(ctx *cli.Context) {
 // mir is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
-func mir[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+func mir(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
-
 	// Mir - set crypto before the start of services 
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
-			crypto.CryptoAlg = crypto.GOST
-			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetA" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
 			}
-			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetB" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
 			}
-			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "341012256paramsetC" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
 			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			stack, backend := makeFullNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+			defer stack.Close()		
+			startNode(ctx, stack, backend)
+			stack.Wait()
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
 			crypto.CryptoAlg = crypto.GOST_CSP
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
-			crypto.CryptoAlg = crypto.NIST
+			stack, backend := makeFullNode[nist.PrivateKey,nist.PublicKey](ctx)
+			defer stack.Close()
+			startNode(ctx, stack, backend)
+			stack.Wait()
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
 			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
 		}
-	}
-
-	prepare(ctx)
-	stack, backend := makeFullNode[T,P](ctx)
-	defer stack.Close()
-
-	// Mir - check if signer cert is loaded
-	// if stack.Config().SignerCert.Bytes() == nil {
-	// 	return fmt.Errorf("signer cert cant be nil")
-	// }
-
-	startNode(ctx, stack, backend)
-	stack.Wait()
+	} 
 	return nil
 }
 

@@ -47,7 +47,8 @@ func main() {
 		runv5       = flag.Bool("v5", false, "run a v5 topic discovery bootnode")
 		verbosity   = flag.Int("verbosity", int(log.LvlInfo), "log verbosity (0-5)")
 		vmodule     = flag.String("vmodule", "", "log verbosity pattern")
-
+		cryptoType  = flag.String("crypto", "nist", "switch between differet tyoes of cryptography - NIST, GOST, PostQuantum")
+		gostCurve   = flag.String("gostcurve", "id-GostR3410-2001-CryptoPro-A-ParamSet", "GOST ECDSA curve parameters")
 		// nodeKey *ecdsa.PrivateKey
 		err     error
 	)
@@ -58,15 +59,23 @@ func main() {
 	glogger.Vmodule(*vmodule)
 	log.Root().SetHandler(glogger)
 
-	cryptoType := os.Getenv("MIR_CRYPTO")
-	if cryptoType == "nist" || cryptoType == "gost" || cryptoType == "gost_csp" ||  cryptoType == "pqc" {
-		if cryptoType == "nist"{
+	if *cryptoType == "nist" || *cryptoType == "gost" || *cryptoType == "gost_csp" ||  *cryptoType == "pqc" {
+		if *cryptoType == "nist"{
 			runNode[nist.PrivateKey, nist.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
 		}
-		if cryptoType == "gost"{
+		if *cryptoType == "gost"{
+			if *gostCurve == "" || *gostCurve == "id-GostR3410-2001-CryptoPro-A-ParamSet"{
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			} else if *gostCurve == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			} else if *gostCurve == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			} else if *gostCurve == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
 			runNode[gost3410.PrivateKey, gost3410.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
 		}
-		if cryptoType == "gost_csp" {
+		if *cryptoType == "gost_csp" {
 			runNode[csp.Cert, csp.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
 		}
 	} else {

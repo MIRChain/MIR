@@ -1,7 +1,8 @@
 #!/bin/bash
 echo "Starting node2 ..."
 
-../../build/bin/mir --datadir node2 \
+../../build/bin/mir --crypto nist \
+    --datadir node2 \
     --identity node2 \
     --syncmode full \
     --port 30312 \
@@ -10,5 +11,5 @@ echo "Starting node2 ..."
     --unlock 0x01665a4eb869efbf3af991e0b791d5347718a49d \
     --password node2/password.txt \
     --mine \
-    --verbosity 9 \
+    --verbosity 4 \
     --allow-insecure-unlock

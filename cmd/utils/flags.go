@@ -1088,8 +1088,8 @@ var (
 	}
 	CryptoGostCurveFlag = cli.StringFlag{
 		Name:  "gostcurve",
-		Usage: "Gost ECDSA curve parameters",
-		Value: "341012256paramsetA",
+		Usage: "GOST ECDSA curve parameters",
+		Value: "id-GostR3410-2001-CryptoPro-A-ParamSet",
 	}
 )
 
