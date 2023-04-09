@@ -21,6 +21,8 @@
 - High transaction throughput at Proof-of-Authority/Raft/iBFT/QBFT consensus
 - All of the EVM and Ethereum tools working out of the box
 
+Documentation can be found here: [https://mirchain.github.io/MIR/](https://mirchain.github.io/MIR/)
+
 ## Building the source
 
 Building `mir` requires both a Go (version 1.18 or later) and a C compiler. You can install
