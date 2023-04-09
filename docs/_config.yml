@@ -1,0 +1,5 @@
+title: MIR модульный блокчейн 
+description: Онован на Ethereum/Quorum и имеет возможностью выбора криптографии при создании новой сети - Гост, Криптопро ГОСТ, NIST(+PQC) 
+show_downloads: true
+google_analytics:
+theme: jekyll-theme-slate

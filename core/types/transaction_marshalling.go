@@ -133,7 +133,7 @@ func (t *Transaction[P]) UnmarshalJSON(input []byte) error {
 		itx.S = (*big.Int)(dec.S)
 		withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
 		if withSignature {
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S, true); err != nil {
+			if err := sanityCheckSignature[P](itx.V, itx.R, itx.S, true); err != nil {
 				return err
 			}
 		}
@@ -186,7 +186,7 @@ func (t *Transaction[P]) UnmarshalJSON(input []byte) error {
 		itx.S = (*big.Int)(dec.S)
 		withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
 		if withSignature {
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S, false); err != nil {
+			if err := sanityCheckSignature[P](itx.V, itx.R, itx.S, false); err != nil {
 				return err
 			}
 		}

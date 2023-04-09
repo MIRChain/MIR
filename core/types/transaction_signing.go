@@ -427,7 +427,7 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 		offset = 27
 	}
 	V := byte(Vb.Uint64() - offset)
-	if !crypto.ValidateSignatureValues(V, R, S, homestead) {
+	if !crypto.ValidateSignatureValues[P](V, R, S, homestead) {
 		return common.Address{}, ErrInvalidSig
 	}
 	// encode the signature in uncompressed format

@@ -18,6 +18,7 @@ package crypto
 
 import (
 	"bufio"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -376,23 +377,30 @@ func  GenerateKey[T PrivateKey]() (T, error) {
 	return key, nil
 }
 
-func GenerateKeyGost() (*gost3410.PrivateKey, error) {
-	return gost3410.GenPrivateKey(gost3410.GostCurve, rand.Reader)
-}
-
 // ValidateSignatureValues verifies whether the signature values are valid with
 // the given chain rules. The v value is assumed to be either 0 or 1.
-func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
-	if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+func ValidateSignatureValues[P crypto.PublicKey](v byte, r, s *big.Int, homestead bool) bool {
+	var pub P
+	switch any(&pub).(type) {
+	case *nist.PublicKey:
+		if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+			return false
+		}
+		// reject upper range of s values (ECDSA malleability)
+		// see discussion in secp256k1/libsecp256k1/include/secp256k1.h
+		if homestead && s.Cmp(secp256k1halfN) > 0 {
+			return false
+		}
+		// Frontier: allow s to be in full N range
+		return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
+	case *gost3410.PublicKey:
+		if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+			return false
+		}
+		return r.Cmp(gost3410.GostCurve.Q) < 0 && s.Cmp(gost3410.GostCurve.Q) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
+	default:
 		return false
 	}
-	// reject upper range of s values (ECDSA malleability)
-	// see discussion in secp256k1/libsecp256k1/include/secp256k1.h
-	if homestead && s.Cmp(secp256k1halfN) > 0 {
-		return false
-	}
-	// Frontier: allow s to be in full N range
-	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
 }
 
 func PubkeyToAddress[P PublicKey](pub P) common.Address {

@@ -196,7 +196,7 @@ func (tx *Transaction[P]) setDecoded(inner TxData, size int) {
 	}
 }
 
-func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
+func sanityCheckSignature[P crypto.PublicKey](v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
 	if isProtectedV(v) && !maybeProtected {
 		return ErrUnexpectedProtection
 	}
@@ -215,7 +215,7 @@ func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected boo
 		// must already be equal to the recovery id.
 		plainV = byte(v.Uint64())
 	}
-	if !crypto.ValidateSignatureValues(plainV, r, s, false) {
+	if !crypto.ValidateSignatureValues[P](plainV, r, s, false) {
 		return ErrInvalidSig
 	}
 
