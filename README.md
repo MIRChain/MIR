@@ -1,4 +1,4 @@
-## MIR chain Enterprise
+## MIR chain
 
 #### Implementation of Quorum/Ethereum with Russian GOST (and Post-Quantum) cryptography under the hood.
 
