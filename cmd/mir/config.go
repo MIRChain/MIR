@@ -378,10 +378,12 @@ func quorumValidateEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *no
 	if err != nil {
 		utils.Fatalf("Error retrieving Ethereum service: %v", err)
 	}
+	// Mir
+	if ethereum.BlockChain().Config().Ethash == nil && (isRaft || ethereum.BlockChain().Config().Istanbul != nil || ethereum.BlockChain().Config().IBFT != nil || ethereum.BlockChain().Config().QBFT != nil || ethereum.BlockChain().Config().Clique != nil) {
+		quorumValidateConsensus(ethereum, isRaft)
 
-	quorumValidateConsensus(ethereum, isRaft)
-
-	quorumValidatePrivacyEnhancements(ethereum)
+		quorumValidatePrivacyEnhancements(ethereum)
+	}
 }
 
 // quorumValidateConsensus checks if a consensus was used. The node is killed if consensus was not used

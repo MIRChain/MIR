@@ -2539,16 +2539,16 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		Fatalf("Failed to attach to self: %v", err)
 	}
 	// Lazy logic
-	if config.Clique == nil && config.QBFT == nil && config.IBFT == nil && config.Istanbul == nil {
-		config.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
-			if strings.EqualFold(t.Algorithm, params.QBFT) {
-				config.QBFT = &params.QBFTConfig{}
-			}
-			if strings.EqualFold(t.Algorithm, params.IBFT) {
-				config.IBFT = &params.IBFTConfig{}
-			}
-		})
-	}
+	// if config.Clique == nil && config.QBFT == nil && config.IBFT == nil && config.Istanbul == nil {
+	// 	config.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
+	// 		if strings.EqualFold(t.Algorithm, params.QBFT) {
+	// 			config.QBFT = &params.QBFTConfig{}
+	// 		}
+	// 		if strings.EqualFold(t.Algorithm, params.IBFT) {
+	// 			config.IBFT = &params.IBFTConfig{}
+	// 		}
+	// 	})
+	// }
 	if config.Clique != nil {
 		engine = clique.New[P](config.Clique, chainDb)
 	} else if config.Istanbul != nil {
@@ -2587,19 +2587,31 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		// for Raft
 		engine = ethash.NewFullFaker[P]()
 	} else {
-		engine = ethash.NewFaker[P]()
-		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New[P](ethash.Config{
-				CacheDir:         stack.ResolvePath(ethconfig.Defaults[P]().Ethash.CacheDir),
-				CachesInMem:      ethconfig.Defaults[P]().Ethash.CachesInMem,
-				CachesOnDisk:     ethconfig.Defaults[P]().Ethash.CachesOnDisk,
-				CachesLockMmap:   ethconfig.Defaults[P]().Ethash.CachesLockMmap,
-				DatasetDir:       stack.ResolvePath(ethconfig.Defaults[P]().Ethash.DatasetDir),
-				DatasetsInMem:    ethconfig.Defaults[P]().Ethash.DatasetsInMem,
-				DatasetsOnDisk:   ethconfig.Defaults[P]().Ethash.DatasetsOnDisk,
-				DatasetsLockMmap: ethconfig.Defaults[P]().Ethash.DatasetsLockMmap,
-			}, nil, false)
+		ethashConf := ethconfig.Defaults[P]().Ethash
+		if ctx.Bool(FakePoWFlag.Name) {
+			ethashConf.PowMode = ethash.ModeFake
 		}
+		switch ethashConf.PowMode {
+		case ethash.ModeFake:
+			log.Warn("Ethash used in fake mode")
+		case ethash.ModeTest:
+			log.Warn("Ethash used in test mode")
+		case ethash.ModeShared:
+			log.Warn("Ethash used in shared mode")
+		}
+		
+		engine = ethash.New[P](ethash.Config{
+			PowMode:          ethashConf.PowMode,
+			CacheDir:         stack.ResolvePath(ethashConf.CacheDir),
+			CachesInMem:      ethashConf.CachesInMem,
+			CachesOnDisk:     ethashConf.CachesOnDisk,
+			CachesLockMmap:   ethashConf.CachesLockMmap,
+			DatasetDir:       stack.ResolvePath(ethashConf.DatasetDir),
+			DatasetsInMem:    ethashConf.DatasetsInMem,
+			DatasetsOnDisk:   ethashConf.DatasetsOnDisk,
+			DatasetsLockMmap: ethashConf.DatasetsLockMmap,
+			NotifyFull:       ethashConf.NotifyFull,
+		}, nil, false)
 	}
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)

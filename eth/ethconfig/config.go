@@ -305,6 +305,32 @@ func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.
 
 		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
+	if chainConfig.Ethash != nil {
+		// Mir 
+		ethashConf := Defaults[P]().Ethash
+		switch ethashConf.PowMode {
+		case ethash.ModeFake:
+			log.Warn("Ethash used in fake mode")
+		case ethash.ModeTest:
+			log.Warn("Ethash used in test mode")
+		case ethash.ModeShared:
+			log.Warn("Ethash used in shared mode")
+		}
+		engine := ethash.New[P](ethash.Config{
+			PowMode:          ethashConf.PowMode,
+			CacheDir:         stack.ResolvePath(ethashConf.CacheDir),
+			CachesInMem:      ethashConf.CachesInMem,
+			CachesOnDisk:     ethashConf.CachesOnDisk,
+			CachesLockMmap:   ethashConf.CachesLockMmap,
+			DatasetDir:       ethashConf.DatasetDir,
+			DatasetsInMem:    ethashConf.DatasetsInMem,
+			DatasetsOnDisk:   ethashConf.DatasetsOnDisk,
+			DatasetsLockMmap: ethashConf.DatasetsLockMmap,
+			NotifyFull:       ethashConf.NotifyFull,
+		}, notify, noverify)
+		engine.SetThreads(-1) // Disable CPU mining
+		return engine
+	}
 	// For Quorum, Raft run as a separate service, so
 	// the Ethereum service still needs a consensus engine,
 	// use the consensus with the lightest overhead

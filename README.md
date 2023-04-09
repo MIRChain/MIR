@@ -1,24 +1,24 @@
-## MIR chain PRO
+## MIR chain Enterprise
 
-#### Implementation of the MIR-protocol with Russian GOST (and Post-Quantum) cryptography under the hood. Based on Quorum/Ethereum.
+#### Implementation of Quorum/Ethereum with Russian GOST (and Post-Quantum) cryptography under the hood.
 
 ### Features
 
-- Different types of crypto can be signature chosen at the chain initialization: 
+- Different types of crypto signature can be chosen at a new chain initialization: 
   - GOST 34.10 (any 256 bit curve)
   - CyptoProGOST
   - NIST PostQuantum
   - NIST Secp256k1
-- Different type of hash function:
+- Different type of hash function can be chosen at a new chain initialization:
   - SHA3
   - SteebogHash
-- Differetnt consensus algoruthms are avaliable:
+- Differetnt consensus algoruthms are also avaliable at a new chain initialization:
+  - Proof-of-Work
   - Proof-of-Authority 
   - Raft
   - iBFT
   - QBFT
-- High transaction throughput
-- GUI for easy nodes management
+- High transaction throughput at Proof-of-Authority/Raft/iBFT/QBFT consensus
 - All of the EVM and Ethereum tools working out of the box
 
 ## Building the source

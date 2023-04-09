@@ -224,7 +224,7 @@ func newWorker[T crypto.PrivateKey, P crypto.PublicKey](config *Config, chainCon
 		resubmitIntervalCh: make(chan time.Duration),
 		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
-	if _, ok := engine.(consensus.Istanbul[P]); ok || !chainConfig.IsQuorum || chainConfig.Clique != nil {
+	if _, ok := engine.(consensus.Istanbul[P]); ok || !chainConfig.IsQuorum || chainConfig.Clique != nil || chainConfig.Ethash != nil {
 		// Subscribe NewTxsEvent for tx pool
 		worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 		// Subscribe events for blockchain
