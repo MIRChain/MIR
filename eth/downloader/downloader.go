@@ -150,7 +150,7 @@ type Downloader [T crypto.PrivateKey,P crypto.PublicKey] struct {
 	pivotLock   sync.RWMutex  // Lock protecting pivot header reads from updates
 
 	snapSync       bool         // Whether to run state sync over the snap protocol
-	SnapSyncer     *snap.Syncer // TODO(karalabe): make private! hack for now
+	SnapSyncer     *snap.Syncer[P] // TODO(karalabe): make private! hack for now
 	stateSyncStart chan *stateSync[T,P]
 	trackStateReq  chan *stateReq
 	stateCh        chan dataPack // Channel receiving inbound node state data
@@ -221,7 +221,7 @@ type BlockChain [P crypto.PublicKey] interface {
 	InsertReceiptChain(types.Blocks[P], []types.Receipts[P], uint64) (int, error)
 
 	// Snapshots returns the blockchain snapshot tree to paused it during sync.
-	Snapshots() *snapshot.Tree
+	Snapshots() *snapshot.Tree[P]
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -254,7 +254,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](checkpoint uint64, stateDb eth
 		headerProcCh:   make(chan []*types.Header, 1),
 		quitCh:         make(chan struct{}),
 		stateCh:        make(chan dataPack),
-		SnapSyncer:     snap.NewSyncer(stateDb),
+		SnapSyncer:     snap.NewSyncer[P](stateDb),
 		stateSyncStart: make(chan *stateSync[T,P]),
 		syncStatsState: stateSyncStats{
 			processed: rawdb.ReadFastTrieProgress(stateDb),
@@ -2003,7 +2003,7 @@ func (d *Downloader[T,P]) DeliverNodeData(id string, data [][]byte) error {
 // data packet for the local node to consume.
 func (d *Downloader[T,P]) DeliverSnapPacket(peer *snap.Peer[T,P], packet snap.Packet) error {
 	switch packet := packet.(type) {
-	case *snap.AccountRangePacket:
+	case *snap.AccountRangePacket[P]:
 		hashes, accounts, err := packet.Unpack()
 		if err != nil {
 			return err

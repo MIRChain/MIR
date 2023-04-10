@@ -48,7 +48,7 @@ type cipherparamsJSONCsp struct {
 	IV string `json:"iv"`
 }
 
-func newKeyCsp(subjectKeyId string) (*KeyCsp, error) {
+func newKeyCsp[P crypto.PublicKey](subjectKeyId string) (*KeyCsp, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		panic(fmt.Sprintf("Could not create random uuid: %v", err))
@@ -64,14 +64,14 @@ func newKeyCsp(subjectKeyId string) (*KeyCsp, error) {
 	}
 	key := &KeyCsp{
 		Id:         id,
-		Address:    crypto.PubkeyToAddressCsp(crt.Info().PublicKeyBytes()),
+		Address:    common.BytesToAddress(crypto.Keccak256[P](crt.Info().PublicKeyBytes()[1:])[12:]),
 		SubjectKeyId: subjectKeyId,
 	}
 	return key, nil
 }
 
 func storeNewKeyCsp[T crypto.PrivateKey, P crypto.PublicKey](ks keyStore[T], rand io.Reader, subjectKeyId string) (*KeyCsp, accounts.Account, error) {
-	key, err := newKeyCsp(subjectKeyId)
+	key, err := newKeyCsp[P](subjectKeyId)
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}

@@ -289,7 +289,7 @@ func (sb *Backend[T,P]) Verify(proposal istanbul.Proposal) (time.Duration, error
 
 // Sign implements istanbul.Backend.Sign
 func (sb *Backend[T,P]) Sign(data []byte) ([]byte, error) {
-	hashData := crypto.Keccak256(data)
+	hashData := crypto.Keccak256[P](data)
 	return crypto.Sign(hashData, sb.privateKey)
 }
 

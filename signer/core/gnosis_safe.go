@@ -34,12 +34,12 @@ type GnosisSafeTx [P crypto.PublicKey] struct {
 }
 
 // ToTypedData converts the tx to a EIP-712 Typed Data structure for signing
-func (tx *GnosisSafeTx[P]) ToTypedData() TypedData {
+func (tx *GnosisSafeTx[P]) ToTypedData() TypedData[P] {
 	var data hexutil.Bytes
 	if tx.Data != nil {
 		data = *tx.Data
 	}
-	gnosisTypedData := TypedData{
+	gnosisTypedData := TypedData[P]{
 		Types: Types{
 			"EIP712Domain": []Type{{Name: "verifyingContract", Type: "address"}},
 			"SafeTx": []Type{

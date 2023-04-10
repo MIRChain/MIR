@@ -89,7 +89,7 @@ type Engine [P crypto.PublicKey] interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P],
+	Finalize(chain ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P],
 		uncles []*types.Header)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -97,7 +97,7 @@ type Engine [P crypto.PublicKey] interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P],
+	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P],
 		uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error)
 
 	// Seal generates a new sealing request for the given input block and pushes

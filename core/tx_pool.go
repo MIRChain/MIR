@@ -146,7 +146,7 @@ const (
 type blockChain [P crypto.PublicKey] interface {
 	CurrentBlock() *types.Block[P]
 	GetBlock(hash common.Hash, number uint64) *types.Block[P]
-	StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error)
+	StateAt(root common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[P]) event.Subscription
 }
@@ -246,8 +246,8 @@ type TxPool [P crypto.PublicKey] struct {
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
 
-	currentState  *state.StateDB // Current state in the blockchain head
-	pendingNonces *txNoncer      // Pending state tracking virtual nonces
+	currentState  *state.StateDB[P] // Current state in the blockchain head
+	pendingNonces *txNoncer[P]      // Pending state tracking virtual nonces
 	currentMaxGas uint64         // Current gas limit for transaction caps
 
 	locals  *accountSet[P] // Set of local transaction to exempt from eviction rules

@@ -610,5 +610,5 @@ func (lc *LightChain[P]) QuorumConfig() *core.QuorumChainConfig { return &core.Q
 func (lc *LightChain[P]) PrivateStateManager() mps.PrivateStateManager[P] { return nil }
 
 // CheckAndSetPrivateState updates the private state as a part contract state extension
-func (lc *LightChain[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {
+func (lc *LightChain[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB[P], psi types.PrivateStateIdentifier) {
 }

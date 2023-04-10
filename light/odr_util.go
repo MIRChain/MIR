@@ -55,7 +55,7 @@ func GetHeaderByNumber[P crypto.PublicKey](ctx context.Context, odr OdrBackend[P
 	if number >= chts*odr.IndexerConfig().ChtSize {
 		return nil, errNoTrustedCht
 	}
-	r := &ChtRequest{
+	r := &ChtRequest[P]{
 		ChtRoot:  GetChtRoot(db, chts-1, chtHead),
 		ChtNum:   chts - 1,
 		BlockNum: number,
@@ -254,7 +254,7 @@ func GetBloomBits[P crypto.PublicKey](ctx context.Context, odr OdrBackend[P], bi
 		return result, nil
 	}
 	// Send odr request to retrieve missing bloombits.
-	r := &BloomRequest{
+	r := &BloomRequest[P]{
 		BloomTrieRoot:    GetBloomTrieRoot(db, blooms-1, sectionHead),
 		BloomTrieNum:     blooms - 1,
 		BitIdx:           bit,

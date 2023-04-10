@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/misc"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -537,7 +538,7 @@ func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *t
 	if fulldag {
 		dataset := ethash.dataset(number, true)
 		if dataset.generated() {
-			digest, result = hashimotoFull(dataset.dataset, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
+			digest, result = hashimotoFull[P](dataset.dataset, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
 
 			// Datasets are unmapped in a finalizer. Ensure that the dataset stays alive
 			// until after the call to hashimotoFull so it's not unmapped while being used.
@@ -555,7 +556,7 @@ func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *t
 		if ethash.config.PowMode == ModeTest {
 			size = 32 * 1024
 		}
-		digest, result = hashimotoLight(size, cache.cache, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
+		digest, result = hashimotoLight[P](size, cache.cache, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
 
 		// Caches are unmapped in a finalizer. Ensure that the cache stays alive
 		// until after the call to hashimotoLight so it's not unmapped while being used.
@@ -585,7 +586,7 @@ func (ethash *Ethash[P]) Prepare(chain consensus.ChainHeaderReader, header *type
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
-func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header) {
+func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -593,12 +594,12 @@ func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader, header *typ
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
 // uncle rewards, setting the final state and assembling the block.
-func (ethash *Ethash[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
+func (ethash *Ethash[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	// Finalize block
 	ethash.Finalize(chain, header, state, txs, uncles)
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock[P](header, txs, uncles, receipts, trie.NewStackTrie(nil)), nil
+	return types.NewBlock[P](header, txs, uncles, receipts, trie.NewStackTrie[P](nil)), nil
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
@@ -639,7 +640,7 @@ var (
 // AccumulateRewards credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
+func accumulateRewards[P crypto.PublicKey](config *params.ChainConfig, state *state.StateDB[P], header *types.Header, uncles []*types.Header) {
 	// Skip block reward in catalyst mode
 	if config.IsCatalyst(header.Number) {
 		return
@@ -679,6 +680,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Quorum: wrapper for accumulateRewards to be called by raft minter
-func AccumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
+func AccumulateRewards[P crypto.PublicKey](config *params.ChainConfig, state *state.StateDB[P], header *types.Header, uncles []*types.Header) {
 	accumulateRewards(config, state, header, uncles)
 }

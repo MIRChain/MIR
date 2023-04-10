@@ -261,7 +261,7 @@ type stateSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	d *Downloader[T,P] // Downloader instance to access and manage current peerset
 
 	root   common.Hash        // State root currently being synced
-	sched  *trie.Sync         // State trie sync scheduler defining the tasks
+	sched  *trie.Sync[P]         // State trie sync scheduler defining the tasks
 	keccak crypto.KeccakState // Keccak256 hasher to verify deliveries with
 
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
@@ -298,7 +298,7 @@ func newStateSync[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T,P], r
 	return &stateSync[T,P]{
 		d:         d,
 		root:      root,
-		sched:     state.NewStateSync(root, d.stateDB, d.stateBloom, nil),
+		sched:     state.NewStateSync[P](root, d.stateDB, d.stateBloom, nil),
 		keccak:    sha3.NewLegacyKeccak256().(crypto.KeccakState),
 		trieTasks: make(map[common.Hash]*trieTask),
 		codeTasks: make(map[common.Hash]*codeTask),

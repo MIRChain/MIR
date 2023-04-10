@@ -292,7 +292,7 @@ func (api *PublicDebugAPI[T,P]) DefaultStateRoot(ctx context.Context, blockNr rp
 	}
 	defaultPSM := psm.DefaultStateMetadata()
 
-	var privateState *state.StateDB
+	var privateState *state.StateDB[P]
 	if blockNr == rpc.PendingBlockNumber {
 		// If we're dumping the pending state, we need to request
 		// both the pending block as well as the pending state from
@@ -383,7 +383,7 @@ func (api *PublicDebugAPI[T,P]) AccountRange(ctx context.Context, blockNrOrHash 
 	if err != nil {
 		return state.IteratorDump{}, err
 	}
-	var stateDb *state.StateDB
+	var stateDb *state.StateDB[P]
 
 	if number, ok := blockNrOrHash.Number(); ok {
 		if number == rpc.PendingBlockNumber {
@@ -540,11 +540,11 @@ func (api *PrivateDebugAPI[T,P]) getModifiedAccounts(startBlock, endBlock *types
 	}
 	triedb := api.eth.BlockChain().StateCache().TrieDB()
 
-	oldTrie, err := trie.NewSecure(startBlock.Root(), triedb)
+	oldTrie, err := trie.NewSecure[P](startBlock.Root(), triedb)
 	if err != nil {
 		return nil, err
 	}
-	newTrie, err := trie.NewSecure(endBlock.Root(), triedb)
+	newTrie, err := trie.NewSecure[P](endBlock.Root(), triedb)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +568,7 @@ func (api *PrivateDebugAPI[T,P]) getModifiedAccounts(startBlock, endBlock *types
 // If block number is not given the latest block is used.
 func (s *PublicEthereumAPI[T,P]) StorageRoot(ctx context.Context, addr common.Address, blockNr *rpc.BlockNumber) (common.Hash, error) {
 	var (
-		pub, priv *state.StateDB
+		pub, priv *state.StateDB[P]
 		err       error
 	)
 
@@ -615,7 +615,7 @@ func (api *PublicDebugAPI[T,P]) DumpAddress(ctx context.Context, address common.
 
 //Taken from DumpBlock, as it was reused in DumpAddress.
 //Contains modifications from the original to return the private state db, as well as public.
-func (api *PublicDebugAPI[T,P]) getStateDbsFromBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *state.StateDB, error) {
+func (api *PublicDebugAPI[T,P]) getStateDbsFromBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB[P], *state.StateDB[P], error) {
 	psm, err := api.eth.blockchain.PrivateStateManager().ResolveForUserContext(ctx)
 	if err != nil {
 		return nil, nil, err

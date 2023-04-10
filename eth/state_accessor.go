@@ -39,7 +39,7 @@ import (
 // are attempted to be reexecuted to generate the desired state. The optional
 // base layer statedb can be passed then it's regarded as the statedb of the
 // parent block.
-func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (statedb *state.StateDB, privateStateDB mps.PrivateStateRepository[P], err error) {
+func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (statedb *state.StateDB[P], privateStateDB mps.PrivateStateRepository[P], err error) {
 	var (
 		current  *types.Block[P]
 		database state.Database
@@ -63,13 +63,13 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 
 		// Create an ephemeral trie.Database for isolating the live one. Otherwise
 		// the internal junks created by tracing will be persisted into the disk.
-		database = state.NewDatabaseWithConfig(eth.chainDb, &trie.Config{Cache: 16})
+		database = state.NewDatabaseWithConfig[P](eth.chainDb, &trie.Config{Cache: 16})
 
 		// If we didn't check the dirty database, do check the clean one, otherwise
 		// we would rewind past a persisted block (specific corner case is chain
 		// tracing from the genesis).
 		if !checkLive {
-			statedb, err = state.New(current.Root(), database, nil)
+			statedb, err = state.New[P](current.Root(), database, nil)
 			if err == nil {
 				// Quorum
 				_, privateStateDB, err = eth.blockchain.StateAt(current.Root())
@@ -90,7 +90,7 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 			}
 			current = parent
 
-			statedb, err = state.New(current.Root(), database, nil)
+			statedb, err = state.New[P](current.Root(), database, nil)
 			if err == nil {
 				// Quorum
 				_, privateStateDB, err = eth.blockchain.StateAt(current.Root())
@@ -136,7 +136,7 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 		if err != nil {
 			return nil, nil, err
 		}
-		statedb, err = state.New(root, database, nil)
+		statedb, err = state.New[P](root, database, nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("state reset after block %d failed: %v", current.NumberU64(), err)
 		}
@@ -165,7 +165,7 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
+func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, nil, nil, errors.New("no transaction in genesis")
@@ -228,7 +228,7 @@ func (eth *Ethereum[T,P]) GetBlockchain() *core.BlockChain[P] {
 	return eth.BlockChain()
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

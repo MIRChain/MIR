@@ -448,8 +448,8 @@ func (h *encHandshake[T,P]) secrets(auth, authResp []byte) (Secrets[T,P], error)
 	}
 
 	// derive base secrets from ephemeral key agreement
-	sharedSecret := crypto.Keccak256(ecdheSecret, crypto.Keccak256(h.respNonce, h.initNonce))
-	aesSecret := crypto.Keccak256(ecdheSecret, sharedSecret)
+	sharedSecret := crypto.Keccak256[P](ecdheSecret, crypto.Keccak256[P](h.respNonce, h.initNonce))
+	aesSecret := crypto.Keccak256[P](ecdheSecret, sharedSecret)
 	var remotePub P
 	switch p:=any(&remotePub).(type){
 	case *nist.PublicKey:
@@ -460,7 +460,7 @@ func (h *encHandshake[T,P]) secrets(auth, authResp []byte) (Secrets[T,P], error)
 	s := Secrets[T,P]{
 		remote: remotePub,
 		AES:    aesSecret,
-		MAC:    crypto.Keccak256(ecdheSecret, aesSecret),
+		MAC:    crypto.Keccak256[P](ecdheSecret, aesSecret),
 	}
 
 	// setup sha3 instances for the MACs

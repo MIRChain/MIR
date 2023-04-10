@@ -87,7 +87,7 @@ func writeRoundNumber(round *big.Int) ApplyQBFTExtra {
 
 func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader, block *types.Block[P], validators istanbul.ValidatorSet) (time.Duration, error) {
 	// check block body
-	txnHash := types.DeriveSha(block.Transactions(), new(trie.Trie))
+	txnHash := types.DeriveSha(block.Transactions(), new(trie.Trie[P]))
 	if txnHash != block.Header().TxHash {
 		return 0, istanbulcommon.ErrMismatchTxhashes
 	}
@@ -382,7 +382,7 @@ func WriteValidators(validators []common.Address) ApplyQBFTExtra {
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header) {
+func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	e.accumulateRewards(chain, state, header, uncles, e.cfg.GetConfig(header.Number))
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -391,10 +391,10 @@ func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader, header *types.He
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
+func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	e.Finalize(chain, header, state, txs, uncles)
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie[P])), nil
 }
 
 // Seal generates a new block for the given input block with the local miner's
@@ -594,7 +594,7 @@ func (e *Engine[P]) validatorsList(genesis *types.Header, config istanbul.Config
 }
 
 // AccumulateRewards credits the beneficiary of the given block with a reward.
-func (e *Engine[P]) accumulateRewards(chain consensus.ChainHeaderReader, state *state.StateDB, header *types.Header, uncles []*types.Header, cfg istanbul.Config) {
+func (e *Engine[P]) accumulateRewards(chain consensus.ChainHeaderReader, state *state.StateDB[P], header *types.Header, uncles []*types.Header, cfg istanbul.Config) {
 	blockReward := cfg.BlockReward
 	if blockReward == nil {
 		return // no reward

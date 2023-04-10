@@ -96,7 +96,7 @@ func NewRangeFilter[P crypto.PublicKey](backend Backend[P], begin, end int64, ad
 	// Create a generic filter and convert it into a range filter
 	filter := newFilter(backend, addresses, topics, psi)
 
-	filter.matcher = bloombits.NewMatcher(size, filters)
+	filter.matcher = bloombits.NewMatcher[P](size, filters)
 	filter.begin = begin
 	filter.end = end
 
@@ -107,7 +107,7 @@ func NewRangeFilter[P crypto.PublicKey](backend Backend[P], begin, end int64, ad
 // a block to figure out whether it is interesting or not.
 func NewBlockFilter[P crypto.PublicKey](backend Backend[P], block common.Hash, addresses []common.Address, topics [][]common.Hash, psi types.PrivateStateIdentifier) *Filter[P] {
 	// Create a generic filter and convert it into a block filter
-	filter := newFilter[P](backend, addresses, topics, psi)
+	filter := newFilter(backend, addresses, topics, psi)
 	filter.block = block
 	return filter
 }

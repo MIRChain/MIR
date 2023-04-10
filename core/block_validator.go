@@ -63,7 +63,7 @@ func (v *BlockValidator[P]) ValidateBody(block *types.Block[P]) error {
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}
-	if hash := types.DeriveSha(block.Transactions(), trie.NewStackTrie(nil)); hash != header.TxHash {
+	if hash := types.DeriveSha(block.Transactions(), trie.NewStackTrie[P](nil)); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
@@ -81,7 +81,7 @@ func (v *BlockValidator[P]) ValidateBody(block *types.Block[P]) error {
 // otherwise nil and an error is returned.
 //
 // For quorum it also verifies if the canonical hash in the blocks state points to a valid parent hash.
-func (v *BlockValidator[P]) ValidateState(block *types.Block[P], statedb *state.StateDB, receipts types.Receipts[P], usedGas uint64) error {
+func (v *BlockValidator[P]) ValidateState(block *types.Block[P], statedb *state.StateDB[P], receipts types.Receipts[P], usedGas uint64) error {
 	header := block.Header()
 	if block.GasUsed() != usedGas {
 		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
@@ -93,7 +93,7 @@ func (v *BlockValidator[P]) ValidateState(block *types.Block[P], statedb *state.
 		return fmt.Errorf("invalid bloom (remote: %x  local: %x)", header.Bloom, rbloom)
 	}
 	// Tre receipt Trie's root (R = (Tr [[H1, R1], ... [Hn, Rn]]))
-	receiptSha := types.DeriveSha(receipts, trie.NewStackTrie(nil))
+	receiptSha := types.DeriveSha(receipts, trie.NewStackTrie[P](nil))
 	if receiptSha != header.ReceiptHash {
 		return fmt.Errorf("invalid receipt root hash (remote: %x local: %x)", header.ReceiptHash, receiptSha)
 	}

@@ -523,7 +523,7 @@ func (r Receipts[P]) deriveFieldsOrig(config *params.ChainConfig, hash common.Ha
 		if txs[i].To() == nil {
 			// Deriving the signer is expensive, only do if it's actually needed
 			from, _ := Sender[P](signer, txs[i])
-			r[i].ContractAddress = crypto.CreateAddress(from, txs[i].Nonce())
+			r[i].ContractAddress = crypto.CreateAddress[P](from, txs[i].Nonce())
 		}
 		// The used gas can be calculated based on previous r
 		if i == 0 {

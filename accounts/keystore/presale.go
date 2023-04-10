@@ -87,7 +87,7 @@ func decryptPreSaleKey[T crypto.PrivateKey, P crypto.PublicKey](fileContent []by
 	if err != nil {
 		return nil, err
 	}
-	ethPriv := crypto.Keccak256(plainText)
+	ethPriv := crypto.Keccak256[P](plainText)
 	ecKey := crypto.ToECDSAUnsafe[T](ethPriv)
 
 	var pub P

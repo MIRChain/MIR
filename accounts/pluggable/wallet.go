@@ -63,11 +63,11 @@ func (w *wallet[P]) Derive(_ accounts.DerivationPath, _ bool) (accounts.Account,
 func (w *wallet[P]) SelfDerive(_ []accounts.DerivationPath, _ ethereum.ChainStateReader) {}
 
 func (w *wallet[P]) SignData(account accounts.Account, _ string, data []byte) ([]byte, error) {
-	return w.pluginService.Sign(context.Background(), account, crypto.Keccak256(data))
+	return w.pluginService.Sign(context.Background(), account, crypto.Keccak256[P](data))
 }
 
 func (w *wallet[P]) SignDataWithPassphrase(account accounts.Account, passphrase, _ string, data []byte) ([]byte, error) {
-	return w.pluginService.UnlockAndSign(context.Background(), account, crypto.Keccak256(data), passphrase)
+	return w.pluginService.UnlockAndSign(context.Background(), account, crypto.Keccak256[P](data), passphrase)
 }
 
 func (w *wallet[P]) SignText(account accounts.Account, text []byte) ([]byte, error) {

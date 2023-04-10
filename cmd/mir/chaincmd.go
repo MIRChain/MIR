@@ -438,7 +438,7 @@ func importPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) 
 	db := utils.MakeChainDatabase(ctx, stack, false)
 	start := time.Now()
 
-	if err := utils.ImportPreimages(db, ctx.Args().First()); err != nil {
+	if err := utils.ImportPreimages[P](db, ctx.Args().First()); err != nil {
 		utils.Fatalf("Import error: %v\n", err)
 	}
 	fmt.Printf("Import done in %v\n", time.Since(start))
@@ -488,7 +488,7 @@ func dump[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 			fmt.Println("{}")
 			utils.Fatalf("block not found")
 		} else {
-			state, err := state.New(header.Root, state.NewDatabase(db), nil)
+			state, err := state.New[P](header.Root, state.NewDatabase[P](db), nil)
 			if err != nil {
 				utils.Fatalf("could not create new state: %v", err)
 			}

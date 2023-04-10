@@ -84,7 +84,7 @@ const (
 type environment [P crypto.PublicKey] struct {
 	signer types.Signer[P]
 
-	state     *state.StateDB // apply state changes here
+	state     *state.StateDB[P] // apply state changes here
 	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
 	family    mapset.Set     // family set (used for checking uncle invalidity)
 	uncles    mapset.Set     // uncle set
@@ -104,7 +104,7 @@ type environment [P crypto.PublicKey] struct {
 // task contains all information for consensus engine sealing and result submitting.
 type task [P crypto.PublicKey] struct {
 	receipts  []*types.Receipt[P]
-	state     *state.StateDB
+	state     *state.StateDB[P]
 	block     *types.Block[P]
 	createdAt time.Time
 
@@ -177,7 +177,7 @@ type worker [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	snapshotMu    sync.RWMutex // The lock used to protect the block snapshot and state snapshot
 	snapshotBlock *types.Block[P]
-	snapshotState *state.StateDB
+	snapshotState *state.StateDB[P]
 
 	// atomic status counters
 	running int32 // The indicator whether the consensus engine is running or not.
@@ -280,7 +280,7 @@ func (w *worker[T,P]) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker[T,P]) pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB, *state.StateDB) {
+func (w *worker[T,P]) pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB[P], *state.StateDB[P]) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
@@ -823,7 +823,7 @@ func (w *worker[T,P]) updateSnapshot() {
 		w.current.txs,
 		uncles,
 		w.current.receipts,
-		trie.NewStackTrie(nil),
+		trie.NewStackTrie[P](nil),
 	)
 	w.snapshotState = w.current.state.Copy()
 }
@@ -1202,12 +1202,12 @@ func (w *worker[T,P]) handleMPS(tx *types.Transaction[P], coinbase common.Addres
 	// make sure we don't return NIL map
 	privateStateSnaphots = make(map[types.PrivateStateIdentifier]int)
 	if tx.IsPrivate() && privateStateRepo.IsMPS() {
-		publicStateDBFactory := func() *state.StateDB {
+		publicStateDBFactory := func() *state.StateDB[P] {
 			db := workerEnv.state.Copy()
 			db.Prepare(tx.Hash(), common.Hash{}, workerEnv.tcount)
 			return db
 		}
-		privateStateDBFactory := func(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+		privateStateDBFactory := func(psi types.PrivateStateIdentifier) (*state.StateDB[P], error) {
 			db, err := privateStateRepo.StatePSI(psi)
 			if err != nil {
 				return nil, err

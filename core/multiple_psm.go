@@ -74,7 +74,7 @@ func (m *MultiplePrivateStateManager[P]) NotIncludeAny(psm *mps.PrivateStateMeta
 }
 
 func (m *MultiplePrivateStateManager[P]) CheckAt(root common.Hash) error {
-	_, err := state.New(rawdb.GetPrivateStatesTrieRoot(m.db, root), m.privateStatesTrieCache, nil)
+	_, err := state.New[P](rawdb.GetPrivateStatesTrieRoot(m.db, root), m.privateStatesTrieCache, nil)
 	return err
 }
 

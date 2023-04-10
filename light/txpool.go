@@ -115,7 +115,7 @@ func NewTxPool[P crypto.PublicKey](config *params.ChainConfig, chain *LightChain
 }
 
 // currentState returns the light state of the current head header
-func (pool *TxPool[P]) currentState(ctx context.Context) *state.StateDB {
+func (pool *TxPool[P]) currentState(ctx context.Context) *state.StateDB[P] {
 	return NewState(ctx, pool.chain.CurrentHeader(), pool.odr)
 }
 

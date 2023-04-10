@@ -193,7 +193,7 @@ func SetupGenesisBlockWithOverride[P crypto.PublicKey](db ethdb.Database, genesi
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
+	if _, err := state.New[P](header.Root, state.NewDatabaseWithConfig[P](db, nil), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock[P]()
 		}
@@ -294,7 +294,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](db), nil)
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -326,7 +326,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock[P](head, nil, nil, nil, trie.NewStackTrie(nil))
+	return types.NewBlock[P](head, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
 
 // Commit writes the block and state of a genesis specification to the database.

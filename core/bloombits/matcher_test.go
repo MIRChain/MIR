@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 const testSectionSize = 4096
@@ -31,7 +32,7 @@ const testSectionSize = 4096
 // Tests that wildcard filter rules (nil) can be specified and are handled well.
 func TestMatcherWildcards(t *testing.T) {
 	t.Parallel()
-	matcher := NewMatcher(testSectionSize, [][][]byte{
+	matcher := NewMatcher[nist.PublicKey](testSectionSize, [][][]byte{
 		{common.Address{}.Bytes(), common.Address{0x01}.Bytes()}, // Default address is not a wildcard
 		{common.Hash{}.Bytes(), common.Hash{0x01}.Bytes()},       // Default hash is not a wildcard
 		{common.Hash{0x01}.Bytes()},                              // Plain rule, sanity check
@@ -149,7 +150,7 @@ func testMatcherBothModes(t *testing.T, filter [][]bloomIndexes, start, blocks u
 // number of requests made for cross validation between different modes.
 func testMatcher(t *testing.T, filter [][]bloomIndexes, start, blocks uint64, intermittent bool, retrievals uint32, maxReqCount int) uint32 {
 	// Create a new matcher an simulate our explicit random bitsets
-	matcher := NewMatcher(testSectionSize, nil)
+	matcher := NewMatcher[nist.PublicKey](testSectionSize, nil)
 	matcher.filters = filter
 
 	for _, rule := range filter {

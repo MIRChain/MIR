@@ -92,7 +92,7 @@ func enable1884[P crypto.PublicKey](jt *JumpTable[P]) {
 	}
 }
 
-func opSelfBalance[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSelfBalance[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	balance, _ := uint256.FromBig(interpreter.evm.StateDB.GetBalance(scope.Contract.Address()))
 	scope.Stack.push(balance)
 	return nil, nil
@@ -111,7 +111,7 @@ func enable1344[P crypto.PublicKey](jt *JumpTable[P]) {
 }
 
 // opChainID implements CHAINID opcode
-func opChainID[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opChainID[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	chainId, _ := uint256.FromBig(interpreter.evm.chainConfig.ChainID)
 	scope.Stack.push(chainId)
 	return nil, nil

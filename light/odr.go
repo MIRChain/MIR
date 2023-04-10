@@ -83,14 +83,14 @@ func StorageTrieID(state *TrieID, addrHash, root common.Hash) *TrieID {
 }
 
 // TrieRequest is the ODR request type for state/storage trie entries
-type TrieRequest struct {
+type TrieRequest [P crypto.PublicKey]  struct {
 	Id    *TrieID
 	Key   []byte
-	Proof *NodeSet
+	Proof *NodeSet[P]
 }
 
 // StoreResult stores the retrieved data in local database
-func (req *TrieRequest) StoreResult(db ethdb.Database) {
+func (req *TrieRequest[P]) StoreResult(db ethdb.Database) {
 	req.Proof.Store(db)
 }
 
@@ -136,17 +136,17 @@ func (req *ReceiptsRequest[P]) StoreResult(db ethdb.Database) {
 }
 
 // ChtRequest is the ODR request type for retrieving header by Canonical Hash Trie
-type ChtRequest struct {
+type ChtRequest [P crypto.PublicKey] struct {
 	Config           *IndexerConfig
 	ChtNum, BlockNum uint64
 	ChtRoot          common.Hash
 	Header           *types.Header
 	Td               *big.Int
-	Proof            *NodeSet
+	Proof            *NodeSet[P]
 }
 
 // StoreResult stores the retrieved data in local database
-func (req *ChtRequest) StoreResult(db ethdb.Database) {
+func (req *ChtRequest[P]) StoreResult(db ethdb.Database) {
 	hash, num := req.Header.Hash(), req.Header.Number.Uint64()
 	rawdb.WriteHeader(db, req.Header)
 	rawdb.WriteTd(db, hash, num, req.Td)
@@ -154,7 +154,7 @@ func (req *ChtRequest) StoreResult(db ethdb.Database) {
 }
 
 // BloomRequest is the ODR request type for retrieving bloom filters from a CHT structure
-type BloomRequest struct {
+type BloomRequest [P crypto.PublicKey] struct {
 	OdrRequest
 	Config           *IndexerConfig
 	BloomTrieNum     uint64
@@ -162,11 +162,11 @@ type BloomRequest struct {
 	SectionIndexList []uint64
 	BloomTrieRoot    common.Hash
 	BloomBits        [][]byte
-	Proofs           *NodeSet
+	Proofs           *NodeSet[P]
 }
 
 // StoreResult stores the retrieved data in local database
-func (req *BloomRequest) StoreResult(db ethdb.Database) {
+func (req *BloomRequest[P]) StoreResult(db ethdb.Database) {
 	for i, sectionIdx := range req.SectionIndexList {
 		sectionHead := rawdb.ReadCanonicalHash(db, (sectionIdx+1)*req.Config.BloomTrieSize-1)
 		// if we don't have the canonical hash stored for this section head number, we'll still store it under

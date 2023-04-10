@@ -785,7 +785,7 @@ func (q *queue[P]) DeliverBodies(id string, txLists [][]*types.Transaction[P], u
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	validate := func(index int, header *types.Header) error {
-		if types.DeriveSha(types.Transactions[P](txLists[index]), trie.NewStackTrie(nil)) != header.TxHash {
+		if types.DeriveSha(types.Transactions[P](txLists[index]), trie.NewStackTrie[P](nil)) != header.TxHash {
 			return errInvalidBody
 		}
 		if types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
@@ -810,7 +810,7 @@ func (q *queue[P]) DeliverReceipts(id string, receiptList [][]*types.Receipt[P])
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	validate := func(index int, header *types.Header) error {
-		if types.DeriveSha(types.Receipts[P](receiptList[index]), trie.NewStackTrie(nil)) != header.ReceiptHash {
+		if types.DeriveSha(types.Receipts[P](receiptList[index]), trie.NewStackTrie[P](nil)) != header.ReceiptHash {
 			return errInvalidReceipt
 		}
 		return nil

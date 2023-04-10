@@ -21,13 +21,14 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // journalEntry is a modification entry in the state change journal that can be
 // reverted on demand.
-type journalEntry interface {
+type journalEntry [P crypto.PublicKey] interface {
 	// revert undoes the changes introduced by this journal entry.
-	revert(*StateDB)
+	revert(*StateDB[P])
 
 	// dirtied returns the Ethereum address modified by this journal entry.
 	dirtied() *common.Address
@@ -36,21 +37,21 @@ type journalEntry interface {
 // journal contains the list of state modifications applied since the last state
 // commit. These are tracked to be able to be reverted in case of an execution
 // exception or revertal request.
-type journal struct {
-	entries []journalEntry         // Current changes tracked by the journal
+type journal [P crypto.PublicKey] struct {
+	entries []journalEntry[P]         // Current changes tracked by the journal
 	dirties map[common.Address]int // Dirty accounts and the number of changes
 	mutex   sync.Mutex
 }
 
 // newJournal create a new initialized journal.
-func newJournal() *journal {
-	return &journal{
+func newJournal[P crypto.PublicKey]() *journal[P] {
+	return &journal[P]{
 		dirties: make(map[common.Address]int),
 	}
 }
 
 // append inserts a new modification entry to the end of the change journal.
-func (j *journal) append(entry journalEntry) {
+func (j *journal[P]) append(entry journalEntry[P]) {
 	defer j.mutex.Unlock()
 	j.mutex.Lock()
 	j.entries = append(j.entries, entry)
@@ -61,7 +62,7 @@ func (j *journal) append(entry journalEntry) {
 
 // revert undoes a batch of journalled modifications along with any reverted
 // dirty handling too.
-func (j *journal) revert(statedb *StateDB, snapshot int) {
+func (j *journal[P]) revert(statedb *StateDB[P], snapshot int) {
 	defer j.mutex.Unlock()
 	j.mutex.Lock()
 	for i := len(j.entries) - 1; i >= snapshot; i-- {
@@ -81,100 +82,100 @@ func (j *journal) revert(statedb *StateDB, snapshot int) {
 // dirty explicitly sets an address to dirty, even if the change entries would
 // otherwise suggest it as clean. This method is an ugly hack to handle the RIPEMD
 // precompile consensus exception.
-func (j *journal) dirty(addr common.Address) {
+func (j *journal[P]) dirty(addr common.Address) {
 	defer j.mutex.Unlock()
 	j.mutex.Lock()
 	j.dirties[addr]++
 }
 
 // length returns the current number of entries in the journal.
-func (j *journal) length() int {
+func (j *journal[P]) length() int {
 	return len(j.entries)
 }
 
 type (
 	// Changes to the account trie.
-	createObjectChange struct {
+	createObjectChange [P crypto.PublicKey] struct {
 		account *common.Address
 	}
-	resetObjectChange struct {
-		prev         *stateObject
+	resetObjectChange [P crypto.PublicKey] struct {
+		prev         *stateObject[P]
 		prevdestruct bool
 	}
-	suicideChange struct {
+	suicideChange [P crypto.PublicKey] struct {
 		account     *common.Address
 		prev        bool // whether account had already suicided
 		prevbalance *big.Int
 	}
 
 	// Changes to individual accounts.
-	balanceChange struct {
+	balanceChange [P crypto.PublicKey] struct {
 		account *common.Address
 		prev    *big.Int
 	}
-	nonceChange struct {
+	nonceChange [P crypto.PublicKey] struct {
 		account *common.Address
 		prev    uint64
 	}
-	storageChange struct {
+	storageChange [P crypto.PublicKey] struct {
 		account       *common.Address
 		key, prevalue common.Hash
 	}
-	codeChange struct {
+	codeChange [P crypto.PublicKey] struct {
 		account            *common.Address
 		prevcode, prevhash []byte
 	}
 	// Quorum - changes to AccountExtraData
-	accountExtraDataChange struct {
+	accountExtraDataChange [P crypto.PublicKey] struct {
 		account *common.Address
 		prev    *AccountExtraData
 	}
 	// Changes to other state values.
-	refundChange struct {
+	refundChange [P crypto.PublicKey] struct {
 		prev uint64
 	}
-	addLogChange struct {
+	addLogChange [P crypto.PublicKey] struct {
 		txhash common.Hash
 	}
-	addPreimageChange struct {
+	addPreimageChange [P crypto.PublicKey] struct {
 		hash common.Hash
 	}
-	touchChange struct {
+	touchChange [P crypto.PublicKey] struct {
 		account *common.Address
 	}
 	// Changes to the access list
-	accessListAddAccountChange struct {
+	accessListAddAccountChange [P crypto.PublicKey] struct {
 		address *common.Address
 	}
-	accessListAddSlotChange struct {
+	accessListAddSlotChange [P crypto.PublicKey] struct {
 		address *common.Address
 		slot    *common.Hash
 	}
 )
 
-func (ch createObjectChange) revert(s *StateDB) {
+func (ch createObjectChange[P]) revert(s *StateDB[P]) {
 	defer s.mutex.Unlock()
 	s.mutex.Lock()
 	delete(s.stateObjects, *ch.account)
 	delete(s.stateObjectsDirty, *ch.account)
 }
 
-func (ch createObjectChange) dirtied() *common.Address {
+func (ch createObjectChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch resetObjectChange) revert(s *StateDB) {
+func (ch resetObjectChange[P]) revert(s *StateDB[P]) {
 	s.setStateObject(ch.prev)
 	if !ch.prevdestruct && s.snap != nil {
 		delete(s.snapDestructs, ch.prev.addrHash)
 	}
 }
 
-func (ch resetObjectChange) dirtied() *common.Address {
+func (ch resetObjectChange[P]) dirtied() *common.Address {
 	return nil
 }
 
-func (ch suicideChange) revert(s *StateDB) {
+func (ch suicideChange[P]) revert(s *StateDB[P]) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
 		obj.suicided = ch.prev
@@ -182,71 +183,71 @@ func (ch suicideChange) revert(s *StateDB) {
 	}
 }
 
-func (ch suicideChange) dirtied() *common.Address {
+func (ch suicideChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
 var ripemd = common.HexToAddress("0000000000000000000000000000000000000003")
 
-func (ch touchChange) revert(s *StateDB) {
+func (ch touchChange[P]) revert(s *StateDB[P]) {
 }
 
-func (ch touchChange) dirtied() *common.Address {
+func (ch touchChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch balanceChange) revert(s *StateDB) {
+func (ch balanceChange[P]) revert(s *StateDB[P]) {
 	s.getStateObject(*ch.account).setBalance(ch.prev)
 }
 
-func (ch balanceChange) dirtied() *common.Address {
+func (ch balanceChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch nonceChange) revert(s *StateDB) {
+func (ch nonceChange[P]) revert(s *StateDB[P]) {
 	s.getStateObject(*ch.account).setNonce(ch.prev)
 }
 
-func (ch nonceChange) dirtied() *common.Address {
+func (ch nonceChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch codeChange) revert(s *StateDB) {
+func (ch codeChange[P]) revert(s *StateDB[P]) {
 	s.getStateObject(*ch.account).setCode(common.BytesToHash(ch.prevhash), ch.prevcode)
 }
 
-func (ch codeChange) dirtied() *common.Address {
+func (ch codeChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
 // Quorum
-func (ch accountExtraDataChange) revert(s *StateDB) {
+func (ch accountExtraDataChange[P]) revert(s *StateDB[P]) {
 	s.getStateObject(*ch.account).setAccountExtraData(ch.prev)
 }
 
-func (ch accountExtraDataChange) dirtied() *common.Address {
+func (ch accountExtraDataChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
 // End Quorum - Privacy Enhancements
 
-func (ch storageChange) revert(s *StateDB) {
+func (ch storageChange[P]) revert(s *StateDB[P]) {
 	s.getStateObject(*ch.account).setState(ch.key, ch.prevalue)
 }
 
-func (ch storageChange) dirtied() *common.Address {
+func (ch storageChange[P]) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch refundChange) revert(s *StateDB) {
+func (ch refundChange[P]) revert(s *StateDB[P]) {
 	s.refund = ch.prev
 }
 
-func (ch refundChange) dirtied() *common.Address {
+func (ch refundChange[P]) dirtied() *common.Address {
 	return nil
 }
 
-func (ch addLogChange) revert(s *StateDB) {
+func (ch addLogChange[P]) revert(s *StateDB[P]) {
 	logs := s.logs[ch.txhash]
 	if len(logs) == 1 {
 		delete(s.logs, ch.txhash)
@@ -256,19 +257,19 @@ func (ch addLogChange) revert(s *StateDB) {
 	s.logSize--
 }
 
-func (ch addLogChange) dirtied() *common.Address {
+func (ch addLogChange[P]) dirtied() *common.Address {
 	return nil
 }
 
-func (ch addPreimageChange) revert(s *StateDB) {
+func (ch addPreimageChange[P]) revert(s *StateDB[P]) {
 	delete(s.preimages, ch.hash)
 }
 
-func (ch addPreimageChange) dirtied() *common.Address {
+func (ch addPreimageChange[P]) dirtied() *common.Address {
 	return nil
 }
 
-func (ch accessListAddAccountChange) revert(s *StateDB) {
+func (ch accessListAddAccountChange[P]) revert(s *StateDB[P]) {
 	/*
 		One important invariant here, is that whenever a (addr, slot) is added, if the
 		addr is not already present, the add causes two journal entries:
@@ -281,14 +282,14 @@ func (ch accessListAddAccountChange) revert(s *StateDB) {
 	s.accessList.DeleteAddress(*ch.address)
 }
 
-func (ch accessListAddAccountChange) dirtied() *common.Address {
+func (ch accessListAddAccountChange[P]) dirtied() *common.Address {
 	return nil
 }
 
-func (ch accessListAddSlotChange) revert(s *StateDB) {
+func (ch accessListAddSlotChange[P]) revert(s *StateDB[P]) {
 	s.accessList.DeleteSlot(*ch.address, *ch.slot)
 }
 
-func (ch accessListAddSlotChange) dirtied() *common.Address {
+func (ch accessListAddSlotChange[P]) dirtied() *common.Address {
 	return nil
 }

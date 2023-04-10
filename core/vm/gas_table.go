@@ -65,7 +65,7 @@ func memoryGasCost(mem *Memory, newMemSize uint64) (uint64, error) {
 // EXTCODECOPY (stack poition 3)
 // RETURNDATACOPY (stack position 2)
 func memoryCopierGas[P crypto.PublicKey](stackpos int) gasFunc[P] {
-	return func(evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+	return func(evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 		// Gas for expanding the memory
 		gas, err := memoryGasCost(mem, memorySize)
 		if err != nil {
@@ -95,7 +95,7 @@ var (
 	gasReturnDataCopy = memoryCopierGas[nist.PublicKey](2)
 )
 
-func gasSStore[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasSStore[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var (
 		db      = getDualState(evm, contract.Address())
 		y, x    = stack.Back(1), stack.Back(0)
@@ -178,7 +178,7 @@ func gasSStore[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack
 //     2.2.2. If original value equals new value (this storage slot is reset):
 //       2.2.2.1. If original value is 0, add SSTORE_SET_GAS - SLOAD_GAS to refund counter.
 //       2.2.2.2. Otherwise, add SSTORE_RESET_GAS - SLOAD_GAS gas to refund counter.
-func gasSStoreEIP2200[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasSStoreEIP2200[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	// If we fail the minimum gas availability invariant, fail (0)
 	if contract.Gas <= params.SstoreSentryGasEIP2200 {
 		return 0, errors.New("not enough gas for reentrancy sentry")
@@ -221,7 +221,7 @@ func gasSStoreEIP2200[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack
 }
 
 func makeGasLog[P crypto.PublicKey](n uint64) gasFunc[P] {
-	return func(evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+	return func(evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 		requestedSize, overflow := stack.Back(1).Uint64WithOverflow()
 		if overflow {
 			return 0, ErrGasUintOverflow
@@ -250,7 +250,7 @@ func makeGasLog[P crypto.PublicKey](n uint64) gasFunc[P] {
 	}
 }
 
-func gasSha3[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasSha3[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	gas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err
@@ -271,7 +271,7 @@ func gasSha3[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, 
 // pureMemoryGascost is used by several operations, which aside from their
 // static cost have a dynamic cost which is solely based on the memory
 // expansion
-func pureMemoryGascost[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func pureMemoryGascost[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	return memoryGasCost(mem, memorySize)
 }
 
@@ -284,7 +284,7 @@ var (
 	gasCreate  = pureMemoryGascost[nist.PublicKey]
 )
 
-func gasCreate2[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasCreate2[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	gas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err
@@ -302,7 +302,7 @@ func gasCreate2[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stac
 	return gas, nil
 }
 
-func gasExpFrontier[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasExpFrontier[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	expByteLen := uint64((stack.data[stack.len()-2].BitLen() + 7) / 8)
 
 	var (
@@ -315,7 +315,7 @@ func gasExpFrontier[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *
 	return gas, nil
 }
 
-func gasExpEIP158[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasExpEIP158[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	expByteLen := uint64((stack.data[stack.len()-2].BitLen() + 7) / 8)
 
 	var (
@@ -328,7 +328,7 @@ func gasExpEIP158[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *St
 	return gas, nil
 }
 
-func gasCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasCall[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var (
 		gas            uint64
 		transfersValue = !stack.Back(2).IsZero()
@@ -363,7 +363,7 @@ func gasCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, 
 	return gas, nil
 }
 
-func gasCallCode[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasCallCode[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	memoryGas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err
@@ -388,7 +388,7 @@ func gasCallCode[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Sta
 	return gas, nil
 }
 
-func gasDelegateCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasDelegateCall[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	gas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err
@@ -404,7 +404,7 @@ func gasDelegateCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack 
 	return gas, nil
 }
 
-func gasStaticCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasStaticCall[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	gas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err
@@ -420,7 +420,7 @@ func gasStaticCall[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *S
 	return gas, nil
 }
 
-func gasSelfdestruct[P crypto.PublicKey](evm *EVM[P], contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
+func gasSelfdestruct[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var gas uint64
 	// EIP150 homestead gas reprice fork:
 	if evm.chainRules.IsEIP150 {

@@ -19,7 +19,7 @@ package v4wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
+	nist_crypto "crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -69,16 +69,16 @@ type (
 	}
 
 	// Findnode is a query for nodes close to the given target.
-	Findnode struct {
-		Target     Pubkey
+	Findnode [P crypto.PublicKey] struct {
+		Target     Pubkey[P]
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
 
 	// Neighbors is the reply to findnode.
-	Neighbors struct {
-		Nodes      []Node
+	Neighbors [P crypto.PublicKey] struct {
+		Nodes      []Node[P]
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
@@ -124,20 +124,20 @@ const MaxNeighbors = 12
 // 	fmt.Println("maxNeighbors", maxNeighbors)
 // }
 
-// Pubkey represents an encoded 64-byte secp256k1 public key.
-type Pubkey [64]byte
+// Pubkey represents an encoded 64-byte public key.
+type Pubkey[P crypto.PublicKey] [64]byte
 
 // ID returns the node ID corresponding to the public key.
-func (e Pubkey) ID() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+func (e Pubkey[P]) ID() enode.ID {
+	return enode.ID(crypto.Keccak256Hash[P](e[:]))
 }
 
 // Node represents information about a node.
-type Node struct {
+type Node [P crypto.PublicKey] struct {
 	IP  net.IP // len 4 for IPv4 or 16 for IPv6
 	UDP uint16 // for discovery protocol
 	TCP uint16 // for RLPx protocol
-	ID  Pubkey
+	ID  Pubkey[P]
 }
 
 // Endpoint represents a network endpoint.
@@ -172,11 +172,11 @@ func (req *Pong) Name() string   { return "PONG/v4" }
 func (req *Pong) Kind() byte     { return PongPacket }
 func (req *Pong) ENRSeq() uint64 { return seqFromTail(req.Rest) }
 
-func (req *Findnode) Name() string { return "FINDNODE/v4" }
-func (req *Findnode) Kind() byte   { return FindnodePacket }
+func (req *Findnode[P]) Name() string { return "FINDNODE/v4" }
+func (req *Findnode[P]) Kind() byte   { return FindnodePacket }
 
-func (req *Neighbors) Name() string { return "NEIGHBORS/v4" }
-func (req *Neighbors) Kind() byte   { return NeighborsPacket }
+func (req *Neighbors[P]) Name() string { return "NEIGHBORS/v4" }
+func (req *Neighbors[P]) Kind() byte   { return NeighborsPacket }
 
 func (req *ENRRequest) Name() string { return "ENRREQUEST/v4" }
 func (req *ENRRequest) Kind() byte   { return ENRRequestPacket }
@@ -215,16 +215,16 @@ var (
 var headSpace = make([]byte, headSize)
 
 // Decode reads a discovery v4 packet.
-func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey, []byte, error) {
+func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey[P], []byte, error) {
 	if len(input) < headSize+1 {
-		return nil, Pubkey{}, nil, ErrPacketTooSmall
+		return nil, Pubkey[P]{}, nil, ErrPacketTooSmall
 	}
 	hash, sig, sigdata := input[:macSize], input[macSize:headSize], input[headSize:]
-	shouldhash := crypto.Keccak256(input[macSize:])
+	shouldhash := crypto.Keccak256[P](input[macSize:])
 	if !bytes.Equal(hash, shouldhash) {
-		return nil, Pubkey{}, nil, ErrBadHash
+		return nil, Pubkey[P]{}, nil, ErrBadHash
 	}
-	fromKey, err := recoverNodeKey[P](crypto.Keccak256(input[headSize:]), sig)
+	fromKey, err := recoverNodeKey[P](crypto.Keccak256[P](input[headSize:]), sig)
 	if err != nil {
 		return nil, fromKey, hash, err
 	}
@@ -236,9 +236,9 @@ func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey, []byte, error) {
 	case PongPacket:
 		req = new(Pong)
 	case FindnodePacket:
-		req = new(Findnode)
+		req = new(Findnode[P])
 	case NeighborsPacket:
-		req = new(Neighbors)
+		req = new(Neighbors[P])
 	case ENRRequestPacket:
 		req = new(ENRRequest)
 	case ENRResponsePacket:
@@ -252,7 +252,7 @@ func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey, []byte, error) {
 }
 
 // Encode encodes a discovery packet.
-func Encode [T crypto.PrivateKey] (priv T, req Packet) (packet, hash []byte, err error) {
+func Encode [T crypto.PrivateKey, P crypto.PublicKey] (priv T, req Packet) (packet, hash []byte, err error) {
 	b := new(bytes.Buffer)
 	b.Write(headSpace)
 	b.WriteByte(req.Kind())
@@ -260,19 +260,19 @@ func Encode [T crypto.PrivateKey] (priv T, req Packet) (packet, hash []byte, err
 		return nil, nil, err
 	}
 	packet = b.Bytes()
-	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
+	sig, err := crypto.Sign(crypto.Keccak256[P](packet[headSize:]), priv)
 	if err != nil {
 		return nil, nil, err
 	}
 	copy(packet[macSize:], sig)
 	// Add the hash to the front. Note: this doesn't protect the packet in any way.
-	hash = crypto.Keccak256(packet[macSize:])
+	hash = crypto.Keccak256[P](packet[macSize:])
 	copy(packet, hash)
 	return packet, hash, nil
 }
 
 // recoverNodeKey computes the public key used to sign the given hash from the signature.
-func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey, err error) {
+func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey[P], err error) {
 	pubkey, err := crypto.Ecrecover[P](hash, sig)
 	if err != nil {
 		return key, err
@@ -282,20 +282,20 @@ func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey, err error
 }
 
 // EncodePubkey encodes a secp256k1 public key.
-func EncodePubkey[P crypto.PublicKey](key P) Pubkey {
+func EncodePubkey[P crypto.PublicKey](key P) Pubkey[P] {
 	switch p:= any(key).(type){
 	case *nist.PublicKey:
-		var e Pubkey
+		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
 		return e
 	case *gost3410.PublicKey:
-		var e Pubkey
+		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
 		return e
 	case *csp.PublicKey:
-		var e Pubkey
+		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
 		return e
@@ -305,11 +305,11 @@ func EncodePubkey[P crypto.PublicKey](key P) Pubkey {
 }
 
 // DecodePubkey reads an encoded secp256k1 public key.
-func DecodePubkey[P crypto.PublicKey](e Pubkey) (P, error) {
+func DecodePubkey[P crypto.PublicKey](e Pubkey[P]) (P, error) {
 	var pub P
 	switch p:= any(&pub).(type){
 	case *nist.PublicKey:
-		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
+		k := &nist_crypto.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])

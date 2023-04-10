@@ -37,12 +37,12 @@ type PrivateStateMetadataResolver interface {
 // retrieving from and peristing private states to the underlying database
 type PrivateStateRepository [P crypto.PublicKey] interface {
 	PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error)
-	StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error)
+	StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], error)
 	CommitAndWrite(isEIP158 bool, block *types.Block[P]) error
 	Commit(isEIP158 bool, block *types.Block[P]) error
 	Copy() PrivateStateRepository[P]
 	Reset() error
-	DefaultState() (*state.StateDB, error)
+	DefaultState() (*state.StateDB[P], error)
 	DefaultStateMetadata() *PrivateStateMetadata
 	IsMPS() bool
 	MergeReceipts(pub, priv types.Receipts[P]) types.Receipts[P]

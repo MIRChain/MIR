@@ -22,6 +22,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -79,7 +80,7 @@ type GetAccountRangePacket struct {
 }
 
 // AccountRangePacket represents an account query response.
-type AccountRangePacket struct {
+type AccountRangePacket [P crypto.PublicKey] struct {
 	ID       uint64         // ID of the request this is a response for
 	Accounts []*AccountData // List of consecutive accounts from the trie
 	Proof    [][]byte       // List of trie nodes proving the account range
@@ -98,13 +99,13 @@ type AccountData struct {
 // Note, this method does a round of RLP decoding and reencoding, so only use it
 // once and cache the results if need be. Ideally discard the packet afterwards
 // to not double the memory use.
-func (p *AccountRangePacket) Unpack() ([]common.Hash, [][]byte, error) {
+func (p *AccountRangePacket[P]) Unpack() ([]common.Hash, [][]byte, error) {
 	var (
 		hashes   = make([]common.Hash, len(p.Accounts))
 		accounts = make([][]byte, len(p.Accounts))
 	)
 	for i, acc := range p.Accounts {
-		val, err := snapshot.FullAccountRLP(acc.Body)
+		val, err := snapshot.FullAccountRLP[P](acc.Body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid account %x: %v", acc.Body, err)
 		}
@@ -196,8 +197,8 @@ type TrieNodesPacket struct {
 func (*GetAccountRangePacket) Name() string { return "GetAccountRange" }
 func (*GetAccountRangePacket) Kind() byte   { return GetAccountRangeMsg }
 
-func (*AccountRangePacket) Name() string { return "AccountRange" }
-func (*AccountRangePacket) Kind() byte   { return AccountRangeMsg }
+func (*AccountRangePacket[P]) Name() string { return "AccountRange" }
+func (*AccountRangePacket[P]) Kind() byte   { return AccountRangeMsg }
 
 func (*GetStorageRangesPacket) Name() string { return "GetStorageRanges" }
 func (*GetStorageRangesPacket) Kind() byte   { return GetStorageRangesMsg }

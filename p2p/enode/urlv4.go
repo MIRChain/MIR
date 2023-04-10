@@ -300,17 +300,17 @@ func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])
-		return ID(crypto.Keccak256Hash(e))
+		return ID(crypto.Keccak256Hash[P](e))
 	case *gost3410.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])
-		return ID(crypto.Keccak256Hash(e))
+		return ID(crypto.Keccak256Hash[P](e))
 	case *csp.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])
-		return ID(crypto.Keccak256Hash(e))
+		return ID(crypto.Keccak256Hash[P](e))
 	default:
 		panic("cant infer type of public key")
 	}

@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // TestPack tests the general pack/unpack tests in packing_test.go
@@ -39,7 +40,7 @@ func TestPack(t *testing.T) {
 				t.Fatalf("invalid hex %s: %v", test.packed, err)
 			}
 			inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, test.def)
-			inAbi, err := JSON(strings.NewReader(inDef))
+			inAbi, err := JSON[nist.PublicKey](strings.NewReader(inDef))
 			if err != nil {
 				t.Fatalf("invalid ABI definition %s, %v", inDef, err)
 			}
@@ -57,7 +58,7 @@ func TestPack(t *testing.T) {
 }
 
 func TestMethodPack(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(jsondata))
 	if err != nil {
 		t.Fatal(err)
 	}

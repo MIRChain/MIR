@@ -44,7 +44,7 @@ type Config [P crypto.PublicKey] struct {
 	Debug       bool
 	EVMConfig   vm.Config[P]
 
-	State     *state.StateDB
+	State     *state.StateDB[P]
 	GetHashFn func(n uint64) common.Hash
 }
 
@@ -90,7 +90,7 @@ func setDefaults[P crypto.PublicKey](cfg *Config[P]) {
 	}
 	if cfg.GetHashFn == nil {
 		cfg.GetHashFn = func(n uint64) common.Hash {
-			return common.BytesToHash(crypto.Keccak256([]byte(new(big.Int).SetUint64(n).String())))
+			return common.BytesToHash(crypto.Keccak256[P]([]byte(new(big.Int).SetUint64(n).String())))
 		}
 	}
 }
@@ -100,14 +100,14 @@ func setDefaults[P crypto.PublicKey](cfg *Config[P]) {
 //
 // Execute sets up an in-memory, temporary, environment for the execution of
 // the given code. It makes sure that it's restored to its original state afterwards.
-func Execute[P crypto.PublicKey](code, input []byte, cfg *Config[P]) ([]byte, *state.StateDB, error) {
+func Execute[P crypto.PublicKey](code, input []byte, cfg *Config[P]) ([]byte, *state.StateDB[P], error) {
 	if cfg == nil {
 		cfg = new(Config[P])
 	}
 	setDefaults(cfg)
 
 	if cfg.State == nil {
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		cfg.State, _ = state.New[P](common.Hash{}, state.NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
 	}
 	var (
 		address = common.BytesToAddress([]byte("contract"))
@@ -140,7 +140,7 @@ func Create[P crypto.PublicKey](input []byte, cfg *Config[P]) ([]byte, common.Ad
 	setDefaults(cfg)
 
 	if cfg.State == nil {
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		cfg.State, _ = state.New[P](common.Hash{}, state.NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
 	}
 	var (
 		vmenv  = NewEnv[P](cfg)

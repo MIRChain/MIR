@@ -22,8 +22,8 @@ import (
 )
 
 type (
-	executionFunc [P crypto.PublicKey]func(pc *uint64, interpreter *EVMInterpreter[P], callContext *ScopeContext) ([]byte, error)
-	gasFunc       [P crypto.PublicKey]func(*EVM[P], *Contract, *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
+	executionFunc [P crypto.PublicKey]func(pc *uint64, interpreter *EVMInterpreter[P], callContext *ScopeContext[P]) ([]byte, error)
+	gasFunc       [P crypto.PublicKey]func(*EVM[P], *Contract[P], *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
 	// memorySizeFunc returns the required size, and whether the operation overflowed a uint64
 	memorySizeFunc func(*Stack) (size uint64, overflow bool)
 )

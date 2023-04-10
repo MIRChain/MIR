@@ -141,7 +141,7 @@ func (ks keyStorePassphrase[T,P]) JoinPath(filename string) string {
 }
 
 // Encryptdata encrypts the data given as 'data' with the password 'auth'.
-func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) {
+func EncryptDataV3[P crypto.PublicKey](data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) {
 
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
@@ -161,7 +161,7 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 	if err != nil {
 		return CryptoJSON{}, err
 	}
-	mac := crypto.Keccak256(derivedKey[16:32], cipherText)
+	mac := crypto.Keccak256[P](derivedKey[16:32], cipherText)
 
 	scryptParamsJSON := make(map[string]interface{}, 5)
 	scryptParamsJSON["n"] = scryptN
@@ -195,7 +195,7 @@ func EncryptKey[T crypto.PrivateKey, P crypto.PublicKey](key *Key[T], auth strin
 		D = *t.Key
 	}
 	keyBytes := math.PaddedBigBytes(&D, 32)
-	cryptoStruct, err := EncryptDataV3(keyBytes, []byte(auth), scryptN, scryptP)
+	cryptoStruct, err := EncryptDataV3[P](keyBytes, []byte(auth), scryptN, scryptP)
 	if err != nil {
 		return nil, err
 	}
@@ -225,13 +225,13 @@ func DecryptKey[T crypto.PrivateKey, P crypto.PublicKey](keyjson []byte, auth st
 		if err := json.Unmarshal(keyjson, k); err != nil {
 			return nil, err
 		}
-		keyBytes, keyId, err = decryptKeyV1(k, auth)
+		keyBytes, keyId, err = decryptKeyV1[P](k, auth)
 	} else {
 		k := new(encryptedKeyJSONV3)
 		if err := json.Unmarshal(keyjson, k); err != nil {
 			return nil, err
 		}
-		keyBytes, keyId, err = decryptKeyV3(k, auth)
+		keyBytes, keyId, err = decryptKeyV3[P](k, auth)
 	}
 	// Handle any decryption errors and return the key
 	if err != nil {
@@ -258,7 +258,7 @@ func DecryptKey[T crypto.PrivateKey, P crypto.PublicKey](keyjson []byte, auth st
 	}, nil
 }
 
-func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
+func DecryptDataV3[P crypto.PublicKey](cryptoJson CryptoJSON, auth string) ([]byte, error) {
 	if cryptoJson.Cipher != "aes-128-ctr" {
 		return nil, fmt.Errorf("cipher not supported: %v", cryptoJson.Cipher)
 	}
@@ -282,7 +282,7 @@ func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
 		return nil, err
 	}
 
-	calculatedMAC := crypto.Keccak256(derivedKey[16:32], cipherText)
+	calculatedMAC := crypto.Keccak256[P](derivedKey[16:32], cipherText)
 	if !bytes.Equal(calculatedMAC, mac) {
 		return nil, ErrDecrypt
 	}
@@ -294,7 +294,7 @@ func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
 	return plainText, err
 }
 
-func decryptKeyV3(keyProtected *encryptedKeyJSONV3, auth string) (keyBytes []byte, keyId []byte, err error) {
+func decryptKeyV3[P crypto.PublicKey](keyProtected *encryptedKeyJSONV3, auth string) (keyBytes []byte, keyId []byte, err error) {
 	if keyProtected.Version != version {
 		return nil, nil, fmt.Errorf("version not supported: %v", keyProtected.Version)
 	}
@@ -303,14 +303,14 @@ func decryptKeyV3(keyProtected *encryptedKeyJSONV3, auth string) (keyBytes []byt
 		return nil, nil, err
 	}
 	keyId = keyUUID[:]
-	plainText, err := DecryptDataV3(keyProtected.Crypto, auth)
+	plainText, err := DecryptDataV3[P](keyProtected.Crypto, auth)
 	if err != nil {
 		return nil, nil, err
 	}
 	return plainText, keyId, err
 }
 
-func decryptKeyV1(keyProtected *encryptedKeyJSONV1, auth string) (keyBytes []byte, keyId []byte, err error) {
+func decryptKeyV1[P crypto.PublicKey](keyProtected *encryptedKeyJSONV1, auth string) (keyBytes []byte, keyId []byte, err error) {
 	keyUUID, err := uuid.Parse(keyProtected.Id)
 	if err != nil {
 		return nil, nil, err
@@ -336,12 +336,12 @@ func decryptKeyV1(keyProtected *encryptedKeyJSONV1, auth string) (keyBytes []byt
 		return nil, nil, err
 	}
 
-	calculatedMAC := crypto.Keccak256(derivedKey[16:32], cipherText)
+	calculatedMAC := crypto.Keccak256[P](derivedKey[16:32], cipherText)
 	if !bytes.Equal(calculatedMAC, mac) {
 		return nil, nil, ErrDecrypt
 	}
 
-	plainText, err := aesCBCDecrypt(crypto.Keccak256(derivedKey[:16])[:16], cipherText, iv)
+	plainText, err := aesCBCDecrypt(crypto.Keccak256[P](derivedKey[:16])[:16], cipherText, iv)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -26,7 +26,7 @@ type callHelper [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	header types.Header
 	gp     *GasPool
 
-	PrivateState, PublicState *state.StateDB
+	PrivateState, PublicState *state.StateDB[P]
 }
 
 // TxNonce returns the pending nonce
@@ -90,13 +90,13 @@ func (cg *callHelper[T,P]) MakeCall(private bool, key T, to common.Address, inpu
 // MakeCallHelper returns a new callHelper
 func MakeCallHelper[T crypto.PrivateKey, P crypto.PublicKey]() *callHelper[T,P] {
 	memdb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(memdb)
+	db := state.NewDatabase[P](memdb)
 
-	publicState, err := state.New(common.Hash{}, db, nil)
+	publicState, err := state.New[P](common.Hash{}, db, nil)
 	if err != nil {
 		panic(err)
 	}
-	privateState, err := state.New(common.Hash{}, db, nil)
+	privateState, err := state.New[P](common.Hash{}, db, nil)
 	if err != nil {
 		panic(err)
 	}

@@ -423,7 +423,7 @@ func TestSimulatedBackend_EstimateGas(t *testing.T) {
 	sim := NewSimulatedBackend[nist.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
 	defer sim.Close()
 
-	parsed, _ := abi.JSON(strings.NewReader(contractAbi))
+	parsed, _ := abi.JSON[nist.PublicKey](strings.NewReader(contractAbi))
 	contractAddr, _, _, _ := bind.DeployContract[nist.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
 	sim.Commit()
 
@@ -891,7 +891,7 @@ func TestSimulatedBackend_PendingCodeAt(t *testing.T) {
 		t.Errorf("got code for account that does not have contract code")
 	}
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON[nist.PublicKey](strings.NewReader(abiJSON))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
@@ -927,7 +927,7 @@ func TestSimulatedBackend_CodeAt(t *testing.T) {
 		t.Errorf("got code for account that does not have contract code")
 	}
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON[nist.PublicKey](strings.NewReader(abiJSON))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
@@ -959,7 +959,7 @@ func TestSimulatedBackend_PendingAndCallContract(t *testing.T) {
 	defer sim.Close()
 	bgCtx := context.Background()
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON[nist.PublicKey](strings.NewReader(abiJSON))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
@@ -1046,7 +1046,7 @@ func TestSimulatedBackend_CallContractRevert(t *testing.T) {
 	reverterABI := `[{"inputs": [],"name": "noRevert","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertASM","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertNoString","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertString","outputs": [],"stateMutability": "pure","type": "function"}]`
 	reverterBin := "608060405234801561001057600080fd5b506101d3806100206000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80634b409e01146100515780639b340e361461005b5780639bd6103714610065578063b7246fc11461006f575b600080fd5b610059610079565b005b6100636100ca565b005b61006d6100cf565b005b610077610145565b005b60006100c8576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401808060200182810382526000815260200160200191505060405180910390fd5b565b600080fd5b6000610143576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600a8152602001807f736f6d65206572726f720000000000000000000000000000000000000000000081525060200191505060405180910390fd5b565b7f08c379a0000000000000000000000000000000000000000000000000000000006000526020600452600a6024527f736f6d65206572726f720000000000000000000000000000000000000000000060445260646000f3fea2646970667358221220cdd8af0609ec4996b7360c7c780bad5c735740c64b1fffc3445aa12d37f07cb164736f6c63430006070033"
 
-	parsed, err := abi.JSON(strings.NewReader(reverterABI))
+	parsed, err := abi.JSON[nist.PublicKey](strings.NewReader(reverterABI))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}

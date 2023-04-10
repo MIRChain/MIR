@@ -95,7 +95,7 @@ func (db *Database[P]) ValidateCallData(selector *string, data []byte, messages 
 	}
 	// If a custom method selector was provided, validate with that
 	if selector != nil {
-		if info, err := verifySelector(*selector, data); err != nil {
+		if info, err := verifySelector[P](*selector, data); err != nil {
 			messages.Warn(fmt.Sprintf("Transaction contains data, but provided ABI signature could not be matched: %v", err))
 		} else {
 			messages.Info(fmt.Sprintf("Transaction invokes the following method: %q", info.String()))
@@ -109,7 +109,7 @@ func (db *Database[P]) ValidateCallData(selector *string, data []byte, messages 
 		messages.Warn(fmt.Sprintf("Transaction contains data, but the ABI signature could not be found: %v", err))
 		return
 	}
-	if info, err := verifySelector(embedded, data); err != nil {
+	if info, err := verifySelector[P](embedded, data); err != nil {
 		messages.Warn(fmt.Sprintf("Transaction contains data, but provided ABI signature could not be verified: %v", err))
 	} else {
 		messages.Info(fmt.Sprintf("Transaction invokes the following method: %q", info.String()))

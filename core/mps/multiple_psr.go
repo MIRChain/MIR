@@ -36,7 +36,7 @@ type MultiplePrivateStateRepository [P crypto.PublicKey] struct {
 	// mux protects concurrent access to managedStates map
 	mux sync.Mutex
 	// managed states map
-	managedStates map[types.PrivateStateIdentifier]*managedState
+	managedStates map[types.PrivateStateIdentifier]*managedState[P]
 }
 
 func NewMultiplePrivateStateRepository[P crypto.PublicKey](db ethdb.Database, cache state.Database, privateStatesTrieRoot common.Hash, privateCacheProvider privatecache.Provider) (*MultiplePrivateStateRepository[P], error) {
@@ -49,22 +49,22 @@ func NewMultiplePrivateStateRepository[P crypto.PublicKey](db ethdb.Database, ca
 		repoCache:            cache,
 		privateCacheProvider: privateCacheProvider,
 		trie:                 tr,
-		managedStates:        make(map[types.PrivateStateIdentifier]*managedState),
+		managedStates:        make(map[types.PrivateStateIdentifier]*managedState[P]),
 	}
 	return repo, nil
 }
 
 // A managed state is a pair of stateDb and it's corresponding stateCache objects
 // Although right now we may not need a separate stateCache it may be useful if we'll do multiple managed state commits in parallel
-type managedState struct {
-	stateDb               *state.StateDB
+type managedState [P crypto.PublicKey] struct {
+	stateDb               *state.StateDB[P]
 	stateCache            state.Database
 	privateCacheProvider  privatecache.Provider
 	stateRootProviderFunc StateRootProviderFunc
 }
 
-func (ms *managedState) Copy() *managedState {
-	copy := &managedState{
+func (ms *managedState[P]) Copy() *managedState[P] {
+	copy := &managedState[P]{
 		stateDb:              ms.stateDb.Copy(),
 		stateCache:           ms.stateCache,
 		privateCacheProvider: ms.privateCacheProvider,
@@ -74,7 +74,7 @@ func (ms *managedState) Copy() *managedState {
 }
 
 // calPrivateStateRoot is to return state root hash from the commit of a managedState identified by psi
-func (ms *managedState) calPrivateStateRoot(isEIP158 bool) (common.Hash, error) {
+func (ms *managedState[P]) calPrivateStateRoot(isEIP158 bool) (common.Hash, error) {
 	privateRoot, err := ms.stateDb.Commit(isEIP158)
 	if err != nil {
 		return common.Hash{}, err
@@ -86,7 +86,7 @@ func (ms *managedState) calPrivateStateRoot(isEIP158 bool) (common.Hash, error) 
 	return privateRoot, nil
 }
 
-func (mpsr *MultiplePrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
+func (mpsr *MultiplePrivateStateRepository[P]) DefaultState() (*state.StateDB[P], error) {
 	return mpsr.StatePSI(EmptyPrivateStateMetadata.ID)
 }
 
@@ -106,7 +106,7 @@ func (mpsr *MultiplePrivateStateRepository[P]) PrivateStateRoot(psi types.Privat
 	return common.BytesToHash(privateStateRoot), nil
 }
 
-func (mpsr *MultiplePrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (mpsr *MultiplePrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], error) {
 	mpsr.mux.Lock()
 	ms, found := mpsr.managedStates[psi]
 	mpsr.mux.Unlock()
@@ -118,7 +118,7 @@ func (mpsr *MultiplePrivateStateRepository[P]) StatePSI(psi types.PrivateStateId
 		return nil, err
 	}
 	var stateCache state.Database
-	var stateDB *state.StateDB
+	var stateDB *state.StateDB[P]
 	if privateStateRoot == nil && psi != EmptyPrivateStateMetadata.ID {
 		// this is the first time we are trying to use this private state so branch from the empty state
 		emptyState, err := mpsr.DefaultState()
@@ -133,14 +133,14 @@ func (mpsr *MultiplePrivateStateRepository[P]) StatePSI(psi types.PrivateStateId
 		stateCache = ms.stateCache
 	} else {
 		stateCache = mpsr.privateCacheProvider.GetCache()
-		stateDB, err = state.New(common.BytesToHash(privateStateRoot), stateCache, nil)
+		stateDB, err = state.New[P](common.BytesToHash(privateStateRoot), stateCache, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
-	managedState := &managedState{
+	managedState := &managedState[P]{
 		stateCache:           stateCache,
 		privateCacheProvider: mpsr.privateCacheProvider,
 		stateDb:              stateDB,
@@ -241,7 +241,7 @@ func (mpsr *MultiplePrivateStateRepository[P]) Commit(isEIP158 bool, block *type
 func (mpsr *MultiplePrivateStateRepository[P]) Copy() PrivateStateRepository[P] {
 	mpsr.mux.Lock()
 	defer mpsr.mux.Unlock()
-	managedStatesCopy := make(map[types.PrivateStateIdentifier]*managedState)
+	managedStatesCopy := make(map[types.PrivateStateIdentifier]*managedState[P])
 	for key, value := range mpsr.managedStates {
 		managedStatesCopy[key] = value.Copy()
 	}

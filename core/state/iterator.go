@@ -23,12 +23,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,
 // including all of the contract code and contract state tries.
-type NodeIterator struct {
-	state *StateDB // State being iterated
+type NodeIterator [P crypto.PublicKey] struct {
+	state *StateDB[P] // State being iterated
 
 	stateIt trie.NodeIterator // Primary iterator for the global state trie
 	dataIt  trie.NodeIterator // Secondary iterator for the data trie of a contract
@@ -44,8 +45,8 @@ type NodeIterator struct {
 }
 
 // NewNodeIterator creates an post-order state node iterator.
-func NewNodeIterator(state *StateDB) *NodeIterator {
-	return &NodeIterator{
+func NewNodeIterator[P crypto.PublicKey](state *StateDB[P]) *NodeIterator[P] {
+	return &NodeIterator[P]{
 		state: state,
 	}
 }
@@ -53,7 +54,7 @@ func NewNodeIterator(state *StateDB) *NodeIterator {
 // Next moves the iterator to the next node, returning whether there are any
 // further nodes. In case of an internal error this method returns false and
 // sets the Error field to the encountered failure.
-func (it *NodeIterator) Next() bool {
+func (it *NodeIterator[P]) Next() bool {
 	// If the iterator failed previously, don't do anything
 	if it.Error != nil {
 		return false
@@ -67,7 +68,7 @@ func (it *NodeIterator) Next() bool {
 }
 
 // step moves the iterator to the next entry of the state trie.
-func (it *NodeIterator) step() error {
+func (it *NodeIterator[P]) step() error {
 	// Abort if we reached the end of the iteration
 	if it.state == nil {
 		return nil
@@ -116,6 +117,7 @@ func (it *NodeIterator) step() error {
 	if !it.dataIt.Next(true) {
 		it.dataIt = nil
 	}
+	var emptyCodeHash = crypto.Keccak256[P]()
 	if !bytes.Equal(account.CodeHash, emptyCodeHash) {
 		it.codeHash = common.BytesToHash(account.CodeHash)
 		addrHash := common.BytesToHash(it.stateIt.LeafKey())
@@ -130,7 +132,7 @@ func (it *NodeIterator) step() error {
 
 // retrieve pulls and caches the current state entry the iterator is traversing.
 // The method returns whether there are any more data left for inspection.
-func (it *NodeIterator) retrieve() bool {
+func (it *NodeIterator[P]) retrieve() bool {
 	// Clear out any previously set values
 	it.Hash = common.Hash{}
 

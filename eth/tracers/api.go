@@ -70,8 +70,8 @@ type Backend [P crypto.PublicKey] interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine[P]
 	ChainDb() ethdb.Database
-	StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error)
-	StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error)
+	StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (*state.StateDB[P], mps.PrivateStateRepository[P], error)
+	StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error)
 
 	// Quorum
 	GetBlockchain() *core.BlockChain[P]
@@ -127,7 +127,7 @@ func (context *chainContext[P]) PrivateStateManager() mps.PrivateStateManager[P]
 	return context.api.backend.GetBlockchain().PrivateStateManager()
 }
 
-func (context *chainContext[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {
+func (context *chainContext[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB[P], psi types.PrivateStateIdentifier) {
 }
 
 // End Quorum
@@ -190,12 +190,12 @@ type TraceConfig struct {
 
 // TraceCallConfig is the config for traceCall API. It holds one more
 // field to override the state for tracing.
-type TraceCallConfig struct {
+type TraceCallConfig [P crypto.PublicKey] struct {
 	*vm.LogConfig
 	Tracer         *string
 	Timeout        *string
 	Reexec         *uint64
-	StateOverrides *ethapi.StateOverride
+	StateOverrides *ethapi.StateOverride[P]
 }
 
 // StdTraceConfig holds extra parameters to standard-json trace functions.
@@ -223,12 +223,12 @@ type txTraceResult struct {
 // blockTraceTask represents a single block trace task when an entire chain is
 // being traced.
 type blockTraceTask [P crypto.PublicKey] struct {
-	statedb *state.StateDB   // Intermediate state prepped for tracing
+	statedb *state.StateDB[P]   // Intermediate state prepped for tracing
 	block   *types.Block[P]     // Block to trace the transactions from
 	rootref common.Hash      // Trie root reference held for this task
 	results []*txTraceResult // Trace results procudes by the task
 	// Quorum
-	privateStateDb   *state.StateDB
+	privateStateDb   *state.StateDB[P]
 	privateStateRepo mps.PrivateStateRepository[P]
 }
 
@@ -243,10 +243,10 @@ type blockTraceResult struct {
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
 type txTraceTask [P crypto.PublicKey] struct {
-	statedb *state.StateDB // Intermediate state prepped for tracing
+	statedb *state.StateDB[P] // Intermediate state prepped for tracing
 	index   int            // Transaction offset in the block
 	// Quorum
-	privateStateDb   *state.StateDB
+	privateStateDb   *state.StateDB[P]
 	privateStateRepo mps.PrivateStateRepository[P]
 }
 
@@ -351,10 +351,10 @@ func (api *API[P]) traceChain(ctx context.Context, start, end *types.Block[P], c
 			traced  uint64
 			failed  error
 			parent  common.Hash
-			statedb *state.StateDB
+			statedb *state.StateDB[P]
 			// Quorum
 			privateStateRepo mps.PrivateStateRepository[P]
-			privateState     *state.StateDB
+			privateState     *state.StateDB[P]
 		)
 		// Ensure everything is properly cleaned up on any exit path
 		defer func() {
@@ -853,7 +853,7 @@ func (api *API[P]) TraceTransaction(ctx context.Context, hash common.Hash, confi
 // created during the execution of EVM if the given transaction was added on
 // top of the provided block and returns them as a JSON object.
 // You can provide -2 as a block number to trace on top of the pending block.
-func (api *API[P]) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
+func (api *API[P]) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig[P]) (interface{}, error) {
 	// Try to retrieve the specified block
 	var (
 		err   error
@@ -928,7 +928,7 @@ func (api *API[P]) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrO
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API[P]) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext[P], vmctx vm.BlockContext, statedb, privateStateDb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], config *TraceConfig) (interface{}, error) {
+func (api *API[P]) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext[P], vmctx vm.BlockContext, statedb, privateStateDb *state.StateDB[P], privateStateRepo mps.PrivateStateRepository[P], config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer    vm.Tracer[P]
@@ -1049,7 +1049,7 @@ func (api *API[P]) clearMessageDataIfNonParty(msg types.Message, psm *mps.Privat
 	return msg
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB, privateStateDB *state.StateDB, header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

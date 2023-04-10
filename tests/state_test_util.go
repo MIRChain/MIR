@@ -151,7 +151,7 @@ func (t *StateTest[T,P]) Subtests() []StateSubtest {
 }
 
 // Run executes a specific subtest and verifies the post-state and logs
-func (t *StateTest[T,P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree, *state.StateDB, error) {
+func (t *StateTest[T,P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], error) {
 	snaps, statedb, root, err := t.RunNoVerify(subtest, vmconfig, snapshotter)
 	if err != nil {
 		return snaps, statedb, err
@@ -169,14 +169,14 @@ func (t *StateTest[T,P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapsh
 }
 
 // RunNoVerify runs a specific subtest and returns the statedb and post-state root
-func (t *StateTest[T,P]) RunNoVerify(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree, *state.StateDB, common.Hash, error) {
+func (t *StateTest[T,P]) RunNoVerify(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], common.Hash, error) {
 	config, eips, err := GetChainConfig[P](subtest.Fork)
 	if err != nil {
 		return nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
 	}
 	vmconfig.ExtraEips = eips
 	block := t.genesis(config).ToBlock(nil)
-	snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
+	snaps, statedb := MakePreState[P](rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post)
@@ -215,9 +215,9 @@ func (t *StateTest[T,P]) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool) (*snapshot.Tree, *state.StateDB) {
-	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(common.Hash{}, sdb, nil)
+func MakePreState[P crypto.PublicKey](db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P]) {
+	sdb := state.NewDatabase[P](db)
+	statedb, _ := state.New[P](common.Hash{}, sdb, nil)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)
 		statedb.SetNonce(addr, a.Nonce)
@@ -229,9 +229,9 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter boo
 	// Commit and re-open to start with a clean state.
 	root, _ := statedb.Commit(false)
 
-	var snaps *snapshot.Tree
+	var snaps *snapshot.Tree[P]
 	if snapshotter {
-		snaps, _ = snapshot.New(db, sdb.TrieDB(), 1, root, false, true, false)
+		snaps, _ = snapshot.New[P](db, sdb.TrieDB(), 1, root, false, true, false)
 	}
 	statedb, _ = state.New(root, sdb, snaps)
 	return snaps, statedb

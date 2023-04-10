@@ -38,7 +38,7 @@ type BlockGen [P crypto.PublicKey] struct {
 	parent  *types.Block[P]
 	chain   []*types.Block[P]
 	header  *types.Header
-	statedb *state.StateDB
+	statedb *state.StateDB[P]
 
 	gasPool  *GasPool
 	txs      []*types.Transaction[P]
@@ -48,7 +48,7 @@ type BlockGen [P crypto.PublicKey] struct {
 	config *params.ChainConfig
 	engine consensus.Engine[P]
 
-	privateStatedb *state.StateDB // Quorum
+	privateStatedb *state.StateDB[P] // Quorum
 }
 
 // SetCoinbase sets the coinbase of the generated block.
@@ -209,7 +209,7 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 	blocks, receipts := make(types.Blocks[P], n), make([]types.Receipts[P], n)
 	chainreader := &fakeChainReader[P]{config: config}
 	// Quorum: add `privateStatedb` argument
-	genblock := func(i int, parent *types.Block[P], statedb *state.StateDB, privateStatedb *state.StateDB) (*types.Block[P], types.Receipts[P]) {
+	genblock := func(i int, parent *types.Block[P], statedb *state.StateDB[P], privateStatedb *state.StateDB[P]) (*types.Block[P], types.Receipts[P]) {
 		b := &BlockGen[P]{i: i, chain: blocks, parent: parent, statedb: statedb, privateStatedb: privateStatedb, config: config, engine: engine}
 		b.header = makeHeader[P](chainreader, parent, statedb, b.engine)
 
@@ -246,11 +246,11 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 		return nil, nil
 	}
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(db), nil)
+		statedb, err := state.New[P](parent.Root(), state.NewDatabase[P](db), nil)
 		if err != nil {
 			panic(err)
 		}
-		privateStatedb, err := state.New(parent.Root(), state.NewDatabase(db), nil) // Quorum
+		privateStatedb, err := state.New[P](parent.Root(), state.NewDatabase[P](db), nil) // Quorum
 		if err != nil {
 			panic(err)
 		}
@@ -263,7 +263,7 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 	return blocks, receipts
 }
 
-func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *types.Block[P], state *state.StateDB, engine consensus.Engine[P]) *types.Header {
+func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *types.Block[P], state *state.StateDB[P], engine consensus.Engine[P]) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10

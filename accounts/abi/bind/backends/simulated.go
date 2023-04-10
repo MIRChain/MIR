@@ -365,8 +365,8 @@ func (b *SimulatedBackend[P]) PendingCodeAt(ctx context.Context, contract common
 	return b.pendingState.GetCode(contract), nil
 }
 
-func newRevertError(result *core.ExecutionResult) *revertError {
-	reason, errUnpack := abi.UnpackRevert(result.Revert())
+func newRevertError[P crypto.PublicKey](result *core.ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert[P](result.Revert())
 	err := errors.New("execution reverted")
 	if errUnpack == nil {
 		err = fmt.Errorf("execution reverted: %v", reason)
@@ -413,7 +413,7 @@ func (b *SimulatedBackend[P]) CallContract(ctx context.Context, call ethereum.Ca
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(res.Revert()) > 0 {
-		return nil, newRevertError(res)
+		return nil, newRevertError[P](res)
 	}
 	return res.Return(), res.Err
 }
@@ -430,7 +430,7 @@ func (b *SimulatedBackend[P]) PendingCallContract(ctx context.Context, call ethe
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(res.Revert()) > 0 {
-		return nil, newRevertError(res)
+		return nil, newRevertError[P](res)
 	}
 	return res.Return(), res.Err
 }
@@ -532,7 +532,7 @@ func (b *SimulatedBackend[P]) EstimateGas(ctx context.Context, call ethereum.Cal
 		if failed {
 			if result != nil && result.Err != vm.ErrOutOfGas {
 				if len(result.Revert()) > 0 {
-					return 0, newRevertError(result)
+					return 0, newRevertError[P](result)
 				}
 				return 0, result.Err
 			}

@@ -241,13 +241,13 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 }
 
 // contractWrapper provides a JavaScript wrapper around vm.Contract
-type contractWrapper struct {
-	contract *vm.Contract
+type contractWrapper [P crypto.PublicKey] struct {
+	contract *vm.Contract[P]
 }
 
 // pushObject assembles a JSVM object wrapping a swappable contract and pushes it
 // onto the VM stack.
-func (cw *contractWrapper) pushObject(vm *duktape.Context) {
+func (cw *contractWrapper[P]) pushObject(vm *duktape.Context) {
 	obj := vm.PushObject()
 
 	// Push the wrapper for contract.Caller
@@ -295,7 +295,7 @@ type Tracer [P crypto.PublicKey] struct {
 	opWrapper       *opWrapper       // Wrapper around the VM opcode
 	stackWrapper    *stackWrapper    // Wrapper around the VM stack
 	memoryWrapper   *memoryWrapper   // Wrapper around the VM memory
-	contractWrapper *contractWrapper // Wrapper around the contract object
+	contractWrapper *contractWrapper[P] // Wrapper around the contract object
 	dbWrapper       *dbWrapper       // Wrapper around the VM environment
 
 	pcValue     *uint   // Swappable pc value wrapped by a log accessor
@@ -328,7 +328,7 @@ func New[P crypto.PublicKey](code string, txCtx vm.TxContext) (*Tracer[P], error
 		opWrapper:       new(opWrapper),
 		stackWrapper:    new(stackWrapper),
 		memoryWrapper:   new(memoryWrapper),
-		contractWrapper: new(contractWrapper),
+		contractWrapper: new(contractWrapper[P]),
 		dbWrapper:       new(dbWrapper),
 		pcValue:         new(uint),
 		gasValue:        new(uint),
@@ -375,7 +375,7 @@ func New[P crypto.PublicKey](code string, txCtx vm.TxContext) (*Tracer[P], error
 		nonce := uint64(ctx.GetInt(-1))
 		ctx.Pop2()
 
-		contract := crypto.CreateAddress(from, nonce)
+		contract := crypto.CreateAddress[P](from, nonce)
 		copy(makeSlice(ctx.PushFixedBuffer(20), 20), contract[:])
 		return 1
 	})
@@ -395,9 +395,9 @@ func New[P crypto.PublicKey](code string, txCtx vm.TxContext) (*Tracer[P], error
 		} else {
 			code = common.FromHex(ctx.GetString(-1))
 		}
-		codeHash := crypto.Keccak256(code)
+		codeHash := crypto.Keccak256[P](code)
 		ctx.Pop3()
-		contract := crypto.CreateAddress2(from, salt, codeHash)
+		contract := crypto.CreateAddress2[P](from, salt, codeHash)
 		copy(makeSlice(ctx.PushFixedBuffer(20), 20), contract[:])
 		return 1
 	})
@@ -554,7 +554,7 @@ func (jst *Tracer[P]) CaptureStart(env *vm.EVM[P], from common.Address, to commo
 }
 
 // CaptureState implements the Tracer interface to trace a single step of VM execution.
-func (jst *Tracer[P]) CaptureState(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (jst *Tracer[P]) CaptureState(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext[P], rData []byte, depth int, err error) {
 	if jst.err != nil {
 		return
 	}
@@ -586,7 +586,7 @@ func (jst *Tracer[P]) CaptureState(env *vm.EVM[P], pc uint64, op vm.OpCode, gas,
 }
 
 // CaptureFault implements the Tracer interface to trace an execution fault
-func (jst *Tracer[P]) CaptureFault(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
+func (jst *Tracer[P]) CaptureFault(env *vm.EVM[P], pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext[P], depth int, err error) {
 	if jst.err != nil {
 		return
 	}

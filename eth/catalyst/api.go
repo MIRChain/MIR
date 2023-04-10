@@ -70,7 +70,7 @@ func newConsensusAPI[T crypto.PrivateKey, P crypto.PublicKey](eth *eth.Ethereum[
 // a block, either when assembling it or when inserting it.
 type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	chain   *core.BlockChain[P]
-	state   *state.StateDB
+	state   *state.StateDB[P]
 	tcount  int
 	gasPool *core.GasPool
 
@@ -80,7 +80,7 @@ type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	// Quorum
 	privateStateRepo  mps.PrivateStateRepository[P]
-	privateState      *state.StateDB
+	privateState      *state.StateDB[P]
 	forceNonParty     bool
 	isInnerPrivateTxn bool
 	privateReceipts   []*types.Receipt[P]
@@ -273,7 +273,7 @@ func insertBlockParamsToBlock[P crypto.PublicKey](params executableData) (*types
 		UncleHash:   types.EmptyUncleHash,
 		Coinbase:    params.Miner,
 		Root:        params.StateRoot,
-		TxHash:      types.DeriveSha(types.Transactions[P](txs), trie.NewStackTrie(nil)),
+		TxHash:      types.DeriveSha(types.Transactions[P](txs), trie.NewStackTrie[P](nil)),
 		ReceiptHash: params.ReceiptRoot,
 		Bloom:       types.BytesToBloom(params.LogsBloom),
 		Difficulty:  big.NewInt(1),

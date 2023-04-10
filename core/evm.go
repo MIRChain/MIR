@@ -51,7 +51,7 @@ type ChainContext [P crypto.PublicKey] interface {
 	PrivateStateManager() mps.PrivateStateManager[P]
 
 	// CheckAndSetPrivateState updates the private state as a part contract state extension
-	CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier)
+	CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB[P], psi types.PrivateStateIdentifier)
 
 	// End Quorum
 }

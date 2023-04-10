@@ -453,7 +453,7 @@ func dbDumpTrie[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 			return err
 		}
 	}
-	theTrie, err := trie.New(stRoot, trie.NewDatabase(db))
+	theTrie, err := trie.New[P](stRoot, trie.NewDatabase(db))
 	if err != nil {
 		return err
 	}
