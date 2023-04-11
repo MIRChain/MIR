@@ -19,7 +19,7 @@ import (
 	"math/big"
 )
 
-var GostCurve *Curve
+var GostCurve *Curve = CurveDefault()
 
 var (
 	CurveGostR34102001ParamSetcc func() *Curve = func() *Curve {

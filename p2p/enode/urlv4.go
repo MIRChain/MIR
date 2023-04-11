@@ -295,7 +295,7 @@ func (n *Node[P]) URLv4() string {
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
 func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
-	switch pubkey := any(key).(type) {
+	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
@@ -317,7 +317,7 @@ func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
 }
 
 func PubkeyToEnodeID[P crypto.PublicKey ](key P) EnodeID {
-	switch pubkey := any(key).(type) {
+	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])

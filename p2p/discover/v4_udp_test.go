@@ -42,7 +42,7 @@ import (
 // shared test variables
 var (
 	futureExp          = uint64(time.Now().Add(10 * time.Hour).Unix())
-	testTarget         = v4wire.Pubkey{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
+	testTarget         = v4wire.Pubkey[nist.PublicKey]{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
 	testRemote         = v4wire.Endpoint{IP: net.ParseIP("1.1.1.1").To4(), UDP: 1, TCP: 2}
 	testLocalAnnounced = v4wire.Endpoint{IP: net.ParseIP("2.2.2.2").To4(), UDP: 3, TCP: 4}
 	testLocal          = v4wire.Endpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
@@ -96,7 +96,7 @@ func (test *udpTest[T,P]) packetIn(wantError error, data v4wire.Packet) {
 func (test *udpTest[T,P]) packetInFrom(wantError error, key T, addr *net.UDPAddr, data v4wire.Packet) {
 	test.t.Helper()
 
-	enc, _, err := v4wire.Encode(key, data)
+	enc, _, err := v4wire.Encode[T,P](key, data)
 	if err != nil {
 		test.t.Errorf("%s encode error: %v", data.Name(), err)
 	}
@@ -139,8 +139,8 @@ func TestUDPv4_packetErrors(t *testing.T) {
 
 	test.packetIn(errExpired, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4})
 	test.packetIn(errUnsolicitedReply, &v4wire.Pong{ReplyTok: []byte{}, Expiration: futureExp})
-	test.packetIn(errUnknownNode, &v4wire.Findnode{Expiration: futureExp})
-	test.packetIn(errUnsolicitedReply, &v4wire.Neighbors{Expiration: futureExp})
+	test.packetIn(errUnknownNode, &v4wire.Findnode[nist.PublicKey]{Expiration: futureExp})
+	test.packetIn(errUnsolicitedReply, &v4wire.Neighbors[nist.PublicKey]{Expiration: futureExp})
 }
 
 func TestUDPv4_pingTimeout(t *testing.T) {
@@ -240,7 +240,7 @@ func TestUDPv4_findnodeTimeout(t *testing.T) {
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
 	toid := enode.ID{1, 2, 3, 4}
-	target := v4wire.Pubkey{4, 5, 6, 7}
+	target := v4wire.Pubkey[nist.PublicKey]{4, 5, 6, 7}
 	result, err := test.udp.findnode(toid, toaddr, target)
 	if err != errTimeout {
 		t.Error("expected timeout error, got", err)
@@ -275,14 +275,14 @@ func TestUDPv4_findnode(t *testing.T) {
 
 	// ensure there's a bond with the test node,
 	// findnode won't be accepted otherwise.
-	remoteID := v4wire.EncodePubkey(test.remotekey.Public()).ID()
+	remoteID := v4wire.EncodePubkey(*test.remotekey.Public()).ID()
 	test.table.db.UpdateLastPongReceived(remoteID, test.remoteaddr.IP, time.Now())
 
 	// check that closest neighbors are returned.
 	expected := test.table.findnodeByID(testTarget.ID(), bucketSize, true)
-	test.packetIn(nil, &v4wire.Findnode{Target: testTarget, Expiration: futureExp})
+	test.packetIn(nil, &v4wire.Findnode[nist.PublicKey]{Target: testTarget, Expiration: futureExp})
 	waitNeighbors := func(want []*node[nist.PublicKey]) {
-		test.waitPacketOut(func(p *v4wire.Neighbors, to *net.UDPAddr, hash []byte) {
+		test.waitPacketOut(func(p *v4wire.Neighbors[nist.PublicKey], to *net.UDPAddr, hash []byte) {
 			if len(p.Nodes) != len(want) {
 				t.Errorf("wrong number of results: got %d, want %d", len(p.Nodes), bucketSize)
 			}
@@ -309,13 +309,13 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
 	defer test.close()
 
-	rid := enode.PubkeyToIDV4(test.remotekey.Public())
+	rid := enode.PubkeyToIDV4(*test.remotekey.Public())
 	test.table.db.UpdateLastPingReceived(rid, test.remoteaddr.IP, time.Now())
 
 	// queue a pending findnode request
 	resultc, errc := make(chan []*node[nist.PublicKey]), make(chan error)
 	go func() {
-		rid := encodePubkey(test.remotekey.Public()).id()
+		rid := encodePubkey(*test.remotekey.Public()).id()
 		ns, err := test.udp.findnode(rid, test.remoteaddr, testTarget)
 		if err != nil && len(ns) == 0 {
 			errc <- err
@@ -326,7 +326,7 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 
 	// wait for the findnode to be sent.
 	// after it is sent, the transport is waiting for a reply
-	test.waitPacketOut(func(p *v4wire.Findnode, to *net.UDPAddr, hash []byte) {
+	test.waitPacketOut(func(p *v4wire.Findnode[nist.PublicKey], to *net.UDPAddr, hash []byte) {
 		if p.Target != testTarget {
 			t.Errorf("wrong target: got %v, want %v", p.Target, testTarget)
 		}
@@ -339,12 +339,12 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 		wrapNode(enode.MustParse[nist.PublicKey]("enode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17")),
 		wrapNode(enode.MustParse[nist.PublicKey]("enode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303")),
 	}
-	rpclist := make([]v4wire.Node, len(list))
+	rpclist := make([]v4wire.Node[nist.PublicKey], len(list))
 	for i := range list {
 		rpclist[i] = nodeToRPC(list[i])
 	}
-	test.packetIn(nil, &v4wire.Neighbors{Expiration: futureExp, Nodes: rpclist[:2]})
-	test.packetIn(nil, &v4wire.Neighbors{Expiration: futureExp, Nodes: rpclist[2:]})
+	test.packetIn(nil, &v4wire.Neighbors[nist.PublicKey]{Expiration: futureExp, Nodes: rpclist[:2]})
+	test.packetIn(nil, &v4wire.Neighbors[nist.PublicKey]{Expiration: futureExp, Nodes: rpclist[2:]})
 
 	// check that the sent neighbors are all returned by findnode
 	select {

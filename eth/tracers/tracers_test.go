@@ -171,7 +171,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		Code:    []byte{},
 		Balance: big.NewInt(500000000000000),
 	}
-	_, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), alloc, false)
+	_, statedb := tests.MakePreState[nist.PublicKey](rawdb.NewMemoryDatabase(), alloc, false)
 
 	// Create the tracer, the EVM environment and run it
 	tracer, err := New[nist.PublicKey]("prestateTracer", txContext)
@@ -246,7 +246,7 @@ func TestCallTracer(t *testing.T) {
 				Difficulty:  (*big.Int)(test.Context.Difficulty),
 				GasLimit:    uint64(test.Context.GasLimit),
 			}
-			_, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false)
+			_, statedb := tests.MakePreState[nist.PublicKey](rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false)
 
 			// Create the tracer, the EVM environment and run it
 			tracer, err := New[nist.PublicKey]("callTracer", txContext)

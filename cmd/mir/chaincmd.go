@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
@@ -45,12 +46,14 @@ import (
 
 var (
 	initCommand = cli.Command{
-		Action:    utils.MigrateFlags(initGenesis[nist.PrivateKey, nist.PublicKey]),
+		Action:    utils.MigrateFlags(initGenesisType),
 		Name:      "init",
 		Usage:     "Bootstrap and initialize a new genesis block",
 		ArgsUsage: "<genesisPath>",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
+			utils.CryptoSwitchFlag,
+			utils.CryptoGostCurveFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -208,6 +211,43 @@ func getIsQuorum(file io.Reader) bool {
 	return altGenesis.Config.IsQuorum == nil || *altGenesis.Config.IsQuorum
 }
 
+func initGenesisType(ctx *cli.Context) error {
+	// Mir - set crypto before the start of services 
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			return initGenesis[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			crypto.CryptoAlg = crypto.GOST_CSP
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			return initGenesis[nist.PrivateKey,nist.PublicKey](ctx)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	}
+	return nil
+}
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
 func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {

@@ -70,7 +70,7 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 	switch key := any(&prvKey).(type) {
 	case *nist.PrivateKey:
 		ln = &LocalNode[T,P]{
-			id:      PubkeyToIDV4(key.Public()),
+			id:      PubkeyToIDV4(*key.Public()),
 			db:      db,
 			key:     prvKey,
 			entries: make(map[string]enr.Entry),
@@ -83,7 +83,7 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 		}
 	case *gost3410.PrivateKey:
 		ln = &LocalNode[T,P]{
-			id:      PubkeyToIDV4(key.Public()),
+			id:      PubkeyToIDV4(*key.Public()),
 			db:      db,
 			key:     prvKey,
 			entries: make(map[string]enr.Entry),

@@ -25,6 +25,7 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/leveldb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
@@ -102,9 +103,9 @@ func TestDiskMerge(t *testing.T) {
 	rawdb.WriteSnapshotRoot(db, baseRoot)
 
 	// Create a disk layer based on the above and cache in some data
-	snaps := &Tree{
-		layers: map[common.Hash]snapshot{
-			baseRoot: &diskLayer{
+	snaps := &Tree[nist.PublicKey]{
+		layers: map[common.Hash]snapshot[nist.PublicKey]{
+			baseRoot: &diskLayer[nist.PublicKey]{
 				diskdb: db,
 				cache:  fastcache.New(500 * 1024),
 				root:   baseRoot,
@@ -142,7 +143,7 @@ func TestDiskMerge(t *testing.T) {
 	}
 	// Retrieve all the data through the disk layer and validate it
 	base = snaps.Snapshot(diffRoot)
-	if _, ok := base.(*diskLayer); !ok {
+	if _, ok := base.(*diskLayer[nist.PublicKey]); !ok {
 		t.Fatalf("update not flattend into the disk layer")
 	}
 
@@ -298,16 +299,16 @@ func TestDiskPartialMerge(t *testing.T) {
 
 		// Create a disk layer based on the above using a random progress marker
 		// and cache in some data.
-		snaps := &Tree{
-			layers: map[common.Hash]snapshot{
-				baseRoot: &diskLayer{
+		snaps := &Tree[nist.PublicKey]{
+			layers: map[common.Hash]snapshot[nist.PublicKey]{
+				baseRoot: &diskLayer[nist.PublicKey]{
 					diskdb: db,
 					cache:  fastcache.New(500 * 1024),
 					root:   baseRoot,
 				},
 			},
 		}
-		snaps.layers[baseRoot].(*diskLayer).genMarker = genMarker
+		snaps.layers[baseRoot].(*diskLayer[nist.PublicKey]).genMarker = genMarker
 		base := snaps.Snapshot(baseRoot)
 
 		// assertAccount ensures that an account matches the given blob if it's
@@ -365,7 +366,7 @@ func TestDiskPartialMerge(t *testing.T) {
 		}
 		// Retrieve all the data through the disk layer and validate it
 		base = snaps.Snapshot(diffRoot)
-		if _, ok := base.(*diskLayer); !ok {
+		if _, ok := base.(*diskLayer[nist.PublicKey]); !ok {
 			t.Fatalf("test %d: update not flattend into the disk layer", i)
 		}
 		assertAccount(accNoModNoCache, accNoModNoCache[:])
@@ -455,9 +456,9 @@ func TestDiskGeneratorPersistence(t *testing.T) {
 	rawdb.WriteSnapshotRoot(db, baseRoot)
 
 	// Create a disk layer based on all above updates
-	snaps := &Tree{
-		layers: map[common.Hash]snapshot{
-			baseRoot: &diskLayer{
+	snaps := &Tree[nist.PublicKey]{
+		layers: map[common.Hash]snapshot[nist.PublicKey]{
+			baseRoot: &diskLayer[nist.PublicKey]{
 				diskdb:    db,
 				cache:     fastcache.New(500 * 1024),
 				root:      baseRoot,
@@ -491,7 +492,7 @@ func TestDiskGeneratorPersistence(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to update snapshot tree: %v", err)
 	}
-	diskLayer := snaps.layers[snaps.diskRoot()].(*diskLayer)
+	diskLayer := snaps.layers[snaps.diskRoot()].(*diskLayer[nist.PublicKey])
 	diskLayer.genMarker = nil // Construction finished
 	if err := snaps.Cap(diffTwoRoot, 0); err != nil {
 		t.Fatalf("failed to flatten snapshot tree: %v", err)
@@ -542,9 +543,9 @@ func TestDiskSeek(t *testing.T) {
 	baseRoot := randomHash()
 	rawdb.WriteSnapshotRoot(db, baseRoot)
 
-	snaps := &Tree{
-		layers: map[common.Hash]snapshot{
-			baseRoot: &diskLayer{
+	snaps := &Tree[nist.PublicKey]{
+		layers: map[common.Hash]snapshot[nist.PublicKey]{
+			baseRoot: &diskLayer[nist.PublicKey]{
 				diskdb: db,
 				cache:  fastcache.New(500 * 1024),
 				root:   baseRoot,

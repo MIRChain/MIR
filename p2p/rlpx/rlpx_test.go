@@ -119,8 +119,8 @@ func TestFrameReadWrite(t *testing.T) {
 	conn := NewConn[nist.PrivateKey](nil, crypto.ZeroPublicKey[nist.PublicKey]())
 	hash := fakeHash([]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
 	conn.InitWithSecrets(Secrets[nist.PrivateKey, nist.PublicKey]{
-		AES:        crypto.Keccak256(),
-		MAC:        crypto.Keccak256(),
+		AES:        crypto.Keccak256[nist.PublicKey](),
+		MAC:        crypto.Keccak256[nist.PublicKey](),
 		IngressMAC: hash,
 		EgressMAC:  hash,
 	})

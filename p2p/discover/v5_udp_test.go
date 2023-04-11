@@ -749,7 +749,7 @@ func (test *udpV5Test) packetInFrom(key *nist.PrivateKey, addr *net.UDPAddr, pac
 
 // getNode ensures the test knows about a node at the given endpoint.
 func (test *udpV5Test) getNode(key *nist.PrivateKey, addr *net.UDPAddr) *enode.LocalNode[nist.PrivateKey, nist.PublicKey] {
-	id := encodePubkey(key.Public()).id()
+	id := encodePubkey(*key.Public()).id()
 	ln := test.nodesByID[id]
 	if ln == nil {
 		db, _ := enode.OpenDB[nist.PublicKey]("")

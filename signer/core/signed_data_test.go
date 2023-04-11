@@ -174,14 +174,20 @@ var messageStandard = map[string]interface{}{
 	"contents": "Hello, Bob!",
 }
 
-var typedData = core.TypedData{
-	Types:       typesStandard,
-	PrimaryType: primaryType,
-	Domain:      domainStandard,
-	Message:     messageStandard,
-}
+// var typedData = core.TypedData{
+// 	Types:       typesStandard,
+// 	PrimaryType: primaryType,
+// 	Domain:      domainStandard,
+// 	Message:     messageStandard,
+// }
 
 func TestSignData(t *testing.T) {
+	var typedData = core.TypedData[nist.PublicKey]{
+		Types:       typesStandard,
+		PrimaryType: primaryType,
+		Domain:      domainStandard,
+		Message:     messageStandard,
+	}
 	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
 	//Create two accounts
 	createAccount[nist.PrivateKey,nist.PublicKey](control, api, t)
@@ -233,7 +239,7 @@ func TestSignData(t *testing.T) {
 }
 
 func TestDomainChainId(t *testing.T) {
-	withoutChainID := core.TypedData{
+	withoutChainID := core.TypedData[nist.PublicKey]{
 		Types: core.Types{
 			"EIP712Domain": []core.Type{
 				{Name: "name", Type: "string"},
@@ -251,7 +257,7 @@ func TestDomainChainId(t *testing.T) {
 	if _, err := withoutChainID.HashStruct("EIP712Domain", withoutChainID.Domain.Map()); err != nil {
 		t.Errorf("Expected the typedData to encode the domain successfully, got %v", err)
 	}
-	withChainID := core.TypedData{
+	withChainID := core.TypedData[nist.PublicKey]{
 		Types: core.Types{
 			"EIP712Domain": []core.Type{
 				{Name: "name", Type: "string"},
@@ -274,6 +280,12 @@ func TestDomainChainId(t *testing.T) {
 }
 
 func TestHashStruct(t *testing.T) {
+	var typedData = core.TypedData[nist.PublicKey]{
+		Types:       typesStandard,
+		PrimaryType: primaryType,
+		Domain:      domainStandard,
+		Message:     messageStandard,
+	}
 	hash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
 	if err != nil {
 		t.Fatal(err)
@@ -294,6 +306,12 @@ func TestHashStruct(t *testing.T) {
 }
 
 func TestEncodeType(t *testing.T) {
+	var typedData = core.TypedData[nist.PublicKey]{
+		Types:       typesStandard,
+		PrimaryType: primaryType,
+		Domain:      domainStandard,
+		Message:     messageStandard,
+	}
 	domainTypeEncoding := string(typedData.EncodeType("EIP712Domain"))
 	if domainTypeEncoding != "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)" {
 		t.Errorf("Expected different encodeType result (got %s)", domainTypeEncoding)
@@ -306,6 +324,12 @@ func TestEncodeType(t *testing.T) {
 }
 
 func TestTypeHash(t *testing.T) {
+	var typedData = core.TypedData[nist.PublicKey]{
+		Types:       typesStandard,
+		PrimaryType: primaryType,
+		Domain:      domainStandard,
+		Message:     messageStandard,
+	}
 	mailTypeHash := fmt.Sprintf("0x%s", common.Bytes2Hex(typedData.TypeHash(typedData.PrimaryType)))
 	if mailTypeHash != "0xa0cedeb2dc280ba39b857546d74f5549c3a1d7bdc2dd96bf881f76108e23dac2" {
 		t.Errorf("Expected different typeHash result (got %s)", mailTypeHash)
@@ -313,6 +337,12 @@ func TestTypeHash(t *testing.T) {
 }
 
 func TestEncodeData(t *testing.T) {
+	var typedData = core.TypedData[nist.PublicKey]{
+		Types:       typesStandard,
+		PrimaryType: primaryType,
+		Domain:      domainStandard,
+		Message:     messageStandard,
+	}
 	hash, err := typedData.EncodeData(typedData.PrimaryType, typedData.Message, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -324,7 +354,7 @@ func TestEncodeData(t *testing.T) {
 }
 
 func TestFormatter(t *testing.T) {
-	var d core.TypedData
+	var d core.TypedData[nist.PublicKey]
 	err := json.Unmarshal([]byte(jsonTypedData), &d)
 	if err != nil {
 		t.Fatalf("unmarshalling failed '%v'", err)
@@ -338,7 +368,7 @@ func TestFormatter(t *testing.T) {
 	t.Logf("'%v'\n", string(j))
 }
 
-func sign(typedData core.TypedData) ([]byte, []byte, error) {
+func sign[P crypto.PublicKey](typedData core.TypedData[P]) ([]byte, []byte, error) {
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
 		return nil, nil, err
@@ -348,7 +378,7 @@ func sign(typedData core.TypedData) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 	rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
-	sighash := crypto.Keccak256(rawData)
+	sighash := crypto.Keccak256[P](rawData)
 	return typedDataHash, sighash, nil
 }
 
@@ -367,7 +397,7 @@ func TestJsonFiles(t *testing.T) {
 			t.Errorf("Failed to read file %v: %v", fInfo.Name(), err)
 			continue
 		}
-		var typedData core.TypedData
+		var typedData core.TypedData[nist.PublicKey]
 		err = json.Unmarshal(data, &typedData)
 		if err != nil {
 			t.Errorf("Test %d, file %v, json unmarshalling failed: %v", i, fInfo.Name(), err)
@@ -399,7 +429,7 @@ func TestFuzzerFiles(t *testing.T) {
 			t.Errorf("Failed to read file %v: %v", fInfo.Name(), err)
 			continue
 		}
-		var typedData core.TypedData
+		var typedData core.TypedData[nist.PublicKey]
 		err = json.Unmarshal(data, &typedData)
 		if err != nil {
 			t.Errorf("Test %d, file %v, json unmarshalling failed: %v", i, fInfo.Name(), err)
@@ -499,7 +529,7 @@ var gnosisTx = `
 // TestGnosisTypedData tests the scenario where a user submits a full EIP-712
 // struct without using the gnosis-specific endpoint
 func TestGnosisTypedData(t *testing.T) {
-	var td core.TypedData
+	var td core.TypedData[nist.PublicKey]
 	err := json.Unmarshal([]byte(gnosisTypedData), &td)
 	if err != nil {
 		t.Fatalf("unmarshalling failed '%v'", err)

@@ -68,7 +68,7 @@ type SimulatedBackend [P crypto.PublicKey] struct {
 
 	mu           sync.Mutex
 	pendingBlock *types.Block[P]   // Currently pending block that will be imported on request
-	pendingState *state.StateDB // Currently pending state that will be the active on request
+	pendingState *state.StateDB[P] // Currently pending state that will be the active on request
 
 	events *filters.EventSystem[P] // Event system for filtering log events live
 
@@ -144,11 +144,11 @@ func (b *SimulatedBackend[P]) rollback() {
 	blocks, _ := core.GenerateChain[P](b.config, b.blockchain.CurrentBlock(), ethash.NewFaker[P](), b.database, 1, func(int, *core.BlockGen[P]) {})
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), b.blockchain.StateCache(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), b.blockchain.StateCache(), nil)
 }
 
 // stateByBlockNumber retrieves a state by a given blocknumber.
-func (b *SimulatedBackend[P]) stateByBlockNumber(ctx context.Context, blockNumber *big.Int) (*state.StateDB, error) {
+func (b *SimulatedBackend[P]) stateByBlockNumber(ctx context.Context, blockNumber *big.Int) (*state.StateDB[P], error) {
 	if blockNumber == nil || blockNumber.Cmp(b.blockchain.CurrentBlock().Number()) == 0 {
 		statedb, _, err := b.blockchain.State()
 		return statedb, err
@@ -545,7 +545,7 @@ func (b *SimulatedBackend[P]) EstimateGas(ctx context.Context, call ethereum.Cal
 
 // callContract implements common code between normal and pending contract calls.
 // state is modified during execution, make sure to copy it if necessary.
-func (b *SimulatedBackend[P]) callContract(ctx context.Context, call ethereum.CallMsg, block *types.Block[P], stateDB *state.StateDB, privateState *state.StateDB) (*core.ExecutionResult, error) {
+func (b *SimulatedBackend[P]) callContract(ctx context.Context, call ethereum.CallMsg, block *types.Block[P], stateDB *state.StateDB[P], privateState *state.StateDB[P]) (*core.ExecutionResult, error) {
 	// Ensure message is initialized properly.
 	if call.GasPrice == nil {
 		call.GasPrice = big.NewInt(1)
@@ -600,7 +600,7 @@ func (b *SimulatedBackend[P]) SendTransaction(ctx context.Context, tx *types.Tra
 	stateDB, _, _ := b.blockchain.State()
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), stateDB.Database(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), stateDB.Database(), nil)
 	return nil
 }
 
@@ -724,7 +724,7 @@ func (b *SimulatedBackend[P]) AdjustTime(adjustment time.Duration) error {
 	stateDB, _, _ := b.blockchain.State()
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), stateDB.Database(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), stateDB.Database(), nil)
 
 	return nil
 }

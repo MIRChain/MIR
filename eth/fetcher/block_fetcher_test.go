@@ -40,7 +40,7 @@ var (
 	testKey, _   = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress[nist.PublicKey](*testKey.Public())
 	genesis      = core.GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
-	unknownBlock = types.NewBlock[nist.PublicKey](&types.Header{GasLimit: params.GenesisGasLimit}, nil, nil, nil, trie.NewStackTrie(nil))
+	unknownBlock = types.NewBlock[nist.PublicKey](&types.Header{GasLimit: params.GenesisGasLimit}, nil, nil, nil, trie.NewStackTrie[nist.PublicKey](nil))
 )
 
 // makeChain creates a chain of n blocks starting at and including parent.

@@ -285,8 +285,8 @@ func TestDecodeErrorsV5(t *testing.T) {
 // This test checks that all test vectors can be decoded.
 func TestTestVectorsV5(t *testing.T) {
 	var (
-		idA     = enode.PubkeyToIDV4(testKeyA.Public())
-		idB     = enode.PubkeyToIDV4(testKeyB.Public())
+		idA     = enode.PubkeyToIDV4(*testKeyA.Public())
+		idB     = enode.PubkeyToIDV4(*testKeyB.Public())
 		addr    = "127.0.0.1"
 		session = &session{
 			writeKey: hexutil.MustDecode("0x00000000000000000000000000000000"),

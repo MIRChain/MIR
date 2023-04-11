@@ -19,7 +19,7 @@ package v4wire
 
 import (
 	"bytes"
-	nist_crypto "crypto/ecdsa"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -283,7 +283,7 @@ func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey[P], err er
 
 // EncodePubkey encodes a secp256k1 public key.
 func EncodePubkey[P crypto.PublicKey](key P) Pubkey[P] {
-	switch p:= any(key).(type){
+	switch p:= any(&key).(type){
 	case *nist.PublicKey:
 		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
@@ -309,7 +309,7 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey[P]) (P, error) {
 	var pub P
 	switch p:= any(&pub).(type){
 	case *nist.PublicKey:
-		k := &nist_crypto.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
+		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
 		half := len(e) / 2
 		k.X.SetBytes(e[:half])
 		k.Y.SetBytes(e[half:])

@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -43,16 +45,49 @@ type hasher [P crypto.PublicKey] struct {
 }
 
 // hasherPool holds pureHashers
-var hasherPool sync.Pool
+var hasherPoolNist = sync.Pool {
+	New: func() interface{} {
+		return &hasher[nist.PublicKey]{
+			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
+			sha: crypto.NewKeccakState[nist.PublicKey](),
+		}
+	},
+}
+var hasherPoolGost = sync.Pool {
+	New: func() interface{} {
+		return &hasher[gost3410.PublicKey]{
+			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
+			sha: crypto.NewKeccakState[gost3410.PublicKey](),
+		}
+	},
+}
 
 func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
-	h := hasherPool.Get().(*hasher[P])
-	h.parallel = parallel
-	return h
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		h := hasherPoolNist.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	case *gost3410.PublicKey:
+		h := hasherPoolGost.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	default:
+		panic("cant infer pub key type for hasher")
+	}
 }
 
 func returnHasherToPool[P crypto.PublicKey](h *hasher[P]) {
-	hasherPool.Put(h)
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		hasherPoolNist.Put(h)
+	case *gost3410.PublicKey:
+		hasherPoolGost.Put(h)
+	default:
+		panic("cant infer pub key type for hasher")
+	}
 }
 
 // hash collapses a node down into a hash node, also returning a copy of the

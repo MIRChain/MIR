@@ -133,7 +133,7 @@ func TestUDPv4_LookupIteratorClose_Gost(t *testing.T) {
 // The nodes were obtained by running lookupTestnet.mine with a random NodeID as target.
 func lookupTestnetGost[T crypto.PrivateKey, P crypto.PublicKey]() *preminedTestnet[T,P]{
 	return &preminedTestnet[T,P]{
-		target: hexEncPubkey("ba6303fbb832ef2a24a5a2b8603bc18981073dd7634b9c6454aa8183ccf07c3b60aabbca2fd8601a29958dd7d7799eb725051d25244635417b9f5a34f1c29a28"),
+		target: hexEncPubkey[P]("ba6303fbb832ef2a24a5a2b8603bc18981073dd7634b9c6454aa8183ccf07c3b60aabbca2fd8601a29958dd7d7799eb725051d25244635417b9f5a34f1c29a28"),
 		dists: [257][]T{
 			251: {
 				hexEncPrivkey[T]("29738ba0c1a4397d6a65f292eee07f02df8e58d41594ba2be3cf84ce0fc58169"),

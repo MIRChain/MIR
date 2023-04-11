@@ -25,32 +25,33 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 
 	checker "gopkg.in/check.v1"
 )
 
-type stateTest struct {
+type stateTest [P crypto.PublicKey] struct {
 	db    ethdb.Database
-	state *StateDB
+	state *StateDB[P]
 }
 
-func newStateTest() *stateTest {
+func newStateTest[P crypto.PublicKey]() *stateTest[P] {
 	db := rawdb.NewMemoryDatabase()
-	sdb, _ := New(common.Hash{}, NewDatabase(db), nil)
-	return &stateTest{db: db, state: sdb}
+	sdb, _ := New[P](common.Hash{}, NewDatabase[P](db), nil)
+	return &stateTest[P]{db: db, state: sdb}
 }
 
 func TestDump(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
-	sdb, _ := New(common.Hash{}, NewDatabaseWithConfig(db, nil), nil)
-	s := &stateTest{db: db, state: sdb}
+	sdb, _ := New[nist.PublicKey](common.Hash{}, NewDatabaseWithConfig[nist.PublicKey](db, nil), nil)
+	s := &stateTest[nist.PublicKey]{db: db, state: sdb}
 
 	// generate a few entries
 	obj1 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01}))
 	obj1.AddBalance(big.NewInt(22))
 	obj2 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01, 0x02}))
-	obj2.SetCode(crypto.Keccak256Hash([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
+	obj2.SetCode(crypto.Keccak256Hash[nist.PublicKey]([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
 	obj3 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x02}))
 	obj3.SetBalance(big.NewInt(44))
 
@@ -90,12 +91,12 @@ func TestDump(t *testing.T) {
 	}
 }
 
-func (s *stateTest) TestDumpAddress(c *checker.C) {
+func (s *stateTest[P]) TestDumpAddress(c *checker.C) {
 	// generate a few entries
 	obj1 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01}))
 	obj1.AddBalance(big.NewInt(22))
 	obj2 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01, 0x02}))
-	obj2.SetCode(crypto.Keccak256Hash([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
+	obj2.SetCode(crypto.Keccak256Hash[P]([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
 	obj3 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x02}))
 	obj3.SetBalance(big.NewInt(44))
 
@@ -116,12 +117,12 @@ func (s *stateTest) TestDumpAddress(c *checker.C) {
 	}
 }
 
-func (s *stateTest) TestDumpAddressNotFound(c *checker.C) {
+func (s *stateTest[P]) TestDumpAddressNotFound(c *checker.C) {
 	// generate a few entries
 	obj1 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01}))
 	obj1.AddBalance(big.NewInt(22))
 	obj2 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01, 0x02}))
-	obj2.SetCode(crypto.Keccak256Hash([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
+	obj2.SetCode(crypto.Keccak256Hash[P]([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
 	obj3 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x02}))
 	obj3.SetBalance(big.NewInt(44))
 
@@ -140,13 +141,13 @@ func (s *stateTest) TestDumpAddressNotFound(c *checker.C) {
 	}
 }
 
-func (s *stateTest) SetUpTest(c *checker.C) {
+func (s *stateTest[P]) SetUpTest(c *checker.C) {
 	s.db = rawdb.NewMemoryDatabase()
-	s.state, _ = New(common.Hash{}, NewDatabase(s.db), nil)
+	s.state, _ = New[P](common.Hash{}, NewDatabase[P](s.db), nil)
 }
 
 func TestNull(t *testing.T) {
-	s := newStateTest()
+	s := newStateTest[nist.PublicKey]()
 	address := common.HexToAddress("0x823140710bf13990e4500136726d8b55")
 	s.state.CreateAccount(address)
 	//value := common.FromHex("0x823140710bf13990e4500136726d8b55")
@@ -168,7 +169,7 @@ func TestSnapshot(t *testing.T) {
 	var storageaddr common.Hash
 	data1 := common.BytesToHash([]byte{42})
 	data2 := common.BytesToHash([]byte{43})
-	s := newStateTest()
+	s := newStateTest[nist.PublicKey]()
 
 	// snapshot the genesis state
 	genesis := s.state.Snapshot()
@@ -199,12 +200,12 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestSnapshotEmpty(t *testing.T) {
-	s := newStateTest()
+	s := newStateTest[nist.PublicKey]()
 	s.state.RevertToSnapshot(s.state.Snapshot())
 }
 
 func TestSnapshot2(t *testing.T) {
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
 	stateobjaddr0 := common.BytesToAddress([]byte("so0"))
 	stateobjaddr1 := common.BytesToAddress([]byte("so1"))
@@ -220,7 +221,7 @@ func TestSnapshot2(t *testing.T) {
 	so0 := state.getStateObject(stateobjaddr0)
 	so0.SetBalance(big.NewInt(42))
 	so0.SetNonce(43)
-	so0.SetCode(crypto.Keccak256Hash([]byte{'c', 'a', 'f', 'e'}), []byte{'c', 'a', 'f', 'e'})
+	so0.SetCode(crypto.Keccak256Hash[nist.PublicKey]([]byte{'c', 'a', 'f', 'e'}), []byte{'c', 'a', 'f', 'e'})
 	so0.suicided = false
 	so0.deleted = false
 	state.setStateObject(so0)
@@ -232,7 +233,7 @@ func TestSnapshot2(t *testing.T) {
 	so1 := state.getStateObject(stateobjaddr1)
 	so1.SetBalance(big.NewInt(52))
 	so1.SetNonce(53)
-	so1.SetCode(crypto.Keccak256Hash([]byte{'c', 'a', 'f', 'e', '2'}), []byte{'c', 'a', 'f', 'e', '2'})
+	so1.SetCode(crypto.Keccak256Hash[nist.PublicKey]([]byte{'c', 'a', 'f', 'e', '2'}), []byte{'c', 'a', 'f', 'e', '2'})
 	so1.suicided = true
 	so1.deleted = true
 	state.setStateObject(so1)
@@ -259,7 +260,7 @@ func TestSnapshot2(t *testing.T) {
 	}
 }
 
-func compareStateObjects(so0, so1 *stateObject, t *testing.T) {
+func compareStateObjects[P crypto.PublicKey](so0, so1 *stateObject[P], t *testing.T) {
 	if so0.Address() != so1.Address() {
 		t.Fatalf("Address mismatch: have %v, want %v", so0.address, so1.address)
 	}

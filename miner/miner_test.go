@@ -66,7 +66,7 @@ func (m *mockBackend[P]) ChainDb() ethdb.Database {
 }
 
 type testBlockChain [P crypto.PublicKey] struct {
-	statedb *state.StateDB
+	statedb *state.StateDB[P]
 
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
@@ -75,14 +75,14 @@ type testBlockChain [P crypto.PublicKey] struct {
 func (bc *testBlockChain[P]) CurrentBlock() *types.Block[P] {
 	return types.NewBlock[P](&types.Header{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
 
 func (bc *testBlockChain[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P] {
 	return bc.CurrentBlock()
 }
 
-func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return bc.statedb, nil, nil
 }
 
@@ -261,7 +261,7 @@ func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(chainDB), nil)
+	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](chainDB), nil)
 	blockchain := &testBlockChain[P]{statedb, 10000000, new(event.Feed)}
 
 	pool := core.NewTxPool[P](testTxPoolConfig, chainConfig, blockchain)

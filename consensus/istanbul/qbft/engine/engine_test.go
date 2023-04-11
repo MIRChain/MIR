@@ -266,7 +266,7 @@ func TestAccumulateRewards(t *testing.T) {
 	}
 	var e *Engine[nist.PublicKey]
 	chain := &core.BlockChain[nist.PublicKey]{}
-	db := state.NewDatabaseWithConfig(rawdb.NewMemoryDatabase(), nil)
+	db := state.NewDatabaseWithConfig[nist.PublicKey](rawdb.NewMemoryDatabase(), nil)
 	state, err := state.New[nist.PublicKey](common.Hash{}, db, nil)
 	require.NoError(t, err)
 

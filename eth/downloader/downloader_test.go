@@ -235,7 +235,7 @@ func (dl *downloadTester[T,P]) CurrentFastBlock() *types.Block[P] {
 func (dl *downloadTester[T,P]) FastSyncCommitHead(hash common.Hash) error {
 	// For now only check that the state trie is correct
 	if block := dl.GetBlockByHash(hash); block != nil {
-		_, err := trie.NewSecure(block.Root(), trie.NewDatabase(dl.stateDb))
+		_, err := trie.NewSecure[P](block.Root(), trie.NewDatabase(dl.stateDb))
 		return err
 	}
 	return fmt.Errorf("non existent block: %x", hash[:4])
@@ -417,7 +417,7 @@ func (dl *downloadTester[T,P]) dropPeer(id string) {
 }
 
 // Snapshots implements the BlockChain interface for the downloader, but is a noop.
-func (dl *downloadTester[T,P]) Snapshots() *snapshot.Tree {
+func (dl *downloadTester[T,P]) Snapshots() *snapshot.Tree[P] {
 	return nil
 }
 

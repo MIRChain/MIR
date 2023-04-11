@@ -66,14 +66,6 @@ func NewStackTrie[P crypto.PublicKey](db ethdb.KeyValueWriter) *StackTrie[P] {
 			return NewStackTrie[P](nil)
 		},
 	}
-	hasherPool = sync.Pool {
-		New: func() interface{} {
-			return &hasher[P]{
-				tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-				sha: crypto.NewKeccakState[P](),
-			}
-		},
-	}
 	return &StackTrie[P]{
 		nodeType: emptyNode,
 		db:       db,

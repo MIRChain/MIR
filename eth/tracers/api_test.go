@@ -141,7 +141,7 @@ func (b *testBackend[P]) ChainDb() ethdb.Database {
 	return b.chaindb
 }
 
-func (b *testBackend[P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (b *testBackend[P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	statedb, privateStateRepo, err := b.chain.StateAt(block.Root())
 	if err != nil {
 		return nil, nil, errStateNotFound
@@ -149,7 +149,7 @@ func (b *testBackend[P]) StateAtBlock(ctx context.Context, block *types.Block[P]
 	return statedb, privateStateRepo, nil
 }
 
-func (b *testBackend[P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
+func (b *testBackend[P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	parent := b.chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
 		return nil, vm.BlockContext{}, nil, nil, nil, errBlockNotFound
@@ -214,7 +214,7 @@ func TestTraceCall(t *testing.T) {
 	var testSuite = []struct {
 		blockNumber rpc.BlockNumber
 		call        ethapi.CallArgs
-		config      *TraceCallConfig
+		config      *TraceCallConfig[nist.PublicKey]
 		expectErr   error
 		expect      interface{}
 	}{
@@ -300,7 +300,7 @@ func TestTraceCall(t *testing.T) {
 		},
 	}
 	for _, testspec := range testSuite {
-		tc := &TraceCallConfig{}
+		tc := &TraceCallConfig[nist.PublicKey]{}
 		if testspec.config != nil {
 			tc.LogConfig = testspec.config.LogConfig
 			tc.Tracer = testspec.config.Tracer
@@ -352,7 +352,7 @@ func TestOverridenTraceCall(t *testing.T) {
 	var testSuite = []struct {
 		blockNumber rpc.BlockNumber
 		call        ethapi.CallArgs
-		config      *TraceCallConfig
+		config      *TraceCallConfig[nist.PublicKey]
 		expectErr   error
 		expect      *callTrace
 	}{
@@ -364,9 +364,9 @@ func TestOverridenTraceCall(t *testing.T) {
 				To:    &randomAccounts[1].addr,
 				Value: (*hexutil.Big)(big.NewInt(1000)),
 			},
-			config: &TraceCallConfig{
+			config: &TraceCallConfig[nist.PublicKey]{
 				Tracer: &tracer,
-				StateOverrides: &ethapi.StateOverride{
+				StateOverrides: &ethapi.StateOverride[nist.PublicKey]{
 					randomAccounts[0].addr: ethapi.OverrideAccount{Balance: newRPCBalance(new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether)))},
 				},
 			},
@@ -388,7 +388,7 @@ func TestOverridenTraceCall(t *testing.T) {
 				To:    &randomAccounts[1].addr,
 				Value: (*hexutil.Big)(big.NewInt(1000)),
 			},
-			config: &TraceCallConfig{
+			config: &TraceCallConfig[nist.PublicKey]{
 				Tracer: &tracer,
 			},
 			expectErr: core.ErrInsufficientFundsForTransfer,
@@ -417,9 +417,9 @@ func TestOverridenTraceCall(t *testing.T) {
 				To:   &randomAccounts[2].addr,
 				Data: newRPCBytes(common.Hex2Bytes("8381f58a")), // call number()
 			},
-			config: &TraceCallConfig{
+			config: &TraceCallConfig[nist.PublicKey]{
 				Tracer: &tracer,
-				StateOverrides: &ethapi.StateOverride{
+				StateOverrides: &ethapi.StateOverride[nist.PublicKey]{
 					randomAccounts[2].addr: ethapi.OverrideAccount{
 						Code:      newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060285760003560e01c80638381f58a14602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000548156fea2646970667358221220eab35ffa6ab2adfe380772a48b8ba78e82a1b820a18fcb6f59aa4efb20a5f60064736f6c63430007040033")),
 						StateDiff: newStates([]common.Hash{{}}, []common.Hash{common.BigToHash(big.NewInt(123))}),
