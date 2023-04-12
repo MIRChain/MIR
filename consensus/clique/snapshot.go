@@ -183,7 +183,7 @@ func (s *Snapshot[P]) uncast(address common.Address, authorize bool) bool {
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
-func (s *Snapshot[P]) apply(headers []*types.Header) (*Snapshot[P], error) {
+func (s *Snapshot[P]) apply(headers []*types.Header[P]) (*Snapshot[P], error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
@@ -219,6 +219,10 @@ func (s *Snapshot[P]) apply(headers []*types.Header) (*Snapshot[P], error) {
 		signer, err := ecrecover[P](header, s.sigcache)
 		if err != nil {
 			return nil, err
+		}
+		log.Info("Signer ", "", signer.Hex())
+		for s := range(snap.Signers) {
+			log.Info("Signers at snap ", "", s.Hex())
 		}
 		if _, ok := snap.Signers[signer]; !ok {
 			return nil, errUnauthorizedSigner

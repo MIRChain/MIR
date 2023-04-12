@@ -80,7 +80,7 @@ type Pruner [P crypto.PublicKey] struct {
 	stateBloom    *stateBloom
 	datadir       string
 	trieCachePath string
-	headHeader    *types.Header
+	headHeader    *types.Header[P]
 	snaptree      *snapshot.Tree[P]
 }
 

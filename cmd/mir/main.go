@@ -523,14 +523,14 @@ func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 	// close the node when synchronization is complete if user required.
 	if ctx.GlobalBool(utils.ExitWhenSyncedFlag.Name) {
 		go func() {
-			sub := stack.EventMux().Subscribe(downloader.DoneEvent{})
+			sub := stack.EventMux().Subscribe(downloader.DoneEvent[P]{})
 			defer sub.Unsubscribe()
 			for {
 				event := <-sub.Chan()
 				if event == nil {
 					continue
 				}
-				done, ok := event.Data.(downloader.DoneEvent)
+				done, ok := event.Data.(downloader.DoneEvent[P])
 				if !ok {
 					continue
 				}

@@ -91,7 +91,7 @@ type environment [P crypto.PublicKey] struct {
 	tcount    int            // tx count in cycle
 	gasPool   *core.GasPool  // available gas used to pack transactions
 
-	header   *types.Header
+	header   *types.Header[P]
 	txs      []*types.Transaction[P]
 	receipts []*types.Receipt[P]
 
@@ -489,7 +489,7 @@ func (w *worker[T,P]) mainLoop() {
 			if w.isRunning() && w.current != nil && w.current.uncles.Cardinality() < 2 {
 				start := time.Now()
 				if err := w.commitUncle(w.current, ev.Block.Header()); err == nil {
-					var uncles []*types.Header
+					var uncles []*types.Header[P]
 					w.current.uncles.Each(func(item interface{}) bool {
 						hash, ok := item.(common.Hash)
 						if !ok {
@@ -737,7 +737,7 @@ func (w *worker[T,P]) resultLoop() {
 }
 
 // makeCurrent creates a new environment for the current cycle.
-func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header) error {
+func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header[P]) error {
 	// Retrieve the parent state to execute on top and start a prefetcher for
 	// the miner to speed block sealing up a bit
 	publicState, privateStateRepo, err := w.chain.StateAt(parent.Root())
@@ -777,7 +777,7 @@ func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header) 
 }
 
 // commitUncle adds the given block to uncle block set, returns error if failed to add.
-func (w *worker[T,P]) commitUncle(env *environment[P], uncle *types.Header) error {
+func (w *worker[T,P]) commitUncle(env *environment[P], uncle *types.Header[P]) error {
 	hash := uncle.Hash()
 	if env.uncles.Contains(hash) {
 		return errors.New("uncle not unique")
@@ -801,7 +801,7 @@ func (w *worker[T,P]) updateSnapshot() {
 	w.snapshotMu.Lock()
 	defer w.snapshotMu.Unlock()
 
-	var uncles []*types.Header
+	var uncles []*types.Header[P]
 	w.current.uncles.Each(func(item interface{}) bool {
 		hash, ok := item.(common.Hash)
 		if !ok {
@@ -1002,7 +1002,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 	}
 	minGasLimit := w.chainConfig.GetMinerMinGasLimit(parent.Number(), params.DefaultMinGasLimit)
 	num := parent.Number()
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, minGasLimit, w.config.GasFloor, w.config.GasCeil),
@@ -1046,7 +1046,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 		misc.ApplyDAOHardFork(env.state)
 	}
 	// Accumulate the uncles for the current block
-	uncles := make([]*types.Header, 0, 2)
+	uncles := make([]*types.Header[P], 0, 2)
 	commitUncles := func(blocks map[common.Hash]*types.Block[P]) {
 		// Clean up stale uncle blocks first
 		for hash, uncle := range blocks {
@@ -1114,7 +1114,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker[T,P]) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
+func (w *worker[T,P]) commit(uncles []*types.Header[P], interval func(), update bool, start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	privateReceipts := copyReceipts(w.current.privateReceipts) // Quorum

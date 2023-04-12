@@ -201,7 +201,7 @@ func (c *ChtIndexerBackend[P]) Reset(ctx context.Context, section uint64, lastSe
 }
 
 // Process implements core.ChainIndexerBackend
-func (c *ChtIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
+func (c *ChtIndexerBackend[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	hash, num := header.Hash(), header.Number.Uint64()
 	c.lastHash = hash
 
@@ -417,7 +417,7 @@ func (b *BloomTrieIndexerBackend[P]) Reset(ctx context.Context, section uint64, 
 }
 
 // Process implements core.ChainIndexerBackend
-func (b *BloomTrieIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
+func (b *BloomTrieIndexerBackend[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	num := header.Number.Uint64() - b.section*b.size
 	if (num+1)%b.parentSize == 0 {
 		b.sectionHeads[num/b.parentSize] = header.Hash()

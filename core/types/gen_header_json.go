@@ -14,7 +14,7 @@ import (
 var _ = (*headerMarshaling)(nil)
 
 // MarshalJSON marshals as JSON.
-func (h Header) MarshalJSON() ([]byte, error) {
+func (h Header[P]) MarshalJSON() ([]byte, error) {
 	type Header struct {
 		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -22,7 +22,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-		Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+		Bloom       Bloom[P]          `json:"logsBloom"        gencodec:"required"`
 		Difficulty  *hexutil.Big   `json:"difficulty"       gencodec:"required"`
 		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
 		GasLimit    hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
@@ -54,7 +54,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals from JSON.
-func (h *Header) UnmarshalJSON(input []byte) error {
+func (h *Header[P]) UnmarshalJSON(input []byte) error {
 	type Header struct {
 		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -62,7 +62,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
 		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-		Bloom       *Bloom          `json:"logsBloom"        gencodec:"required"`
+		Bloom       *Bloom[P]          `json:"logsBloom"        gencodec:"required"`
 		Difficulty  *hexutil.Big    `json:"difficulty"       gencodec:"required"`
 		Number      *hexutil.Big    `json:"number"           gencodec:"required"`
 		GasLimit    *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`

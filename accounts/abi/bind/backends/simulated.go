@@ -284,7 +284,7 @@ func (b *SimulatedBackend[P]) blockByNumberNoLock(ctx context.Context, number *b
 }
 
 // HeaderByHash returns a block header from the current canonical chain.
-func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -302,7 +302,7 @@ func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
-func (b *SimulatedBackend[P]) HeaderByNumber(ctx context.Context, block *big.Int) (*types.Header, error) {
+func (b *SimulatedBackend[P]) HeaderByNumber(ctx context.Context, block *big.Int) (*types.Header[P], error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -682,9 +682,9 @@ func (b *SimulatedBackend[P]) SubscribeFilterLogs(ctx context.Context, query eth
 }
 
 // SubscribeNewHead returns an event subscription for a new header.
-func (b *SimulatedBackend[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (b *SimulatedBackend[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header[P]) (ethereum.Subscription, error) {
 	// subscribe to a new head
-	sink := make(chan *types.Header)
+	sink := make(chan *types.Header[P])
 	sub := b.events.SubscribeNewHeads(sink)
 
 	return event.NewSubscription(func(quit <-chan struct{}) error {
@@ -761,14 +761,14 @@ func (fb *filterBackend[P]) EventMux() *event.TypeMux { panic("not supported") }
 
 func (fb *filterBackend[P]) PSMR() mps.PrivateStateMetadataResolver { return fb.bc.PrivateStateManager() }
 
-func (fb *filterBackend[P]) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header, error) {
+func (fb *filterBackend[P]) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header[P], error) {
 	if block == rpc.LatestBlockNumber {
 		return fb.bc.CurrentHeader(), nil
 	}
 	return fb.bc.GetHeaderByNumber(uint64(block.Int64())), nil
 }
 
-func (fb *filterBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (fb *filterBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	return fb.bc.GetHeaderByHash(hash), nil
 }
 

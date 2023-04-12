@@ -243,7 +243,7 @@ func newHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T
 	h.downloader = downloader.New[T,P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
-	validator := func(header *types.Header) error {
+	validator := func(header *types.Header[P]) error {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {

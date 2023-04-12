@@ -261,7 +261,7 @@ type TxPool [P crypto.PublicKey] struct {
 
 	chainHeadCh     chan ChainHeadEvent[P]
 	chainHeadSub    event.Subscription
-	reqResetCh      chan *txpoolResetRequest
+	reqResetCh      chan *txpoolResetRequest[P]
 	reqPromoteCh    chan *accountSet[P]
 	queueTxEventCh  chan *types.Transaction[P]
 	reorgDoneCh     chan chan struct{}
@@ -269,8 +269,8 @@ type TxPool [P crypto.PublicKey] struct {
 	wg              sync.WaitGroup // tracks loop, scheduleReorgLoop
 }
 
-type txpoolResetRequest struct {
-	oldHead, newHead *types.Header
+type txpoolResetRequest [P crypto.PublicKey] struct {
+	oldHead, newHead *types.Header[P]
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -290,7 +290,7 @@ func NewTxPool[P crypto.PublicKey](config TxPoolConfig, chainconfig *params.Chai
 		beats:           make(map[common.Address]time.Time),
 		all:             newTxLookup[P](),
 		chainHeadCh:     make(chan ChainHeadEvent[P], chainHeadChanSize),
-		reqResetCh:      make(chan *txpoolResetRequest),
+		reqResetCh:      make(chan *txpoolResetRequest[P]),
 		reqPromoteCh:    make(chan *accountSet[P]),
 		queueTxEventCh:  make(chan *types.Transaction[P]),
 		reorgDoneCh:     make(chan chan struct{}),
@@ -1007,9 +1007,9 @@ func (pool *TxPool[P]) removeTx(hash common.Hash, outofbound bool) {
 
 // requestReset requests a pool reset to the new head block.
 // The returned channel is closed when the reset has occurred.
-func (pool *TxPool[P]) requestReset(oldHead *types.Header, newHead *types.Header) chan struct{} {
+func (pool *TxPool[P]) requestReset(oldHead *types.Header[P], newHead *types.Header[P]) chan struct{} {
 	select {
-	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead}:
+	case pool.reqResetCh <- &txpoolResetRequest[P]{oldHead, newHead}:
 		return <-pool.reorgDoneCh
 	case <-pool.reorgShutdownCh:
 		return pool.reorgShutdownCh
@@ -1045,7 +1045,7 @@ func (pool *TxPool[P]) scheduleReorgLoop() {
 		curDone       chan struct{} // non-nil while runReorg is active
 		nextDone      = make(chan struct{})
 		launchNextRun bool
-		reset         *txpoolResetRequest
+		reset         *txpoolResetRequest[P]
 		dirtyAccounts *accountSet[P]
 		queuedEvents  = make(map[common.Address]*txSortedMap[P])
 	)
@@ -1108,7 +1108,7 @@ func (pool *TxPool[P]) scheduleReorgLoop() {
 }
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
-func (pool *TxPool[P]) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet[P], events map[common.Address]*txSortedMap[P]) {
+func (pool *TxPool[P]) runReorg(done chan struct{}, reset *txpoolResetRequest[P], dirtyAccounts *accountSet[P], events map[common.Address]*txSortedMap[P]) {
 	defer close(done)
 
 	var promoteAddrs []common.Address
@@ -1175,7 +1175,7 @@ func (pool *TxPool[P]) runReorg(done chan struct{}, reset *txpoolResetRequest, d
 
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
-func (pool *TxPool[P]) reset(oldHead, newHead *types.Header) {
+func (pool *TxPool[P]) reset(oldHead, newHead *types.Header[P]) {
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject types.Transactions[P]
 

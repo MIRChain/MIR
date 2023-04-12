@@ -21,6 +21,7 @@ import (
 	"io"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -72,7 +73,7 @@ func (ist *IstanbulExtra) DecodeRLP(s *rlp.Stream) error {
 // ExtractIstanbulExtra extracts all values of the IstanbulExtra from the header. It returns an
 // error if the length of the given extra-data is less than 32 bytes or the extra-data can not
 // be decoded.
-func ExtractIstanbulExtra(h *Header) (*IstanbulExtra, error) {
+func ExtractIstanbulExtra[P crypto.PublicKey](h *Header[P]) (*IstanbulExtra, error) {
 	if len(h.Extra) < IstanbulExtraVanity {
 		return nil, ErrInvalidIstanbulHeaderExtra
 	}
@@ -88,7 +89,7 @@ func ExtractIstanbulExtra(h *Header) (*IstanbulExtra, error) {
 // FilteredHeader returns a filtered header which some information (like seal, committed seals)
 // are clean to fulfill the Istanbul hash rules. It first check if the extradata can be extracted into IstanbulExtra if that fails,
 //it extracts extradata into QBFTExtra struct
-func FilteredHeader(h *Header) *Header {
+func FilteredHeader[P crypto.PublicKey](h *Header[P]) *Header[P] {
 	// Check if the header extradata can be decoded in IstanbulExtra, if yes, then call IstanbulFilteredHeader()
 	// if not then call QBFTFilteredHeader()
 	_, err := ExtractIstanbulExtra(h)
@@ -101,7 +102,7 @@ func FilteredHeader(h *Header) *Header {
 // IstanbulFilteredHeader returns a filtered header which some information (like seal, committed seals)
 // are clean to fulfill the Istanbul hash rules. It returns nil if the extra-data cannot be
 // decoded/encoded by rlp.
-func IstanbulFilteredHeader(h *Header, keepSeal bool) *Header {
+func IstanbulFilteredHeader[P crypto.PublicKey](h *Header[P], keepSeal bool) *Header[P] {
 	newHeader := CopyHeader(h)
 	istanbulExtra, err := ExtractIstanbulExtra(newHeader)
 	if err != nil {
@@ -189,7 +190,7 @@ func (vv *ValidatorVote) DecodeRLP(s *rlp.Stream) error {
 // ExtractQBFTExtra extracts all values of the QBFTExtra from the header. It returns an
 // error if the length of the given extra-data is less than 32 bytes or the extra-data can not
 // be decoded.
-func ExtractQBFTExtra(h *Header) (*QBFTExtra, error) {
+func ExtractQBFTExtra[P crypto.PublicKey](h *Header[P]) (*QBFTExtra, error) {
 	qbftExtra := new(QBFTExtra)
 	err := rlp.DecodeBytes(h.Extra[:], qbftExtra)
 	if err != nil {
@@ -201,13 +202,13 @@ func ExtractQBFTExtra(h *Header) (*QBFTExtra, error) {
 // QBFTFilteredHeader returns a filtered header which some information (like committed seals, round, validator vote)
 // are clean to fulfill the Istanbul hash rules. It returns nil if the extra-data cannot be
 // decoded/encoded by rlp.
-func QBFTFilteredHeader(h *Header) *Header {
+func QBFTFilteredHeader[P crypto.PublicKey](h *Header[P]) *Header[P] {
 	return QBFTFilteredHeaderWithRound(h, 0)
 }
 
 // QBFTFilteredHeaderWithRound returns the copy of the header with round number set to the given round number
 // and commit seal set to its null value
-func QBFTFilteredHeaderWithRound(h *Header, round uint32) *Header {
+func QBFTFilteredHeaderWithRound[P crypto.PublicKey](h *Header[P], round uint32) *Header[P] {
 	newHeader := CopyHeader(h)
 	qbftExtra, err := ExtractQBFTExtra(newHeader)
 	if err != nil {

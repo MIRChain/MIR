@@ -232,7 +232,7 @@ func (api *SignerAPI[T,P]) determineSignatureFormat(ctx context.Context, content
 		if err != nil {
 			return nil, useEthereumV, err
 		}
-		header := &types.Header{}
+		header := &types.Header[P]{}
 		if err := rlp.DecodeBytes(cliqueData, header); err != nil {
 			return nil, useEthereumV, err
 		}
@@ -300,7 +300,7 @@ func SignTextValidator[P crypto.PublicKey](validatorData ValidatorData) (hexutil
 // The method requires the extra data to be at least 65 bytes -- the original implementation
 // in clique.go panics if this is the case, thus it's been reimplemented here to avoid the panic
 // and simply return an error instead
-func cliqueHeaderHashAndRlp(header *types.Header) (hash, rlp []byte, err error) {
+func cliqueHeaderHashAndRlp[P crypto.PublicKey](header *types.Header[P]) (hash, rlp []byte, err error) {
 	if len(header.Extra) < 65 {
 		err = fmt.Errorf("clique header extradata too short, %d < 65", len(header.Extra))
 		return

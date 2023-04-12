@@ -61,8 +61,8 @@ const (
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
 type Backend [P crypto.PublicKey] interface {
-	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error)
+	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
 	GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction[P], common.Hash, uint64, uint64, error)
@@ -98,7 +98,7 @@ func (context *chainContext[P]) Engine() consensus.Engine[P] {
 	return context.api.backend.Engine()
 }
 
-func (context *chainContext[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (context *chainContext[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] {
 	header, err := context.api.backend.HeaderByNumber(context.ctx, rpc.BlockNumber(number))
 	if err != nil {
 		return nil
@@ -1049,7 +1049,7 @@ func (api *API[P]) clearMessageDataIfNonParty(msg types.Message, psm *mps.Privat
 	return msg
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header[P], outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

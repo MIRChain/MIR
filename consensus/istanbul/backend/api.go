@@ -29,7 +29,7 @@ import (
 
 // API is a user facing RPC API to dump Istanbul state
 type API [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	chain   consensus.ChainHeaderReader
+	chain   consensus.ChainHeaderReader[P]
 	backend *Backend[T,P]
 }
 
@@ -55,7 +55,7 @@ func (api *API[T,P]) NodeAddress() common.Address {
 // latest block available if none is specified
 func (api *API[T,P]) GetSignersFromBlock(number *rpc.BlockNumber) (*BlockSigners, error) {
 	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
+	var header *types.Header[P]
 	if number == nil || *number == rpc.LatestBlockNumber {
 		header = api.chain.CurrentHeader()
 	} else {
@@ -79,7 +79,7 @@ func (api *API[T,P]) GetSignersFromBlockByHash(hash common.Hash) (*BlockSigners,
 	return api.signers(header)
 }
 
-func (api *API[T,P]) signers(header *types.Header) (*BlockSigners, error) {
+func (api *API[T,P]) signers(header *types.Header[P]) (*BlockSigners, error) {
 	author, err := api.backend.Author(header)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (api *API[T,P]) signers(header *types.Header) (*BlockSigners, error) {
 // GetSnapshot retrieves the state snapshot at a given block.
 func (api *API[T,P]) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
+	var header *types.Header[P]
 	if number == nil || *number == rpc.LatestBlockNumber {
 		header = api.chain.CurrentHeader()
 	} else {
@@ -126,7 +126,7 @@ func (api *API[T,P]) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 // GetValidators retrieves the list of authorized validators at the specified block.
 func (api *API[T,P]) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
 	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
+	var header *types.Header[P]
 	if number == nil || *number == rpc.LatestBlockNumber {
 		header = api.chain.CurrentHeader()
 	} else {

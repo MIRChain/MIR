@@ -23,7 +23,7 @@ var (
 	_ = ethereum.NotFound
 	// _ = bind.Bind
 	_ = common.Big1
-	_ = types.BloomLookup
+	// _ = types.BloomLookup
 	_ = event.NewSubscription
 )
 

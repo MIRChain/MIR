@@ -74,7 +74,7 @@ type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	tcount  int
 	gasPool *core.GasPool
 
-	header   *types.Header
+	header   *types.Header[P]
 	txs      []*types.Transaction[P]
 	receipts []*types.Receipt[P]
 
@@ -98,7 +98,7 @@ func (env *blockExecutionEnv[T,P]) commitTransaction(tx *types.Transaction[P], c
 	return nil
 }
 
-func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Header) (*blockExecutionEnv[T,P], error) {
+func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Header[P]) (*blockExecutionEnv[T,P], error) {
 	state, mpsr, err := api.eth.BlockChain().StateAt(parent.Root())
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func (api *consensusAPI[T,P]) AssembleBlock(params assembleBlockParams) (*execut
 		return nil, err
 	}
 	num := parent.Number()
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		Coinbase:   coinbase,
@@ -268,14 +268,14 @@ func insertBlockParamsToBlock[P crypto.PublicKey](params executableData) (*types
 
 	number := big.NewInt(0)
 	number.SetUint64(params.Number)
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash:  params.ParentHash,
-		UncleHash:   types.EmptyUncleHash,
+		UncleHash:   types.EmptyUncleHash[P](),
 		Coinbase:    params.Miner,
 		Root:        params.StateRoot,
 		TxHash:      types.DeriveSha(types.Transactions[P](txs), trie.NewStackTrie[P](nil)),
 		ReceiptHash: params.ReceiptRoot,
-		Bloom:       types.BytesToBloom(params.LogsBloom),
+		Bloom:       types.BytesToBloom[P](params.LogsBloom),
 		Difficulty:  big.NewInt(1),
 		Number:      number,
 		GasLimit:    params.GasLimit,

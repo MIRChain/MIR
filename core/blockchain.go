@@ -571,7 +571,7 @@ func (bc *BlockChain[P]) SetHeadBeyondRoot(head uint64, root common.Hash) (uint6
 	pivot := rawdb.ReadLastPivotNumber(bc.db)
 	frozen, _ := bc.db.Ancients()
 
-	updateFn := func(db ethdb.KeyValueWriter, header *types.Header) (uint64, bool) {
+	updateFn := func(db ethdb.KeyValueWriter, header *types.Header[P]) (uint64, bool) {
 		// Rewind the block chain, ensuring we don't end up with a stateless head
 		// block. Note, depth equality is permitted to allow using SetHead as a
 		// chain reparation mechanism without deleting any data!
@@ -1102,8 +1102,8 @@ func (bc *BlockChain[P]) GetBlocksFromHash(hash common.Hash, n int) (blocks []*t
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-func (bc *BlockChain[P]) GetUnclesInChain(block *types.Block[P], length int) []*types.Header {
-	uncles := []*types.Header{}
+func (bc *BlockChain[P]) GetUnclesInChain(block *types.Block[P], length int) []*types.Header[P] {
+	uncles := []*types.Header[P]{}
 	for i := 0; block != nil && i < length; i++ {
 		uncles = append(uncles, block.Uncles()...)
 		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
@@ -1884,7 +1884,7 @@ func (bc *BlockChain[P]) insertChain(chain types.Blocks[P], verifySeals bool) (i
 		}
 	}()
 	// Start the parallel header verifier
-	headers := make([]*types.Header, len(chain))
+	headers := make([]*types.Header[P], len(chain))
 	seals := make([]bool, len(chain))
 
 	for i, block := range chain {
@@ -2616,7 +2616,7 @@ Error: %v
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header[P], checkFreq int) (int, error) {
 	start := time.Now()
 	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
 		return i, err
@@ -2634,7 +2634,7 @@ func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int)
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (bc *BlockChain[P]) CurrentHeader() *types.Header {
+func (bc *BlockChain[P]) CurrentHeader() *types.Header[P] {
 	return bc.hc.CurrentHeader()
 }
 
@@ -2652,13 +2652,13 @@ func (bc *BlockChain[P]) GetTdByHash(hash common.Hash) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (bc *BlockChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (bc *BlockChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] {
 	return bc.hc.GetHeader(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (bc *BlockChain[P]) GetHeaderByHash(hash common.Hash) *types.Header {
+func (bc *BlockChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P] {
 	return bc.hc.GetHeaderByHash(hash)
 }
 
@@ -2690,7 +2690,7 @@ func (bc *BlockChain[P]) GetAncestor(hash common.Hash, number, ancestor uint64, 
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (bc *BlockChain[P]) GetHeaderByNumber(number uint64) *types.Header {
+func (bc *BlockChain[P]) GetHeaderByNumber(number uint64) *types.Header[P] {
 	return bc.hc.GetHeaderByNumber(number)
 }
 

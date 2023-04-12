@@ -93,7 +93,7 @@ func (b *EthAPIBackend[T,P]) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error) {
 	// Pending block is only known by the miner
 	if number == rpc.PendingBlockNumber {
 		block := b.eth.miner.PendingBlock()
@@ -106,7 +106,7 @@ func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.Bloc
 	return b.eth.blockchain.GetHeaderByNumber(uint64(number)), nil
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header[P], error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.HeaderByNumber(ctx, blockNr)
 	}
@@ -123,7 +123,7 @@ func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOr
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	return b.eth.blockchain.GetHeaderByHash(hash), nil
 }
 
@@ -169,7 +169,7 @@ func (b *EthAPIBackend[T,P]) BlockByNumberOrHash(ctx context.Context, blockNrOrH
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header[P], error) {
 	psm, err := b.PSMR().ResolveForUserContext(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -205,7 +205,7 @@ func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number 
 
 }
 
-func (b *EthAPIBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (b *EthAPIBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header[P], error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.StateAndHeaderByNumber(ctx, blockNr)
 	}
@@ -287,7 +287,7 @@ func (b *EthAPIBackend[T,P]) GetTd(ctx context.Context, hash common.Hash) *big.I
 	return b.eth.blockchain.GetTdByHash(hash)
 }
 
-func (b *EthAPIBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
+func (b *EthAPIBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header[P], vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
 	statedb := state.(EthAPIState[P])
 	vmError := func() error { return nil }
 	if vmConfig == nil {
@@ -440,7 +440,7 @@ func (b *EthAPIBackend[T,P]) Engine() consensus.Engine[P] {
 	return b.eth.engine
 }
 
-func (b *EthAPIBackend[T,P]) CurrentHeader() *types.Header {
+func (b *EthAPIBackend[T,P]) CurrentHeader() *types.Header[P] {
 	return b.eth.blockchain.CurrentHeader()
 }
 

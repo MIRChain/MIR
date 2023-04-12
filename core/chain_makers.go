@@ -37,13 +37,13 @@ type BlockGen [P crypto.PublicKey] struct {
 	i       int
 	parent  *types.Block[P]
 	chain   []*types.Block[P]
-	header  *types.Header
+	header  *types.Header[P]
 	statedb *state.StateDB[P]
 
 	gasPool  *GasPool
 	txs      []*types.Transaction[P]
 	receipts []*types.Receipt[P]
-	uncles   []*types.Header
+	uncles   []*types.Header[P]
 
 	config *params.ChainConfig
 	engine consensus.Engine[P]
@@ -161,7 +161,7 @@ func (b *BlockGen[P]) TxNonce(addr common.Address) uint64 {
 }
 
 // AddUncle adds an uncle header to the generated block.
-func (b *BlockGen[P]) AddUncle(h *types.Header) {
+func (b *BlockGen[P]) AddUncle(h *types.Header[P]) {
 	b.uncles = append(b.uncles, h)
 }
 
@@ -263,7 +263,7 @@ func GenerateChain[P crypto.PublicKey](config *params.ChainConfig, parent *types
 	return blocks, receipts
 }
 
-func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *types.Block[P], state *state.StateDB[P], engine consensus.Engine[P]) *types.Header {
+func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *types.Block[P], state *state.StateDB[P], engine consensus.Engine[P]) *types.Header[P] {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10
@@ -271,11 +271,11 @@ func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *type
 		time = parent.Time() + 10 // block time is fixed at 10 seconds
 	}
 
-	return &types.Header{
+	return &types.Header[P]{
 		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chain, time, &types.Header{
+		Difficulty: engine.CalcDifficulty(chain, time, &types.Header[P]{
 			Number:     parent.Number(),
 			Time:       time - 10,
 			Difficulty: parent.Difficulty(),
@@ -288,9 +288,9 @@ func makeHeader[P crypto.PublicKey](chain consensus.ChainReader[P], parent *type
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, engine consensus.Engine[P], db ethdb.Database, seed int) []*types.Header {
+func makeHeaderChain[P crypto.PublicKey](parent *types.Header[P], n int, engine consensus.Engine[P], db ethdb.Database, seed int) []*types.Header[P] {
 	blocks := makeBlockChain(types.NewBlockWithHeader[P](parent), n, engine, db, seed)
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.Header[P], len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -314,8 +314,8 @@ func (cr *fakeChainReader[P]) Config() *params.ChainConfig {
 	return cr.config
 }
 
-func (cr *fakeChainReader[P]) CurrentHeader() *types.Header                            { return nil }
-func (cr *fakeChainReader[P]) GetHeaderByNumber(number uint64) *types.Header           { return nil }
-func (cr *fakeChainReader[P]) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
-func (cr *fakeChainReader[P]) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
+func (cr *fakeChainReader[P]) CurrentHeader() *types.Header[P]                            { return nil }
+func (cr *fakeChainReader[P]) GetHeaderByNumber(number uint64) *types.Header[P]           { return nil }
+func (cr *fakeChainReader[P]) GetHeaderByHash(hash common.Hash) *types.Header[P]          { return nil }
+func (cr *fakeChainReader[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] { return nil }
 func (cr *fakeChainReader[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P]   { return nil }

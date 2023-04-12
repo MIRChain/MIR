@@ -65,7 +65,7 @@ func (h *ethHandler[T,P]) AcceptTxs() bool {
 func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 	// Consume any broadcasts and announces, forwarding the rest to the downloader
 	switch packet := packet.(type) {
-	case *eth.BlockHeadersPacket:
+	case *eth.BlockHeadersPacket[P]:
 		return h.handleHeaders(peer, *packet)
 
 	case *eth.BlockBodiesPacket[P]:
@@ -107,7 +107,7 @@ func (h *ethHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
 
 // handleHeaders is invoked from a peer's message handler when it transmits a batch
 // of headers for the local node to process.
-func (h *ethHandler[T,P]) handleHeaders(peer *eth.Peer[T,P], headers []*types.Header) error {
+func (h *ethHandler[T,P]) handleHeaders(peer *eth.Peer[T,P], headers []*types.Header[P]) error {
 	p := h.peers.peer(peer.ID())
 	if p == nil {
 		return errors.New("unregistered during callback")
@@ -163,7 +163,7 @@ func (h *ethHandler[T,P]) handleHeaders(peer *eth.Peer[T,P], headers []*types.He
 
 // handleBodies is invoked from a peer's message handler when it transmits a batch
 // of block bodies for the local node to process.
-func (h *ethHandler[T,P]) handleBodies(peer *eth.Peer[T,P], txs [][]*types.Transaction[P], uncles [][]*types.Header) error {
+func (h *ethHandler[T,P]) handleBodies(peer *eth.Peer[T,P], txs [][]*types.Transaction[P], uncles [][]*types.Header[P]) error {
 	// Filter out any explicitly requested bodies, deliver the rest to the downloader
 	filter := len(txs) > 0 || len(uncles) > 0
 	if filter {

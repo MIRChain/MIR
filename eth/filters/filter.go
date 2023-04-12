@@ -36,8 +36,8 @@ import (
 
 type Backend [P crypto.PublicKey] interface {
 	ChainDb() ethdb.Database
-	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
-	HeaderByHash(ctx context.Context, blockHash common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header[P], error)
+	HeaderByHash(ctx context.Context, blockHash common.Hash) (*types.Header[P], error)
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts[P], error)
 	GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error)
 
@@ -240,11 +240,11 @@ func (f *Filter[P]) unindexedLogs(ctx context.Context, end uint64) ([]*types.Log
 }
 
 // blockLogs returns the logs matching the filter criteria within a single block.
-func (f *Filter[P]) blockLogs(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
+func (f *Filter[P]) blockLogs(ctx context.Context, header *types.Header[P]) (logs []*types.Log, err error) {
 	// Quorum
 	// Apply bloom filter for both public bloom and private bloom
 	bloomMatches := bloomFilter(header.Bloom, f.addresses, f.topics) ||
-		bloomFilter(rawdb.GetPrivateBlockBloom(f.db, header.Number.Uint64()), f.addresses, f.topics)
+		bloomFilter(rawdb.GetPrivateBlockBloom[P](f.db, header.Number.Uint64()), f.addresses, f.topics)
 	if bloomMatches {
 		found, err := f.checkMatches(ctx, header)
 		if err != nil {
@@ -257,7 +257,7 @@ func (f *Filter[P]) blockLogs(ctx context.Context, header *types.Header) (logs [
 
 // checkMatches checks if the receipts belonging to the given header contain any log events that
 // match the filter criteria. This function is called when the bloom filter signals a potential match.
-func (f *Filter[P]) checkMatches(ctx context.Context, header *types.Header) (logs []*types.Log, err error) {
+func (f *Filter[P]) checkMatches(ctx context.Context, header *types.Header[P]) (logs []*types.Log, err error) {
 	// Get the logs of the block
 	logsList, err := f.backend.GetLogs(ctx, header.Hash())
 	if err != nil {
@@ -336,7 +336,7 @@ Logs:
 	return ret
 }
 
-func bloomFilter(bloom types.Bloom, addresses []common.Address, topics [][]common.Hash) bool {
+func bloomFilter[P crypto.PublicKey](bloom types.Bloom[P], addresses []common.Address, topics [][]common.Hash) bool {
 	if len(addresses) > 0 {
 		var included bool
 		for _, addr := range addresses {

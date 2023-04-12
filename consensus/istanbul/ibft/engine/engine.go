@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	nilUncleHash  = types.CalcUncleHash(nil)                 // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	// nilUncleHash  = types.CalcUncleHash(nil)                 // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new validator
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
 )
@@ -44,7 +44,7 @@ func NewEngine[P crypto.PublicKey](cfg *istanbul.Config, signer common.Address, 
 	}
 }
 
-func (e *Engine[P]) Author(header *types.Header) (common.Address, error) {
+func (e *Engine[P]) Author(header *types.Header[P]) (common.Address, error) {
 	// Retrieve the signature from the header extra-data
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
@@ -59,12 +59,12 @@ func (e *Engine[P]) Author(header *types.Header) (common.Address, error) {
 	return addr, nil
 }
 
-func (e *Engine[P]) CommitHeader(header *types.Header, seals [][]byte, round *big.Int) error {
+func (e *Engine[P]) CommitHeader(header *types.Header[P], seals [][]byte, round *big.Int) error {
 	// Append seals into extra-data
 	return writeCommittedSeals(header, seals)
 }
 
-func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader, block *types.Block[P], validators istanbul.ValidatorSet) (time.Duration, error) {
+func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader[P], block *types.Block[P], validators istanbul.ValidatorSet) (time.Duration, error) {
 	// check block body
 	txnHash := types.DeriveSha(block.Transactions(), new(trie.Trie[P]))
 	if txnHash != block.Header().TxHash {
@@ -72,7 +72,7 @@ func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader, block
 	}
 
 	uncleHash := types.CalcUncleHash(block.Uncles())
-	if uncleHash != nilUncleHash {
+	if uncleHash != types.CalcUncleHash[P](nil) {
 		return 0, istanbulcommon.ErrInvalidUncleHash
 	}
 
@@ -88,7 +88,7 @@ func (e *Engine[P]) VerifyBlockProposal(chain consensus.ChainHeaderReader, block
 	return 0, err
 }
 
-func (e *Engine[P]) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) VerifyHeader(chain consensus.ChainHeaderReader[P], header *types.Header[P], parents []*types.Header[P], validators istanbul.ValidatorSet) error {
 	return e.verifyHeader(chain, header, parents, validators)
 }
 
@@ -96,7 +96,7 @@ func (e *Engine[P]) VerifyHeader(chain consensus.ChainHeaderReader, header *type
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
-func (e *Engine[P]) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifyHeader(chain consensus.ChainHeaderReader[P], header *types.Header[P], parents []*types.Header[P], validators istanbul.ValidatorSet) error {
 	if header.Number == nil {
 		return istanbulcommon.ErrUnknownBlock
 	}
@@ -121,7 +121,7 @@ func (e *Engine[P]) verifyHeader(chain consensus.ChainHeaderReader, header *type
 	}
 
 	// Ensure that the block doesn't contain any uncles which are meaningless in Istanbul
-	if header.UncleHash != nilUncleHash {
+	if header.UncleHash != types.CalcUncleHash[P](nil) {
 		return istanbulcommon.ErrInvalidUncleHash
 	}
 
@@ -137,7 +137,7 @@ func (e *Engine[P]) verifyHeader(chain consensus.ChainHeaderReader, header *type
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
-func (e *Engine[P]) verifyCascadingFields(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet, parents []*types.Header) error {
+func (e *Engine[P]) verifyCascadingFields(chain consensus.ChainHeaderReader[P], header *types.Header[P], validators istanbul.ValidatorSet, parents []*types.Header[P]) error {
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -145,7 +145,7 @@ func (e *Engine[P]) verifyCascadingFields(chain consensus.ChainHeaderReader, hea
 	}
 
 	// Check parent
-	var parent *types.Header
+	var parent *types.Header[P]
 	if len(parents) > 0 {
 		parent = parents[len(parents)-1]
 	} else {
@@ -170,7 +170,7 @@ func (e *Engine[P]) verifyCascadingFields(chain consensus.ChainHeaderReader, hea
 	return e.verifyCommittedSeals(chain, header, parents, validators)
 }
 
-func (e *Engine[P]) verifySigner(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifySigner(chain consensus.ChainHeaderReader[P], header *types.Header[P], parents []*types.Header[P], validators istanbul.ValidatorSet) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -192,7 +192,7 @@ func (e *Engine[P]) verifySigner(chain consensus.ChainHeaderReader, header *type
 }
 
 // verifyCommittedSeals checks whether every committed seal is signed by one of the parent's validators
-func (e *Engine[P]) verifyCommittedSeals(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) verifyCommittedSeals(chain consensus.ChainHeaderReader[P], header *types.Header[P], parents []*types.Header[P], validators istanbul.ValidatorSet) error {
 	number := header.Number.Uint64()
 
 	if number == 0 {
@@ -247,7 +247,7 @@ func (e *Engine[P]) VerifyUncles(chain consensus.ChainReader[P], block *types.Bl
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (e *Engine[P]) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) VerifySeal(chain consensus.ChainHeaderReader[P], header *types.Header[P], validators istanbul.ValidatorSet) error {
 
 	// get parent header and ensure the signer is in parent's validator set
 	number := header.Number.Uint64()
@@ -263,7 +263,7 @@ func (e *Engine[P]) VerifySeal(chain consensus.ChainHeaderReader, header *types.
 	return e.verifySigner(chain, header, nil, validators)
 }
 
-func (e *Engine[P]) Prepare(chain consensus.ChainHeaderReader, header *types.Header, validators istanbul.ValidatorSet) error {
+func (e *Engine[P]) Prepare(chain consensus.ChainHeaderReader[P], header *types.Header[P], validators istanbul.ValidatorSet) error {
 	header.Coinbase = common.Address{}
 	header.Nonce = istanbulcommon.EmptyBlockNonce
 	header.MixDigest = types.IstanbulDigest
@@ -307,18 +307,18 @@ func (e *Engine[P]) Prepare(chain consensus.ChainHeaderReader, header *types.Hea
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header) {
+func (e *Engine[P]) Finalize(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P]) {
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	header.UncleHash = nilUncleHash
+	header.UncleHash = types.CalcUncleHash[P](nil)
 }
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
+func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P], receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	/// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	header.UncleHash = nilUncleHash
+	header.UncleHash = types.CalcUncleHash[P](nil)
 
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie[P])), nil
@@ -326,7 +326,7 @@ func (e *Engine[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, heade
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (e *Engine[P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P], validators istanbul.ValidatorSet) (*types.Block[P], error) {
+func (e *Engine[P]) Seal(chain consensus.ChainHeaderReader[P], block *types.Block[P], validators istanbul.ValidatorSet) (*types.Block[P], error) {
 	// update the block header timestamp and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
@@ -344,7 +344,7 @@ func (e *Engine[P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P
 }
 
 // update timestamp and signature of the block based on its number of transactions
-func (e *Engine[P]) updateBlock(parent *types.Header, block *types.Block[P]) (*types.Block[P], error) {
+func (e *Engine[P]) updateBlock(parent *types.Header[P], block *types.Block[P]) (*types.Block[P], error) {
 	// sign the hash
 	header := block.Header()
 	seal, err := e.sign(sigHash(header).Bytes())
@@ -362,7 +362,7 @@ func (e *Engine[P]) updateBlock(parent *types.Header, block *types.Block[P]) (*t
 
 // writeSeal writes the extra-data field of the given header with the given seals.
 // suggest to rename to writeSeal.
-func writeSeal(h *types.Header, seal []byte) error {
+func writeSeal[P crypto.PublicKey](h *types.Header[P], seal []byte) error {
 	if len(seal)%types.IstanbulExtraSeal != 0 {
 		return istanbulcommon.ErrInvalidSignature
 	}
@@ -382,15 +382,15 @@ func writeSeal(h *types.Header, seal []byte) error {
 	return nil
 }
 
-func (e *Engine[P]) SealHash(header *types.Header) common.Hash {
+func (e *Engine[P]) SealHash(header *types.Header[P]) common.Hash {
 	return sigHash(header)
 }
 
-func (e *Engine[P]) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
+func (e *Engine[P]) CalcDifficulty(chain consensus.ChainHeaderReader[P], time uint64, parent *types.Header[P]) *big.Int {
 	return new(big.Int)
 }
 
-func (e *Engine[P]) ExtractGenesisValidators(header *types.Header) ([]common.Address, error) {
+func (e *Engine[P]) ExtractGenesisValidators(header *types.Header[P]) ([]common.Address, error) {
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
 		return nil, err
@@ -399,7 +399,7 @@ func (e *Engine[P]) ExtractGenesisValidators(header *types.Header) ([]common.Add
 	return extra.Validators, nil
 }
 
-func (e *Engine[P]) Signers(header *types.Header) ([]common.Address, error) {
+func (e *Engine[P]) Signers(header *types.Header[P]) ([]common.Address, error) {
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
 		return []common.Address{}, err
@@ -425,7 +425,7 @@ func (e *Engine[P]) Address() common.Address {
 	return e.signer
 }
 
-func (e *Engine[P]) WriteVote(header *types.Header, candidate common.Address, authorize bool) error {
+func (e *Engine[P]) WriteVote(header *types.Header[P], candidate common.Address, authorize bool) error {
 	header.Coinbase = candidate
 	if authorize {
 		copy(header.Nonce[:], nonceAuthVote)
@@ -436,7 +436,7 @@ func (e *Engine[P]) WriteVote(header *types.Header, candidate common.Address, au
 	return nil
 }
 
-func (e *Engine[P]) ReadVote(header *types.Header) (candidate common.Address, authorize bool, err error) {
+func (e *Engine[P]) ReadVote(header *types.Header[P]) (candidate common.Address, authorize bool, err error) {
 	switch {
 	case bytes.Equal(header.Nonce[:], nonceAuthVote):
 		authorize = true
@@ -457,7 +457,7 @@ func (e *Engine[P]) ReadVote(header *types.Header) (candidate common.Address, au
 // Note, the method requires the extra data to be at least 65 bytes, otherwise it
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
-func sigHash(header *types.Header) (hash common.Hash) {
+func sigHash[P crypto.PublicKey](header *types.Header[P]) (hash common.Hash) {
 	// hasher := sha3.NewLegacyKeccak256()
 	
 	// Mir - Gost hash 34.11
@@ -472,7 +472,7 @@ func sigHash(header *types.Header) (hash common.Hash) {
 }
 
 // prepareExtra returns a extra-data of the given header and validators
-func prepareExtra(header *types.Header, vals []common.Address) ([]byte, error) {
+func prepareExtra[P crypto.PublicKey](header *types.Header[P], vals []common.Address) ([]byte, error) {
 	var buf bytes.Buffer
 
 	// compensate the lack bytes if header.Extra is not enough IstanbulExtraVanity bytes.
@@ -495,7 +495,7 @@ func prepareExtra(header *types.Header, vals []common.Address) ([]byte, error) {
 	return append(buf.Bytes(), payload...), nil
 }
 
-func writeCommittedSeals(h *types.Header, committedSeals [][]byte) error {
+func writeCommittedSeals[P crypto.PublicKey](h *types.Header[P], committedSeals [][]byte) error {
 	if len(committedSeals) == 0 {
 		return istanbulcommon.ErrInvalidCommittedSeals
 	}

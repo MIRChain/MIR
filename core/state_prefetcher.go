@@ -103,7 +103,7 @@ func (p *statePrefetcher[P]) Prefetch(block *types.Block[P], statedb *state.Stat
 // and uses the input parameters for its environment. The goal is not to execute
 // the transaction successfully, rather to warm up touched data slots.
 // Quorum: Add privateStateDb and isMPS arguments
-func precacheTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainContext[P], author *common.Address, gaspool *GasPool, statedb *state.StateDB[P], privateStateDb *state.StateDB[P], header *types.Header, tx *types.Transaction[P], cfg vm.Config[P], innerApply func(*types.Transaction[P]) error) error {
+func precacheTransaction[P crypto.PublicKey](config *params.ChainConfig, bc ChainContext[P], author *common.Address, gaspool *GasPool, statedb *state.StateDB[P], privateStateDb *state.StateDB[P], header *types.Header[P], tx *types.Transaction[P], cfg vm.Config[P], innerApply func(*types.Transaction[P]) error) error {
 	// Convert the transaction into an executable message and pre-cache its sender
 	msg, err := tx.AsMessage(types.MakeSigner[P](config, header.Number))
 	if err != nil {

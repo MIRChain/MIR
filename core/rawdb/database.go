@@ -24,23 +24,24 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/leveldb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/olekukonko/tablewriter"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.
-type freezerdb struct {
+type freezerdb [P crypto.PublicKey] struct {
 	ethdb.KeyValueStore
 	ethdb.AncientStore
 }
 
 // Close implements io.Closer, closing both the fast key-value store as well as
 // the slow ancient tables.
-func (frdb *freezerdb) Close() error {
+func (frdb *freezerdb[P]) Close() error {
 	var errs []error
 	if err := frdb.AncientStore.Close(); err != nil {
 		errs = append(errs, err)
@@ -57,19 +58,19 @@ func (frdb *freezerdb) Close() error {
 // Freeze is a helper method used for external testing to trigger and block until
 // a freeze cycle completes, without having to sleep for a minute to trigger the
 // automatic background run.
-func (frdb *freezerdb) Freeze(threshold uint64) error {
-	if frdb.AncientStore.(*freezer).readonly {
+func (frdb *freezerdb[P]) Freeze(threshold uint64) error {
+	if frdb.AncientStore.(*freezer[P]).readonly {
 		return errReadOnly
 	}
 	// Set the freezer threshold to a temporary value
 	defer func(old uint64) {
-		atomic.StoreUint64(&frdb.AncientStore.(*freezer).threshold, old)
-	}(atomic.LoadUint64(&frdb.AncientStore.(*freezer).threshold))
-	atomic.StoreUint64(&frdb.AncientStore.(*freezer).threshold, threshold)
+		atomic.StoreUint64(&frdb.AncientStore.(*freezer[P]).threshold, old)
+	}(atomic.LoadUint64(&frdb.AncientStore.(*freezer[P]).threshold))
+	atomic.StoreUint64(&frdb.AncientStore.(*freezer[P]).threshold, threshold)
 
 	// Trigger a freeze cycle and block until it's done
 	trigger := make(chan struct{}, 1)
-	frdb.AncientStore.(*freezer).trigger <- trigger
+	frdb.AncientStore.(*freezer[P]).trigger <- trigger
 	<-trigger
 	return nil
 }
@@ -125,9 +126,9 @@ func NewDatabase(db ethdb.KeyValueStore) ethdb.Database {
 // NewDatabaseWithFreezer creates a high level database on top of a given key-
 // value data store with a freezer moving immutable chain segments into cold
 // storage.
-func NewDatabaseWithFreezer(db ethdb.KeyValueStore, freezer string, namespace string, readonly bool) (ethdb.Database, error) {
+func NewDatabaseWithFreezer[P crypto.PublicKey](db ethdb.KeyValueStore, freezer string, namespace string, readonly bool) (ethdb.Database, error) {
 	// Create the idle freezer instance
-	frdb, err := newFreezer(freezer, namespace, readonly)
+	frdb, err := newFreezer[P](freezer, namespace, readonly)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func NewDatabaseWithFreezer(db ethdb.KeyValueStore, freezer string, namespace st
 	if !frdb.readonly {
 		go frdb.freeze(db)
 	}
-	return &freezerdb{
+	return &freezerdb[P]{
 		KeyValueStore: db,
 		AncientStore:  frdb,
 	}, nil
@@ -230,12 +231,12 @@ func NewLevelDBDatabase(file string, cache int, handles int, namespace string, r
 
 // NewLevelDBDatabaseWithFreezer creates a persistent key-value database with a
 // freezer moving immutable chain segments into cold storage.
-func NewLevelDBDatabaseWithFreezer(file string, cache int, handles int, freezer string, namespace string, readonly bool) (ethdb.Database, error) {
+func NewLevelDBDatabaseWithFreezer[P crypto.PublicKey](file string, cache int, handles int, freezer string, namespace string, readonly bool) (ethdb.Database, error) {
 	kvdb, err := leveldb.New(file, cache, handles, namespace, readonly)
 	if err != nil {
 		return nil, err
 	}
-	frdb, err := NewDatabaseWithFreezer(kvdb, freezer, namespace, readonly)
+	frdb, err := NewDatabaseWithFreezer[P](kvdb, freezer, namespace, readonly)
 	if err != nil {
 		kvdb.Close()
 		return nil, err

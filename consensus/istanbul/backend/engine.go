@@ -47,25 +47,25 @@ const (
 // Author retrieves the Ethereum address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
-func (sb *Backend[T,P]) Author(header *types.Header) (common.Address, error) {
+func (sb *Backend[T,P]) Author(header *types.Header[P]) (common.Address, error) {
 	return sb.EngineForBlockNumber(header.Number).Author(header)
 }
 
 // Signers extracts all the addresses who have signed the given header
 // It will extract for each seal who signed it, regardless of if the seal is
 // repeated
-func (sb *Backend[T,P]) Signers(header *types.Header) ([]common.Address, error) {
+func (sb *Backend[T,P]) Signers(header *types.Header[P]) ([]common.Address, error) {
 	return sb.EngineForBlockNumber(header.Number).Signers(header)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend[T,P]) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
+func (sb *Backend[T,P]) VerifyHeader(chain consensus.ChainHeaderReader[P], header *types.Header[P], seal bool) error {
 	return sb.verifyHeader(chain, header, nil)
 }
 
-func (sb *Backend[T,P]) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+func (sb *Backend[T,P]) verifyHeader(chain consensus.ChainHeaderReader[P], header *types.Header[P], parents []*types.Header[P]) error {
 	// Assemble the voting snapshot
 	snap, err := sb.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, parents)
 	if err != nil {
@@ -79,7 +79,7 @@ func (sb *Backend[T,P]) verifyHeader(chain consensus.ChainHeaderReader, header *
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (sb *Backend[T,P]) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (sb *Backend[T,P]) VerifyHeaders(chain consensus.ChainHeaderReader[P], headers []*types.Header[P], seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 	go func() {
@@ -114,7 +114,7 @@ func (sb *Backend[T,P]) VerifyUncles(chain consensus.ChainReader[P], block *type
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (sb *Backend[T,P]) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend[T,P]) VerifySeal(chain consensus.ChainHeaderReader[P], header *types.Header[P]) error {
 	// get parent header and ensure the signer is in parent's validator set
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -132,7 +132,7 @@ func (sb *Backend[T,P]) VerifySeal(chain consensus.ChainHeaderReader, header *ty
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend[T,P]) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend[T,P]) Prepare(chain consensus.ChainHeaderReader[P], header *types.Header[P]) error {
 	// Assemble the voting snapshot
 	snap, err := sb.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil)
 	if err != nil {
@@ -174,19 +174,19 @@ func (sb *Backend[T,P]) Prepare(chain consensus.ChainHeaderReader, header *types
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (sb *Backend[T,P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header) {
+func (sb *Backend[T,P]) Finalize(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P]) {
 	sb.EngineForBlockNumber(header.Number).Finalize(chain, header, state, txs, uncles)
 }
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (sb *Backend[T,P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
+func (sb *Backend[T,P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P], receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	return sb.EngineForBlockNumber(header.Number).FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 }
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend[T,P]) Seal(chain consensus.ChainHeaderReader, block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error {
+func (sb *Backend[T,P]) Seal(chain consensus.ChainHeaderReader[P], block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error {
 	// update the block header timestamp and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
@@ -244,7 +244,7 @@ func (sb *Backend[T,P]) Seal(chain consensus.ChainHeaderReader, block *types.Blo
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
-func (sb *Backend[T,P]) APIs(chain consensus.ChainHeaderReader) []rpc.API {
+func (sb *Backend[T,P]) APIs(chain consensus.ChainHeaderReader[P]) []rpc.API {
 	return []rpc.API{{
 		Namespace: "istanbul",
 		Version:   "1.0",
@@ -254,7 +254,7 @@ func (sb *Backend[T,P]) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 }
 
 // Start implements consensus.Istanbul.Start
-func (sb *Backend[T,P]) Start(chain consensus.ChainHeaderReader, currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error {
+func (sb *Backend[T,P]) Start(chain consensus.ChainHeaderReader[P], currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -336,10 +336,10 @@ func (sb *Backend[T,P]) storeSnap(snap *Snapshot) error {
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (sb *Backend[T,P]) snapshot(chain consensus.ChainHeaderReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
+func (sb *Backend[T,P]) snapshot(chain consensus.ChainHeaderReader[P], number uint64, hash common.Hash, parents []*types.Header[P]) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
-		headers []*types.Header
+		headers []*types.Header[P]
 		snap    *Snapshot
 	)
 	for snap == nil {
@@ -410,7 +410,7 @@ func (sb *Backend[T,P]) snapshot(chain consensus.ChainHeaderReader, number uint6
 		}
 
 		// No snapshot for this header, gather the header and move backward
-		var header *types.Header
+		var header *types.Header[P]
 		if len(parents) > 0 {
 			// If we have explicit parents, pick from there (enforced)
 			header = parents[len(parents)-1]
@@ -484,11 +484,11 @@ func (sb *Backend[T,P]) snapshot(chain consensus.ChainHeaderReader, number uint6
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
-func (sb *Backend[T,P]) SealHash(header *types.Header) common.Hash {
+func (sb *Backend[T,P]) SealHash(header *types.Header[P]) common.Hash {
 	return sb.EngineForBlockNumber(header.Number).SealHash(header)
 }
 
-func (sb *Backend[T,P]) snapApply(snap *Snapshot, headers []*types.Header) (*Snapshot, error) {
+func (sb *Backend[T,P]) snapApply(snap *Snapshot, headers []*types.Header[P]) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return snap, nil
@@ -517,7 +517,7 @@ func (sb *Backend[T,P]) snapApply(snap *Snapshot, headers []*types.Header) (*Sna
 	return snapCpy, nil
 }
 
-func (sb *Backend[T,P]) snapApplyHeader(snap *Snapshot, header *types.Header) error {
+func (sb *Backend[T,P]) snapApplyHeader(snap *Snapshot, header *types.Header[P]) error {
 	logger := sb.snapLogger(snap).New("header.number", header.Number.Uint64(), "header.hash", header.Hash().String())
 
 	logger.Trace("BFT: apply header to voting snapshot")

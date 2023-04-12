@@ -87,10 +87,10 @@ func WritePrivateBlockBloom[P crypto.PublicKey](db ethdb.Database, number uint64
 }
 
 // GetPrivateBlockBloom retrieves the private bloom associated with the given number.
-func GetPrivateBlockBloom(db ethdb.Database, number uint64) (bloom types.Bloom) {
+func GetPrivateBlockBloom[P crypto.PublicKey](db ethdb.Database, number uint64) (bloom types.Bloom[P]) {
 	data, _ := db.Get(append(privateBloomPrefix, encodeBlockNumber(number)...))
 	if len(data) > 0 {
-		bloom = types.BytesToBloom(data)
+		bloom = types.BytesToBloom[P](data)
 	}
 	return bloom
 }

@@ -102,7 +102,7 @@ type Backend [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	db ethdb.Database
 
-	chain        consensus.ChainHeaderReader
+	chain        consensus.ChainHeaderReader[P]
 	currentBlock func() *types.Block[P]
 	hasBadBlock  func(db ethdb.Reader, hash common.Hash) bool
 
@@ -145,7 +145,7 @@ func (sb *Backend[T,P]) EngineForBlockNumber(blockNumber *big.Int) istanbul.Engi
 }
 
 // zekun: HACK
-func (sb *Backend[T,P]) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
+func (sb *Backend[T,P]) CalcDifficulty(chain consensus.ChainHeaderReader[P], time uint64, parent *types.Header[P]) *big.Int {
 	return sb.EngineForBlockNumber(parent.Number).CalcDifficulty(chain, time, parent)
 }
 

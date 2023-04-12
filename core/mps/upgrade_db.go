@@ -62,7 +62,7 @@ func UpgradeDB[P crypto.PublicKey](db ethdb.Database, chain chainReader[P]) erro
 					PostState:         receipt.PostState,
 					Status:            1,
 					CumulativeGasUsed: receipt.CumulativeGasUsed,
-					Bloom:             types.Bloom{},
+					Bloom:             types.Bloom[P]{},
 					Logs:              nil,
 					TxHash:            receipt.TxHash,
 					ContractAddress:   receipt.ContractAddress,

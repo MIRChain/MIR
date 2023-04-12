@@ -30,7 +30,7 @@ import (
 // mined block is part of the canonical chain or not.
 type chainRetriever [P crypto.PublicKey] interface {
 	// GetHeaderByNumber retrieves the canonical header associated with a block number.
-	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByNumber(number uint64) *types.Header[P]
 
 	// GetBlockByNumber retrieves the canonical block associated with a block number.
 	GetBlockByNumber(number uint64) *types.Block[P]

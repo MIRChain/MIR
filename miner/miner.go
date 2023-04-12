@@ -91,7 +91,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](eth Backend[T,P], config *Conf
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (miner *Miner[T,P]) update() {
-	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent[P]{}, downloader.FailedEvent{})
 	defer func() {
 		if !events.Closed() {
 			events.Unsubscribe()
@@ -125,7 +125,7 @@ func (miner *Miner[T,P]) update() {
 					miner.SetEtherbase(miner.coinbase)
 					miner.worker.start()
 				}
-			case downloader.DoneEvent:
+			case downloader.DoneEvent[P]:
 				canStart = true
 				if shouldStart {
 					miner.SetEtherbase(miner.coinbase)

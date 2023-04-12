@@ -43,7 +43,7 @@ type Config struct {
 
 // OracleBackend includes all necessary background APIs for oracle.
 type OracleBackend [P crypto.PublicKey] interface {
-	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
 	ChainConfig() *params.ChainConfig
 }

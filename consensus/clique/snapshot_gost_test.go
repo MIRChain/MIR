@@ -1,25 +1,7 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package clique
 
 import (
 	"bytes"
-	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
@@ -27,88 +9,11 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
-// testerAccountPool is a pool to maintain currently active tester accounts,
-// mapped from textual names used in the tests below to actual Ethereum private
-// keys capable of signing transactions.
-type testerAccountPool [T crypto.PrivateKey,P crypto.PublicKey] struct {
-	accounts map[string]T
-}
-
-func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey] () *testerAccountPool[T,P] {
-	return &testerAccountPool[T,P]{
-		accounts: make(map[string]T),
-	}
-}
-
-// checkpoint creates a Clique checkpoint signer section from the provided list
-// of authorized signers and embeds it into the provided header.
-func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header, signers []string) {
-	auths := make([]common.Address, len(signers))
-	for i, signer := range signers {
-		auths[i] = ap.address(signer)
-	}
-	sort.Sort(signersAscending(auths))
-	for i, auth := range auths {
-		copy(header.Extra[extraVanity+i*common.AddressLength:], auth.Bytes())
-	}
-}
-
-// address retrieves the Ethereum address of a tester account by label, creating
-// a new account if no previous one exists yet.
-func (ap *testerAccountPool[T,P]) address(account string) common.Address {
-	// Return the zero account for non-addresses
-	if account == "" {
-		return common.Address{}
-	}
-	// Ensure we have a persistent key for the account
-	if reflect.ValueOf(ap.accounts[account]).IsZero() {
-		ap.accounts[account], _ = crypto.GenerateKey[T]()
-	}
-	// Resolve and return the Ethereum address
-	acc := ap.accounts[account]
-	var pub P
-	switch t:=any(&acc).(type){
-	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
-		*p=*t.Public()
-	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
-		*p=*t.Public()
-	}
-	return crypto.PubkeyToAddress(pub)
-}
-
-// sign calculates a Clique digital signature for the given block and embeds it
-// back into the header.
-func (ap *testerAccountPool[T,P]) sign(header *types.Header, signer string) {
-	// Ensure we have a persistent key for the signer
-	if reflect.ValueOf(ap.accounts[signer]).IsZero() {
-		ap.accounts[signer], _ = crypto.GenerateKey[T]()
-	}
-	// Sign the header and embed the signature in extra data
-	sig, _ := crypto.Sign[T](SealHash(header).Bytes(), ap.accounts[signer])
-	copy(header.Extra[len(header.Extra)-extraSeal:], sig)
-}
-
-// testerVote represents a single block signed by a parcitular account, where
-// the account may or may not have cast a Clique vote.
-type testerVote struct {
-	signer     string
-	voted      string
-	auth       bool
-	checkpoint []string
-	newbatch   bool
-}
-
-// Tests that Clique signer voting is evaluated correctly for various simple and
-// complex scenarios, as well as that a few special corner cases fail correctly.
-func TestClique(t *testing.T) {
+func TestCliqueGost(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
 		epoch   uint64
@@ -391,7 +296,7 @@ func TestClique(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of signers
-		accounts := newTesterAccountPool[nist.PrivateKey,nist.PublicKey]()
+		accounts := newTesterAccountPool[gost3410.PrivateKey,gost3410.PublicKey]()
 
 		signers := make([]common.Address, len(tt.signers))
 		for j, signer := range tt.signers {
@@ -405,7 +310,7 @@ func TestClique(t *testing.T) {
 			}
 		}
 		// Create the genesis block with the initial set of signers
-		genesis := &core.Genesis[nist.PublicKey]{
+		genesis := &core.Genesis[gost3410.PublicKey]{
 			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
 		}
 		for j, signer := range signers {
@@ -421,10 +326,10 @@ func TestClique(t *testing.T) {
 			Period: 1,
 			Epoch:  tt.epoch,
 		}
-		engine := New[nist.PublicKey](config.Clique, db)
+		engine := New[gost3410.PublicKey](config.Clique, db)
 		engine.fakeDiff = true
 
-		blocks, _ := core.GenerateChain[nist.PublicKey](&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen[nist.PublicKey]) {
+		blocks, _ := core.GenerateChain[gost3410.PublicKey](&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen[gost3410.PublicKey]) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
@@ -452,7 +357,7 @@ func TestClique(t *testing.T) {
 			blocks[j] = block.WithSeal(header)
 		}
 		// Split the blocks up into individual import batches (cornercase testing)
-		batches := [][]*types.Block[nist.PublicKey]{nil}
+		batches := [][]*types.Block[gost3410.PublicKey]{nil}
 		for j, block := range blocks {
 			if tt.votes[j].newbatch {
 				batches = append(batches, nil)
@@ -460,7 +365,7 @@ func TestClique(t *testing.T) {
 			batches[len(batches)-1] = append(batches[len(batches)-1], block)
 		}
 		// Pass all the headers through clique and ensure tallying succeeds
-		chain, err := core.NewBlockChain[nist.PublicKey](db, nil, &config, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+		chain, err := core.NewBlockChain[gost3410.PublicKey](db, nil, &config, engine, vm.Config[gost3410.PublicKey]{}, nil, nil, nil)
 		if err != nil {
 			t.Errorf("test %d: failed to create test chain: %v", i, err)
 			continue

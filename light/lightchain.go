@@ -396,7 +396,7 @@ func (lc *LightChain[P]) postChainEvents(events []interface{}) {
 //
 // In the case of a light chain, InsertHeaderChain also creates and posts light
 // chain events when necessary.
-func (lc *LightChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (lc *LightChain[P]) InsertHeaderChain(chain []*types.Header[P], checkFreq int) (int, error) {
 	if atomic.LoadInt32(&lc.disableCheckFreq) == 1 {
 		checkFreq = 0
 	}
@@ -436,7 +436,7 @@ func (lc *LightChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int)
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (lc *LightChain[P]) CurrentHeader() *types.Header {
+func (lc *LightChain[P]) CurrentHeader() *types.Header[P] {
 	return lc.hc.CurrentHeader()
 }
 
@@ -465,13 +465,13 @@ func (lc *LightChain[P]) GetTdOdr(ctx context.Context, hash common.Hash, number 
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (lc *LightChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (lc *LightChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] {
 	return lc.hc.GetHeader(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (lc *LightChain[P]) GetHeaderByHash(hash common.Hash) *types.Header {
+func (lc *LightChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P] {
 	return lc.hc.GetHeaderByHash(hash)
 }
 
@@ -503,13 +503,13 @@ func (lc *LightChain[P]) GetAncestor(hash common.Hash, number, ancestor uint64, 
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (lc *LightChain[P]) GetHeaderByNumber(number uint64) *types.Header {
+func (lc *LightChain[P]) GetHeaderByNumber(number uint64) *types.Header[P] {
 	return lc.hc.GetHeaderByNumber(number)
 }
 
 // GetHeaderByNumberOdr retrieves a block header from the database or network
 // by number, caching it (associated with its hash) if found.
-func (lc *LightChain[P]) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {
+func (lc *LightChain[P]) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header[P], error) {
 	if header := lc.hc.GetHeaderByNumber(number); header != nil {
 		return header, nil
 	}

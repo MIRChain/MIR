@@ -231,7 +231,7 @@ func (s eip2930Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S,
 func (s eip2930Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 	switch tx.Type() {
 	case LegacyTxType:
-		return rlpHash([]interface{}{
+		return rlpHash[P]([]interface{}{
 			tx.Nonce(),
 			tx.GasPrice(),
 			tx.Gas(),
@@ -241,7 +241,7 @@ func (s eip2930Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 			s.chainId, uint(0), uint(0),
 		})
 	case AccessListTxType:
-		return prefixedRlpHash(
+		return prefixedRlpHash[P](
 			tx.Type(),
 			[]interface{}{
 				s.chainId,
@@ -325,7 +325,7 @@ func (s EIP155Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S, 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer[P]) Hash(tx *Transaction[P]) common.Hash {
-	return rlpHash([]interface{}{
+	return rlpHash[P]([]interface{}{
 		tx.Nonce(),
 		tx.GasPrice(),
 		tx.Gas(),
@@ -395,7 +395,7 @@ func (fs FrontierSigner[P]) SignatureValues(tx *Transaction[P], sig []byte) (r, 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner[P]) Hash(tx *Transaction[P]) common.Hash {
-	return rlpHash([]interface{}{
+	return rlpHash[P]([]interface{}{
 		tx.Nonce(),
 		tx.GasPrice(),
 		tx.Gas(),

@@ -23,7 +23,7 @@ type callHelper [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db ethdb.Database
 
 	nonces map[common.Address]uint64
-	header types.Header
+	header types.Header[P]
 	gp     *GasPool
 
 	PrivateState, PublicState *state.StateDB[P]

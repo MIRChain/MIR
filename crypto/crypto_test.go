@@ -230,27 +230,29 @@ func TestSign(t *testing.T) {
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	gostSig, err := Sign(gostMsg.Sum(nil), *gostKey)
+	digest := make([]byte,32)
+	gostMsg.Read(digest)
+	gostSig, err := Sign(digest, *gostKey)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
-	ver, err := gostKey.Public().VerifyDigest(gostMsg.Sum(nil), gostSig[:64])
+	ver, err := gostKey.Public().VerifyDigest(digest, gostSig[:64])
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
 	assert.Equal(t, true, ver)
-	ver = VerifySignature[gost3410.PublicKey](FromECDSAPub(*gostKey.Public()), gostMsg.Sum(nil), gostSig)
+	ver = VerifySignature[gost3410.PublicKey](FromECDSAPub(*gostKey.Public()), digest, gostSig)
 	assert.Equal(t, true, ver)
 	r := new(big.Int).SetBytes(gostSig[:32])
 	s := new(big.Int).SetBytes(gostSig[32:64])
 	for i := 0; i < (1+1)*2; i++ {
-		X, Y, err := gost3410.RecoverCompact(*gostKey.C, gostMsg.Sum(nil), r, s, i)
+		X, Y, err := gost3410.RecoverCompact(*gostKey.C, digest, r, s, i)
 		if err == nil && X.Cmp(gostKey.Public().X) == 0 && Y.Cmp(gostKey.Public().Y) == 0 {
 			t.Log("Recovered X ", X.String())
 			t.Log("Recovered Y ", Y.String())
 		}
 	}
-	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](gostMsg.Sum(nil), gostSig)
+	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](digest, gostSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}
@@ -278,7 +280,6 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := hash.Sum(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

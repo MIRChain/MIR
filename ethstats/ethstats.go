@@ -65,8 +65,8 @@ const (
 type backend [T crypto.PrivateKey, P crypto.PublicKey]  interface {
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription
 	SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent[P]) event.Subscription
-	CurrentHeader() *types.Header
-	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
+	CurrentHeader() *types.Header[P]
+	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
 	GetTd(ctx context.Context, hash common.Hash) *big.Int
 	Stats() (pending int, queued int)
 	Downloader() *downloader.Downloader[T,P]
@@ -545,7 +545,7 @@ func (s *Service[T,P]) reportLatency(conn *connWrapper) error {
 }
 
 // blockStats is the information to report about individual blocks.
-type blockStats struct {
+type blockStats [P crypto.PublicKey] struct {
 	Number     *big.Int       `json:"number"`
 	Hash       common.Hash    `json:"hash"`
 	ParentHash common.Hash    `json:"parentHash"`
@@ -558,7 +558,7 @@ type blockStats struct {
 	Txs        []txStats      `json:"transactions"`
 	TxHash     common.Hash    `json:"transactionsRoot"`
 	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
+	Uncles     uncleStats[P]     `json:"uncles"`
 }
 
 // txStats is the information to report about individual transactions.
@@ -568,10 +568,10 @@ type txStats struct {
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
 // empty arrays instead of returning null for them.
-type uncleStats []*types.Header
+type uncleStats [P crypto.PublicKey] []*types.Header[P]
 
-func (s uncleStats) MarshalJSON() ([]byte, error) {
-	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
+func (s uncleStats[P]) MarshalJSON() ([]byte, error) {
+	if uncles := ([]*types.Header[P])(s); len(uncles) > 0 {
 		return json.Marshal(uncles)
 	}
 	return []byte("[]"), nil
@@ -597,13 +597,13 @@ func (s *Service[T,P]) reportBlock(conn *connWrapper, block *types.Block[P]) err
 
 // assembleBlockStats retrieves any required metadata to report a single block
 // and assembles the block stats. If block is nil, the current head is processed.
-func (s *Service[T,P]) assembleBlockStats(block *types.Block[P]) *blockStats {
+func (s *Service[T,P]) assembleBlockStats(block *types.Block[P]) *blockStats[P] {
 	// Gather the block infos from the local blockchain
 	var (
-		header *types.Header
+		header *types.Header[P]
 		td     *big.Int
 		txs    []txStats
-		uncles []*types.Header
+		uncles []*types.Header[P]
 	)
 
 	// check if backend is a full node
@@ -634,7 +634,7 @@ func (s *Service[T,P]) assembleBlockStats(block *types.Block[P]) *blockStats {
 	// Assemble and return the block stats
 	author, _ := s.engine.Author(header)
 
-	return &blockStats{
+	return &blockStats[P]{
 		Number:     header.Number,
 		Hash:       header.Hash(),
 		ParentHash: header.ParentHash,
@@ -671,7 +671,7 @@ func (s *Service[T,P]) reportHistory(conn *connWrapper, list []uint64) error {
 		}
 	}
 	// Gather the batch of blocks to report
-	history := make([]*blockStats, len(indexes))
+	history := make([]*blockStats[P], len(indexes))
 	for i, number := range indexes {
 		fullBackend, ok := s.backend.(fullNodeBackend[T,P])
 		// Retrieve the next block if it's known to us

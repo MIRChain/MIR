@@ -172,12 +172,12 @@ func (hn *HashOrNumber) DecodeRLP(s *rlp.Stream) error {
 }
 
 // BlockHeadersPacket represents a block header response.
-type BlockHeadersPacket []*types.Header
+type BlockHeadersPacket [P crypto.PublicKey]  []*types.Header[P]
 
 // BlockHeadersPacket represents a block header response over eth/66.
-type BlockHeadersPacket66 struct {
+type BlockHeadersPacket66 [P crypto.PublicKey]  struct {
 	RequestId uint64
-	BlockHeadersPacket
+	BlockHeadersPacket[P]
 }
 
 // NewBlockPacket is the network packet for the block propagation message.
@@ -231,15 +231,15 @@ type BlockBodiesRLPPacket66 struct {
 // BlockBody represents the data content of a single block.
 type BlockBody [P crypto.PublicKey] struct {
 	Transactions []*types.Transaction[P] // Transactions contained within a block
-	Uncles       []*types.Header      // Uncles contained within a block
+	Uncles       []*types.Header[P]      // Uncles contained within a block
 }
 
 // Unpack retrieves the transactions and uncles from the range packet and returns
 // them in a split flat format that's more consistent with the internal data structures.
-func (p *BlockBodiesPacket[P]) Unpack() ([][]*types.Transaction[P], [][]*types.Header) {
+func (p *BlockBodiesPacket[P]) Unpack() ([][]*types.Transaction[P], [][]*types.Header[P]) {
 	var (
 		txset    = make([][]*types.Transaction[P], len(*p))
-		uncleset = make([][]*types.Header, len(*p))
+		uncleset = make([][]*types.Header[P], len(*p))
 	)
 	for i, body := range *p {
 		txset[i], uncleset[i] = body.Transactions, body.Uncles
@@ -334,8 +334,8 @@ func (*TransactionsPacket[P]) Kind() byte   { return TransactionsMsg }
 func (*GetBlockHeadersPacket) Name() string { return "GetBlockHeaders" }
 func (*GetBlockHeadersPacket) Kind() byte   { return GetBlockHeadersMsg }
 
-func (*BlockHeadersPacket) Name() string { return "BlockHeaders" }
-func (*BlockHeadersPacket) Kind() byte   { return BlockHeadersMsg }
+func (*BlockHeadersPacket[P]) Name() string { return "BlockHeaders" }
+func (*BlockHeadersPacket[P]) Kind() byte   { return BlockHeadersMsg }
 
 func (*GetBlockBodiesPacket) Name() string { return "GetBlockBodies" }
 func (*GetBlockBodiesPacket) Kind() byte   { return GetBlockBodiesMsg }

@@ -470,7 +470,7 @@ type Block [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	backend      ethapi.Backend[T,P]
 	numberOrHash *rpc.BlockNumberOrHash
 	hash         common.Hash
-	header       *types.Header
+	header       *types.Header[P]
 	block        *types.Block[P]
 	receipts     []*types.Receipt[P]
 }
@@ -499,7 +499,7 @@ func (b *Block[T,P]) resolve(ctx context.Context) (*types.Block[P], error) {
 // resolveHeader returns the internal Header object for this block, fetching it
 // if necessary. Call this function instead of `resolve` unless you need the
 // additional data (transactions and uncles).
-func (b *Block[T,P]) resolveHeader(ctx context.Context) (*types.Header, error) {
+func (b *Block[T,P]) resolveHeader(ctx context.Context) (*types.Header[P], error) {
 	if b.numberOrHash == nil && b.hash == (common.Hash{}) {
 		return nil, errBlockInvariant
 	}

@@ -60,7 +60,7 @@ type HeaderChain [P crypto.PublicKey]struct {
 	config *params.ChainConfig
 
 	chainDb       ethdb.Database
-	genesisHeader *types.Header
+	genesisHeader *types.Header[P]
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
@@ -130,12 +130,12 @@ func (hc *HeaderChain[P]) GetBlockNumber(hash common.Hash) *uint64 {
 	return number
 }
 
-type headerWriteResult struct {
+type headerWriteResult [P crypto.PublicKey] struct {
 	status     WriteStatus
 	ignored    int
 	imported   int
 	lastHash   common.Hash
-	lastHeader *types.Header
+	lastHeader *types.Header[P]
 }
 
 // WriteHeaders writes a chain of headers into the local chain, given that the parents
@@ -147,20 +147,20 @@ type headerWriteResult struct {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (hc *HeaderChain[P]) writeHeaders(headers []*types.Header) (result *headerWriteResult, err error) {
+func (hc *HeaderChain[P]) writeHeaders(headers []*types.Header[P]) (result *headerWriteResult[P], err error) {
 	if len(headers) == 0 {
-		return &headerWriteResult{}, nil
+		return &headerWriteResult[P]{}, nil
 	}
 	ptd := hc.GetTd(headers[0].ParentHash, headers[0].Number.Uint64()-1)
 	if ptd == nil {
-		return &headerWriteResult{}, consensus.ErrUnknownAncestor
+		return &headerWriteResult[P]{}, consensus.ErrUnknownAncestor
 	}
 	var (
 		lastNumber = headers[0].Number.Uint64() - 1 // Last successfully imported number
 		lastHash   = headers[0].ParentHash          // Last imported header hash
 		newTD      = new(big.Int).Set(ptd)          // Total difficulty of inserted chain
 
-		lastHeader    *types.Header
+		lastHeader    *types.Header[P]
 		inserted      []numberHash // Ephemeral lookup of number/hash for the chain
 		firstInserted = -1         // Index of the first non-ignored header
 	)
@@ -199,7 +199,7 @@ func (hc *HeaderChain[P]) writeHeaders(headers []*types.Header) (result *headerW
 	// Skip the slow disk write of all headers if interrupted.
 	if hc.procInterrupt() {
 		log.Debug("Premature abort during headers import")
-		return &headerWriteResult{}, errors.New("aborted")
+		return &headerWriteResult[P]{}, errors.New("aborted")
 	}
 	// Commit to disk!
 	if err := batch.Write(); err != nil {
@@ -288,7 +288,7 @@ func (hc *HeaderChain[P]) writeHeaders(headers []*types.Header) (result *headerW
 	if len(inserted) == 0 {
 		status = NonStatTy
 	}
-	return &headerWriteResult{
+	return &headerWriteResult[P]{
 		status:     status,
 		ignored:    len(headers) - len(inserted),
 		imported:   len(inserted),
@@ -297,7 +297,7 @@ func (hc *HeaderChain[P]) writeHeaders(headers []*types.Header) (result *headerW
 	}, nil
 }
 
-func (hc *HeaderChain[P]) ValidateHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (hc *HeaderChain[P]) ValidateHeaderChain(chain []*types.Header[P], checkFreq int) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 {
@@ -364,7 +364,7 @@ func (hc *HeaderChain[P]) ValidateHeaderChain(chain []*types.Header, checkFreq i
 //
 // The returned 'write status' says if the inserted headers are part of the canonical chain
 // or a side chain.
-func (hc *HeaderChain[P]) InsertHeaderChain(chain []*types.Header, start time.Time) (WriteStatus, error) {
+func (hc *HeaderChain[P]) InsertHeaderChain(chain []*types.Header[P], start time.Time) (WriteStatus, error) {
 	if hc.procInterrupt() {
 		return 0, errors.New("aborted")
 	}
@@ -481,12 +481,12 @@ func (hc *HeaderChain[P]) GetTdByHash(hash common.Hash) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P]{
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := hc.headerCache.Get(hash); ok {
-		return header.(*types.Header)
+		return header.(*types.Header[P])
 	}
-	header := rawdb.ReadHeader(hc.chainDb, hash, number)
+	header := rawdb.ReadHeader[P](hc.chainDb, hash, number)
 	if header == nil {
 		return nil
 	}
@@ -497,7 +497,7 @@ func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Head
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (hc *HeaderChain[P]) GetHeaderByHash(hash common.Hash) *types.Header {
+func (hc *HeaderChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P]{
 	number := hc.GetBlockNumber(hash)
 	if number == nil {
 		return nil
@@ -517,7 +517,7 @@ func (hc *HeaderChain[P]) HasHeader(hash common.Hash, number uint64) bool {
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (hc *HeaderChain[P]) GetHeaderByNumber(number uint64) *types.Header {
+func (hc *HeaderChain[P]) GetHeaderByNumber(number uint64) *types.Header[P] {
 	hash := rawdb.ReadCanonicalHash(hc.chainDb, number)
 	if hash == (common.Hash{}) {
 		return nil
@@ -531,13 +531,13 @@ func (hc *HeaderChain[P]) GetCanonicalHash(number uint64) common.Hash {
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (hc *HeaderChain[P]) CurrentHeader() *types.Header {
-	return hc.currentHeader.Load().(*types.Header)
+func (hc *HeaderChain[P]) CurrentHeader() *types.Header[P] {
+	return hc.currentHeader.Load().(*types.Header[P])
 }
 
 // SetCurrentHeader sets the in-memory head header marker of the canonical chan
 // as the given header.
-func (hc *HeaderChain[P]) SetCurrentHeader(head *types.Header) {
+func (hc *HeaderChain[P]) SetCurrentHeader(head *types.Header[P]) {
 	hc.currentHeader.Store(head)
 	hc.currentHeaderHash = head.Hash()
 	headHeaderGauge.Update(head.Number.Int64())
@@ -548,7 +548,7 @@ type (
 	// before head header is updated. The method will return the actual block it
 	// updated the head to (missing state) and a flag if setHead should continue
 	// rewinding till that forcefully (exceeded ancient limits)
-	UpdateHeadBlocksCallback func(ethdb.KeyValueWriter, *types.Header) (uint64, bool)
+	UpdateHeadBlocksCallback[P crypto.PublicKey] func(ethdb.KeyValueWriter, *types.Header[P]) (uint64, bool)
 
 	// DeleteBlockContentCallback is a callback function that is called by SetHead
 	// before each header is deleted.
@@ -557,7 +557,7 @@ type (
 
 // SetHead rewinds the local chain to a new head. Everything above the new head
 // will be deleted and the new one set.
-func (hc *HeaderChain[P]) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, delFn DeleteBlockContentCallback) {
+func (hc *HeaderChain[P]) SetHead(head uint64, updateFn UpdateHeadBlocksCallback[P], delFn DeleteBlockContentCallback) {
 	var (
 		parentHash common.Hash
 		batch      = hc.chainDb.NewBatch()
@@ -637,7 +637,7 @@ func (hc *HeaderChain[P]) SetHead(head uint64, updateFn UpdateHeadBlocksCallback
 }
 
 // SetGenesis sets a new genesis block header for the chain
-func (hc *HeaderChain[P]) SetGenesis(head *types.Header) {
+func (hc *HeaderChain[P]) SetGenesis(head *types.Header[P]) {
 	hc.genesisHeader = head
 }
 

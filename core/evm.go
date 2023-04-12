@@ -37,7 +37,7 @@ type ChainContext [P crypto.PublicKey] interface {
 	Engine() consensus.Engine[P]
 
 	// GetHeader returns the hash corresponding to their hash.
-	GetHeader(common.Hash, uint64) *types.Header
+	GetHeader(common.Hash, uint64) *types.Header[P]
 
 	// Config retrieves the chain's fork configuration
 	Config() *params.ChainConfig
@@ -57,7 +57,7 @@ type ChainContext [P crypto.PublicKey] interface {
 }
 
 // NewEVMBlockContext creates a new context for use in the EVM.
-func NewEVMBlockContext[P crypto.PublicKey](header *types.Header, chain ChainContext[P], author *common.Address) vm.BlockContext {
+func NewEVMBlockContext[P crypto.PublicKey](header *types.Header[P], chain ChainContext[P], author *common.Address) vm.BlockContext {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
 	if author == nil {
@@ -86,7 +86,7 @@ func NewEVMTxContext(msg Message) vm.TxContext {
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetHashFn[P crypto.PublicKey](ref *types.Header, chain ChainContext[P]) func(n uint64) common.Hash {
+func GetHashFn[P crypto.PublicKey](ref *types.Header[P], chain ChainContext[P]) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash

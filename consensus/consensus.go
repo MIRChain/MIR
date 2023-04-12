@@ -32,27 +32,27 @@ import (
 
 // ChainHeaderReader defines a small collection of methods needed to access the local
 // blockchain during header verification.
-type ChainHeaderReader interface {
+type ChainHeaderReader [P crypto.PublicKey] interface {
 	// Config retrieves the blockchain's chain configuration.
 	Config() *params.ChainConfig
 
 	// CurrentHeader retrieves the current header from the local chain.
-	CurrentHeader() *types.Header
+	CurrentHeader() *types.Header[P]
 
 	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.Header
+	GetHeader(hash common.Hash, number uint64) *types.Header[P]
 
 	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByNumber(number uint64) *types.Header[P]
 
 	// GetHeaderByHash retrieves a block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.Header
+	GetHeaderByHash(hash common.Hash) *types.Header[P]
 }
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
 type ChainReader [P crypto.PublicKey] interface {
-	ChainHeaderReader
+	ChainHeaderReader[P]
 
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block[P]
@@ -63,18 +63,18 @@ type Engine [P crypto.PublicKey] interface {
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
-	Author(header *types.Header) (common.Address, error)
+	Author(header *types.Header[P]) (common.Address, error)
 
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainHeaderReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainHeaderReader[P], header *types.Header[P], seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
-	VerifyHeaders(chain ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+	VerifyHeaders(chain ChainHeaderReader[P], headers []*types.Header[P], seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
@@ -82,40 +82,40 @@ type Engine [P crypto.PublicKey] interface {
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(chain ChainHeaderReader, header *types.Header) error
+	Prepare(chain ChainHeaderReader[P], header *types.Header[P]) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// but does not assemble the block.
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P],
-		uncles []*types.Header)
+	Finalize(chain ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P],
+		uncles []*types.Header[P])
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
 	// rewards) and assembles the final block.
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB[P], txs []*types.Transaction[P],
-		uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error)
+	FinalizeAndAssemble(chain ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P],
+		uncles []*types.Header[P], receipts []*types.Receipt[P]) (*types.Block[P], error)
 
 	// Seal generates a new sealing request for the given input block and pushes
 	// the result into the given channel.
 	//
 	// Note, the method returns immediately and will send the result async. More
 	// than one result may also be returned depending on the consensus algorithm.
-	Seal(chain ChainHeaderReader, block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error
+	Seal(chain ChainHeaderReader[P], block *types.Block[P], results chan<- *types.Block[P], stop <-chan struct{}) error
 
 	// SealHash returns the hash of a block prior to it being sealed.
-	SealHash(header *types.Header) common.Hash
+	SealHash(header *types.Header[P]) common.Hash
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
-	CalcDifficulty(chain ChainHeaderReader, time uint64, parent *types.Header) *big.Int
+	CalcDifficulty(chain ChainHeaderReader[P], time uint64, parent *types.Header[P]) *big.Int
 
 	// APIs returns the RPC APIs this consensus engine provides.
-	APIs(chain ChainHeaderReader) []rpc.API
+	APIs(chain ChainHeaderReader[P]) []rpc.API
 
 	// Protocol returns the protocol for this consensus
 	Protocol() Protocol
@@ -149,7 +149,7 @@ type Istanbul [P crypto.PublicKey] interface {
 	Engine[P]
 
 	// Start starts the engine
-	Start(chain ChainHeaderReader, currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error
+	Start(chain ChainHeaderReader[P], currentBlock func() *types.Block[P], hasBadBlock func(db ethdb.Reader, hash common.Hash) bool) error
 
 	// Stop stops the engine
 	Stop() error

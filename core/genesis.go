@@ -192,7 +192,7 @@ func SetupGenesisBlockWithOverride[P crypto.PublicKey](db ethdb.Database, genesi
 	}
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
-	header := rawdb.ReadHeader(db, stored, 0)
+	header := rawdb.ReadHeader[P](db, stored, 0)
 	if _, err := state.New[P](header.Root, state.NewDatabaseWithConfig[P](db, nil), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock[P]()
@@ -304,7 +304,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
-	head := &types.Header{
+	head := &types.Header[P]{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       g.Timestamp,

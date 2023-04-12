@@ -37,10 +37,10 @@ const (
 
 // BloomIndexer implements a core.ChainIndexer, building up a rotated bloom bits index
 // for the Ethereum header bloom filters, permitting blazing fast filtering.
-type BloomIndexer struct {
+type BloomIndexer [P crypto.PublicKey]struct {
 	size    uint64               // section size to generate bloombits for
 	db      ethdb.Database       // database instance to write index data and metadata into
-	gen     *bloombits.Generator // generator to rotate the bloom bits crating the bloom index
+	gen     *bloombits.Generator[P] // generator to rotate the bloom bits crating the bloom index
 	section uint64               // Section is the section number being processed currently
 	head    common.Hash          // Head is the hash of the last header processed
 }
@@ -48,7 +48,7 @@ type BloomIndexer struct {
 // NewBloomIndexer returns a chain indexer that generates bloom bits data for the
 // canonical chain for fast logs filtering.
 func NewBloomIndexer[P crypto.PublicKey](db ethdb.Database, size, confirms uint64) *ChainIndexer[P] {
-	backend := &BloomIndexer{
+	backend := &BloomIndexer[P]{
 		db:   db,
 		size: size,
 	}
@@ -59,17 +59,17 @@ func NewBloomIndexer[P crypto.PublicKey](db ethdb.Database, size, confirms uint6
 
 // Reset implements core.ChainIndexerBackend, starting a new bloombits index
 // section.
-func (b *BloomIndexer) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
-	gen, err := bloombits.NewGenerator(uint(b.size))
+func (b *BloomIndexer[P]) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
+	gen, err := bloombits.NewGenerator[P](uint(b.size))
 	b.gen, b.section, b.head = gen, section, common.Hash{}
 	return err
 }
 
 // Process implements core.ChainIndexerBackend, executes an Or operation on header.bloom and private bloom
 // (header.bloom | private bloom) and adds to index
-func (b *BloomIndexer) Process(ctx context.Context, header *types.Header) error {
+func (b *BloomIndexer[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	publicBloom := header.Bloom
-	privateBloom := rawdb.GetPrivateBlockBloom(b.db, header.Number.Uint64())
+	privateBloom := rawdb.GetPrivateBlockBloom[P](b.db, header.Number.Uint64())
 	publicBloom.OrBloom(privateBloom.Bytes())
 
 	b.gen.AddBloom(uint(header.Number.Uint64()-b.section*b.size), publicBloom)
@@ -79,7 +79,7 @@ func (b *BloomIndexer) Process(ctx context.Context, header *types.Header) error 
 
 // Commit implements core.ChainIndexerBackend, finalizing the bloom section and
 // writing it out into the database.
-func (b *BloomIndexer) Commit() error {
+func (b *BloomIndexer[P]) Commit() error {
 	batch := b.db.NewBatch()
 	for i := 0; i < types.BloomBitLength; i++ {
 		bits, err := b.gen.Bitset(uint(i))
@@ -92,6 +92,6 @@ func (b *BloomIndexer) Commit() error {
 }
 
 // Prune returns an empty error since we don't support pruning here.
-func (b *BloomIndexer) Prune(threshold uint64) error {
+func (b *BloomIndexer[P]) Prune(threshold uint64) error {
 	return nil
 }

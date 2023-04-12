@@ -49,7 +49,7 @@ type work [P crypto.PublicKey] struct {
 	publicState  *state.StateDB[P]
 	privateState *state.StateDB[P]
 	Block        *types.Block[P]
-	header       *types.Header
+	header       *types.Header[P]
 }
 
 type minter [T crypto.PrivateKey, P crypto.PublicKey]  struct {
@@ -269,7 +269,7 @@ func (minter *minter[T,P]) createWork() *work[P] {
 		coinbase = minter.coinbase
 	}
 
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     newBlockNumber,
 		Difficulty: ethash.CalcDifficulty(minter.config, uint64(tstamp), parent.Header()),

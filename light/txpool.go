@@ -223,7 +223,7 @@ func (pool *TxPool[P]) rollbackTxs(hash common.Hash, txc txStateChanges) {
 // timeout) occurs during checking new blocks, it leaves the locally known head
 // at the latest checked block and still returns a valid txStateChanges, making it
 // possible to continue checking the missing blocks at the next chain head event
-func (pool *TxPool[P]) reorgOnNewHead(ctx context.Context, newHeader *types.Header) (txStateChanges, error) {
+func (pool *TxPool[P]) reorgOnNewHead(ctx context.Context, newHeader *types.Header[P]) (txStateChanges, error) {
 	txc := make(txStateChanges)
 	oldh := pool.chain.GetHeaderByHash(pool.head)
 	newh := newHeader
@@ -304,7 +304,7 @@ func (pool *TxPool[P]) eventLoop() {
 	}
 }
 
-func (pool *TxPool[P]) setNewHead(head *types.Header) {
+func (pool *TxPool[P]) setNewHead(head *types.Header[P]) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 

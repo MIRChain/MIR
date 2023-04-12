@@ -35,7 +35,7 @@ func (c *core[P]) broadcastCommit() {
 
 	sub := c.current.Subject()
 
-	var header *types.Header
+	var header *types.Header[P]
 	if block, ok := c.current.Proposal().(*types.Block[P]); ok {
 		header = block.Header()
 	}

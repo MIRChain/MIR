@@ -34,12 +34,12 @@ import (
 // 	sha3Nil = crypto.Keccak256Hash(nil)
 // )
 
-func NewState[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) *state.StateDB[P] {
+func NewState[P crypto.PublicKey](ctx context.Context, head *types.Header[P], odr OdrBackend[P]) *state.StateDB[P] {
 	state, _ := state.New[P](head.Root, NewStateDatabase(ctx, head, odr), nil)
 	return state
 }
 
-func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) state.Database {
+func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Header[P], odr OdrBackend[P]) state.Database {
 	return &odrDatabase[P]{ctx, StateTrieID(head), odr}
 }
 

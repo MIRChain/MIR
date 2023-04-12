@@ -33,20 +33,20 @@ import (
 
 // stateReq represents a batch of state fetch requests grouped together into
 // a single data retrieval network packet.
-type stateReq struct {
+type stateReq [P crypto.PublicKey] struct {
 	nItems    uint16                    // Number of items requested for download (max is 384, so uint16 is sufficient)
 	trieTasks map[common.Hash]*trieTask // Trie node download tasks to track previous attempts
 	codeTasks map[common.Hash]*codeTask // Byte code download tasks to track previous attempts
 	timeout   time.Duration             // Maximum round trip time for this to complete
 	timer     *time.Timer               // Timer to fire when the RTT timeout expires
-	peer      *peerConnection           // Peer that we're requesting from
+	peer      *peerConnection[P]           // Peer that we're requesting from
 	delivered time.Time                 // Time when the packet was delivered (independent when we process it)
 	response  [][]byte                  // Response data of the peer (nil for timeouts)
 	dropped   bool                      // Flag whether the peer dropped off early
 }
 
 // timedOut returns if this request timed out.
-func (req *stateReq) timedOut() bool {
+func (req *stateReq[P]) timedOut() bool {
 	return req.response == nil
 }
 
@@ -97,9 +97,9 @@ func (d *Downloader[T,P]) stateFetcher() {
 // hash is requested to be switched over to.
 func (d *Downloader[T,P]) runStateSync(s *stateSync[T,P]) *stateSync[T,P] {
 	var (
-		active   = make(map[string]*stateReq) // Currently in-flight requests
-		finished []*stateReq                  // Completed or failed requests
-		timeout  = make(chan *stateReq)       // Timed out active requests
+		active   = make(map[string]*stateReq[P]) // Currently in-flight requests
+		finished []*stateReq[P]                  // Completed or failed requests
+		timeout  = make(chan *stateReq[P])       // Timed out active requests
 	)
 	log.Trace("State sync starting", "root", s.root)
 
@@ -115,15 +115,15 @@ func (d *Downloader[T,P]) runStateSync(s *stateSync[T,P]) *stateSync[T,P] {
 	defer s.Cancel()
 
 	// Listen for peer departure events to cancel assigned tasks
-	peerDrop := make(chan *peerConnection, 1024)
+	peerDrop := make(chan *peerConnection[P], 1024)
 	peerSub := s.d.peers.SubscribePeerDrops(peerDrop)
 	defer peerSub.Unsubscribe()
 
 	for {
 		// Enable sending of the first buffered element if there is one.
 		var (
-			deliverReq   *stateReq
-			deliverReqCh chan *stateReq
+			deliverReq   *stateReq[P]
+			deliverReqCh chan *stateReq[P]
 		)
 		if len(finished) > 0 {
 			deliverReq = finished[0]
@@ -219,11 +219,11 @@ func (d *Downloader[T,P]) runStateSync(s *stateSync[T,P]) *stateSync[T,P] {
 // spindownStateSync 'drains' the outstanding requests; some will be delivered and other
 // will time out. This is to ensure that when the next stateSync starts working, all peers
 // are marked as idle and de facto _are_ idle.
-func (d *Downloader[T,P]) spindownStateSync(active map[string]*stateReq, finished []*stateReq, timeout chan *stateReq, peerDrop chan *peerConnection) {
+func (d *Downloader[T,P]) spindownStateSync(active map[string]*stateReq[P], finished []*stateReq[P], timeout chan *stateReq[P], peerDrop chan *peerConnection[P]) {
 	log.Trace("State sync spinning down", "active", len(active), "finished", len(finished))
 	for len(active) > 0 {
 		var (
-			req    *stateReq
+			req    *stateReq[P]
 			reason string
 		)
 		select {
@@ -272,7 +272,7 @@ type stateSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	started chan struct{} // Started is signalled once the sync loop starts
 
-	deliver    chan *stateReq // Delivery channel multiplexing peer responses
+	deliver    chan *stateReq[P] // Delivery channel multiplexing peer responses
 	cancel     chan struct{}  // Channel to signal a termination request
 	cancelOnce sync.Once      // Ensures cancel only ever gets called once
 	done       chan struct{}  // Channel to signal termination completion
@@ -302,7 +302,7 @@ func newStateSync[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T,P], r
 		keccak:    sha3.NewLegacyKeccak256().(crypto.KeccakState),
 		trieTasks: make(map[common.Hash]*trieTask),
 		codeTasks: make(map[common.Hash]*codeTask),
-		deliver:   make(chan *stateReq),
+		deliver:   make(chan *stateReq[P]),
 		cancel:    make(chan struct{}),
 		done:      make(chan struct{}),
 		started:   make(chan struct{}),
@@ -344,7 +344,7 @@ func (s *stateSync[T,P]) Cancel() error {
 // and timeouts.
 func (s *stateSync[T,P]) loop() (err error) {
 	// Listen for new peer events to assign tasks to them
-	newPeer := make(chan *peerConnection, 1024)
+	newPeer := make(chan *peerConnection[P], 1024)
 	peerSub := s.d.peers.SubscribeNewPeers(newPeer)
 	defer peerSub.Unsubscribe()
 	defer func() {
@@ -434,7 +434,7 @@ func (s *stateSync[T,P]) assignTasks() {
 	for _, p := range peers {
 		// Assign a batch of fetches proportional to the estimated latency/bandwidth
 		cap := p.NodeDataCapacity(s.d.requestRTT())
-		req := &stateReq{peer: p, timeout: s.d.requestTTL()}
+		req := &stateReq[P]{peer: p, timeout: s.d.requestTTL()}
 
 		nodes, _, codes := s.fillTasks(cap, req)
 
@@ -453,7 +453,7 @@ func (s *stateSync[T,P]) assignTasks() {
 
 // fillTasks fills the given request object with a maximum of n state download
 // tasks to send to the remote peer.
-func (s *stateSync[T,P]) fillTasks(n int, req *stateReq) (nodes []common.Hash, paths []trie.SyncPath, codes []common.Hash) {
+func (s *stateSync[T,P]) fillTasks(n int, req *stateReq[P]) (nodes []common.Hash, paths []trie.SyncPath, codes []common.Hash) {
 	// Refill available tasks from the scheduler.
 	if fill := n - (len(s.trieTasks) + len(s.codeTasks)); fill > 0 {
 		nodes, paths, codes := s.sched.Missing(fill)
@@ -519,7 +519,7 @@ func (s *stateSync[T,P]) fillTasks(n int, req *stateReq) (nodes []common.Hash, p
 // into a running state sync, re-queuing any items that were requested but not
 // delivered. Returns whether the peer actually managed to deliver anything of
 // value, and any error that occurred.
-func (s *stateSync[T,P]) process(req *stateReq) (int, error) {
+func (s *stateSync[T,P]) process(req *stateReq[P]) (int, error) {
 	// Collect processing stats and update progress if valid data was received
 	duplicate, unexpected, successful := 0, 0, 0
 

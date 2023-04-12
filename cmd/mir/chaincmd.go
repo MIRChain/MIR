@@ -510,18 +510,18 @@ func dump[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
 	for _, arg := range ctx.Args() {
-		var header *types.Header
+		var header *types.Header[P]
 		if hashish(arg) {
 			hash := common.HexToHash(arg)
 			number := rawdb.ReadHeaderNumber(db, hash)
 			if number != nil {
-				header = rawdb.ReadHeader(db, hash, *number)
+				header = rawdb.ReadHeader[P](db, hash, *number)
 			}
 		} else {
 			number, _ := strconv.Atoi(arg)
 			hash := rawdb.ReadCanonicalHash(db, uint64(number))
 			if hash != (common.Hash{}) {
-				header = rawdb.ReadHeader(db, hash, uint64(number))
+				header = rawdb.ReadHeader[P](db, hash, uint64(number))
 			}
 		}
 		if header == nil {

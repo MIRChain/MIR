@@ -1154,7 +1154,10 @@ func setNodeUserIdent[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context,
 // setBootstrapNodes creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
 func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
-	urls := params.MainnetBootnodes
+	var urls []string
+	if ctx.GlobalString(CryptoSwitchFlag.Name) == "nist" {
+		urls = params.MainnetBootnodes
+	}
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))

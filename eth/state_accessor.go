@@ -228,7 +228,7 @@ func (eth *Ethereum[T,P]) GetBlockchain() *core.BlockChain[P] {
 	return eth.BlockChain()
 }
 
-func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header, outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
+func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *state.StateDB[P], privateStateDB *state.StateDB[P], header *types.Header[P], outerTx *types.Transaction[P], evmConf vm.Config[P], forceNonParty bool, privateStateRepo mps.PrivateStateRepository[P], vmenv *vm.EVM[P], innerTx *types.Transaction[P], txIndex int) error {
 	var (
 		author  *common.Address = nil // ApplyTransaction will determine the author from the header so we won't do it here
 		gp      *core.GasPool   = new(core.GasPool).AddGas(outerTx.Gas())

@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -34,7 +35,7 @@ var (
 
 // Generator takes a number of bloom filters and generates the rotated bloom bits
 // to be used for batched filtering.
-type Generator struct {
+type Generator [P crypto.PublicKey] struct {
 	blooms   [types.BloomBitLength][]byte // Rotated blooms for per-bit matching
 	sections uint                         // Number of sections to batch together
 	nextSec  uint                         // Next section to set when adding a bloom
@@ -42,11 +43,11 @@ type Generator struct {
 
 // NewGenerator creates a rotated bloom generator that can iteratively fill a
 // batched bloom filter's bits.
-func NewGenerator(sections uint) (*Generator, error) {
+func NewGenerator[P crypto.PublicKey](sections uint) (*Generator[P], error) {
 	if sections%8 != 0 {
 		return nil, errors.New("section count not multiple of 8")
 	}
-	b := &Generator{sections: sections}
+	b := &Generator[P]{sections: sections}
 	for i := 0; i < types.BloomBitLength; i++ {
 		b.blooms[i] = make([]byte, sections/8)
 	}
@@ -55,7 +56,7 @@ func NewGenerator(sections uint) (*Generator, error) {
 
 // AddBloom takes a single bloom filter and sets the corresponding bit column
 // in memory accordingly.
-func (b *Generator) AddBloom(index uint, bloom types.Bloom) error {
+func (b *Generator[P]) AddBloom(index uint, bloom types.Bloom[P]) error {
 	// Make sure we're not adding more bloom filters than our capacity
 	if b.nextSec >= b.sections {
 		return errSectionOutOfBounds
@@ -87,7 +88,7 @@ func (b *Generator) AddBloom(index uint, bloom types.Bloom) error {
 
 // Bitset returns the bit vector belonging to the given bit index after all
 // blooms have been added.
-func (b *Generator) Bitset(idx uint) ([]byte, error) {
+func (b *Generator[P]) Bitset(idx uint) ([]byte, error) {
 	if b.nextSec != b.sections {
 		return nil, errors.New("bloom not fully generated yet")
 	}

@@ -1312,7 +1312,7 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
-func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+func RPCMarshalHeader[P crypto.PublicKey](head *types.Header[P]) map[string]interface{} {
 	return map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -1372,7 +1372,7 @@ func RPCMarshalBlock[P crypto.PublicKey](block *types.Block[P], inclTx bool, ful
 
 // rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field, which requires
 // a `PublicBlockchainAPI`.
-func (s *PublicBlockChainAPI[T,P]) rpcMarshalHeader(ctx context.Context, header *types.Header) map[string]interface{} {
+func (s *PublicBlockChainAPI[T,P]) rpcMarshalHeader(ctx context.Context, header *types.Header[P]) map[string]interface{} {
 	fields := RPCMarshalHeader(header)
 	fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(ctx, header.Hash()))
 	return fields

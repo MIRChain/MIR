@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
@@ -70,7 +71,7 @@ const (
 // - The memory mapping ensures we can max out system memory for caching without
 //   reserving it for go-ethereum. This would also reduce the memory requirements
 //   of Geth, and thus also GC overhead.
-type freezer struct {
+type freezer [P crypto.PublicKey] struct {
 	// WARNING: The `frozen` field is accessed atomically. On 32 bit platforms, only
 	// 64-bit aligned fields can be atomic. The struct is guaranteed to be so aligned,
 	// so take advantage of that (https://golang.org/pkg/sync/atomic/#pkg-note-BUG).
@@ -89,7 +90,7 @@ type freezer struct {
 
 // newFreezer creates a chain freezer that moves ancient chain data into
 // append-only flat file containers.
-func newFreezer(datadir string, namespace string, readonly bool) (*freezer, error) {
+func newFreezer[P crypto.PublicKey](datadir string, namespace string, readonly bool) (*freezer[P], error) {
 	// Create the initial freezer object
 	var (
 		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
@@ -110,7 +111,7 @@ func newFreezer(datadir string, namespace string, readonly bool) (*freezer, erro
 		return nil, err
 	}
 	// Open all the supported data tables
-	freezer := &freezer{
+	freezer := &freezer[P]{
 		readonly:     readonly,
 		threshold:    params.FullImmutabilityThreshold,
 		tables:       make(map[string]*freezerTable),
@@ -141,7 +142,7 @@ func newFreezer(datadir string, namespace string, readonly bool) (*freezer, erro
 }
 
 // Close terminates the chain freezer, unmapping all the data files.
-func (f *freezer) Close() error {
+func (f *freezer[P]) Close() error {
 	var errs []error
 	f.closeOnce.Do(func() {
 		close(f.quit)
@@ -162,7 +163,7 @@ func (f *freezer) Close() error {
 
 // HasAncient returns an indicator whether the specified ancient data exists
 // in the freezer.
-func (f *freezer) HasAncient(kind string, number uint64) (bool, error) {
+func (f *freezer[P]) HasAncient(kind string, number uint64) (bool, error) {
 	if table := f.tables[kind]; table != nil {
 		return table.has(number), nil
 	}
@@ -170,7 +171,7 @@ func (f *freezer) HasAncient(kind string, number uint64) (bool, error) {
 }
 
 // Ancient retrieves an ancient binary blob from the append-only immutable files.
-func (f *freezer) Ancient(kind string, number uint64) ([]byte, error) {
+func (f *freezer[P]) Ancient(kind string, number uint64) ([]byte, error) {
 	if table := f.tables[kind]; table != nil {
 		return table.Retrieve(number)
 	}
@@ -178,12 +179,12 @@ func (f *freezer) Ancient(kind string, number uint64) ([]byte, error) {
 }
 
 // Ancients returns the length of the frozen items.
-func (f *freezer) Ancients() (uint64, error) {
+func (f *freezer[P]) Ancients() (uint64, error) {
 	return atomic.LoadUint64(&f.frozen), nil
 }
 
 // AncientSize returns the ancient size of the specified category.
-func (f *freezer) AncientSize(kind string) (uint64, error) {
+func (f *freezer[P]) AncientSize(kind string) (uint64, error) {
 	if table := f.tables[kind]; table != nil {
 		return table.size()
 	}
@@ -196,7 +197,7 @@ func (f *freezer) AncientSize(kind string) (uint64, error) {
 // Notably, this function is lock free but kind of thread-safe. All out-of-order
 // injection will be rejected. But if two injections with same number happen at
 // the same time, we can get into the trouble.
-func (f *freezer) AppendAncient(number uint64, hash, header, body, receipts, td []byte) (err error) {
+func (f *freezer[P]) AppendAncient(number uint64, hash, header, body, receipts, td []byte) (err error) {
 	if f.readonly {
 		return errReadOnly
 	}
@@ -241,7 +242,7 @@ func (f *freezer) AppendAncient(number uint64, hash, header, body, receipts, td 
 }
 
 // TruncateAncients discards any recent data above the provided threshold number.
-func (f *freezer) TruncateAncients(items uint64) error {
+func (f *freezer[P]) TruncateAncients(items uint64) error {
 	if f.readonly {
 		return errReadOnly
 	}
@@ -258,14 +259,14 @@ func (f *freezer) TruncateAncients(items uint64) error {
 }
 
 // Sync flushes all data tables to disk.
-func (f *freezer) Sync() error {
+func (f *freezer[P]) Sync() error {
 	return f.SyncRetry(1, 1*time.Second)
 }
 
 // SyncRetry
 // Quorum
 // add retry to sync
-func (f *freezer) SyncRetry(retry uint8, delay time.Duration) error {
+func (f *freezer[P]) SyncRetry(retry uint8, delay time.Duration) error {
 	var errs []error
 	for _, table := range f.tables {
 		if err := table.Sync(); err != nil {
@@ -290,7 +291,7 @@ func (f *freezer) SyncRetry(retry uint8, delay time.Duration) error {
 //
 // This functionality is deliberately broken off from block importing to avoid
 // incurring additional data shuffling delays on block propagation.
-func (f *freezer) freeze(db ethdb.KeyValueStore) {
+func (f *freezer[P]) freeze(db ethdb.KeyValueStore) {
 	nfdb := &nofreezedb{KeyValueStore: db}
 
 	var (
@@ -345,7 +346,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			backoff = true
 			continue
 		}
-		head := ReadHeader(nfdb, hash, *number)
+		head := ReadHeader[P](nfdb, hash, *number)
 		if head == nil {
 			log.Error("Current full block unavailable", "number", *number, "hash", hash)
 			backoff = true
@@ -368,7 +369,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 				log.Error("Canonical hash missing, can't freeze", "number", f.frozen)
 				break
 			}
-			header := ReadHeaderRLP(nfdb, hash, f.frozen)
+			header := ReadHeaderRLP[P](nfdb, hash, f.frozen)
 			if len(header) == 0 {
 				log.Error("Block header missing, can't freeze", "number", f.frozen, "hash", hash)
 				break
@@ -442,7 +443,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 				children := ReadAllHashes(db, tip)
 				for i := 0; i < len(children); i++ {
 					// Dig up the child and ensure it's dangling
-					child := ReadHeader(nfdb, children[i], tip)
+					child := ReadHeader[P](nfdb, children[i], tip)
 					if child == nil {
 						log.Error("Missing dangling header", "number", tip, "hash", children[i])
 						continue
@@ -480,7 +481,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 }
 
 // repair truncates all data tables to the same length.
-func (f *freezer) repair() error {
+func (f *freezer[P]) repair() error {
 	min := uint64(math.MaxUint64)
 	for _, table := range f.tables {
 		items := atomic.LoadUint64(&table.items)
