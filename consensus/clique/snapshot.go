@@ -220,10 +220,6 @@ func (s *Snapshot[P]) apply(headers []*types.Header[P]) (*Snapshot[P], error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Info("Signer ", "", signer.Hex())
-		for s := range(snap.Signers) {
-			log.Info("Signers at snap ", "", s.Hex())
-		}
 		if _, ok := snap.Signers[signer]; !ok {
 			return nil, errUnauthorizedSigner
 		}

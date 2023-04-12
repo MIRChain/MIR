@@ -2,5 +2,5 @@
     -verbosity 9 \
     -addr :30310 \
     -crypto gost \
-    -writeaddress true \
+    # -writeaddress true \
 

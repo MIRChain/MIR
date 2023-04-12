@@ -41,7 +41,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/pavelkrolevets/MIR-pro/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -688,7 +687,7 @@ func (c *Clique[P]) APIs(chain consensus.ChainHeaderReader[P]) []rpc.API {
 
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash[P crypto.PublicKey](header *types.Header[P]) (hash common.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
+	hasher := crypto.NewKeccakState[P]()
 	
 	// Mir - Gost hash 34.11
 	// hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
