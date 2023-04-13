@@ -29,6 +29,17 @@ func (h *Hash) Sign() ([]byte, error) {
 	return res, nil
 }
 
+func (h *Hash) Set(buf []byte) error {
+	if len(buf) != 32 {
+		fmt.Errorf("digest string should be 32 bytes size")
+	}
+	ptr := unsafe.Pointer(&buf[0])
+	if C.CryptSetHashParam(h.hHash, C.HP_HASHVAL, (*C.BYTE)(ptr), 0) == 0 {
+		return getErr("Error setting hash params")
+	}
+	return nil
+}
+
 func (h *Hash) Verify(signer Cert, sig []byte) error {
 	var hPubKey C.HCRYPTKEY
 	// Get the public key from the certificate
@@ -45,12 +56,13 @@ func (h *Hash) Verify(signer Cert, sig []byte) error {
 	return nil
 }
 
-func Sign(digest []byte, crt Cert) ([]byte, error) {
-	hash, err := NewHash(HashOptions{SignCert: crt})
+func Sign(crt Cert, digest []byte) ([]byte, error) {
+	hash, err := NewHash(HashOptions{SignCert: crt, HashAlg: GOST_R3411_12_256})
 	if err != nil {
 		return nil, err
 	}
-	_, err = hash.Write(digest)
+	defer hash.Close()
+	err = hash.Set(digest)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +74,12 @@ func Sign(digest []byte, crt Cert) ([]byte, error) {
 }
 
 func VerifySignature(crt Cert, digestHash, signature []byte) (bool, error) {
-	hash, err := NewHash(HashOptions{SignCert: crt})
+	hash, err := NewHash(HashOptions{SignCert: crt, HashAlg: GOST_R3411_12_256})
 	if err != nil {
 		return false, err
 	}
-	_, err = hash.Write(digestHash)
+	defer hash.Close()
+	err = hash.Set(digestHash)
 	if err != nil {
 		return false, err
 	}
@@ -78,11 +91,12 @@ func VerifySignature(crt Cert, digestHash, signature []byte) (bool, error) {
 }
 
 func VerifySignatureRaw(digestHash, signature, pub []byte) (bool, error) {
-	hash, err := NewHash(HashOptions{})
+	hash, err := NewHash(HashOptions{HashAlg: GOST_R3411_12_256})
 	if err != nil {
 		return false, err
 	}
-	_, err = hash.Write(digestHash)
+	defer hash.Close()
+	err = hash.Set(digestHash)
 	if err != nil {
 		return false, err
 	}
