@@ -22,6 +22,8 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
@@ -40,6 +42,57 @@ func TestEIP155Signing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if from != addr {
+		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
+	}
+}
+func TestEIP155SigningGost(t *testing.T) {
+	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
+	addr :=crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
+
+	signer := NewEIP155Signer[gost3410.PublicKey](big.NewInt(18))
+	tx, err := SignTx[gost3410.PrivateKey,gost3410.PublicKey](NewTransaction[gost3410.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	from, err := Sender[gost3410.PublicKey](signer, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if from != addr {
+		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
+	}
+}
+
+func TestEIP155SigningCSP(t *testing.T) {
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[2:66])
+	// var sender common.Address
+	// copy(sender[:], crypto.Keccak256[nist.PublicKey](crt.Info().PublicKeyBytes()[2:66])[12:])
+	defer crt.Close()
+	addr :=crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	t.Logf("Cert address: %s", addr.Hex())
+	signer := NewEIP155Signer[csp.PublicKey](big.NewInt(18))
+	tx, err := SignTx[csp.Cert,csp.PublicKey](NewTransaction[csp.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, crt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	from, err := Sender[csp.PublicKey](signer, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("From address: %s", from.Hex())
 	if from != addr {
 		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
 	}

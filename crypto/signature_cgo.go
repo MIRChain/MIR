@@ -61,15 +61,11 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		return gost3410.Marshal(gost3410.GostCurve, pubKey.X, pubKey.Y), nil
 	case *csp.PublicKey:
 		r, s, revHash := RevertCSP(digestHash, sig)
-		pub := make([]byte, 0, 64)
 		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, int(sig[64]))
 		if err != nil{
 			return nil, err
 		}
-		pub = append(pub, Y.Bytes()...)
-		pub = append(pub, X.Bytes()...)
-		reverse(pub)
-		return pub, nil
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), X, Y), nil
 	default:
 		return nil, fmt.Errorf("no crypto alg was set")
 	}

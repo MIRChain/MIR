@@ -48,28 +48,28 @@ func init() {
 	testTxPoolConfig.Journal = ""
 }
 
-type testBlockChain struct {
-	statedb       *state.StateDB
-	psManager     mps.PrivateStateRepository[nist.PublicKey]
+type testBlockChain [P crypto.PublicKey]  struct {
+	statedb       *state.StateDB[P]
+	psManager     mps.PrivateStateRepository[P]
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) CurrentBlock() *types.Block[nist.PublicKey] {
-	return types.NewBlock[nist.PublicKey](&types.Header{
+func (bc *testBlockChain[P]) CurrentBlock() *types.Block[P] {
+	return types.NewBlock[P](&types.Header[P]{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
 
-func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block[nist.PublicKey] {
+func (bc *testBlockChain[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P] {
 	return bc.CurrentBlock()
 }
 
-func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, mps.PrivateStateRepository[nist.PublicKey], error) {
+func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return bc.statedb, bc.psManager, nil
 }
 
-func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[nist.PublicKey]) event.Subscription {
+func (bc *testBlockChain[P]) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[P]) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
@@ -91,26 +91,26 @@ func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key
 }
 
 // Quorum - created setupTxPoolWithConfig(...) from original setupTxPool() to allow passing a ChainConfig as argument
-func setupTxPoolWithConfig(config *params.ChainConfig) (*TxPool[nist.PublicKey], nist.PrivateKey) {
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 10000000, new(event.Feed)}
+func setupTxPoolWithConfig[T crypto.PrivateKey, P crypto.PublicKey](config *params.ChainConfig) (*TxPool[P], T) {
+	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[P]{statedb, nil, 10000000, new(event.Feed)}
 
-	key, _ := crypto.GenerateKey[nist.PrivateKey]()
-	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, config, blockchain)
+	key, _ := crypto.GenerateKey[T]()
+	pool := NewTxPool[P](testTxPoolConfig, config, blockchain)
 
 	return pool, key
 }
 
-func setupTxPool() (*TxPool[nist.PublicKey], nist.PrivateKey) {
-	return setupTxPoolWithConfig(params.TestChainConfig)
+func setupTxPool[T crypto.PrivateKey, P crypto.PublicKey]() (*TxPool[P], T) {
+	return setupTxPoolWithConfig[T,P](params.TestChainConfig)
 }
 
-func setupQuorumTxPool() (*TxPool[nist.PublicKey], nist.PrivateKey) {
+func setupQuorumTxPool() (*TxPool[P], nist.PrivateKey) {
 	return setupTxPoolWithConfig(params.QuorumTestChainConfig)
 }
 
 // validateTxPoolInternals checks various consistency invariants within the pool.
-func validateTxPoolInternals(pool *TxPool[nist.PublicKey]) error {
+func validateTxPoolInternals(pool *TxPool[P]) error {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -688,7 +688,7 @@ func TestTransactionDropping(t *testing.T) {
 		t.Errorf("total transaction mismatch: have %d, want %d", pool.all.Count(), 4)
 	}
 	// Reduce the block gas limit, check that invalidated transactions are dropped
-	pool.chain.(*testBlockChain).gasLimit = 100
+	pool.chain.(*testBlockChain[P]).gasLimit = 100
 	<-pool.requestReset(nil, nil)
 
 	if _, ok := pool.pending[account].txs.items[tx0.Nonce()]; !ok {
@@ -2201,7 +2201,7 @@ type testPoolConfig struct {
 	eip155Block    *big.Int
 }
 
-func setupNewTxPool(tt testPoolConfig) *TxPool[nist.PublicKey] {
+func setupNewTxPool(tt testPoolConfig) *TxPool[P] {
 	db := rawdb.NewMemoryDatabase()
 	stateDB, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
 	blockchain := &testBlockChain{stateDB, nil, 1000000, new(event.Feed)}

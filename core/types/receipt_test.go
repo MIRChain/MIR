@@ -203,7 +203,7 @@ func encodeAsV4StoredReceiptRLP(want *Receipt[nist.PublicKey]) ([]byte, error) {
 }
 
 func encodeAsV3StoredReceiptRLP(want *Receipt[nist.PublicKey]) ([]byte, error) {
-	stored := &v3StoredReceiptRLP{
+	stored := &v3StoredReceiptRLP[nist.PublicKey]{
 		PostStateOrStatus: want.statusEncoding(),
 		CumulativeGasUsed: want.CumulativeGasUsed,
 		Bloom:             want.Bloom,
@@ -541,7 +541,7 @@ func testReceiptFields(t *testing.T, receipt *Receipt[nist.PublicKey], txs Trans
 		t.Errorf("%s.ContractAddress = %s, want %s", receiptName, receipt.ContractAddress.String(), (common.Address{}).String())
 	}
 	from, _ := Sender[nist.PublicKey](signer, txs[txIndex])
-	contractAddress := crypto.CreateAddress(from, txs[txIndex].Nonce())
+	contractAddress := crypto.CreateAddress[nist.PublicKey](from, txs[txIndex].Nonce())
 	if txs[txIndex].To() == nil && receipt.ContractAddress != contractAddress {
 		t.Errorf("%s.ContractAddress = %s, want %s", receiptName, receipt.ContractAddress.String(), contractAddress.String())
 	}

@@ -302,6 +302,33 @@ func TestSign(t *testing.T) {
 	}
 }
 
+func TestHashCSP(t *testing.T) {
+	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+}
+func TestHashReadCSP(t *testing.T) {
+	hasher := NewKeccakState[csp.PublicKey]()
+	_, err := hasher.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digestNew := make([]byte, 32)
+	hasher.Read(digestNew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Read hash digest: %x", digestNew)
+}
 func TestSignCSPRecoverGOST(t *testing.T) {
 	store, err := csp.SystemStore("My")
 	if err != nil {

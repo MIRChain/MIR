@@ -68,3 +68,15 @@ func (prv PublicKey) GetX() *big.Int {
 func (prv PublicKey) GetY() *big.Int {
 	return prv.Y
 }
+
+func Marshal(curve gost3410.Curve, x, y *big.Int) []byte {
+	byteLen := (curve.Params().BitSize + 7) / 8
+	ret := make([]byte, 1+2*byteLen)
+	ret[0] = 4 // uncompressed point
+	tmp := make([]byte, 2*byteLen)
+	y.FillBytes(tmp[ : byteLen])
+	x.FillBytes(tmp[byteLen : 2*byteLen])
+	reverse(tmp)
+	copy(ret[1:1+2*byteLen], tmp)
+	return ret
+}

@@ -64,7 +64,7 @@ func newKeyCsp[P crypto.PublicKey](subjectKeyId string) (*KeyCsp, error) {
 	}
 	key := &KeyCsp{
 		Id:         id,
-		Address:    common.BytesToAddress(crypto.Keccak256[P](crt.Info().PublicKeyBytes()[1:])[12:]),
+		Address:    common.BytesToAddress(crypto.Keccak256[P](crt.Info().PublicKeyBytes()[2:66])[12:]),
 		SubjectKeyId: subjectKeyId,
 	}
 	return key, nil

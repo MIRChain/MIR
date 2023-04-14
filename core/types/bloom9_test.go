@@ -38,7 +38,7 @@ func TestBloom(t *testing.T) {
 		"lo",
 	}
 
-	var bloom Bloom
+	var bloom Bloom[nist.PublicKey]
 	for _, data := range positive {
 		bloom.Add([]byte(data))
 	}
@@ -58,20 +58,20 @@ func TestBloom(t *testing.T) {
 // TestBloomExtensively does some more thorough tests
 func TestBloomExtensively(t *testing.T) {
 	var exp = common.HexToHash("c8d3ca65cdb4874300a9e39475508f23ed6da09fdbc487f89a2dcf50b09eb263")
-	var b Bloom
+	var b Bloom[nist.PublicKey]
 	// Add 100 "random" things
 	for i := 0; i < 100; i++ {
 		data := fmt.Sprintf("xxxxxxxxxx data %d yyyyyyyyyyyyyy", i)
 		b.Add([]byte(data))
 		//b.Add(new(big.Int).SetBytes([]byte(data)))
 	}
-	got := crypto.Keccak256Hash(b.Bytes())
+	got := crypto.Keccak256Hash[nist.PublicKey](b.Bytes())
 	if got != exp {
 		t.Errorf("Got %x, exp %x", got, exp)
 	}
-	var b2 Bloom
+	var b2 Bloom[nist.PublicKey]
 	b2.SetBytes(b.Bytes())
-	got2 := crypto.Keccak256Hash(b2.Bytes())
+	got2 := crypto.Keccak256Hash[nist.PublicKey](b2.Bytes())
 	if got != got2 {
 		t.Errorf("Got %x, exp %x", got, got2)
 	}
@@ -80,13 +80,13 @@ func TestBloomExtensively(t *testing.T) {
 func BenchmarkBloom9(b *testing.B) {
 	test := []byte("testestestest")
 	for i := 0; i < b.N; i++ {
-		Bloom9(test)
+		Bloom9[nist.PublicKey](test)
 	}
 }
 
 func BenchmarkBloom9Lookup(b *testing.B) {
 	toTest := []byte("testtest")
-	bloom := new(Bloom)
+	bloom := new(Bloom[nist.PublicKey])
 	for i := 0; i < b.N; i++ {
 		bloom.Test(toTest)
 	}
@@ -130,26 +130,26 @@ func BenchmarkCreateBloom(b *testing.B) {
 	}
 	b.Run("small", func(b *testing.B) {
 		b.ReportAllocs()
-		var bl Bloom
+		var bl Bloom[nist.PublicKey]
 		for i := 0; i < b.N; i++ {
 			bl = CreateBloom(rSmall)
 		}
 		b.StopTimer()
 		var exp = common.HexToHash("c384c56ece49458a427c67b90fefe979ebf7104795be65dc398b280f24104949")
-		got := crypto.Keccak256Hash(bl.Bytes())
+		got := crypto.Keccak256Hash[nist.PublicKey](bl.Bytes())
 		if got != exp {
 			b.Errorf("Got %x, exp %x", got, exp)
 		}
 	})
 	b.Run("large", func(b *testing.B) {
 		b.ReportAllocs()
-		var bl Bloom
+		var bl Bloom[nist.PublicKey]
 		for i := 0; i < b.N; i++ {
 			bl = CreateBloom(rLarge)
 		}
 		b.StopTimer()
 		var exp = common.HexToHash("c384c56ece49458a427c67b90fefe979ebf7104795be65dc398b280f24104949")
-		got := crypto.Keccak256Hash(bl.Bytes())
+		got := crypto.Keccak256Hash[nist.PublicKey](bl.Bytes())
 		if got != exp {
 			b.Errorf("Got %x, exp %x", got, exp)
 		}

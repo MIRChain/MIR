@@ -131,7 +131,7 @@ func TestEIP2718BlockEncoding(t *testing.T) {
 }
 
 func TestUncleHash(t *testing.T) {
-	uncles := make([]*Header, 0)
+	uncles := make([]*Header[nist.PublicKey], 0)
 	h := CalcUncleHash(uncles)
 	exp := common.HexToHash("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
 	if h != exp {
@@ -183,9 +183,9 @@ func makeBenchBlock() *Block[nist.PublicKey] {
 		txs      = make([]*Transaction[nist.PublicKey], 70)
 		receipts = make([]*Receipt[nist.PublicKey], len(txs))
 		signer   = LatestSigner[nist.PublicKey](params.TestChainConfig)
-		uncles   = make([]*Header, 3)
+		uncles   = make([]*Header[nist.PublicKey], 3)
 	)
-	header := &Header{
+	header := &Header[nist.PublicKey]{
 		Difficulty: math.BigPow(11, 11),
 		Number:     math.BigPow(2, 9),
 		GasLimit:   12345678,
@@ -206,7 +206,7 @@ func makeBenchBlock() *Block[nist.PublicKey] {
 		receipts[i] = NewReceipt[nist.PublicKey](make([]byte, 32), false, tx.Gas())
 	}
 	for i := range uncles {
-		uncles[i] = &Header{
+		uncles[i] = &Header[nist.PublicKey]{
 			Difficulty: math.BigPow(11, 11),
 			Number:     math.BigPow(2, 9),
 			GasLimit:   12345678,
