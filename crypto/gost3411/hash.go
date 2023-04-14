@@ -380,6 +380,23 @@ func (h *Hash) Sum(in []byte) []byte {
 	}
 	return append(in, hsh...)
 }
+func (h *Hash) Read(out []byte) (int, error) {
+	buf := make([]byte, BlockSize)
+	hsh := make([]byte, BlockSize)
+	copy(h.tmp, buf)
+	copy(buf, h.buf)
+	buf[len(h.buf)] = 1
+	copy(hsh, h.g(h.n, h.hsh, buf))
+	binary.LittleEndian.PutUint64(h.tmp, h.n+uint64(len(h.buf))*8)
+	copy(hsh, h.g(0, hsh, h.tmp))
+	copy(hsh, h.g(0, hsh, h.add512bit(h.chk, buf)))
+	if h.size == 32 {
+		copy(out[:], hsh[BlockSize/2:])
+		return len(out), nil
+	}
+	copy(out[:], hsh[:])
+	return len(out), nil
+}
 
 func (h *Hash) add512bit(chk, data []byte) []byte {
 	var ss uint16

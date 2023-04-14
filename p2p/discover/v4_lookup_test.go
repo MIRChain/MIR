@@ -142,10 +142,10 @@ func serveTestnet[T crypto.PrivateKey, P crypto.PublicKey](test *udpTest[T,P], t
 			switch p.(type) {
 			case *v4wire.Ping:
 				test.packetInFrom(nil, key, to, &v4wire.Pong{Expiration: futureExp, ReplyTok: hash})
-			case *v4wire.Findnode:
+			case *v4wire.Findnode[P]:
 				dist := enode.LogDist(n.ID(), testnet.target.id())
 				nodes := testnet.nodesAtDistance(dist - 1)
-				test.packetInFrom(nil, key, to, &v4wire.Neighbors{Expiration: futureExp, Nodes: nodes})
+				test.packetInFrom(nil, key, to, &v4wire.Neighbors[P]{Expiration: futureExp, Nodes: nodes})
 			}
 		})
 	}
@@ -175,7 +175,7 @@ func checkLookupResults[T crypto.PrivateKey, P crypto.PublicKey] (t *testing.T, 
 // The nodes were obtained by running lookupTestnet.mine with a random NodeID as target.
 func lookupTestnet[T crypto.PrivateKey, P crypto.PublicKey]() *preminedTestnet[T,P]{
 	return &preminedTestnet[T,P]{
-		target: hexEncPubkey("5d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"),
+		target: hexEncPubkey[P]("5d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"),
 		dists: [257][]T{
 			251: {
 				hexEncPrivkey[T]("29738ba0c1a4397d6a65f292eee07f02df8e58d41594ba2be3cf84ce0fc58169"),
@@ -236,7 +236,7 @@ func lookupTestnet[T crypto.PrivateKey, P crypto.PublicKey]() *preminedTestnet[T
 
 
 type preminedTestnet [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	target encPubkey
+	target encPubkey[P]
 	dists  [hashBits + 1][]T
 }
 
@@ -276,8 +276,8 @@ func (tn *preminedTestnet[T,P]) nodeByAddr(addr *net.UDPAddr) (*enode.Node[P], T
 	return tn.node(dist, index), key
 }
 
-func (tn *preminedTestnet[T,P]) nodesAtDistance(dist int) []v4wire.Node {
-	result := make([]v4wire.Node, len(tn.dists[dist]))
+func (tn *preminedTestnet[T,P]) nodesAtDistance(dist int) []v4wire.Node[P] {
+	result := make([]v4wire.Node[P], len(tn.dists[dist]))
 	for i := range result {
 		result[i] = nodeToRPC(wrapNode(tn.node(dist, i)))
 	}

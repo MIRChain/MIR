@@ -45,15 +45,85 @@ var testPrivHex = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232
 func TestKeccak256Hash(t *testing.T) {
 	msg := []byte("abc")
 	exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
-	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := Keccak256Hash(in); return h[:] }, msg, exp)
+	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := Keccak256Hash[nist.PublicKey](in); return h[:] }, msg, exp)
 }
+
+func Test3411Strebog(t *testing.T) {
+	msg := []byte{
+		0xd1, 0xe5, 0x20, 0xe2, 0xe5, 0xf2, 0xf0, 0xe8,
+		0x2c, 0x20, 0xd1, 0xf2, 0xf0, 0xe8, 0xe1, 0xee,
+		0xe6, 0xe8, 0x20, 0xe2, 0xed, 0xf3, 0xf6, 0xe8,
+		0x2c, 0x20, 0xe2, 0xe5, 0xfe, 0xf2, 0xfa, 0x20,
+		0xf1, 0x20, 0xec, 0xee, 0xf0, 0xff, 0x20, 0xf1,
+		0xf2, 0xf0, 0xe5, 0xeb, 0xe0, 0xec, 0xe8, 0x20,
+		0xed, 0xe0, 0x20, 0xf5, 0xf0, 0xe0, 0xe1, 0xf0,
+		0xfb, 0xff, 0x20, 0xef, 0xeb, 0xfa, 0xea, 0xfb,
+		0x20, 0xc8, 0xe3, 0xee, 0xf0, 0xe5, 0xe2, 0xfb,
+	}
+	exp := []byte{
+		0x9d, 0xd2, 0xfe, 0x4e, 0x90, 0x40, 0x9e, 0x5d,
+		0xa8, 0x7f, 0x53, 0x97, 0x6d, 0x74, 0x05, 0xb0,
+		0xc0, 0xca, 0xc6, 0x28, 0xfc, 0x66, 0x9a, 0x74,
+		0x1d, 0x50, 0x06, 0x3c, 0x55, 0x7e, 0x8f, 0x50,
+	}
+	checkhash(t, "Streebog-256-array", func(in []byte) []byte { h := Keccak256Hash[gost3410.PublicKey](in); return h[:] }, msg, exp)
+}
+
 
 func TestKeccak256Hasher(t *testing.T) {
 	msg := []byte("abc")
 	exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
-	hasher := NewKeccakState()
-	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashData(hasher, in); return h[:] }, msg, exp)
+	hasher := NewKeccakState[nist.PublicKey]()
+	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashData[nist.PublicKey](hasher, in); return h[:] }, msg, exp)
 }
+
+func Test3411StreebogHasher(t *testing.T) {
+	msg := []byte{
+		0xd1, 0xe5, 0x20, 0xe2, 0xe5, 0xf2, 0xf0, 0xe8,
+		0x2c, 0x20, 0xd1, 0xf2, 0xf0, 0xe8, 0xe1, 0xee,
+		0xe6, 0xe8, 0x20, 0xe2, 0xed, 0xf3, 0xf6, 0xe8,
+		0x2c, 0x20, 0xe2, 0xe5, 0xfe, 0xf2, 0xfa, 0x20,
+		0xf1, 0x20, 0xec, 0xee, 0xf0, 0xff, 0x20, 0xf1,
+		0xf2, 0xf0, 0xe5, 0xeb, 0xe0, 0xec, 0xe8, 0x20,
+		0xed, 0xe0, 0x20, 0xf5, 0xf0, 0xe0, 0xe1, 0xf0,
+		0xfb, 0xff, 0x20, 0xef, 0xeb, 0xfa, 0xea, 0xfb,
+		0x20, 0xc8, 0xe3, 0xee, 0xf0, 0xe5, 0xe2, 0xfb,
+	}
+	exp := []byte{
+		0x9d, 0xd2, 0xfe, 0x4e, 0x90, 0x40, 0x9e, 0x5d,
+		0xa8, 0x7f, 0x53, 0x97, 0x6d, 0x74, 0x05, 0xb0,
+		0xc0, 0xca, 0xc6, 0x28, 0xfc, 0x66, 0x9a, 0x74,
+		0x1d, 0x50, 0x06, 0x3c, 0x55, 0x7e, 0x8f, 0x50,
+	}
+	hasher := NewKeccakState[gost3410.PublicKey]()
+	checkhash(t, "Streebog-256-array", func(in []byte) []byte { h := HashData[gost3410.PublicKey](hasher, in); return h[:] }, msg, exp)
+}
+
+func Test3411Streebog512Hasher(t *testing.T) {
+	msg := []byte{
+		0xd1, 0xe5, 0x20, 0xe2, 0xe5, 0xf2, 0xf0, 0xe8,
+		0x2c, 0x20, 0xd1, 0xf2, 0xf0, 0xe8, 0xe1, 0xee,
+		0xe6, 0xe8, 0x20, 0xe2, 0xed, 0xf3, 0xf6, 0xe8,
+		0x2c, 0x20, 0xe2, 0xe5, 0xfe, 0xf2, 0xfa, 0x20,
+		0xf1, 0x20, 0xec, 0xee, 0xf0, 0xff, 0x20, 0xf1,
+		0xf2, 0xf0, 0xe5, 0xeb, 0xe0, 0xec, 0xe8, 0x20,
+		0xed, 0xe0, 0x20, 0xf5, 0xf0, 0xe0, 0xe1, 0xf0,
+		0xfb, 0xff, 0x20, 0xef, 0xeb, 0xfa, 0xea, 0xfb,
+		0x20, 0xc8, 0xe3, 0xee, 0xf0, 0xe5, 0xe2, 0xfb,
+	}
+	exp := []byte{
+		0x1e, 0x88, 0xe6, 0x22, 0x26, 0xbf, 0xca, 0x6f,
+		0x99, 0x94, 0xf1, 0xf2, 0xd5, 0x15, 0x69, 0xe0,
+		0xda, 0xf8, 0x47, 0x5a, 0x3b, 0x0f, 0xe6, 0x1a,
+		0x53, 0x00, 0xee, 0xe4, 0x6d, 0x96, 0x13, 0x76,
+		0x03, 0x5f, 0xe8, 0x35, 0x49, 0xad, 0xa2, 0xb8,
+		0x62, 0x0f, 0xcd, 0x7c, 0x49, 0x6c, 0xe5, 0xb3,
+		0x3f, 0x0c, 0xb9, 0xdd, 0xdc, 0x2b, 0x64, 0x60,
+		0x14, 0x3b, 0x03, 0xda, 0xba, 0xc9, 0xfb, 0x28,
+	}
+	checkhash(t, "Streebog-512-array", func(in []byte) []byte { h := Keccak512[gost3410.PublicKey](in); return h[:] }, msg, exp)
+}
+
 
 func TestToECDSAErrors(t *testing.T) {
 	if _, err := HexToECDSA[nist.PrivateKey]("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
@@ -67,7 +137,14 @@ func TestToECDSAErrors(t *testing.T) {
 func BenchmarkSha3(b *testing.B) {
 	a := []byte("hello world")
 	for i := 0; i < b.N; i++ {
-		Keccak256(a)
+		Keccak256[nist.PublicKey](a)
+	}
+}
+
+func Benchmark3411Streebog(b *testing.B) {
+	a := []byte("hello world")
+	for i := 0; i < b.N; i++ {
+		Keccak256[gost3410.PublicKey](a)
 	}
 }
 
@@ -100,29 +177,21 @@ func TestUnmarshalPubkey(t *testing.T) {
 
 
 func TestUnmarshalPubkeyGost(t *testing.T) {
-	key, err := UnmarshalPubkey[gost3410.PublicKey](nil)
-	if err != errInvalidPubkey || key.X != nil {
-		t.Fatalf("expected error, got %v, %v", err, key)
-	}
-	key, err = UnmarshalPubkey[gost3410.PublicKey]([]byte{1, 2, 3})
-	if err != errInvalidPubkey || key.X != nil {
-		t.Fatalf("expected error, got %v, %v", err, key)
-	}
-
+	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	var (
-		enc, _ = hex.DecodeString("21c4db540114cdb0c8308cb06da448dd233332c25a5a36ac2b2b15f0ba10f9e475e736be92ad064af764770b50332d21e9830a7e3bc24eb15e2b3c009ea69684")
+		enc, _ = hex.DecodeString("04e4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc4218496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775")
 		dec    = gost3410.PublicKey{
 			C:     gost3410.GostCurve,
 			X:     hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
 			Y:     hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
 		}
 	)
-	key, err = UnmarshalPubkey[gost3410.PublicKey](enc)
+	key, err := UnmarshalPubkey[gost3410.PublicKey](enc)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if !reflect.DeepEqual(key, dec) {
-		t.Fatal("wrong result")
+		t.Fatalf("wrong result: want %d, have %d", dec.X, key.X)
 	}
 }
 
@@ -131,7 +200,7 @@ func TestSign(t *testing.T) {
 	key, _ := HexToECDSA[nist.PrivateKey](testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
 
-	msg := Keccak256([]byte("foo"))
+	msg := Keccak256[nist.PublicKey]([]byte("foo"))
 	sig, err := Sign(msg, key)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
@@ -157,30 +226,33 @@ func TestSign(t *testing.T) {
 	}
 
 	CryptoAlg = GOST
+	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	gostSig, err := Sign(gostMsg.Sum(nil), *gostKey)
+	digest := make([]byte,32)
+	gostMsg.Read(digest)
+	gostSig, err := Sign(digest, *gostKey)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
-	ver, err := gostKey.Public().VerifyDigest(gostMsg.Sum(nil), gostSig[:64])
+	ver, err := gostKey.Public().VerifyDigest(digest, gostSig[:64])
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
 	assert.Equal(t, true, ver)
-	ver = VerifySignature[gost3410.PublicKey](FromECDSAPub(*gostKey.Public()), gostMsg.Sum(nil), gostSig)
+	ver = VerifySignature[gost3410.PublicKey](FromECDSAPub(*gostKey.Public()), digest, gostSig)
 	assert.Equal(t, true, ver)
 	r := new(big.Int).SetBytes(gostSig[:32])
 	s := new(big.Int).SetBytes(gostSig[32:64])
 	for i := 0; i < (1+1)*2; i++ {
-		X, Y, err := gost3410.RecoverCompact(*gostKey.C, gostMsg.Sum(nil), r, s, i)
+		X, Y, err := gost3410.RecoverCompact(*gostKey.C, digest, r, s, i)
 		if err == nil && X.Cmp(gostKey.Public().X) == 0 && Y.Cmp(gostKey.Public().Y) == 0 {
 			t.Log("Recovered X ", X.String())
 			t.Log("Recovered Y ", Y.String())
 		}
 	}
-	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](gostMsg.Sum(nil), gostSig)
+	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](digest, gostSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}
@@ -199,19 +271,20 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get cert error: %s", err)
 	}
+	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[:66])
 	defer crt.Close()
 	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = hash.Write([]byte("4ac93fc08bc0efd24180b0fa47f7309c257e8c85"))
+	_, err = hash.Write([]byte("foo"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := hash.Sum(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	digest = hash.Sum(nil)
 	hash.Reset()
 	hash.Close()
 	t.Logf("hash digest: %x", digest)
@@ -229,6 +302,78 @@ func TestSign(t *testing.T) {
 	}
 }
 
+func TestSignCSPRecoverGOST(t *testing.T) {
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	defer crt.Close()
+	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+	sig, err := Sign(digest, crt)
+	if err != nil {
+		t.Fatalf("Sign error: %s", err)
+	}
+	t.Log("Sig csp", len(sig))
+	recoveredGostPub, err := Ecrecover[csp.PublicKey](digest, sig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], recoveredGostPub) {
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
+	}
+	// Trying to Ecrecover from CSP sig to pure GOST pub key
+	// 1. Reverse and convert CSP sig to 65 bytes [r,s]+1
+	revPub := make([]byte, 65)
+	revPub[0] = 4
+	cspPub := crt.Info().PublicKeyBytes()[2:66]
+	reverse(cspPub)
+	copy(revPub[1:33], cspPub[32:64])
+	copy(revPub[33:65], cspPub[:32])
+	if crt.Public().X.Cmp(new(big.Int).SetBytes(revPub[1:33])) != 0 {
+		t.Fatalf("Pub key mismatch: want: %d have: %d", crt.Public().X, new(big.Int).SetBytes(revPub[1:33]))
+	}
+	revSig := make([]byte, 65)
+	r, s, revHash := RevertCSP(digest, sig)
+	copy(revSig[:32], r.Bytes())
+	copy(revSig[32:64], s.Bytes())
+	revSig[64] = sig[64]
+	// Verify csp sig using pure gost crypto
+	ver := VerifySignature[gost3410.PublicKey](revPub, revHash, revSig)
+	assert.Equal(t, true, ver)
+
+	recoveredGostPub, err = Ecrecover[gost3410.PublicKey](revHash, revSig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	resPub := recoveredGostPub[1:]
+	pub := make([]byte, 64)
+	copy(pub[:32], resPub[32:64])
+	copy(pub[32:64], resPub[:32])
+	reverse(pub)
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], pub) {
+		t.Fatalf("Pub key: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], pub)
+	}
+}
 // func TestInvalidSign(t *testing.T) {
 // 	if _, err := Sign(make([]byte, 1), nil); err == nil {
 // 		t.Errorf("expected sign with hash 1 byte to error")
@@ -245,9 +390,9 @@ func TestNewContractAddress(t *testing.T) {
 	// sanity check before using addr to create contract address
 	checkAddr(t, genAddr, addr)
 
-	caddr0 := CreateAddress(addr, 0)
-	caddr1 := CreateAddress(addr, 1)
-	caddr2 := CreateAddress(addr, 2)
+	caddr0 := CreateAddress[nist.PublicKey](addr, 0)
+	caddr1 := CreateAddress[nist.PublicKey](addr, 1)
+	caddr2 := CreateAddress[nist.PublicKey](addr, 2)
 	checkAddr(t, common.HexToAddress("333c3310824b7c685133f2bedb2ca4b8b4df633d"), caddr0)
 	checkAddr(t, common.HexToAddress("8bda78331c916a08481428e4b07c96d3e916d165"), caddr1)
 	checkAddr(t, common.HexToAddress("c9ddedf451bc62ce88bf9292afb13df35b670699"), caddr2)
@@ -396,7 +541,7 @@ func TestPythonIntegration(t *testing.T) {
 	kh := "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
 	k0, _ := HexToECDSA[nist.PrivateKey](kh)
 
-	msg0 := Keccak256([]byte("foo"))
+	msg0 := Keccak256[nist.PublicKey]([]byte("foo"))
 	sig0, _ := Sign(msg0, k0)
 
 	msg1 := common.FromHex("00000000000000000000000000000000")

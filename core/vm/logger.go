@@ -106,8 +106,8 @@ func (s *StructLog) ErrorString() string {
 // if you need to retain them beyond the current call.
 type Tracer [P crypto.PublicKey] interface {
 	CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
-	CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error)
-	CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error)
+	CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], rData []byte, depth int, err error)
+	CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], depth int, err error)
 	CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error)
 }
 
@@ -145,7 +145,7 @@ func (l *StructLogger[P]) CaptureStart(env *EVM[P], from common.Address, to comm
 // CaptureState logs a new structured log message and pushes it out to the environment
 //
 // CaptureState also tracks SLOAD/SSTORE ops to track storage change.
-func (l *StructLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (l *StructLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], rData []byte, depth int, err error) {
 	memory := scope.Memory
 	stack := scope.Stack
 	contract := scope.Contract
@@ -205,7 +205,7 @@ func (l *StructLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, c
 
 // CaptureFault implements the Tracer interface to trace an execution fault
 // while running an opcode.
-func (l *StructLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (l *StructLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], depth int, err error) {
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
@@ -309,7 +309,7 @@ func (t *mdLogger[P]) CaptureStart(env *EVM[P], from common.Address, to common.A
 }
 
 // CaptureState also tracks SLOAD/SSTORE ops to track storage change.
-func (t *mdLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (t *mdLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], rData []byte, depth int, err error) {
 	stack := scope.Stack
 	fmt.Fprintf(t.out, "| %4d  | %10v  |  %3d |", pc, op, cost)
 
@@ -329,7 +329,7 @@ func (t *mdLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost 
 	}
 }
 
-func (t *mdLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (t *mdLogger[P]) CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], depth int, err error) {
 	fmt.Fprintf(t.out, "\nError: at pc=%d, op=%v: %v\n", pc, op, err)
 }
 

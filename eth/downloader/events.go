@@ -16,10 +16,13 @@
 
 package downloader
 
-import "github.com/pavelkrolevets/MIR-pro/core/types"
+import (
+	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+)
 
-type DoneEvent struct {
-	Latest *types.Header
+type DoneEvent [P crypto.PublicKey] struct {
+	Latest *types.Header[P]
 }
 type StartEvent struct{}
 type FailedEvent struct{ Err error }

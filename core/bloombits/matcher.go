@@ -35,8 +35,8 @@ import (
 type bloomIndexes [3]uint
 
 // calcBloomIndexes returns the bloom filter bit indexes belonging to the given key.
-func calcBloomIndexes(b []byte) bloomIndexes {
-	b = crypto.Keccak256(b)
+func calcBloomIndexes[P crypto.PublicKey](b []byte) bloomIndexes {
+	b = crypto.Keccak256[P](b)
 
 	var idxs bloomIndexes
 	for i := 0; i < len(idxs); i++ {
@@ -89,7 +89,7 @@ type Matcher struct {
 // NewMatcher creates a new pipeline for retrieving bloom bit streams and doing
 // address and topic filtering on them. Setting a filter component to `nil` is
 // allowed and will result in that filter rule being skipped (OR 0x11...1).
-func NewMatcher(sectionSize uint64, filters [][][]byte) *Matcher {
+func NewMatcher[P crypto.PublicKey](sectionSize uint64, filters [][][]byte) *Matcher {
 	// Create the matcher instance
 	m := &Matcher{
 		sectionSize: sectionSize,
@@ -113,7 +113,7 @@ func NewMatcher(sectionSize uint64, filters [][][]byte) *Matcher {
 				bloomBits = nil
 				break
 			}
-			bloomBits[i] = calcBloomIndexes(clause)
+			bloomBits[i] = calcBloomIndexes[P](clause)
 		}
 		// Accumulate the filter rules if no nil rule was within
 		if bloomBits != nil {

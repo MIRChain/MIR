@@ -61,7 +61,7 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
 	// emptyCode is the known hash of the empty EVM bytecode.
-	emptyCode = crypto.Keccak256(nil)
+	// emptyCode = crypto.Keccak256(nil)
 )
 
 // Pruner is an offline tool to prune the stale state with the
@@ -80,8 +80,8 @@ type Pruner [P crypto.PublicKey] struct {
 	stateBloom    *stateBloom
 	datadir       string
 	trieCachePath string
-	headHeader    *types.Header
-	snaptree      *snapshot.Tree
+	headHeader    *types.Header[P]
+	snaptree      *snapshot.Tree[P]
 }
 
 // NewPruner creates the pruner instance.
@@ -90,7 +90,7 @@ func NewPruner[P crypto.PublicKey](db ethdb.Database, datadir, trieCachePath str
 	if headBlock == nil {
 		return nil, errors.New("Failed to load head block")
 	}
-	snaptree, err := snapshot.New(db, trie.NewDatabase(db), 256, headBlock.Root(), false, false, false)
+	snaptree, err := snapshot.New[P](db, trie.NewDatabase(db), 256, headBlock.Root(), false, false, false)
 	if err != nil {
 		return nil, err // The relevant snapshot(s) might not exist
 	}
@@ -113,7 +113,7 @@ func NewPruner[P crypto.PublicKey](db ethdb.Database, datadir, trieCachePath str
 	}, nil
 }
 
-func prune(snaptree *snapshot.Tree, root common.Hash, maindb ethdb.Database, stateBloom *stateBloom, bloomPath string, middleStateRoots map[common.Hash]struct{}, start time.Time) error {
+func prune[P crypto.PublicKey](snaptree *snapshot.Tree[P], root common.Hash, maindb ethdb.Database, stateBloom *stateBloom, bloomPath string, middleStateRoots map[common.Hash]struct{}, start time.Time) error {
 	// Delete all stale trie nodes in the disk. With the help of state bloom
 	// the trie nodes(and codes) belong to the active state will be filtered
 	// out. A very small part of stale tries will also be filtered because of
@@ -363,7 +363,7 @@ func RecoverPruning[P crypto.PublicKey](datadir string, db ethdb.Database, trieC
 	// - The state HEAD is rewound already because of multiple incomplete `prune-state`
 	// In this case, even the state HEAD is not exactly matched with snapshot, it
 	// still feasible to recover the pruning correctly.
-	snaptree, err := snapshot.New(db, trie.NewDatabase(db), 256, headBlock.Root(), false, false, true)
+	snaptree, err := snapshot.New[P](db, trie.NewDatabase(db), 256, headBlock.Root(), false, false, true)
 	if err != nil {
 		return err // The relevant snapshot(s) might not exist
 	}
@@ -411,7 +411,7 @@ func extractGenesis[P crypto.PublicKey](db ethdb.Database, stateBloom *stateBloo
 	if genesis == nil {
 		return errors.New("missing genesis block")
 	}
-	t, err := trie.NewSecure(genesis.Root(), trie.NewDatabase(db))
+	t, err := trie.NewSecure[P](genesis.Root(), trie.NewDatabase(db))
 	if err != nil {
 		return err
 	}
@@ -431,7 +431,7 @@ func extractGenesis[P crypto.PublicKey](db ethdb.Database, stateBloom *stateBloo
 				return err
 			}
 			if acc.Root != emptyRoot {
-				storageTrie, err := trie.NewSecure(acc.Root, trie.NewDatabase(db))
+				storageTrie, err := trie.NewSecure[P](acc.Root, trie.NewDatabase(db))
 				if err != nil {
 					return err
 				}
@@ -446,7 +446,7 @@ func extractGenesis[P crypto.PublicKey](db ethdb.Database, stateBloom *stateBloo
 					return storageIter.Error()
 				}
 			}
-			if !bytes.Equal(acc.CodeHash, emptyCode) {
+			if !bytes.Equal(acc.CodeHash, crypto.Keccak256[P](nil)) {
 				stateBloom.Put(acc.CodeHash, nil)
 			}
 		}

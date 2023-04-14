@@ -18,6 +18,7 @@ package clique
 
 import (
 	"bytes"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -34,19 +36,19 @@ import (
 // testerAccountPool is a pool to maintain currently active tester accounts,
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
-type testerAccountPool struct {
-	accounts map[string]nist.PrivateKey
+type testerAccountPool [T crypto.PrivateKey,P crypto.PublicKey] struct {
+	accounts map[string]T
 }
 
-func newTesterAccountPool() *testerAccountPool {
-	return &testerAccountPool{
-		accounts: make(map[string]nist.PrivateKey),
+func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey] () *testerAccountPool[T,P] {
+	return &testerAccountPool[T,P]{
+		accounts: make(map[string]T),
 	}
 }
 
 // checkpoint creates a Clique checkpoint signer section from the provided list
 // of authorized signers and embeds it into the provided header.
-func (ap *testerAccountPool) checkpoint(header *types.Header, signers []string) {
+func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header, signers []string) {
 	auths := make([]common.Address, len(signers))
 	for i, signer := range signers {
 		auths[i] = ap.address(signer)
@@ -59,28 +61,38 @@ func (ap *testerAccountPool) checkpoint(header *types.Header, signers []string) 
 
 // address retrieves the Ethereum address of a tester account by label, creating
 // a new account if no previous one exists yet.
-func (ap *testerAccountPool) address(account string) common.Address {
+func (ap *testerAccountPool[T,P]) address(account string) common.Address {
 	// Return the zero account for non-addresses
 	if account == "" {
 		return common.Address{}
 	}
 	// Ensure we have a persistent key for the account
-	if ap.accounts[account] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
-		ap.accounts[account], _ = crypto.GenerateKey[nist.PrivateKey]()
+	if reflect.ValueOf(ap.accounts[account]).IsZero() {
+		ap.accounts[account], _ = crypto.GenerateKey[T]()
 	}
 	// Resolve and return the Ethereum address
-	return crypto.PubkeyToAddress[nist.PublicKey](*ap.accounts[account].Public())
+	acc := ap.accounts[account]
+	var pub P
+	switch t:=any(&acc).(type){
+	case *nist.PrivateKey:
+		p:=any(&pub).(*nist.PublicKey)
+		*p=*t.Public()
+	case *gost3410.PrivateKey:
+		p:=any(&pub).(*gost3410.PublicKey)
+		*p=*t.Public()
+	}
+	return crypto.PubkeyToAddress(pub)
 }
 
 // sign calculates a Clique digital signature for the given block and embeds it
 // back into the header.
-func (ap *testerAccountPool) sign(header *types.Header, signer string) {
+func (ap *testerAccountPool[T,P]) sign(header *types.Header, signer string) {
 	// Ensure we have a persistent key for the signer
-	if ap.accounts[signer] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
-		ap.accounts[signer], _ = crypto.GenerateKey[nist.PrivateKey]()
+	if reflect.ValueOf(ap.accounts[signer]).IsZero() {
+		ap.accounts[signer], _ = crypto.GenerateKey[T]()
 	}
 	// Sign the header and embed the signature in extra data
-	sig, _ := crypto.Sign[nist.PrivateKey](SealHash(header).Bytes(), ap.accounts[signer])
+	sig, _ := crypto.Sign[T](SealHash(header).Bytes(), ap.accounts[signer])
 	copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 }
 
@@ -379,7 +391,7 @@ func TestClique(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of signers
-		accounts := newTesterAccountPool()
+		accounts := newTesterAccountPool[nist.PrivateKey,nist.PublicKey]()
 
 		signers := make([]common.Address, len(tt.signers))
 		for j, signer := range tt.signers {

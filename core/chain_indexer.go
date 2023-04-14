@@ -36,14 +36,14 @@ import (
 // ChainIndexerBackend defines the methods needed to process chain segments in
 // the background and write the segment results into the database. These can be
 // used to create filter blooms or CHTs.
-type ChainIndexerBackend interface {
+type ChainIndexerBackend [P crypto.PublicKey] interface {
 	// Reset initiates the processing of a new chain segment, potentially terminating
 	// any partially completed operations (in case of a reorg).
 	Reset(ctx context.Context, section uint64, prevHead common.Hash) error
 
 	// Process crunches through the next header in the chain segment. The caller
 	// will ensure a sequential order of headers.
-	Process(ctx context.Context, header *types.Header) error
+	Process(ctx context.Context, header *types.Header[P]) error
 
 	// Commit finalizes the section metadata and stores it into the database.
 	Commit() error
@@ -55,7 +55,7 @@ type ChainIndexerBackend interface {
 // ChainIndexerChain interface is used for connecting the indexer to a blockchain
 type ChainIndexerChain [P crypto.PublicKey] interface {
 	// CurrentHeader retrieves the latest locally known header.
-	CurrentHeader() *types.Header
+	CurrentHeader() *types.Header[P]
 
 	// SubscribeChainHeadEvent subscribes to new head header notifications.
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[P]) event.Subscription
@@ -73,7 +73,7 @@ type ChainIndexerChain [P crypto.PublicKey] interface {
 type ChainIndexer [P crypto.PublicKey] struct {
 	chainDb  ethdb.Database      // Chain database to index the data from
 	indexDb  ethdb.Database      // Prefixed table-view of the db to write index metadata into
-	backend  ChainIndexerBackend // Background processor generating the index data content
+	backend  ChainIndexerBackend[P] // Background processor generating the index data content
 	children []*ChainIndexer[P]     // Child indexers to cascade chain updates to
 
 	active    uint32          // Flag whether the event loop was started
@@ -101,7 +101,7 @@ type ChainIndexer [P crypto.PublicKey] struct {
 // NewChainIndexer creates a new chain indexer to do background processing on
 // chain segments of a given size after certain number of confirmations passed.
 // The throttling parameter might be used to prevent database thrashing.
-func NewChainIndexer[P crypto.PublicKey](chainDb ethdb.Database, indexDb ethdb.Database, backend ChainIndexerBackend, section, confirm uint64, throttling time.Duration, kind string) *ChainIndexer[P] {
+func NewChainIndexer[P crypto.PublicKey](chainDb ethdb.Database, indexDb ethdb.Database, backend ChainIndexerBackend[P], section, confirm uint64, throttling time.Duration, kind string) *ChainIndexer[P] {
 	c := &ChainIndexer[P]{
 		chainDb:     chainDb,
 		indexDb:     indexDb,
@@ -195,7 +195,7 @@ func (c *ChainIndexer[P]) Close() error {
 // eventLoop is a secondary - optional - event loop of the indexer which is only
 // started for the outermost indexer to push chain head events into a processing
 // queue.
-func (c *ChainIndexer[P]) eventLoop(currentHeader *types.Header, events chan ChainHeadEvent[P], sub event.Subscription) {
+func (c *ChainIndexer[P]) eventLoop(currentHeader *types.Header[P], events chan ChainHeadEvent[P], sub event.Subscription) {
 	// Mark the chain indexer as active, requiring an additional teardown
 	atomic.StoreUint32(&c.active, 1)
 
@@ -400,7 +400,7 @@ func (c *ChainIndexer[P]) processSection(section uint64, lastHead common.Hash) (
 		if hash == (common.Hash{}) {
 			return common.Hash{}, fmt.Errorf("canonical block #%d unknown", number)
 		}
-		header := rawdb.ReadHeader(c.chainDb, hash, number)
+		header := rawdb.ReadHeader[P](c.chainDb, hash, number)
 		if header == nil {
 			return common.Hash{}, fmt.Errorf("block #%d [%x..] not found", number, hash[:4])
 		} else if header.ParentHash != lastHead {

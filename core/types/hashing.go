@@ -22,13 +22,19 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
 // hasherPool holds LegacyKeccak256 hashers for rlpHash.
-var hasherPool = sync.Pool{
+var hasherPoolNist = sync.Pool{
 	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+}
+var hasherPoolGost = sync.Pool{
+	New: func() interface{} { return gost3411.New256() },
 }
 
 // deriveBufferPool holds temporary encoder buffers for DeriveSha and TX encoding.
@@ -37,24 +43,45 @@ var encodeBufferPool = sync.Pool{
 }
 
 // rlpHash encodes x and hashes the encoded bytes.
-func rlpHash(x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(crypto.KeccakState)
-	defer hasherPool.Put(sha)
-	sha.Reset()
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
+func rlpHash[P crypto.PublicKey](x interface{}) (h common.Hash) {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		sha := hasherPoolNist.Get().(crypto.KeccakState)
+		defer hasherPoolNist.Put(sha)
+		sha.Reset()
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
+	case *gost3410.PublicKey:
+		sha := hasherPoolGost.Get().(crypto.KeccakState)
+		defer hasherPoolGost.Put(sha)
+		sha.Reset()
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
+	}
 	return h
 }
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
-func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(crypto.KeccakState)
-	defer hasherPool.Put(sha)
-	sha.Reset()
-	sha.Write([]byte{prefix})
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
+func prefixedRlpHash[P crypto.PublicKey](prefix byte, x interface{}) (h common.Hash) {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		sha := hasherPoolNist.Get().(crypto.KeccakState)
+		defer hasherPoolNist.Put(sha)
+		sha.Reset()
+		sha.Write([]byte{prefix})
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
+	case *gost3410.PublicKey:
+		sha := hasherPoolGost.Get().(crypto.KeccakState)
+		defer hasherPoolGost.Put(sha)
+		sha.Reset()
+		sha.Write([]byte{prefix})
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
+	}
 	return h
 }
 

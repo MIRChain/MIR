@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestBytesPadding(t *testing.T) {
@@ -63,7 +64,7 @@ func TestBytesPadding(t *testing.T) {
 		},
 	}
 
-	d := TypedData{}
+	d := TypedData[nist.PublicKey]{}
 	for i, test := range tests {
 		val, err := d.EncodePrimitiveValue(test.Type, test.Input, 1)
 		if test.Output == nil {

@@ -24,10 +24,12 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func verify(t *testing.T, jsondata, calldata string, exp []interface{}) {
-	abispec, err := abi.JSON(strings.NewReader(jsondata))
+func verify[P crypto.PublicKey](t *testing.T, jsondata, calldata string, exp []interface{}) {
+	abispec, err := abi.JSON[P](strings.NewReader(jsondata))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestNewUnpacker(t *testing.T) {
 		},
 	}
 	for _, c := range testcases {
-		verify(t, c.jsondata, c.calldata, c.exp)
+		verify[nist.PublicKey](t, c.jsondata, c.calldata, c.exp)
 	}
 }
 
@@ -128,7 +130,7 @@ func TestCalldataDecoding(t *testing.T) {
 		// contains a bool with illegal values
 		"a5643bf20000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000464617665000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",
 	} {
-		_, err := parseCallData(common.Hex2Bytes(hexdata), jsondata)
+		_, err := parseCallData[nist.PublicKey](common.Hex2Bytes(hexdata), jsondata)
 		if err == nil {
 			t.Errorf("test %d: expected decoding to fail: %s", i, hexdata)
 		}
@@ -151,7 +153,7 @@ func TestCalldataDecoding(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000dead" +
 			"000000000000000000000000000000000000000000000000000000000000beef",
 	} {
-		_, err := parseCallData(common.Hex2Bytes(hexdata), jsondata)
+		_, err := parseCallData[nist.PublicKey](common.Hex2Bytes(hexdata), jsondata)
 		if err != nil {
 			t.Errorf("test %d: unexpected failure on input %s:\n %v (%d bytes) ", i, hexdata, err, len(common.Hex2Bytes(hexdata)))
 		}
@@ -166,7 +168,7 @@ func TestMaliciousABIStrings(t *testing.T) {
 	}
 	data := common.Hex2Bytes("4401a6e40000000000000000000000000000000000000000000000000000000000000012")
 	for i, tt := range tests {
-		_, err := verifySelector(tt, data)
+		_, err := verifySelector[nist.PublicKey](tt, data)
 		if err == nil {
 			t.Errorf("test %d: expected error for selector '%v'", i, tt)
 		}

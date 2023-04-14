@@ -29,11 +29,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 var dumper = spew.ConfigState{Indent: "    "}
 
-func accountRangeTest(t *testing.T, trie *state.Trie, statedb *state.StateDB, start common.Hash, requestedNum int, expectedNum int) state.IteratorDump {
+func accountRangeTest[P crypto.PublicKey](t *testing.T, trie *state.Trie, statedb *state.StateDB[P], start common.Hash, requestedNum int, expectedNum int) state.IteratorDump {
 	result := statedb.IteratorDump(true, true, false, start.Bytes(), requestedNum)
 
 	if len(result.Accounts) != expectedNum {
@@ -60,15 +61,15 @@ func TestAccountRange(t *testing.T) {
 	t.Parallel()
 
 	var (
-		statedb  = state.NewDatabaseWithConfig(rawdb.NewMemoryDatabase(), nil)
-		state, _ = state.New(common.Hash{}, statedb, nil)
+		statedb  = state.NewDatabaseWithConfig[nist.PublicKey](rawdb.NewMemoryDatabase(), nil)
+		state, _ = state.New[nist.PublicKey](common.Hash{}, statedb, nil)
 		addrs    = [AccountRangeMaxResults * 2]common.Address{}
 		m        = map[common.Address]bool{}
 	)
 
 	for i := range addrs {
 		hash := common.HexToHash(fmt.Sprintf("%x", i))
-		addr := common.BytesToAddress(crypto.Keccak256Hash(hash.Bytes()).Bytes())
+		addr := common.BytesToAddress(crypto.Keccak256Hash[nist.PublicKey](hash.Bytes()).Bytes())
 		addrs[i] = addr
 		state.SetBalance(addrs[i], big.NewInt(1))
 		if _, ok := m[addr]; ok {
@@ -99,7 +100,7 @@ func TestAccountRange(t *testing.T) {
 		if _, duplicate := secondResult.Accounts[addr1]; duplicate {
 			t.Fatalf("pagination test failed:  results should not overlap")
 		}
-		hList = append(hList, crypto.Keccak256Hash(addr1.Bytes()))
+		hList = append(hList, crypto.Keccak256Hash[nist.PublicKey](addr1.Bytes()))
 	}
 	// Test to see if it's possible to recover from the middle of the previous
 	// set and get an even split between the first and second sets.
@@ -131,8 +132,8 @@ func TestEmptyAccountRange(t *testing.T) {
 	t.Parallel()
 
 	var (
-		statedb  = state.NewDatabase(rawdb.NewMemoryDatabase())
-		state, _ = state.New(common.Hash{}, statedb, nil)
+		statedb  = state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase())
+		state, _ = state.New[nist.PublicKey](common.Hash{}, statedb, nil)
 	)
 	state.Commit(true)
 	state.IntermediateRoot(true)
@@ -150,7 +151,7 @@ func TestStorageRangeAt(t *testing.T) {
 
 	// Create a state where account 0x010000... has a few storage entries.
 	var (
-		state, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		state, _ = state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 		addr     = common.Address{0x01}
 		keys     = []common.Hash{ // hashes of Keys of storage
 			common.HexToHash("340dd630ad21bf010b4e676dbfa9ba9a02175262d1fa356232cfde6cb5b47ef2"),

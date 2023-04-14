@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/misc"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -48,20 +49,20 @@ var (
 	// calcDifficultyEip2384 is the difficulty adjustment algorithm as specified by EIP 2384.
 	// It offsets the bomb 4M blocks from Constantinople, so in total 9M blocks.
 	// Specification EIP-2384: https://eips.ethereum.org/EIPS/eip-2384
-	calcDifficultyEip2384 = makeDifficultyCalculator(big.NewInt(9000000))
+	// calcDifficultyEip2384 = makeDifficultyCalculator(big.NewInt(9000000))
 
 	// calcDifficultyConstantinople is the difficulty adjustment algorithm for Constantinople.
 	// It returns the difficulty that a new block should have when created at time given the
 	// parent block's time and difficulty. The calculation uses the Byzantium rules, but with
 	// bomb offset 5M.
 	// Specification EIP-1234: https://eips.ethereum.org/EIPS/eip-1234
-	calcDifficultyConstantinople = makeDifficultyCalculator(big.NewInt(5000000))
+	// calcDifficultyConstantinople = makeDifficultyCalculator(big.NewInt(5000000))
 
 	// calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 	// the difficulty that a new block should have when created at time given the
 	// parent block's time and difficulty. The calculation uses the Byzantium rules.
 	// Specification EIP-649: https://eips.ethereum.org/EIPS/eip-649
-	calcDifficultyByzantium = makeDifficultyCalculator(big.NewInt(3000000))
+	// calcDifficultyByzantium = makeDifficultyCalculator(big.NewInt(3000000))
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -81,13 +82,13 @@ var (
 
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
-func (ethash *Ethash[P]) Author(header *types.Header) (common.Address, error) {
+func (ethash *Ethash[P]) Author(header *types.Header[P]) (common.Address, error) {
 	return header.Coinbase, nil
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Ethash[P]) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
+func (ethash *Ethash[P]) VerifyHeader(chain consensus.ChainHeaderReader[P], header *types.Header[P], seal bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake {
 		return nil
@@ -108,7 +109,7 @@ func (ethash *Ethash[P]) VerifyHeader(chain consensus.ChainHeaderReader, header 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
-func (ethash *Ethash[P]) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Ethash[P]) VerifyHeaders(chain consensus.ChainHeaderReader[P], headers []*types.Header[P], seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -171,8 +172,8 @@ func (ethash *Ethash[P]) VerifyHeaders(chain consensus.ChainHeaderReader, header
 	return abort, errorsOut
 }
 
-func (ethash *Ethash[P]) verifyHeaderWorker(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool, index int, unixNow int64) error {
-	var parent *types.Header
+func (ethash *Ethash[P]) verifyHeaderWorker(chain consensus.ChainHeaderReader[P], headers []*types.Header[P], seals []bool, index int, unixNow int64) error {
+	var parent *types.Header[P]
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
 	} else if headers[index-1].Hash() == headers[index].ParentHash {
@@ -199,7 +200,7 @@ func (ethash *Ethash[P]) VerifyUncles(chain consensus.ChainReader[P], block *typ
 		return nil
 	}
 	// Gather the set of past uncles and ancestors
-	uncles, ancestors := mapset.NewSet(), make(map[common.Hash]*types.Header)
+	uncles, ancestors := mapset.NewSet(), make(map[common.Hash]*types.Header[P])
 
 	number, parent := block.NumberU64()-1, block.ParentHash()
 	for i := 0; i < 7; i++ {
@@ -209,7 +210,7 @@ func (ethash *Ethash[P]) VerifyUncles(chain consensus.ChainReader[P], block *typ
 		}
 		ancestors[parent] = ancestorHeader
 		// If the ancestor doesn't have any uncles, we don't have to iterate them
-		if ancestorHeader.UncleHash != types.EmptyUncleHash {
+		if ancestorHeader.UncleHash != types.EmptyUncleHash[P]() {
 			// Need to add those uncles to the blacklist too
 			ancestor := chain.GetBlock(parent, number)
 			if ancestor == nil {
@@ -250,7 +251,7 @@ func (ethash *Ethash[P]) VerifyUncles(chain consensus.ChainReader[P], block *typ
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
-func (ethash *Ethash[P]) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header, uncle bool, seal bool, unixNow int64) error {
+func (ethash *Ethash[P]) verifyHeader(chain consensus.ChainHeaderReader[P], header, parent *types.Header[P], uncle bool, seal bool, unixNow int64) error {
 	// Quorum: ethash consensus is only used in raft for Quorum, skip verifyHeader
 	if chain != nil && chain.Config().IsQuorum {
 		return nil
@@ -317,24 +318,24 @@ func (ethash *Ethash[P]) verifyHeader(chain consensus.ChainHeaderReader, header,
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (ethash *Ethash[P]) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
+func (ethash *Ethash[P]) CalcDifficulty(chain consensus.ChainHeaderReader[P], time uint64, parent *types.Header[P]) *big.Int {
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty[P crypto.PublicKey](config *params.ChainConfig, time uint64, parent *types.Header[P]) *big.Int {
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
 	case config.IsCatalyst(next):
 		return big.NewInt(1)
 	case config.IsMuirGlacier(next):
-		return calcDifficultyEip2384(time, parent)
+		return makeDifficultyCalculator[P](big.NewInt(9000000))(time, parent)
 	case config.IsConstantinople(next):
-		return calcDifficultyConstantinople(time, parent)
+		return makeDifficultyCalculator[P](big.NewInt(5000000))(time, parent)
 	case config.IsByzantium(next):
-		return calcDifficultyByzantium(time, parent)
+		return makeDifficultyCalculator[P](big.NewInt(3000000))(time, parent)
 	case config.IsHomestead(next):
 		return calcDifficultyHomestead(time, parent)
 	default:
@@ -355,11 +356,11 @@ var (
 // makeDifficultyCalculator creates a difficultyCalculator with the given bomb-delay.
 // the difficulty is calculated with Byzantium rules, which differs from Homestead in
 // how uncles affect the calculation
-func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *types.Header) *big.Int {
+func makeDifficultyCalculator[P crypto.PublicKey](bombDelay *big.Int) func(time uint64, parent *types.Header[P]) *big.Int {
 	// Note, the calculations below looks at the parent number, which is 1 below
 	// the block number. Thus we remove one from the delay given
 	bombDelayFromParent := new(big.Int).Sub(bombDelay, big1)
-	return func(time uint64, parent *types.Header) *big.Int {
+	return func(time uint64, parent *types.Header[P]) *big.Int {
 		// https://github.com/ethereum/EIPs/issues/100.
 		// algorithm:
 		// diff = (parent_diff +
@@ -376,7 +377,7 @@ func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *type
 		// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
 		x.Sub(bigTime, bigParentTime)
 		x.Div(x, big9)
-		if parent.UncleHash == types.EmptyUncleHash {
+		if parent.UncleHash == types.EmptyUncleHash[P]() {
 			x.Sub(big1, x)
 		} else {
 			x.Sub(big2, x)
@@ -418,7 +419,7 @@ func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *type
 // calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
-func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyHomestead[P crypto.PublicKey](time uint64, parent *types.Header[P]) *big.Int {
 	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
 	// algorithm:
 	// diff = (parent_diff +
@@ -467,7 +468,7 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 // calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
 // difficulty that a new block should have when created at time given the parent
 // block's time and difficulty. The calculation uses the Frontier rules.
-func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyFrontier[P crypto.PublicKey](time uint64, parent *types.Header[P]) *big.Int {
 	diff := new(big.Int)
 	adjust := new(big.Int).Div(parent.Difficulty, params.DifficultyBoundDivisor)
 	bigTime := new(big.Int)
@@ -498,14 +499,14 @@ func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
 }
 
 // Exported for fuzzing
-var FrontierDifficultyCalulator = calcDifficultyFrontier
-var HomesteadDifficultyCalulator = calcDifficultyHomestead
-var DynamicDifficultyCalculator = makeDifficultyCalculator
+// var FrontierDifficultyCalulator = calcDifficultyFrontier
+// var HomesteadDifficultyCalulator = calcDifficultyHomestead
+// var DynamicDifficultyCalculator = makeDifficultyCalculator
 
 // verifySeal checks whether a block satisfies the PoW difficulty requirements,
 // either using the usual ethash cache for it, or alternatively using a full DAG
 // to make remote mining fast.
-func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *types.Header, fulldag bool) error {
+func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader[P], header *types.Header[P], fulldag bool) error {
 	// Quorum: ethash consensus is only used in raft for Quorum, skip verifySeal
 	if chain != nil && chain.Config().IsQuorum {
 		return nil
@@ -537,7 +538,7 @@ func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *t
 	if fulldag {
 		dataset := ethash.dataset(number, true)
 		if dataset.generated() {
-			digest, result = hashimotoFull(dataset.dataset, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
+			digest, result = hashimotoFull[P](dataset.dataset, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
 
 			// Datasets are unmapped in a finalizer. Ensure that the dataset stays alive
 			// until after the call to hashimotoFull so it's not unmapped while being used.
@@ -555,7 +556,7 @@ func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *t
 		if ethash.config.PowMode == ModeTest {
 			size = 32 * 1024
 		}
-		digest, result = hashimotoLight(size, cache.cache, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
+		digest, result = hashimotoLight[P](size, cache.cache, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
 
 		// Caches are unmapped in a finalizer. Ensure that the cache stays alive
 		// until after the call to hashimotoLight so it's not unmapped while being used.
@@ -574,7 +575,7 @@ func (ethash *Ethash[P]) verifySeal(chain consensus.ChainHeaderReader, header *t
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Ethash[P]) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (ethash *Ethash[P]) Prepare(chain consensus.ChainHeaderReader[P], header *types.Header[P]) error {
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
@@ -585,7 +586,7 @@ func (ethash *Ethash[P]) Prepare(chain consensus.ChainHeaderReader, header *type
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
-func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header) {
+func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P]) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -593,16 +594,16 @@ func (ethash *Ethash[P]) Finalize(chain consensus.ChainHeaderReader, header *typ
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
 // uncle rewards, setting the final state and assembling the block.
-func (ethash *Ethash[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction[P], uncles []*types.Header, receipts []*types.Receipt[P]) (*types.Block[P], error) {
+func (ethash *Ethash[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader[P], header *types.Header[P], state *state.StateDB[P], txs []*types.Transaction[P], uncles []*types.Header[P], receipts []*types.Receipt[P]) (*types.Block[P], error) {
 	// Finalize block
 	ethash.Finalize(chain, header, state, txs, uncles)
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock[P](header, txs, uncles, receipts, trie.NewStackTrie(nil)), nil
+	return types.NewBlock[P](header, txs, uncles, receipts, trie.NewStackTrie[P](nil)), nil
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
-func (ethash *Ethash[P]) SealHash(header *types.Header) (hash common.Hash) {
+func (ethash *Ethash[P]) SealHash(header *types.Header[P]) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 	
 	// Mir - Gost hash 34.11
@@ -639,7 +640,7 @@ var (
 // AccumulateRewards credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
+func accumulateRewards[P crypto.PublicKey](config *params.ChainConfig, state *state.StateDB[P], header *types.Header[P], uncles []*types.Header[P]) {
 	// Skip block reward in catalyst mode
 	if config.IsCatalyst(header.Number) {
 		return
@@ -679,6 +680,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Quorum: wrapper for accumulateRewards to be called by raft minter
-func AccumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
+func AccumulateRewards[P crypto.PublicKey](config *params.ChainConfig, state *state.StateDB[P], header *types.Header[P], uncles []*types.Header[P]) {
 	accumulateRewards(config, state, header, uncles)
 }

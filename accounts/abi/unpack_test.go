@@ -27,7 +27,9 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/require"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // TestUnpack tests the general pack/unpack tests in packing_test.go
@@ -36,7 +38,7 @@ func TestUnpack(t *testing.T) {
 		t.Run(strconv.Itoa(i)+" "+test.def, func(t *testing.T) {
 			//Unpack
 			def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
-			abi, err := JSON(strings.NewReader(def))
+			abi, err := JSON[nist.PublicKey](strings.NewReader(def))
 			if err != nil {
 				t.Fatalf("invalid ABI definition %s: %v", def, err)
 			}
@@ -210,7 +212,7 @@ func TestLocalUnpackTests(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			//Unpack
 			def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
-			abi, err := JSON(strings.NewReader(def))
+			abi, err := JSON[nist.PublicKey](strings.NewReader(def))
 			if err != nil {
 				t.Fatalf("invalid ABI definition %s: %v", def, err)
 			}
@@ -233,7 +235,7 @@ func TestLocalUnpackTests(t *testing.T) {
 }
 
 func TestUnpackIntoInterfaceSetDynamicArrayOutput(t *testing.T) {
-	abi, err := JSON(strings.NewReader(`[{"constant":true,"inputs":[],"name":"testDynamicFixedBytes15","outputs":[{"name":"","type":"bytes15[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"testDynamicFixedBytes32","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"}]`))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(`[{"constant":true,"inputs":[],"name":"testDynamicFixedBytes15","outputs":[{"name":"","type":"bytes15[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"testDynamicFixedBytes32","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"}]`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,12 +288,12 @@ type methodMultiOutput struct {
 	String string
 }
 
-func methodMultiReturn(require *require.Assertions) (ABI, []byte, methodMultiOutput) {
+func methodMultiReturn[P crypto.PublicKey](require *require.Assertions) (ABI[P], []byte, methodMultiOutput) {
 	const definition = `[
 	{ "name" : "multi", "type": "function", "outputs": [ { "name": "Int", "type": "uint256" }, { "name": "String", "type": "string" } ] }]`
 	var expected = methodMultiOutput{big.NewInt(1), "hello"}
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[P](strings.NewReader(definition))
 	require.NoError(err)
 	// using buff to make the code readable
 	buff := new(bytes.Buffer)
@@ -313,7 +315,7 @@ func TestMethodMultiReturn(t *testing.T) {
 		return &slice
 	}
 
-	abi, data, expected := methodMultiReturn(require.New(t))
+	abi, data, expected := methodMultiReturn[nist.PublicKey](require.New(t))
 	bigint := new(big.Int)
 	var testCases = []struct {
 		dest     interface{}
@@ -378,7 +380,7 @@ func TestMethodMultiReturn(t *testing.T) {
 
 func TestMultiReturnWithArray(t *testing.T) {
 	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +403,7 @@ func TestMultiReturnWithArray(t *testing.T) {
 
 func TestMultiReturnWithStringArray(t *testing.T) {
 	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "uint256[3]"},{"name": "","type": "address"},{"name": "","type": "string[2]"},{"name": "","type": "bool"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,7 +433,7 @@ func TestMultiReturnWithStringArray(t *testing.T) {
 
 func TestMultiReturnWithStringSlice(t *testing.T) {
 	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "string[]"},{"name": "","type": "uint256[]"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +469,7 @@ func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
 	//  after such nested array argument should be read with the correct offset,
 	//  so that it does not read content from the previous array argument.
 	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +515,7 @@ func TestUnmarshal(t *testing.T) {
 	{ "name" : "addressSliceDouble", "type": "function", "outputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
 	{ "name" : "mixedBytes", "type": "function", "stateMutability" : "view", "outputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -752,7 +754,7 @@ func TestUnmarshal(t *testing.T) {
 
 func TestUnpackTuple(t *testing.T) {
 	const simpleTuple = `[{"name":"tuple","type":"function","outputs":[{"type":"tuple","name":"ret","components":[{"type":"int256","name":"a"},{"type":"int256","name":"b"}]}]}]`
-	abi, err := JSON(strings.NewReader(simpleTuple))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(simpleTuple))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -786,7 +788,7 @@ func TestUnpackTuple(t *testing.T) {
 		{"type":"uint256","name":"a"}
 	]}]`
 
-	abi, err = JSON(strings.NewReader(nestedTuple))
+	abi, err = JSON[nist.PublicKey](strings.NewReader(nestedTuple))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -903,7 +905,7 @@ func TestOOMMaliciousInput(t *testing.T) {
 	}
 	for i, test := range oomTests {
 		def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
-		abi, err := JSON(strings.NewReader(def))
+		abi, err := JSON[nist.PublicKey](strings.NewReader(def))
 		if err != nil {
 			t.Fatalf("invalid ABI definition %s: %v", def, err)
 		}

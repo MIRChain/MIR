@@ -62,6 +62,9 @@ func (prv *PrivateKey) Raw() []byte {
 }
 
 func (prv *PrivateKey) SignDigest(digest []byte, rand io.Reader) ([]byte, error) {
+	if len(digest) != 32 {
+		return nil, errors.New("invalid message length, need 32 bytes")
+	}
 	// 1. Select random nonce k in [1, N-1]
 	// 2. Compute kG
 	// 3. r = kG.x mod N (kG.x is the x coordinate of the point kG)

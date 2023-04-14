@@ -127,7 +127,7 @@ func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
 		buf := make([]byte, 64)
 		math.ReadBits(pubkey.X, buf[:32])
 		math.ReadBits(pubkey.Y, buf[32:])
-		return crypto.Keccak256(buf)
+		return crypto.Keccak256[P](buf)
 	case *gost3410.PublicKey:
 		var pubkey Gost3410
 		err := r.Load(&pubkey)
@@ -137,7 +137,7 @@ func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
 		buf := make([]byte, 64)
 		math.ReadBits(pubkey.X, buf[:32])
 		math.ReadBits(pubkey.Y, buf[32:])
-		return crypto.Keccak256(buf)
+		return crypto.Keccak256[P](buf)
 	default:
 		return nil
 	}

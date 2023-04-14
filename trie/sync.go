@@ -23,6 +23,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/prque"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
@@ -121,7 +122,7 @@ func (batch *syncMemBatch) hasCode(hash common.Hash) bool {
 // Sync is the main state trie synchronisation scheduler, which provides yet
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
 // and reconstructs the trie step by step until all is done.
-type Sync struct {
+type Sync [P crypto.PublicKey] struct {
 	database ethdb.KeyValueReader     // Persistent database to check for existing entries
 	membatch *syncMemBatch            // Memory buffer to avoid frequent database writes
 	nodeReqs map[common.Hash]*request // Pending requests pertaining to a trie node hash
@@ -132,8 +133,8 @@ type Sync struct {
 }
 
 // NewSync creates a new trie data download scheduler.
-func NewSync(root common.Hash, database ethdb.KeyValueReader, callback LeafCallback, bloom *SyncBloom) *Sync {
-	ts := &Sync{
+func NewSync[P crypto.PublicKey] (root common.Hash, database ethdb.KeyValueReader, callback LeafCallback, bloom *SyncBloom) *Sync[P] {
+	ts := &Sync[P]{
 		database: database,
 		membatch: newSyncMemBatch(),
 		nodeReqs: make(map[common.Hash]*request),
@@ -147,7 +148,7 @@ func NewSync(root common.Hash, database ethdb.KeyValueReader, callback LeafCallb
 }
 
 // AddSubTrie registers a new trie to the sync code, rooted at the designated parent.
-func (s *Sync) AddSubTrie(root common.Hash, path []byte, parent common.Hash, callback LeafCallback) {
+func (s *Sync[P]) AddSubTrie(root common.Hash, path []byte, parent common.Hash, callback LeafCallback) {
 	// Short circuit if the trie is empty or already known
 	if root == emptyRoot {
 		return
@@ -187,8 +188,9 @@ func (s *Sync) AddSubTrie(root common.Hash, path []byte, parent common.Hash, cal
 // AddCodeEntry schedules the direct retrieval of a contract code that should not
 // be interpreted as a trie node, but rather accepted and stored into the database
 // as is.
-func (s *Sync) AddCodeEntry(hash common.Hash, path []byte, parent common.Hash) {
+func (s *Sync[P]) AddCodeEntry(hash common.Hash, path []byte, parent common.Hash) {
 	// Short circuit if the entry is empty or already known
+	var emptyState = crypto.Keccak256Hash[P](nil)
 	if hash == emptyState {
 		return
 	}
@@ -229,7 +231,7 @@ func (s *Sync) AddCodeEntry(hash common.Hash, path []byte, parent common.Hash) {
 // Missing retrieves the known missing nodes from the trie for retrieval. To aid
 // both eth/6x style fast sync and snap/1x style state sync, the paths of trie
 // nodes are returned too, as well as separate hash list for codes.
-func (s *Sync) Missing(max int) (nodes []common.Hash, paths []SyncPath, codes []common.Hash) {
+func (s *Sync[P]) Missing(max int) (nodes []common.Hash, paths []SyncPath, codes []common.Hash) {
 	var (
 		nodeHashes []common.Hash
 		nodePaths  []SyncPath
@@ -265,7 +267,7 @@ func (s *Sync) Missing(max int) (nodes []common.Hash, paths []SyncPath, codes []
 // is same). In this case the second response for the same hash will
 // be treated as "non-requested" item or "already-processed" item but
 // there is no downside.
-func (s *Sync) Process(result SyncResult) error {
+func (s *Sync[P]) Process(result SyncResult) error {
 	// If the item was not requested either for code or node, bail out
 	if s.nodeReqs[result.Hash] == nil && s.codeReqs[result.Hash] == nil {
 		return ErrNotRequested
@@ -309,7 +311,7 @@ func (s *Sync) Process(result SyncResult) error {
 
 // Commit flushes the data stored in the internal membatch out to persistent
 // storage, returning any occurred error.
-func (s *Sync) Commit(dbw ethdb.Batch) error {
+func (s *Sync[P]) Commit(dbw ethdb.Batch) error {
 	// Dump the membatch into a database dbw
 	for key, value := range s.membatch.nodes {
 		rawdb.WriteTrieNode(dbw, key, value)
@@ -329,14 +331,14 @@ func (s *Sync) Commit(dbw ethdb.Batch) error {
 }
 
 // Pending returns the number of state entries currently pending for download.
-func (s *Sync) Pending() int {
+func (s *Sync[P]) Pending() int {
 	return len(s.nodeReqs) + len(s.codeReqs)
 }
 
 // schedule inserts a new state retrieval request into the fetch queue. If there
 // is already a pending request for this node, the new request will be discarded
 // and only a parent reference added to the old one.
-func (s *Sync) schedule(req *request) {
+func (s *Sync[P]) schedule(req *request) {
 	var reqset = s.nodeReqs
 	if req.code {
 		reqset = s.codeReqs
@@ -362,7 +364,7 @@ func (s *Sync) schedule(req *request) {
 
 // children retrieves all the missing children of a state trie entry for future
 // retrieval scheduling.
-func (s *Sync) children(req *request, object node) ([]*request, error) {
+func (s *Sync[P]) children(req *request, object node) ([]*request, error) {
 	// Gather all the children of the node, irrelevant whether known or not
 	type child struct {
 		path []byte
@@ -442,7 +444,7 @@ func (s *Sync) children(req *request, object node) ([]*request, error) {
 // commit finalizes a retrieval request and stores it into the membatch. If any
 // of the referencing parent requests complete due to this commit, they are also
 // committed themselves.
-func (s *Sync) commit(req *request) (err error) {
+func (s *Sync[P]) commit(req *request) (err error) {
 	// Write the node content to the membatch
 	if req.code {
 		s.membatch.codes[req.hash] = req.data

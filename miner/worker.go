@@ -84,14 +84,14 @@ const (
 type environment [P crypto.PublicKey] struct {
 	signer types.Signer[P]
 
-	state     *state.StateDB // apply state changes here
+	state     *state.StateDB[P] // apply state changes here
 	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
 	family    mapset.Set     // family set (used for checking uncle invalidity)
 	uncles    mapset.Set     // uncle set
 	tcount    int            // tx count in cycle
 	gasPool   *core.GasPool  // available gas used to pack transactions
 
-	header   *types.Header
+	header   *types.Header[P]
 	txs      []*types.Transaction[P]
 	receipts []*types.Receipt[P]
 
@@ -104,7 +104,7 @@ type environment [P crypto.PublicKey] struct {
 // task contains all information for consensus engine sealing and result submitting.
 type task [P crypto.PublicKey] struct {
 	receipts  []*types.Receipt[P]
-	state     *state.StateDB
+	state     *state.StateDB[P]
 	block     *types.Block[P]
 	createdAt time.Time
 
@@ -177,7 +177,7 @@ type worker [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 	snapshotMu    sync.RWMutex // The lock used to protect the block snapshot and state snapshot
 	snapshotBlock *types.Block[P]
-	snapshotState *state.StateDB
+	snapshotState *state.StateDB[P]
 
 	// atomic status counters
 	running int32 // The indicator whether the consensus engine is running or not.
@@ -280,7 +280,7 @@ func (w *worker[T,P]) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker[T,P]) pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB, *state.StateDB) {
+func (w *worker[T,P]) pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB[P], *state.StateDB[P]) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
@@ -489,7 +489,7 @@ func (w *worker[T,P]) mainLoop() {
 			if w.isRunning() && w.current != nil && w.current.uncles.Cardinality() < 2 {
 				start := time.Now()
 				if err := w.commitUncle(w.current, ev.Block.Header()); err == nil {
-					var uncles []*types.Header
+					var uncles []*types.Header[P]
 					w.current.uncles.Each(func(item interface{}) bool {
 						hash, ok := item.(common.Hash)
 						if !ok {
@@ -737,7 +737,7 @@ func (w *worker[T,P]) resultLoop() {
 }
 
 // makeCurrent creates a new environment for the current cycle.
-func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header) error {
+func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header[P]) error {
 	// Retrieve the parent state to execute on top and start a prefetcher for
 	// the miner to speed block sealing up a bit
 	publicState, privateStateRepo, err := w.chain.StateAt(parent.Root())
@@ -777,7 +777,7 @@ func (w *worker[T,P]) makeCurrent(parent *types.Block[P], header *types.Header) 
 }
 
 // commitUncle adds the given block to uncle block set, returns error if failed to add.
-func (w *worker[T,P]) commitUncle(env *environment[P], uncle *types.Header) error {
+func (w *worker[T,P]) commitUncle(env *environment[P], uncle *types.Header[P]) error {
 	hash := uncle.Hash()
 	if env.uncles.Contains(hash) {
 		return errors.New("uncle not unique")
@@ -801,7 +801,7 @@ func (w *worker[T,P]) updateSnapshot() {
 	w.snapshotMu.Lock()
 	defer w.snapshotMu.Unlock()
 
-	var uncles []*types.Header
+	var uncles []*types.Header[P]
 	w.current.uncles.Each(func(item interface{}) bool {
 		hash, ok := item.(common.Hash)
 		if !ok {
@@ -823,7 +823,7 @@ func (w *worker[T,P]) updateSnapshot() {
 		w.current.txs,
 		uncles,
 		w.current.receipts,
-		trie.NewStackTrie(nil),
+		trie.NewStackTrie[P](nil),
 	)
 	w.snapshotState = w.current.state.Copy()
 }
@@ -1002,7 +1002,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 	}
 	minGasLimit := w.chainConfig.GetMinerMinGasLimit(parent.Number(), params.DefaultMinGasLimit)
 	num := parent.Number()
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, minGasLimit, w.config.GasFloor, w.config.GasCeil),
@@ -1046,7 +1046,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 		misc.ApplyDAOHardFork(env.state)
 	}
 	// Accumulate the uncles for the current block
-	uncles := make([]*types.Header, 0, 2)
+	uncles := make([]*types.Header[P], 0, 2)
 	commitUncles := func(blocks map[common.Hash]*types.Block[P]) {
 		// Clean up stale uncle blocks first
 		for hash, uncle := range blocks {
@@ -1114,7 +1114,7 @@ func (w *worker[T,P]) commitNewWork(interrupt *int32, noempty bool, timestamp in
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker[T,P]) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
+func (w *worker[T,P]) commit(uncles []*types.Header[P], interval func(), update bool, start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	privateReceipts := copyReceipts(w.current.privateReceipts) // Quorum
@@ -1202,12 +1202,12 @@ func (w *worker[T,P]) handleMPS(tx *types.Transaction[P], coinbase common.Addres
 	// make sure we don't return NIL map
 	privateStateSnaphots = make(map[types.PrivateStateIdentifier]int)
 	if tx.IsPrivate() && privateStateRepo.IsMPS() {
-		publicStateDBFactory := func() *state.StateDB {
+		publicStateDBFactory := func() *state.StateDB[P] {
 			db := workerEnv.state.Copy()
 			db.Prepare(tx.Hash(), common.Hash{}, workerEnv.tcount)
 			return db
 		}
-		privateStateDBFactory := func(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+		privateStateDBFactory := func(psi types.PrivateStateIdentifier) (*state.StateDB[P], error) {
 			db, err := privateStateRepo.StatePSI(psi)
 			if err != nil {
 				return nil, err

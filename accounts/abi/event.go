@@ -56,7 +56,7 @@ type Event struct {
 // It sanitizes the input arguments to remove unnamed arguments.
 // It also precomputes the id, signature and string representation
 // of the event.
-func NewEvent(name, rawName string, anonymous bool, inputs Arguments) Event {
+func NewEvent[P crypto.PublicKey](name, rawName string, anonymous bool, inputs Arguments) Event {
 	// sanitize inputs to remove inputs without names
 	// and precompute string and sig representation.
 	names := make([]string, len(inputs))
@@ -82,7 +82,7 @@ func NewEvent(name, rawName string, anonymous bool, inputs Arguments) Event {
 
 	str := fmt.Sprintf("event %v(%v)", rawName, strings.Join(names, ", "))
 	sig := fmt.Sprintf("%v(%v)", rawName, strings.Join(types, ","))
-	id := common.BytesToHash(crypto.Keccak256([]byte(sig)))
+	id := common.BytesToHash(crypto.Keccak256[P]([]byte(sig)))
 
 	return Event{
 		Name:      name,

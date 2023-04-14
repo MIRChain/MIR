@@ -131,7 +131,7 @@ func (ec *Client[P]) getBlock(ctx context.Context, method string, args ...interf
 		return nil, ethereum.NotFound
 	}
 	// Decode header and transactions.
-	var head *types.Header
+	var head *types.Header[P]
 	var body rpcBlock[P]
 	if err := json.Unmarshal(raw, &head); err != nil {
 		return nil, err
@@ -140,10 +140,10 @@ func (ec *Client[P]) getBlock(ctx context.Context, method string, args ...interf
 		return nil, err
 	}
 	// Quick-verify transaction and uncle lists. This mostly helps with debugging the server.
-	if head.UncleHash == types.EmptyUncleHash && len(body.UncleHashes) > 0 {
+	if head.UncleHash == types.EmptyUncleHash[P]() && len(body.UncleHashes) > 0 {
 		return nil, fmt.Errorf("server returned non-empty uncle list but block header indicates no uncles")
 	}
-	if head.UncleHash != types.EmptyUncleHash && len(body.UncleHashes) == 0 {
+	if head.UncleHash != types.EmptyUncleHash[P]() && len(body.UncleHashes) == 0 {
 		return nil, fmt.Errorf("server returned empty uncle list but block header indicates uncles")
 	}
 	if head.TxHash == types.EmptyRootHash && len(body.Transactions) > 0 {
@@ -153,9 +153,9 @@ func (ec *Client[P]) getBlock(ctx context.Context, method string, args ...interf
 		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
 	}
 	// Load uncles because they are not included in the block response.
-	var uncles []*types.Header
+	var uncles []*types.Header[P]
 	if len(body.UncleHashes) > 0 {
-		uncles = make([]*types.Header, len(body.UncleHashes))
+		uncles = make([]*types.Header[P], len(body.UncleHashes))
 		reqs := make([]rpc.BatchElem, len(body.UncleHashes))
 		for i := range reqs {
 			reqs[i] = rpc.BatchElem{
@@ -188,8 +188,8 @@ func (ec *Client[P]) getBlock(ctx context.Context, method string, args ...interf
 }
 
 // HeaderByHash returns the block header with the given hash.
-func (ec *Client[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	var head *types.Header
+func (ec *Client[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
+	var head *types.Header[P]
 	err := ec.c.CallContext(ctx, &head, "eth_getBlockByHash", hash, false)
 	if err == nil && head == nil {
 		err = ethereum.NotFound
@@ -199,8 +199,8 @@ func (ec *Client[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
-func (ec *Client[P]) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	var head *types.Header
+func (ec *Client[P]) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header[P], error) {
+	var head *types.Header[P]
 	err := ec.c.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
 	if err == nil && head == nil {
 		err = ethereum.NotFound
@@ -352,7 +352,7 @@ func (ec *Client[P]) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, 
 
 // SubscribeNewHead subscribes to notifications about the current blockchain head
 // on the given channel.
-func (ec *Client[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (ec *Client[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header[P]) (ethereum.Subscription, error) {
 	return ec.c.EthSubscribe(ctx, ch, "newHeads")
 }
 

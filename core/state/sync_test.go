@@ -24,6 +24,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -39,10 +40,10 @@ type testAccount struct {
 }
 
 // makeTestState create a sample test state to test node-wise reconstruction.
-func makeTestState() (Database, common.Hash, []*testAccount) {
+func makeTestState[P crypto.PublicKey]() (Database, common.Hash, []*testAccount) {
 	// Create an empty state
-	db := NewDatabase(rawdb.NewMemoryDatabase())
-	state, _ := New(common.Hash{}, db, nil)
+	db := NewDatabase[P](rawdb.NewMemoryDatabase())
+	state, _ := New[P](common.Hash{}, db, nil)
 
 	// Fill it with some arbitrary data
 	var accounts []*testAccount
@@ -57,12 +58,12 @@ func makeTestState() (Database, common.Hash, []*testAccount) {
 		acc.nonce = uint64(42 * i)
 
 		if i%3 == 0 {
-			obj.SetCode(crypto.Keccak256Hash([]byte{i, i, i, i, i}), []byte{i, i, i, i, i})
+			obj.SetCode(crypto.Keccak256Hash[P]([]byte{i, i, i, i, i}), []byte{i, i, i, i, i})
 			acc.code = []byte{i, i, i, i, i}
 		}
 		if i%5 == 0 {
 			for j := byte(0); j < 5; j++ {
-				hash := crypto.Keccak256Hash([]byte{i, i, i, i, i, j, j})
+				hash := crypto.Keccak256Hash[P]([]byte{i, i, i, i, i, j, j})
 				obj.SetState(db, hash, hash)
 			}
 		}
@@ -77,13 +78,13 @@ func makeTestState() (Database, common.Hash, []*testAccount) {
 
 // checkStateAccounts cross references a reconstructed state with an expected
 // account array.
-func checkStateAccounts(t *testing.T, db ethdb.Database, root common.Hash, accounts []*testAccount) {
+func checkStateAccounts[P crypto.PublicKey](t *testing.T, db ethdb.Database, root common.Hash, accounts []*testAccount) {
 	// Check root availability and state contents
-	state, err := New(root, NewDatabase(db), nil)
+	state, err := New[P](root, NewDatabase[P](db), nil)
 	if err != nil {
 		t.Fatalf("failed to create state trie at %x: %v", root, err)
 	}
-	if err := checkStateConsistency(db, root); err != nil {
+	if err := checkStateConsistency[P](db, root); err != nil {
 		t.Fatalf("inconsistent state trie at %x: %v", root, err)
 	}
 	for i, acc := range accounts {
@@ -100,11 +101,11 @@ func checkStateAccounts(t *testing.T, db ethdb.Database, root common.Hash, accou
 }
 
 // checkTrieConsistency checks that all nodes in a (sub-)trie are indeed present.
-func checkTrieConsistency(db ethdb.Database, root common.Hash) error {
+func checkTrieConsistency[P crypto.PublicKey](db ethdb.Database, root common.Hash) error {
 	if v, _ := db.Get(root[:]); v == nil {
 		return nil // Consider a non existent state consistent.
 	}
-	trie, err := trie.New(root, trie.NewDatabase(db))
+	trie, err := trie.New[P](root, trie.NewDatabase(db))
 	if err != nil {
 		return err
 	}
@@ -115,12 +116,12 @@ func checkTrieConsistency(db ethdb.Database, root common.Hash) error {
 }
 
 // checkStateConsistency checks that all data of a state root is present.
-func checkStateConsistency(db ethdb.Database, root common.Hash) error {
+func checkStateConsistency[P crypto.PublicKey](db ethdb.Database, root common.Hash) error {
 	// Create and iterate a state trie rooted in a sub-node
 	if _, err := db.Get(root.Bytes()); err != nil {
 		return nil // Consider a non existent state consistent.
 	}
-	state, err := New(root, NewDatabase(db), nil)
+	state, err := New[P](root, NewDatabase[P](db), nil)
 	if err != nil {
 		return err
 	}
@@ -133,7 +134,7 @@ func checkStateConsistency(db ethdb.Database, root common.Hash) error {
 // Tests that an empty state is not scheduled for syncing.
 func TestEmptyStateSync(t *testing.T) {
 	empty := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	sync := NewStateSync(empty, rawdb.NewMemoryDatabase(), trie.NewSyncBloom(1, memorydb.New()), nil)
+	sync := NewStateSync[nist.PublicKey](empty, rawdb.NewMemoryDatabase(), trie.NewSyncBloom(1, memorydb.New()), nil)
 	if nodes, paths, codes := sync.Missing(1); len(nodes) != 0 || len(paths) != 0 || len(codes) != 0 {
 		t.Errorf(" content requested for empty state: %v, %v, %v", nodes, paths, codes)
 	}
@@ -142,35 +143,35 @@ func TestEmptyStateSync(t *testing.T) {
 // Tests that given a root hash, a state can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go.
 func TestIterativeStateSyncIndividual(t *testing.T) {
-	testIterativeStateSync(t, 1, false, false)
+	testIterativeStateSync[nist.PublicKey](t, 1, false, false)
 }
 func TestIterativeStateSyncBatched(t *testing.T) {
-	testIterativeStateSync(t, 100, false, false)
+	testIterativeStateSync[nist.PublicKey](t, 100, false, false)
 }
 func TestIterativeStateSyncIndividualFromDisk(t *testing.T) {
-	testIterativeStateSync(t, 1, true, false)
+	testIterativeStateSync[nist.PublicKey](t, 1, true, false)
 }
 func TestIterativeStateSyncBatchedFromDisk(t *testing.T) {
-	testIterativeStateSync(t, 100, true, false)
+	testIterativeStateSync[nist.PublicKey](t, 100, true, false)
 }
 func TestIterativeStateSyncIndividualByPath(t *testing.T) {
-	testIterativeStateSync(t, 1, false, true)
+	testIterativeStateSync[nist.PublicKey](t, 1, false, true)
 }
 func TestIterativeStateSyncBatchedByPath(t *testing.T) {
-	testIterativeStateSync(t, 100, false, true)
+	testIterativeStateSync[nist.PublicKey](t, 100, false, true)
 }
 
-func testIterativeStateSync(t *testing.T, count int, commit bool, bypath bool) {
+func testIterativeStateSync[P crypto.PublicKey](t *testing.T, count int, commit bool, bypath bool) {
 	// Create a random state to copy
-	srcDb, srcRoot, srcAccounts := makeTestState()
+	srcDb, srcRoot, srcAccounts := makeTestState[P]()
 	if commit {
 		srcDb.TrieDB().Commit(srcRoot, false, nil)
 	}
-	srcTrie, _ := trie.New(srcRoot, srcDb.TrieDB())
+	srcTrie, _ := trie.New[P](srcRoot, srcDb.TrieDB())
 
 	// Create a destination state and sync with the scheduler
 	dstDb := rawdb.NewMemoryDatabase()
-	sched := NewStateSync(srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
+	sched := NewStateSync[P](srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
 
 	nodes, paths, codes := sched.Missing(count)
 	var (
@@ -201,13 +202,13 @@ func testIterativeStateSync(t *testing.T, count int, commit bool, bypath bool) {
 				if err != nil {
 					t.Fatalf("failed to retrieve node data for path %x: %v", path, err)
 				}
-				results[len(hashQueue)+i] = trie.SyncResult{Hash: crypto.Keccak256Hash(data), Data: data}
+				results[len(hashQueue)+i] = trie.SyncResult{Hash: crypto.Keccak256Hash[P](data), Data: data}
 			} else {
 				var acc Account
 				if err := rlp.DecodeBytes(srcTrie.Get(path[0]), &acc); err != nil {
 					t.Fatalf("failed to decode account on path %x: %v", path, err)
 				}
-				stTrie, err := trie.New(acc.Root, srcDb.TrieDB())
+				stTrie, err := trie.New[P](acc.Root, srcDb.TrieDB())
 				if err != nil {
 					t.Fatalf("failed to retriev storage trie for path %x: %v", path, err)
 				}
@@ -215,7 +216,7 @@ func testIterativeStateSync(t *testing.T, count int, commit bool, bypath bool) {
 				if err != nil {
 					t.Fatalf("failed to retrieve node data for path %x: %v", path, err)
 				}
-				results[len(hashQueue)+i] = trie.SyncResult{Hash: crypto.Keccak256Hash(data), Data: data}
+				results[len(hashQueue)+i] = trie.SyncResult{Hash: crypto.Keccak256Hash[P](data), Data: data}
 			}
 		}
 		for _, result := range results {
@@ -238,18 +239,18 @@ func testIterativeStateSync(t *testing.T, count int, commit bool, bypath bool) {
 		}
 	}
 	// Cross check that the two states are in sync
-	checkStateAccounts(t, dstDb, srcRoot, srcAccounts)
+	checkStateAccounts[P](t, dstDb, srcRoot, srcAccounts)
 }
 
 // Tests that the trie scheduler can correctly reconstruct the state even if only
 // partial results are returned, and the others sent only later.
 func TestIterativeDelayedStateSync(t *testing.T) {
 	// Create a random state to copy
-	srcDb, srcRoot, srcAccounts := makeTestState()
+	srcDb, srcRoot, srcAccounts := makeTestState[nist.PublicKey]()
 
 	// Create a destination state and sync with the scheduler
 	dstDb := rawdb.NewMemoryDatabase()
-	sched := NewStateSync(srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
+	sched := NewStateSync[nist.PublicKey](srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
 
 	nodes, _, codes := sched.Missing(0)
 	queue := append(append([]common.Hash{}, nodes...), codes...)
@@ -282,22 +283,22 @@ func TestIterativeDelayedStateSync(t *testing.T) {
 		queue = append(append(queue[len(results):], nodes...), codes...)
 	}
 	// Cross check that the two states are in sync
-	checkStateAccounts(t, dstDb, srcRoot, srcAccounts)
+	checkStateAccounts[nist.PublicKey](t, dstDb, srcRoot, srcAccounts)
 }
 
 // Tests that given a root hash, a trie can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go, however in a
 // random order.
-func TestIterativeRandomStateSyncIndividual(t *testing.T) { testIterativeRandomStateSync(t, 1) }
-func TestIterativeRandomStateSyncBatched(t *testing.T)    { testIterativeRandomStateSync(t, 100) }
+func TestIterativeRandomStateSyncIndividual(t *testing.T) { testIterativeRandomStateSync[nist.PublicKey](t, 1) }
+func TestIterativeRandomStateSyncBatched(t *testing.T)    { testIterativeRandomStateSync[nist.PublicKey](t, 100) }
 
-func testIterativeRandomStateSync(t *testing.T, count int) {
+func testIterativeRandomStateSync[P crypto.PublicKey](t *testing.T, count int) {
 	// Create a random state to copy
-	srcDb, srcRoot, srcAccounts := makeTestState()
+	srcDb, srcRoot, srcAccounts := makeTestState[P]()
 
 	// Create a destination state and sync with the scheduler
 	dstDb := rawdb.NewMemoryDatabase()
-	sched := NewStateSync(srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
+	sched := NewStateSync[P](srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(count)
@@ -336,18 +337,18 @@ func testIterativeRandomStateSync(t *testing.T, count int) {
 		}
 	}
 	// Cross check that the two states are in sync
-	checkStateAccounts(t, dstDb, srcRoot, srcAccounts)
+	checkStateAccounts[P](t, dstDb, srcRoot, srcAccounts)
 }
 
 // Tests that the trie scheduler can correctly reconstruct the state even if only
 // partial results are returned (Even those randomly), others sent only later.
 func TestIterativeRandomDelayedStateSync(t *testing.T) {
 	// Create a random state to copy
-	srcDb, srcRoot, srcAccounts := makeTestState()
+	srcDb, srcRoot, srcAccounts := makeTestState[nist.PublicKey]()
 
 	// Create a destination state and sync with the scheduler
 	dstDb := rawdb.NewMemoryDatabase()
-	sched := NewStateSync(srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
+	sched := NewStateSync[nist.PublicKey](srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(0)
@@ -393,28 +394,28 @@ func TestIterativeRandomDelayedStateSync(t *testing.T) {
 		}
 	}
 	// Cross check that the two states are in sync
-	checkStateAccounts(t, dstDb, srcRoot, srcAccounts)
+	checkStateAccounts[nist.PublicKey](t, dstDb, srcRoot, srcAccounts)
 }
 
 // Tests that at any point in time during a sync, only complete sub-tries are in
 // the database.
 func TestIncompleteStateSync(t *testing.T) {
 	// Create a random state to copy
-	srcDb, srcRoot, srcAccounts := makeTestState()
+	srcDb, srcRoot, srcAccounts := makeTestState[nist.PublicKey]()
 
 	// isCodeLookup to save some hashing
 	var isCode = make(map[common.Hash]struct{})
 	for _, acc := range srcAccounts {
 		if len(acc.code) > 0 {
-			isCode[crypto.Keccak256Hash(acc.code)] = struct{}{}
+			isCode[crypto.Keccak256Hash[nist.PublicKey](acc.code)] = struct{}{}
 		}
 	}
-	isCode[common.BytesToHash(emptyCodeHash)] = struct{}{}
-	checkTrieConsistency(srcDb.TrieDB().DiskDB().(ethdb.Database), srcRoot)
+	isCode[common.BytesToHash(crypto.Keccak256[nist.PublicKey]())] = struct{}{}
+	checkTrieConsistency[nist.PublicKey](srcDb.TrieDB().DiskDB().(ethdb.Database), srcRoot)
 
 	// Create a destination state and sync with the scheduler
 	dstDb := rawdb.NewMemoryDatabase()
-	sched := NewStateSync(srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
+	sched := NewStateSync[nist.PublicKey](srcRoot, dstDb, trie.NewSyncBloom(1, dstDb), nil)
 
 	var added []common.Hash
 
@@ -453,7 +454,7 @@ func TestIncompleteStateSync(t *testing.T) {
 			}
 			// Can't use checkStateConsistency here because subtrie keys may have odd
 			// length and crash in LeafKey.
-			if err := checkTrieConsistency(dstDb, result.Hash); err != nil {
+			if err := checkTrieConsistency[nist.PublicKey](dstDb, result.Hash); err != nil {
 				t.Fatalf("state inconsistent: %v", err)
 			}
 		}
@@ -475,7 +476,7 @@ func TestIncompleteStateSync(t *testing.T) {
 			val = rawdb.ReadTrieNode(dstDb, node)
 			rawdb.DeleteTrieNode(dstDb, node)
 		}
-		if err := checkStateConsistency(dstDb, added[0]); err == nil {
+		if err := checkStateConsistency[nist.PublicKey](dstDb, added[0]); err == nil {
 			t.Fatalf("trie inconsistency not caught, missing: %x", key)
 		}
 		if code {

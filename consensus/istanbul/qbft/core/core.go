@@ -285,7 +285,7 @@ func (c *core[P]) QuorumSize() int {
 }
 
 // PrepareCommittedSeal returns a committed seal for the given header and takes current round under consideration
-func PrepareCommittedSeal(header *types.Header, round uint32) []byte {
+func PrepareCommittedSeal[P crypto.PublicKey](header *types.Header[P], round uint32) []byte {
 	h := types.CopyHeader(header)
 	return h.QBFTHashWithRoundNumber(round).Bytes()
 }

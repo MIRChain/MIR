@@ -24,6 +24,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Iterator is an iterator to step over all the accounts or the specific
@@ -70,34 +71,34 @@ type StorageIterator interface {
 // diffAccountIterator is an account iterator that steps over the accounts (both
 // live and deleted) contained within a single diff layer. Higher order iterators
 // will use the deleted accounts to skip deeper iterators.
-type diffAccountIterator struct {
+type diffAccountIterator [P crypto.PublicKey] struct {
 	// curHash is the current hash the iterator is positioned on. The field is
 	// explicitly tracked since the referenced diff layer might go stale after
 	// the iterator was positioned and we don't want to fail accessing the old
 	// hash as long as the iterator is not touched any more.
 	curHash common.Hash
 
-	layer *diffLayer    // Live layer to retrieve values from
+	layer *diffLayer[P]    // Live layer to retrieve values from
 	keys  []common.Hash // Keys left in the layer to iterate
 	fail  error         // Any failures encountered (stale)
 }
 
 // AccountIterator creates an account iterator over a single diff layer.
-func (dl *diffLayer) AccountIterator(seek common.Hash) AccountIterator {
+func (dl *diffLayer[P]) AccountIterator(seek common.Hash) AccountIterator {
 	// Seek out the requested starting account
 	hashes := dl.AccountList()
 	index := sort.Search(len(hashes), func(i int) bool {
 		return bytes.Compare(seek[:], hashes[i][:]) <= 0
 	})
 	// Assemble and returned the already seeked iterator
-	return &diffAccountIterator{
+	return &diffAccountIterator[P]{
 		layer: dl,
 		keys:  hashes[index:],
 	}
 }
 
 // Next steps the iterator forward one element, returning false if exhausted.
-func (it *diffAccountIterator) Next() bool {
+func (it *diffAccountIterator[P]) Next() bool {
 	// If the iterator was already stale, consider it a programmer error. Although
 	// we could just return false here, triggering this path would probably mean
 	// somebody forgot to check for Error, so lets blow up instead of undefined
@@ -122,12 +123,12 @@ func (it *diffAccountIterator) Next() bool {
 
 // Error returns any failure that occurred during iteration, which might have
 // caused a premature iteration exit (e.g. snapshot stack becoming stale).
-func (it *diffAccountIterator) Error() error {
+func (it *diffAccountIterator[P]) Error() error {
 	return it.fail
 }
 
 // Hash returns the hash of the account the iterator is currently at.
-func (it *diffAccountIterator) Hash() common.Hash {
+func (it *diffAccountIterator[P]) Hash() common.Hash {
 	return it.curHash
 }
 
@@ -139,7 +140,7 @@ func (it *diffAccountIterator) Hash() common.Hash {
 // if elements have been deleted.
 //
 // Note the returned account is not a copy, please don't modify it.
-func (it *diffAccountIterator) Account() []byte {
+func (it *diffAccountIterator[P]) Account() []byte {
 	it.layer.lock.RLock()
 	blob, ok := it.layer.accountData[it.curHash]
 	if !ok {
@@ -157,26 +158,26 @@ func (it *diffAccountIterator) Account() []byte {
 }
 
 // Release is a noop for diff account iterators as there are no held resources.
-func (it *diffAccountIterator) Release() {}
+func (it *diffAccountIterator[P]) Release() {}
 
 // diskAccountIterator is an account iterator that steps over the live accounts
 // contained within a disk layer.
-type diskAccountIterator struct {
-	layer *diskLayer
+type diskAccountIterator [P crypto.PublicKey] struct {
+	layer *diskLayer[P]
 	it    ethdb.Iterator
 }
 
 // AccountIterator creates an account iterator over a disk layer.
-func (dl *diskLayer) AccountIterator(seek common.Hash) AccountIterator {
+func (dl *diskLayer[P]) AccountIterator(seek common.Hash) AccountIterator {
 	pos := common.TrimRightZeroes(seek[:])
-	return &diskAccountIterator{
+	return &diskAccountIterator[P]{
 		layer: dl,
 		it:    dl.diskdb.NewIterator(rawdb.SnapshotAccountPrefix, pos),
 	}
 }
 
 // Next steps the iterator forward one element, returning false if exhausted.
-func (it *diskAccountIterator) Next() bool {
+func (it *diskAccountIterator[P]) Next() bool {
 	// If the iterator was already exhausted, don't bother
 	if it.it == nil {
 		return false
@@ -200,7 +201,7 @@ func (it *diskAccountIterator) Next() bool {
 //
 // A diff layer is immutable after creation content wise and can always be fully
 // iterated without error, so this method always returns nil.
-func (it *diskAccountIterator) Error() error {
+func (it *diskAccountIterator[P]) Error() error {
 	if it.it == nil {
 		return nil // Iterator is exhausted and released
 	}
@@ -208,17 +209,17 @@ func (it *diskAccountIterator) Error() error {
 }
 
 // Hash returns the hash of the account the iterator is currently at.
-func (it *diskAccountIterator) Hash() common.Hash {
+func (it *diskAccountIterator[P]) Hash() common.Hash {
 	return common.BytesToHash(it.it.Key()) // The prefix will be truncated
 }
 
 // Account returns the RLP encoded slim account the iterator is currently at.
-func (it *diskAccountIterator) Account() []byte {
+func (it *diskAccountIterator[P]) Account() []byte {
 	return it.it.Value()
 }
 
 // Release releases the database snapshot held during iteration.
-func (it *diskAccountIterator) Release() {
+func (it *diskAccountIterator[P]) Release() {
 	// The iterator is auto-released on exhaustion, so make sure it's still alive
 	if it.it != nil {
 		it.it.Release()
@@ -229,7 +230,7 @@ func (it *diskAccountIterator) Release() {
 // diffStorageIterator is a storage iterator that steps over the specific storage
 // (both live and deleted) contained within a single diff layer. Higher order
 // iterators will use the deleted slot to skip deeper iterators.
-type diffStorageIterator struct {
+type diffStorageIterator [P crypto.PublicKey] struct {
 	// curHash is the current hash the iterator is positioned on. The field is
 	// explicitly tracked since the referenced diff layer might go stale after
 	// the iterator was positioned and we don't want to fail accessing the old
@@ -237,7 +238,7 @@ type diffStorageIterator struct {
 	curHash common.Hash
 	account common.Hash
 
-	layer *diffLayer    // Live layer to retrieve values from
+	layer *diffLayer[P]    // Live layer to retrieve values from
 	keys  []common.Hash // Keys left in the layer to iterate
 	fail  error         // Any failures encountered (stale)
 }
@@ -247,7 +248,7 @@ type diffStorageIterator struct {
 // "destructed" returned. If it's true then it means the whole storage is
 // destructed in this layer(maybe recreated too), don't bother deeper layer
 // for storage retrieval.
-func (dl *diffLayer) StorageIterator(account common.Hash, seek common.Hash) (StorageIterator, bool) {
+func (dl *diffLayer[P]) StorageIterator(account common.Hash, seek common.Hash) (StorageIterator, bool) {
 	// Create the storage for this account even it's marked
 	// as destructed. The iterator is for the new one which
 	// just has the same address as the deleted one.
@@ -256,7 +257,7 @@ func (dl *diffLayer) StorageIterator(account common.Hash, seek common.Hash) (Sto
 		return bytes.Compare(seek[:], hashes[i][:]) <= 0
 	})
 	// Assemble and returned the already seeked iterator
-	return &diffStorageIterator{
+	return &diffStorageIterator[P]{
 		layer:   dl,
 		account: account,
 		keys:    hashes[index:],
@@ -264,7 +265,7 @@ func (dl *diffLayer) StorageIterator(account common.Hash, seek common.Hash) (Sto
 }
 
 // Next steps the iterator forward one element, returning false if exhausted.
-func (it *diffStorageIterator) Next() bool {
+func (it *diffStorageIterator[P]) Next() bool {
 	// If the iterator was already stale, consider it a programmer error. Although
 	// we could just return false here, triggering this path would probably mean
 	// somebody forgot to check for Error, so lets blow up instead of undefined
@@ -289,12 +290,12 @@ func (it *diffStorageIterator) Next() bool {
 
 // Error returns any failure that occurred during iteration, which might have
 // caused a premature iteration exit (e.g. snapshot stack becoming stale).
-func (it *diffStorageIterator) Error() error {
+func (it *diffStorageIterator[P]) Error() error {
 	return it.fail
 }
 
 // Hash returns the hash of the storage slot the iterator is currently at.
-func (it *diffStorageIterator) Hash() common.Hash {
+func (it *diffStorageIterator[P]) Hash() common.Hash {
 	return it.curHash
 }
 
@@ -306,7 +307,7 @@ func (it *diffStorageIterator) Hash() common.Hash {
 // if elements have been deleted.
 //
 // Note the returned slot is not a copy, please don't modify it.
-func (it *diffStorageIterator) Slot() []byte {
+func (it *diffStorageIterator[P]) Slot() []byte {
 	it.layer.lock.RLock()
 	storage, ok := it.layer.storageData[it.account]
 	if !ok {
@@ -325,12 +326,12 @@ func (it *diffStorageIterator) Slot() []byte {
 }
 
 // Release is a noop for diff account iterators as there are no held resources.
-func (it *diffStorageIterator) Release() {}
+func (it *diffStorageIterator[P]) Release() {}
 
 // diskStorageIterator is a storage iterator that steps over the live storage
 // contained within a disk layer.
-type diskStorageIterator struct {
-	layer   *diskLayer
+type diskStorageIterator [P crypto.PublicKey] struct {
+	layer   *diskLayer[P]
 	account common.Hash
 	it      ethdb.Iterator
 }
@@ -339,9 +340,9 @@ type diskStorageIterator struct {
 // If the whole storage is destructed, then all entries in the disk
 // layer are deleted already. So the "destructed" flag returned here
 // is always false.
-func (dl *diskLayer) StorageIterator(account common.Hash, seek common.Hash) (StorageIterator, bool) {
+func (dl *diskLayer[P]) StorageIterator(account common.Hash, seek common.Hash) (StorageIterator, bool) {
 	pos := common.TrimRightZeroes(seek[:])
-	return &diskStorageIterator{
+	return &diskStorageIterator[P]{
 		layer:   dl,
 		account: account,
 		it:      dl.diskdb.NewIterator(append(rawdb.SnapshotStoragePrefix, account.Bytes()...), pos),
@@ -349,7 +350,7 @@ func (dl *diskLayer) StorageIterator(account common.Hash, seek common.Hash) (Sto
 }
 
 // Next steps the iterator forward one element, returning false if exhausted.
-func (it *diskStorageIterator) Next() bool {
+func (it *diskStorageIterator[P]) Next() bool {
 	// If the iterator was already exhausted, don't bother
 	if it.it == nil {
 		return false
@@ -373,7 +374,7 @@ func (it *diskStorageIterator) Next() bool {
 //
 // A diff layer is immutable after creation content wise and can always be fully
 // iterated without error, so this method always returns nil.
-func (it *diskStorageIterator) Error() error {
+func (it *diskStorageIterator[P]) Error() error {
 	if it.it == nil {
 		return nil // Iterator is exhausted and released
 	}
@@ -381,17 +382,17 @@ func (it *diskStorageIterator) Error() error {
 }
 
 // Hash returns the hash of the storage slot the iterator is currently at.
-func (it *diskStorageIterator) Hash() common.Hash {
+func (it *diskStorageIterator[P]) Hash() common.Hash {
 	return common.BytesToHash(it.it.Key()) // The prefix will be truncated
 }
 
 // Slot returns the raw strorage slot content the iterator is currently at.
-func (it *diskStorageIterator) Slot() []byte {
+func (it *diskStorageIterator[P]) Slot() []byte {
 	return it.it.Value()
 }
 
 // Release releases the database snapshot held during iteration.
-func (it *diskStorageIterator) Release() {
+func (it *diskStorageIterator[P]) Release() {
 	// The iterator is auto-released on exhaustion, so make sure it's still alive
 	if it.it != nil {
 		it.it.Release()

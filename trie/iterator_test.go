@@ -25,12 +25,13 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 )
 
 func TestIterator(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	vals := []struct{ k, v string }{
 		{"do", "verb"},
 		{"ether", "wookiedoo"},
@@ -66,7 +67,7 @@ type kv struct {
 }
 
 func TestIteratorLargeData(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	vals := make(map[string]*kv)
 
 	for i := byte(0); i < 255; i++ {
@@ -101,7 +102,7 @@ func TestIteratorLargeData(t *testing.T) {
 // Tests that the node iterator indeed walks over the entire database contents.
 func TestNodeIteratorCoverage(t *testing.T) {
 	// Create some arbitrary test trie to iterate
-	db, trie, _ := makeTestTrie()
+	db, trie, _ := makeTestTrie[nist.PublicKey]()
 
 	// Gather all the node hashes found by the iterator
 	hashes := make(map[common.Hash]struct{})
@@ -159,7 +160,7 @@ var testdata2 = []kvs{
 }
 
 func TestIteratorSeek(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	for _, val := range testdata1 {
 		trie.Update([]byte(val.k), []byte(val.v))
 	}
@@ -200,13 +201,13 @@ func checkIteratorOrder(want []kvs, it *Iterator) error {
 }
 
 func TestDifferenceIterator(t *testing.T) {
-	triea := newEmpty()
+	triea := newEmpty[nist.PublicKey]()
 	for _, val := range testdata1 {
 		triea.Update([]byte(val.k), []byte(val.v))
 	}
 	triea.Commit(nil)
 
-	trieb := newEmpty()
+	trieb := newEmpty[nist.PublicKey]()
 	for _, val := range testdata2 {
 		trieb.Update([]byte(val.k), []byte(val.v))
 	}
@@ -236,13 +237,13 @@ func TestDifferenceIterator(t *testing.T) {
 }
 
 func TestUnionIterator(t *testing.T) {
-	triea := newEmpty()
+	triea := newEmpty[nist.PublicKey]()
 	for _, val := range testdata1 {
 		triea.Update([]byte(val.k), []byte(val.v))
 	}
 	triea.Commit(nil)
 
-	trieb := newEmpty()
+	trieb := newEmpty[nist.PublicKey]()
 	for _, val := range testdata2 {
 		trieb.Update([]byte(val.k), []byte(val.v))
 	}
@@ -283,7 +284,7 @@ func TestUnionIterator(t *testing.T) {
 }
 
 func TestIteratorNoDups(t *testing.T) {
-	var tr Trie
+	var tr Trie[nist.PublicKey]
 	for _, val := range testdata1 {
 		tr.Update([]byte(val.k), []byte(val.v))
 	}
@@ -298,7 +299,7 @@ func testIteratorContinueAfterError(t *testing.T, memonly bool) {
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
 
-	tr, _ := New(common.Hash{}, triedb)
+	tr, _ := New[nist.PublicKey](common.Hash{}, triedb)
 	for _, val := range testdata1 {
 		tr.Update([]byte(val.k), []byte(val.v))
 	}
@@ -323,7 +324,7 @@ func testIteratorContinueAfterError(t *testing.T, memonly bool) {
 	}
 	for i := 0; i < 20; i++ {
 		// Create trie that will load all nodes from DB.
-		tr, _ := New(tr.Hash(), triedb)
+		tr, _ := New[nist.PublicKey](tr.Hash(), triedb)
 
 		// Remove a random node from the database. It can't be the root node
 		// because that one is already loaded.
@@ -378,18 +379,18 @@ func testIteratorContinueAfterError(t *testing.T, memonly bool) {
 // certain key prefix behaves correctly when Next is called. The expectation is that Next
 // should retry seeking before returning true for the first time.
 func TestIteratorContinueAfterSeekErrorDisk(t *testing.T) {
-	testIteratorContinueAfterSeekError(t, false)
+	testIteratorContinueAfterSeekError[nist.PublicKey](t, false)
 }
 func TestIteratorContinueAfterSeekErrorMemonly(t *testing.T) {
-	testIteratorContinueAfterSeekError(t, true)
+	testIteratorContinueAfterSeekError[nist.PublicKey](t, true)
 }
 
-func testIteratorContinueAfterSeekError(t *testing.T, memonly bool) {
+func testIteratorContinueAfterSeekError[P crypto.PublicKey](t *testing.T, memonly bool) {
 	// Commit test trie to db, then remove the node containing "bars".
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
 
-	ctr, _ := New(common.Hash{}, triedb)
+	ctr, _ := New[P](common.Hash{}, triedb)
 	for _, val := range testdata1 {
 		ctr.Update([]byte(val.k), []byte(val.v))
 	}
@@ -411,7 +412,7 @@ func testIteratorContinueAfterSeekError(t *testing.T, memonly bool) {
 	}
 	// Create a new iterator that seeks to "bars". Seeking can't proceed because
 	// the node is missing.
-	tr, _ := New(root, triedb)
+	tr, _ := New[P](root, triedb)
 	it := tr.NodeIterator([]byte("bars"))
 	missing, ok := it.Error().(*MissingNodeError)
 	if !ok {
@@ -487,11 +488,11 @@ func (l *loggingDb) Close() error {
 }
 
 // makeLargeTestTrie create a sample test trie
-func makeLargeTestTrie() (*Database, *SecureTrie, *loggingDb) {
+func makeLargeTestTrie[P crypto.PublicKey]() (*Database, *SecureTrie[P], *loggingDb) {
 	// Create an empty trie
 	logDb := &loggingDb{0, memorydb.New()}
 	triedb := NewDatabase(logDb)
-	trie, _ := NewSecure(common.Hash{}, triedb)
+	trie, _ := NewSecure[P](common.Hash{}, triedb)
 
 	// Fill it with some arbitrary data
 	for i := 0; i < 10000; i++ {
@@ -499,8 +500,8 @@ func makeLargeTestTrie() (*Database, *SecureTrie, *loggingDb) {
 		val := make([]byte, 32)
 		binary.BigEndian.PutUint64(key, uint64(i))
 		binary.BigEndian.PutUint64(val, uint64(i))
-		key = crypto.Keccak256(key)
-		val = crypto.Keccak256(val)
+		key = crypto.Keccak256[P](key)
+		val = crypto.Keccak256[P](val)
 		trie.Update(key, val)
 	}
 	trie.Commit(nil)
@@ -511,7 +512,7 @@ func makeLargeTestTrie() (*Database, *SecureTrie, *loggingDb) {
 // Tests that the node iterator indeed walks over the entire database contents.
 func TestNodeIteratorLargeTrie(t *testing.T) {
 	// Create some arbitrary test trie to iterate
-	db, trie, logDb := makeLargeTestTrie()
+	db, trie, logDb := makeLargeTestTrie[nist.PublicKey]()
 	db.Cap(0) // flush everything
 	// Do a seek operation
 	trie.NodeIterator(common.FromHex("0x77667766776677766778855885885885"))

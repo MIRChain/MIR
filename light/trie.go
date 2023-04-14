@@ -30,16 +30,16 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
-var (
-	sha3Nil = crypto.Keccak256Hash(nil)
-)
+// var (
+// 	sha3Nil = crypto.Keccak256Hash(nil)
+// )
 
-func NewState[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) *state.StateDB {
-	state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr), nil)
+func NewState[P crypto.PublicKey](ctx context.Context, head *types.Header[P], odr OdrBackend[P]) *state.StateDB[P] {
+	state, _ := state.New[P](head.Root, NewStateDatabase(ctx, head, odr), nil)
 	return state
 }
 
-func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Header, odr OdrBackend[P]) state.Database {
+func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Header[P], odr OdrBackend[P]) state.Database {
 	return &odrDatabase[P]{ctx, StateTrieID(head), odr}
 }
 
@@ -72,7 +72,7 @@ func (db *odrDatabase[P]) CopyTrie(t state.Trie) state.Trie {
 }
 
 func (db *odrDatabase[P]) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
-	if codeHash == sha3Nil {
+	if codeHash == crypto.Keccak256Hash[P](nil) {
 		return nil, nil
 	}
 	code := rawdb.ReadCode(db.backend.Database(), codeHash)
@@ -117,11 +117,11 @@ func (db *odrDatabase[P]) AccountExtraDataLinker() rawdb.AccountExtraDataLinker 
 type odrTrie [P crypto.PublicKey] struct {
 	db   *odrDatabase[P]
 	id   *TrieID
-	trie *trie.Trie
+	trie *trie.Trie[P]
 }
 
 func (t *odrTrie[P]) TryGet(key []byte) ([]byte, error) {
-	key = crypto.Keccak256(key)
+	key = crypto.Keccak256[P](key)
 	var res []byte
 	err := t.do(key, func() (err error) {
 		res, err = t.trie.TryGet(key)
@@ -131,14 +131,14 @@ func (t *odrTrie[P]) TryGet(key []byte) ([]byte, error) {
 }
 
 func (t *odrTrie[P]) TryUpdate(key, value []byte) error {
-	key = crypto.Keccak256(key)
+	key = crypto.Keccak256[P](key)
 	return t.do(key, func() error {
 		return t.trie.TryUpdate(key, value)
 	})
 }
 
 func (t *odrTrie[P]) TryDelete(key []byte) error {
-	key = crypto.Keccak256(key)
+	key = crypto.Keccak256[P](key)
 	return t.do(key, func() error {
 		return t.trie.TryDelete(key)
 	})
@@ -176,7 +176,7 @@ func (t *odrTrie[P]) do(key []byte, fn func() error) error {
 	for {
 		var err error
 		if t.trie == nil {
-			t.trie, err = trie.New(t.id.Root, trie.NewDatabase(t.db.backend.Database()))
+			t.trie, err = trie.New[P](t.id.Root, trie.NewDatabase(t.db.backend.Database()))
 		}
 		if err == nil {
 			err = fn()
@@ -184,7 +184,7 @@ func (t *odrTrie[P]) do(key []byte, fn func() error) error {
 		if _, ok := err.(*trie.MissingNodeError); !ok {
 			return err
 		}
-		r := &TrieRequest{Id: t.id, Key: key}
+		r := &TrieRequest[P]{Id: t.id, Key: key}
 		if err := t.db.backend.Retrieve(t.db.ctx, r); err != nil {
 			return err
 		}
@@ -202,7 +202,7 @@ func newNodeIterator[P crypto.PublicKey] (t *odrTrie[P], startkey []byte) trie.N
 	// Open the actual non-ODR trie if that hasn't happened yet.
 	if t.trie == nil {
 		it.do(func() error {
-			t, err := trie.New(t.id.Root, trie.NewDatabase(t.db.backend.Database()))
+			t, err := trie.New[P](t.id.Root, trie.NewDatabase(t.db.backend.Database()))
 			if err == nil {
 				it.t.trie = t
 			}
@@ -239,7 +239,7 @@ func (it *nodeIterator[P]) do(fn func() error) {
 			return
 		}
 		lasthash = missing.NodeHash
-		r := &TrieRequest{Id: it.t.id, Key: nibblesToKey(missing.Path)}
+		r := &TrieRequest[P]{Id: it.t.id, Key: nibblesToKey(missing.Path)}
 		if it.err = it.t.db.backend.Retrieve(it.t.db.ctx, r); it.err != nil {
 			return
 		}

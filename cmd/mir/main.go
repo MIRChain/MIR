@@ -385,12 +385,24 @@ func prepare(ctx *cli.Context) {
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func mir(ctx *cli.Context) error {
+	fmt.Println(`
+	███╗   ███╗██╗██████╗      ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗
+	████╗ ████║██║██╔══██╗    ██╔════╝██║  ██║██╔══██╗██║████╗  ██║
+	██╔████╔██║██║██████╔╝    ██║     ███████║███████║██║██╔██╗ ██║
+	██║╚██╔╝██║██║██╔══██╗    ██║     ██╔══██║██╔══██║██║██║╚██╗██║
+	██║ ╚═╝ ██║██║██║  ██║    ╚██████╗██║  ██║██║  ██║██║██║ ╚████║
+	╚═╝     ╚═╝╚═╝╚═╝  ╚═╝     ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
+																   `)
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 	// Mir - set crypto before the start of services 
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
 			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
 			}
@@ -414,6 +426,10 @@ func mir(ctx *cli.Context) error {
 			// 	return fmt.Errorf("signer cert cant be nil")
 			// }
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
 			stack, backend := makeFullNode[nist.PrivateKey,nist.PublicKey](ctx)
 			defer stack.Close()
 			startNode(ctx, stack, backend)
@@ -507,14 +523,14 @@ func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 	// close the node when synchronization is complete if user required.
 	if ctx.GlobalBool(utils.ExitWhenSyncedFlag.Name) {
 		go func() {
-			sub := stack.EventMux().Subscribe(downloader.DoneEvent{})
+			sub := stack.EventMux().Subscribe(downloader.DoneEvent[P]{})
 			defer sub.Unsubscribe()
 			for {
 				event := <-sub.Chan()
 				if event == nil {
 					continue
 				}
-				done, ok := event.Data.(downloader.DoneEvent)
+				done, ok := event.Data.(downloader.DoneEvent[P])
 				if !ok {
 					continue
 				}

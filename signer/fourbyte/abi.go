@@ -25,6 +25,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // decodedCallData is an internal type to represent a method call parsed according
@@ -65,14 +66,14 @@ func (cd decodedCallData) String() string {
 
 // verifySelector checks whether the ABI encoded data blob matches the requested
 // function signature.
-func verifySelector(selector string, calldata []byte) (*decodedCallData, error) {
+func verifySelector[P crypto.PublicKey](selector string, calldata []byte) (*decodedCallData, error) {
 	// Parse the selector into an ABI JSON spec
 	abidata, err := parseSelector(selector)
 	if err != nil {
 		return nil, err
 	}
 	// Parse the call data according to the requested selector
-	return parseCallData(calldata, string(abidata))
+	return parseCallData[P](calldata, string(abidata))
 }
 
 // selectorRegexp is used to validate that a 4byte database selector corresponds
@@ -115,7 +116,7 @@ func parseSelector(unescapedSelector string) ([]byte, error) {
 
 // parseCallData matches the provided call data against the ABI definition and
 // returns a struct containing the actual go-typed values.
-func parseCallData(calldata []byte, unescapedAbidata string) (*decodedCallData, error) {
+func parseCallData[P crypto.PublicKey](calldata []byte, unescapedAbidata string) (*decodedCallData, error) {
 	// Validate the call data that it has the 4byte prefix and the rest divisible by 32 bytes
 	if len(calldata) < 4 {
 		return nil, fmt.Errorf("invalid call data, incomplete method signature (%d bytes < 4)", len(calldata))
@@ -127,7 +128,7 @@ func parseCallData(calldata []byte, unescapedAbidata string) (*decodedCallData, 
 		return nil, fmt.Errorf("invalid call data; length should be a multiple of 32 bytes (was %d)", len(argdata))
 	}
 	// Validate the called method and upack the call data accordingly
-	abispec, err := abi.JSON(strings.NewReader(unescapedAbidata))
+	abispec, err := abi.JSON[P](strings.NewReader(unescapedAbidata))
 	if err != nil {
 		return nil, fmt.Errorf("invalid method signature (%q): %v", unescapedAbidata, err)
 	}

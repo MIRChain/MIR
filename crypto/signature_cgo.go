@@ -35,6 +35,12 @@ import (
 
 // Ecrecover returns the uncompressed public key that created the given signature.
 func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
+	if len(digestHash) != 32 {
+		return nil, fmt.Errorf("hash length should be 32 bytes, got %d", len(digestHash))
+	}
+	if len(sig) != 65 {
+		return nil, fmt.Errorf("sig length should be 65 bytes, got %d", len(digestHash))
+	}
 	var pubKey P
 	switch any(&pubKey).(type) {
 	case *nist.PublicKey:
@@ -43,7 +49,7 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		v := int((sig[64]) & ^byte(4))
 		r := new(big.Int).SetBytes(sig[:32])
 		s := new(big.Int).SetBytes(sig[32:64])
-		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), digestHash, r, s, v)
+		X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, digestHash, r, s, v)
 		pubKey := gost3410.PublicKey{
 			C: gost3410.GostCurve,
 			X: X,
@@ -54,19 +60,9 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		}
 		return gost3410.Marshal(gost3410.GostCurve, pubKey.X, pubKey.Y), nil
 	case *csp.PublicKey:
-		hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-		if err != nil {
-			return nil, err
-		}
-		defer hash.Close()
-		_, err = hash.Write(digestHash)
-		if err != nil {
-			return nil, err
-		}
-		digest := hash.Sum(nil)
-		r, s, revHash := RevertCSP(digest, sig)
+		r, s, revHash := RevertCSP(digestHash, sig)
 		pub := make([]byte, 0, 64)
-		X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, int(sig[64]))
+		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, int(sig[64]))
 		if err != nil{
 			return nil, err
 		}
@@ -153,23 +149,13 @@ func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 		}
 		return resSig, nil
 	case *csp.Cert:
-		var resSig []byte
 		defer prv.Close()
-		hash, err := csp.NewHash(csp.HashOptions{SignCert: *prv, HashAlg: csp.GOST_R3411_12_256})
+		var resSig []byte
+		sig, err := csp.Sign(*prv, digestHash)
 		if err != nil {
 			return nil, err
 		}
-		defer hash.Close()
-		_, err = hash.Write(digestHash)
-		if err != nil {
-			return nil, err
-		}
-		digest := hash.Sum(nil)
-		sig, err := hash.Sign()
-		if err != nil {
-			return nil, err
-		}
-		r, s, revHash := RevertCSP(digest, sig)
+		r, s, revHash := RevertCSP(digestHash, sig)
 		pubKey := make([]byte, 64)
 		copy(pubKey[:], prv.Info().PublicKeyBytes()[2:66])
 		reverse(pubKey)

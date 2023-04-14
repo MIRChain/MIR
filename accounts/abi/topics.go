@@ -28,7 +28,7 @@ import (
 )
 
 // MakeTopics converts a filter query argument list into a filter topic set.
-func MakeTopics(query ...[]interface{}) ([][]common.Hash, error) {
+func MakeTopics[P crypto.PublicKey](query ...[]interface{}) ([][]common.Hash, error) {
 	topics := make([][]common.Hash, len(query))
 	for i, filter := range query {
 		for _, rule := range filter {
@@ -68,10 +68,10 @@ func MakeTopics(query ...[]interface{}) ([][]common.Hash, error) {
 				blob := new(big.Int).SetUint64(rule).Bytes()
 				copy(topic[common.HashLength-len(blob):], blob)
 			case string:
-				hash := crypto.Keccak256Hash([]byte(rule))
+				hash := crypto.Keccak256Hash[P]([]byte(rule))
 				copy(topic[:], hash[:])
 			case []byte:
-				hash := crypto.Keccak256Hash(rule)
+				hash := crypto.Keccak256Hash[P](rule)
 				copy(topic[:], hash[:])
 
 			default:

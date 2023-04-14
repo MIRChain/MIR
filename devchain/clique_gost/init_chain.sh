@@ -6,6 +6,6 @@ echo "Cleaned node2"
 rm -rf ./node3/mir/
 echo "Cleaned node3"
 
-../../build/bin/mir --datadir node1/ init genesis.json
-../../build/bin/mir --datadir node2/ init genesis.json
-../../build/bin/mir --datadir node3/ init genesis.json
+../../build/bin/mir --crypto gost --datadir node1/ init genesis.json 
+../../build/bin/mir --crypto gost --datadir node2/ init genesis.json
+../../build/bin/mir --crypto gost --datadir node3/ init genesis.json

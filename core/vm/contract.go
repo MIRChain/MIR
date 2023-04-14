@@ -19,8 +19,9 @@ package vm
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/holiman/uint256"
+	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ContractRef is a reference to the contract's backing object
@@ -42,7 +43,7 @@ func (ar AccountRef) Address() common.Address { return (common.Address)(ar) }
 
 // Contract represents an ethereum contract in the state database. It contains
 // the contract code, calling arguments. Contract implements ContractRef
-type Contract struct {
+type Contract [P crypto.PublicKey] struct {
 	// CallerAddress is the result of the caller which initialised this
 	// contract. However when the "call method" is delegated this value
 	// needs to be initialised to that of the caller's caller.
@@ -63,10 +64,10 @@ type Contract struct {
 }
 
 // NewContract returns a new contract environment for the execution of EVM.
-func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64) *Contract {
-	c := &Contract{CallerAddress: caller.Address(), caller: caller, self: object}
+func NewContract[P crypto.PublicKey](caller ContractRef, object ContractRef, value *big.Int, gas uint64) *Contract[P] {
+	c := &Contract[P]{CallerAddress: caller.Address(), caller: caller, self: object}
 
-	if parent, ok := caller.(*Contract); ok {
+	if parent, ok := caller.(*Contract[P]); ok {
 		// Reuse JUMPDEST analysis from parent context if available.
 		c.jumpdests = parent.jumpdests
 	} else {
@@ -82,7 +83,7 @@ func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uin
 	return c
 }
 
-func (c *Contract) validJumpdest(dest *uint256.Int) bool {
+func (c *Contract[P]) validJumpdest(dest *uint256.Int) bool {
 	udest, overflow := dest.Uint64WithOverflow()
 	// PC cannot go beyond len(code) and certainly can't be bigger than 63bits.
 	// Don't bother checking for JUMPDEST in that case.
@@ -98,7 +99,7 @@ func (c *Contract) validJumpdest(dest *uint256.Int) bool {
 
 // isCode returns true if the provided PC location is an actual opcode, as
 // opposed to a data-segment following a PUSHN operation.
-func (c *Contract) isCode(udest uint64) bool {
+func (c *Contract[P]) isCode(udest uint64) bool {
 	// Do we already have an analysis laying around?
 	if c.analysis != nil {
 		return c.analysis.codeSegment(udest)
@@ -131,10 +132,10 @@ func (c *Contract) isCode(udest uint64) bool {
 
 // AsDelegate sets the contract to be a delegate call and returns the current
 // contract (for chaining calls)
-func (c *Contract) AsDelegate() *Contract {
+func (c *Contract[P]) AsDelegate() *Contract[P] {
 	// NOTE: caller must, at all times be a contract. It should never happen
 	// that caller is something other than a Contract.
-	parent := c.caller.(*Contract)
+	parent := c.caller.(*Contract[P])
 	c.CallerAddress = parent.CallerAddress
 	c.value = parent.value
 
@@ -142,12 +143,12 @@ func (c *Contract) AsDelegate() *Contract {
 }
 
 // GetOp returns the n'th element in the contract's byte array
-func (c *Contract) GetOp(n uint64) OpCode {
+func (c *Contract[P]) GetOp(n uint64) OpCode {
 	return OpCode(c.GetByte(n))
 }
 
 // GetByte returns the n'th byte in the contract's byte array
-func (c *Contract) GetByte(n uint64) byte {
+func (c *Contract[P]) GetByte(n uint64) byte {
 	if n < uint64(len(c.Code)) {
 		return c.Code[n]
 	}
@@ -159,12 +160,12 @@ func (c *Contract) GetByte(n uint64) byte {
 //
 // Caller will recursively call caller when the contract is a delegate
 // call, including that of caller's caller.
-func (c *Contract) Caller() common.Address {
+func (c *Contract[P]) Caller() common.Address {
 	return c.CallerAddress
 }
 
 // UseGas attempts the use gas and subtracts it and returns true on success
-func (c *Contract) UseGas(gas uint64) (ok bool) {
+func (c *Contract[P]) UseGas(gas uint64) (ok bool) {
 	if c.Gas < gas {
 		return false
 	}
@@ -173,18 +174,18 @@ func (c *Contract) UseGas(gas uint64) (ok bool) {
 }
 
 // Address returns the contracts address
-func (c *Contract) Address() common.Address {
+func (c *Contract[P]) Address() common.Address {
 	return c.self.Address()
 }
 
 // Value returns the contract's value (sent to it from it's caller)
-func (c *Contract) Value() *big.Int {
+func (c *Contract[P]) Value() *big.Int {
 	return c.value
 }
 
 // SetCallCode sets the code of the contract and address of the backing data
 // object
-func (c *Contract) SetCallCode(addr *common.Address, hash common.Hash, code []byte) {
+func (c *Contract[P]) SetCallCode(addr *common.Address, hash common.Hash, code []byte) {
 	c.Code = code
 	c.CodeHash = hash
 	c.CodeAddr = addr
@@ -192,7 +193,7 @@ func (c *Contract) SetCallCode(addr *common.Address, hash common.Hash, code []by
 
 // SetCodeOptionalHash can be used to provide code, but it's optional to provide hash.
 // In case hash is not provided, the jumpdest analysis will not be saved to the parent context
-func (c *Contract) SetCodeOptionalHash(addr *common.Address, codeAndHash *codeAndHash) {
+func (c *Contract[P]) SetCodeOptionalHash(addr *common.Address, codeAndHash *codeAndHash[P]) {
 	c.Code = codeAndHash.code
 	c.CodeHash = codeAndHash.hash
 	c.CodeAddr = addr

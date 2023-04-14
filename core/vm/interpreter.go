@@ -49,10 +49,10 @@ type Config [P crypto.PublicKey] struct {
 // passed environment to query external sources for state information.
 // The Interpreter will run the byte code VM based on the passed
 // configuration.
-type Interpreter interface {
+type Interpreter [P crypto.PublicKey] interface {
 	// Run loops and evaluates the contract's code with the given input data and returns
 	// the return byte-slice and an error if one occurred.
-	Run(contract *Contract, input []byte, static bool) ([]byte, error)
+	Run(contract *Contract[P], input []byte, static bool) ([]byte, error)
 	// CanRun tells if the contract, passed as an argument, can be
 	// run by the current interpreter. This is meant so that the
 	// caller can do something like:
@@ -69,10 +69,10 @@ type Interpreter interface {
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
 // but not transients like pc and gas
-type ScopeContext struct {
+type ScopeContext [P crypto.PublicKey] struct {
 	Memory   *Memory
 	Stack    *Stack
-	Contract *Contract
+	Contract *Contract[P]
 }
 
 // keccakState wraps sha3.state. In addition to the usual hash methods, it also supports
@@ -142,7 +142,7 @@ func NewEVMInterpreter[P crypto.PublicKey](evm *EVM[P], cfg Config[P]) *EVMInter
 // It's important to note that any errors returned by the interpreter should be
 // considered a revert-and-consume-all-gas operation except for
 // ErrExecutionReverted which means revert-and-keep-gas-left.
-func (in *EVMInterpreter[P]) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
+func (in *EVMInterpreter[P]) Run(contract *Contract[P], input []byte, readOnly bool) (ret []byte, err error) {
 
 	// Increment the call depth which is restricted to 1024
 	in.evm.depth++
@@ -168,7 +168,7 @@ func (in *EVMInterpreter[P]) Run(contract *Contract, input []byte, readOnly bool
 		op          OpCode        // current opcode
 		mem         = NewMemory() // bound memory
 		stack       = newstack()  // local stack
-		callContext = &ScopeContext{
+		callContext = &ScopeContext[P]{
 			Memory:   mem,
 			Stack:    stack,
 			Contract: contract,

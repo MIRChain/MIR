@@ -33,6 +33,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/leveldb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
@@ -46,13 +47,13 @@ func init() {
 }
 
 // Used for testing
-func newEmpty() *Trie {
-	trie, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+func newEmpty[P crypto.PublicKey]() *Trie[P] {
+	trie, _ := New[P](common.Hash{}, NewDatabase(memorydb.New()))
 	return trie
 }
 
 func TestEmptyTrie(t *testing.T) {
-	var trie Trie
+	var trie Trie[nist.PublicKey]
 	res := trie.Hash()
 	exp := emptyRoot
 	if res != exp {
@@ -61,7 +62,7 @@ func TestEmptyTrie(t *testing.T) {
 }
 
 func TestNull(t *testing.T) {
-	var trie Trie
+	var trie Trie[nist.PublicKey]
 	key := make([]byte, 32)
 	value := []byte("test")
 	trie.Update(key, value)
@@ -71,7 +72,7 @@ func TestNull(t *testing.T) {
 }
 
 func TestMissingRoot(t *testing.T) {
-	trie, err := New(common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(memorydb.New()))
+	trie, err := New[nist.PublicKey](common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(memorydb.New()))
 	if trie != nil {
 		t.Error("New returned non-nil trie for invalid root")
 	}
@@ -80,14 +81,14 @@ func TestMissingRoot(t *testing.T) {
 	}
 }
 
-func TestMissingNodeDisk(t *testing.T)    { testMissingNode(t, false) }
-func TestMissingNodeMemonly(t *testing.T) { testMissingNode(t, true) }
+func TestMissingNodeDisk(t *testing.T)    { testMissingNode[nist.PublicKey](t, false) }
+func TestMissingNodeMemonly(t *testing.T) { testMissingNode[nist.PublicKey](t, true) }
 
-func testMissingNode(t *testing.T, memonly bool) {
+func testMissingNode[P crypto.PublicKey](t *testing.T, memonly bool) {
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
 
-	trie, _ := New(common.Hash{}, triedb)
+	trie, _ := New[P](common.Hash{}, triedb)
 	updateString(trie, "120000", "qwerqwerqwerqwerqwerqwerqwerqwer")
 	updateString(trie, "123456", "asdfasdfasdfasdfasdfasdfasdfasdf")
 	root, _ := trie.Commit(nil)
@@ -95,27 +96,27 @@ func testMissingNode(t *testing.T, memonly bool) {
 		triedb.Commit(root, true, nil)
 	}
 
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err := trie.TryGet([]byte("120000"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err = trie.TryGet([]byte("120099"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err = trie.TryGet([]byte("123456"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	err = trie.TryUpdate([]byte("120099"), []byte("zxcvzxcvzxcvzxcvzxcvzxcvzxcvzxcv"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	err = trie.TryDelete([]byte("123456"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -128,27 +129,27 @@ func testMissingNode(t *testing.T, memonly bool) {
 		diskdb.Delete(hash[:])
 	}
 
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err = trie.TryGet([]byte("120000"))
 	if _, ok := err.(*MissingNodeError); !ok {
 		t.Errorf("Wrong error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err = trie.TryGet([]byte("120099"))
 	if _, ok := err.(*MissingNodeError); !ok {
 		t.Errorf("Wrong error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	_, err = trie.TryGet([]byte("123456"))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	err = trie.TryUpdate([]byte("120099"), []byte("zxcv"))
 	if _, ok := err.(*MissingNodeError); !ok {
 		t.Errorf("Wrong error: %v", err)
 	}
-	trie, _ = New(root, triedb)
+	trie, _ = New[P](root, triedb)
 	err = trie.TryDelete([]byte("123456"))
 	if _, ok := err.(*MissingNodeError); !ok {
 		t.Errorf("Wrong error: %v", err)
@@ -156,7 +157,7 @@ func testMissingNode(t *testing.T, memonly bool) {
 }
 
 func TestInsert(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 
 	updateString(trie, "doe", "reindeer")
 	updateString(trie, "dog", "puppy")
@@ -168,7 +169,7 @@ func TestInsert(t *testing.T) {
 		t.Errorf("case 1: exp %x got %x", exp, root)
 	}
 
-	trie = newEmpty()
+	trie = newEmpty[nist.PublicKey]()
 	updateString(trie, "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
 	exp = common.HexToHash("d23786fb4a010da3ce639d66d5e904a11dbc02746d1ce25029e53290cabf28ab")
@@ -182,7 +183,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	updateString(trie, "doe", "reindeer")
 	updateString(trie, "dog", "puppy")
 	updateString(trie, "dogglesworth", "cat")
@@ -206,7 +207,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	vals := []struct{ k, v string }{
 		{"do", "verb"},
 		{"ether", "wookiedoo"},
@@ -233,7 +234,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestEmptyValues(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 
 	vals := []struct{ k, v string }{
 		{"do", "verb"},
@@ -257,7 +258,7 @@ func TestEmptyValues(t *testing.T) {
 }
 
 func TestReplication(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	vals := []struct{ k, v string }{
 		{"do", "verb"},
 		{"ether", "wookiedoo"},
@@ -276,7 +277,7 @@ func TestReplication(t *testing.T) {
 	}
 
 	// create a new trie on top of the database and check that lookups work.
-	trie2, err := New(exp, trie.db)
+	trie2, err := New[nist.PublicKey](exp, trie.db)
 	if err != nil {
 		t.Fatalf("can't recreate trie at %x: %v", exp, err)
 	}
@@ -314,7 +315,7 @@ func TestReplication(t *testing.T) {
 }
 
 func TestLargeValue(t *testing.T) {
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	trie.Update([]byte("key1"), []byte{99, 99, 99, 99})
 	trie.Update([]byte("key2"), bytes.Repeat([]byte{1}, 32))
 	trie.Hash()
@@ -350,7 +351,7 @@ func TestRandomCases(t *testing.T) {
 		{op: 1, key: common.Hex2Bytes("980c393656413a15c8da01978ed9f89feb80b502f58f2d640e3a2f5f7a99a7018f1b573befd92053ac6f78fca4a87268"), value: common.Hex2Bytes("")}, // step 24
 		{op: 1, key: common.Hex2Bytes("fd"), value: common.Hex2Bytes("")},                                                                                               // step 25
 	}
-	runRandTest(rt)
+	runRandTest[nist.PublicKey](rt)
 
 }
 
@@ -406,10 +407,10 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 	return reflect.ValueOf(steps)
 }
 
-func runRandTest(rt randTest) bool {
+func runRandTest[P crypto.PublicKey](rt randTest) bool {
 	triedb := NewDatabase(memorydb.New())
 
-	tr, _ := New(common.Hash{}, triedb)
+	tr, _ := New[P](common.Hash{}, triedb)
 	values := make(map[string]string) // tracks content of the trie
 
 	for i, step := range rt {
@@ -438,14 +439,14 @@ func runRandTest(rt randTest) bool {
 				rt[i].err = err
 				return false
 			}
-			newtr, err := New(hash, triedb)
+			newtr, err := New[P](hash, triedb)
 			if err != nil {
 				rt[i].err = err
 				return false
 			}
 			tr = newtr
 		case opItercheckhash:
-			checktr, _ := New(common.Hash{}, triedb)
+			checktr, _ := New[P](common.Hash{}, triedb)
 			it := NewIterator(tr.NodeIterator(nil))
 			for it.Next() {
 				checktr.Update(it.Key, it.Value)
@@ -463,7 +464,7 @@ func runRandTest(rt randTest) bool {
 }
 
 func TestRandom(t *testing.T) {
-	if err := quick.Check(runRandTest, nil); err != nil {
+	if err := quick.Check(runRandTest[nist.PublicKey], nil); err != nil {
 		if cerr, ok := err.(*quick.CheckError); ok {
 			t.Fatalf("random test iteration %d failed: %s", cerr.Count, spew.Sdump(cerr.In))
 		}
@@ -473,16 +474,16 @@ func TestRandom(t *testing.T) {
 
 func BenchmarkGet(b *testing.B)      { benchGet(b, false) }
 func BenchmarkGetDB(b *testing.B)    { benchGet(b, true) }
-func BenchmarkUpdateBE(b *testing.B) { benchUpdate(b, binary.BigEndian) }
-func BenchmarkUpdateLE(b *testing.B) { benchUpdate(b, binary.LittleEndian) }
+func BenchmarkUpdateBE(b *testing.B) { benchUpdate[nist.PublicKey](b, binary.BigEndian) }
+func BenchmarkUpdateLE(b *testing.B) { benchUpdate[nist.PublicKey](b, binary.LittleEndian) }
 
 const benchElemCount = 20000
 
 func benchGet(b *testing.B, commit bool) {
-	trie := new(Trie)
+	trie := new(Trie[nist.PublicKey])
 	if commit {
 		_, tmpdb := tempDB()
-		trie, _ = New(common.Hash{}, tmpdb)
+		trie, _ = New[nist.PublicKey](common.Hash{}, tmpdb)
 	}
 	k := make([]byte, 32)
 	for i := 0; i < benchElemCount; i++ {
@@ -507,8 +508,8 @@ func benchGet(b *testing.B, commit bool) {
 	}
 }
 
-func benchUpdate(b *testing.B, e binary.ByteOrder) *Trie {
-	trie := newEmpty()
+func benchUpdate[P crypto.PublicKey](b *testing.B, e binary.ByteOrder) *Trie[P] {
+	trie := newEmpty[P]()
 	k := make([]byte, 32)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -536,16 +537,16 @@ func benchUpdate(b *testing.B, e binary.ByteOrder) *Trie {
 func BenchmarkHash(b *testing.B) {
 	// Create a realistic account trie to hash. We're first adding and hashing N
 	// entries, then adding N more.
-	addresses, accounts := makeAccounts(2 * b.N)
+	addresses, accounts := makeAccounts[nist.PublicKey](2 * b.N)
 	// Insert the accounts into the trie and hash it
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	i := 0
 	for ; i < len(addresses)/2; i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[nist.PublicKey](addresses[i][:]), accounts[i])
 	}
 	trie.Hash()
 	for ; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[nist.PublicKey](addresses[i][:]), accounts[i])
 	}
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -566,7 +567,7 @@ type account struct {
 // insert into the trie before measuring the hashing.
 func BenchmarkCommitAfterHash(b *testing.B) {
 	b.Run("no-onleaf", func(b *testing.B) {
-		benchmarkCommitAfterHash(b, nil)
+		benchmarkCommitAfterHash[nist.PublicKey](b, nil)
 	})
 	var a account
 	onleaf := func(paths [][]byte, hexpath []byte, leaf []byte, parent common.Hash) error {
@@ -574,16 +575,16 @@ func BenchmarkCommitAfterHash(b *testing.B) {
 		return nil
 	}
 	b.Run("with-onleaf", func(b *testing.B) {
-		benchmarkCommitAfterHash(b, onleaf)
+		benchmarkCommitAfterHash[nist.PublicKey](b, onleaf)
 	})
 }
 
-func benchmarkCommitAfterHash(b *testing.B, onleaf LeafCallback) {
+func benchmarkCommitAfterHash[P crypto.PublicKey](b *testing.B, onleaf LeafCallback) {
 	// Make the random benchmark deterministic
-	addresses, accounts := makeAccounts(b.N)
-	trie := newEmpty()
+	addresses, accounts := makeAccounts[P](b.N)
+	trie := newEmpty[nist.PublicKey]()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[P](addresses[i][:]), accounts[i])
 	}
 	// Insert the accounts into the trie and hash it
 	trie.Hash()
@@ -594,8 +595,8 @@ func benchmarkCommitAfterHash(b *testing.B, onleaf LeafCallback) {
 
 func TestTinyTrie(t *testing.T) {
 	// Create a realistic account trie to hash
-	_, accounts := makeAccounts(5)
-	trie := newEmpty()
+	_, accounts := makeAccounts[nist.PublicKey](5)
+	trie := newEmpty[nist.PublicKey]()
 	trie.Update(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000001337"), accounts[3])
 	if exp, root := common.HexToHash("8c6a85a4d9fda98feff88450299e574e5378e32391f75a055d470ac0653f1005"), trie.Hash(); exp != root {
 		t.Errorf("1: got %x, exp %x", root, exp)
@@ -608,7 +609,7 @@ func TestTinyTrie(t *testing.T) {
 	if exp, root := common.HexToHash("0608c1d1dc3905fa22204c7a0e43644831c3b6d3def0f274be623a948197e64a"), trie.Hash(); exp != root {
 		t.Errorf("3: got %x, exp %x", root, exp)
 	}
-	checktr, _ := New(common.Hash{}, trie.db)
+	checktr, _ := New[nist.PublicKey](common.Hash{}, trie.db)
 	it := NewIterator(trie.NodeIterator(nil))
 	for it.Next() {
 		checktr.Update(it.Key, it.Value)
@@ -620,10 +621,10 @@ func TestTinyTrie(t *testing.T) {
 
 func TestCommitAfterHash(t *testing.T) {
 	// Create a realistic account trie to hash
-	addresses, accounts := makeAccounts(1000)
-	trie := newEmpty()
+	addresses, accounts := makeAccounts[nist.PublicKey](1000)
+	trie := newEmpty[nist.PublicKey]()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[nist.PublicKey](addresses[i][:]), accounts[i])
 	}
 	// Insert the accounts into the trie and hash it
 	trie.Hash()
@@ -639,7 +640,7 @@ func TestCommitAfterHash(t *testing.T) {
 	}
 }
 
-func makeAccounts(size int) (addresses [][20]byte, accounts [][]byte) {
+func makeAccounts[P crypto.PublicKey](size int) (addresses [][20]byte, accounts [][]byte) {
 	// Make the random benchmark deterministic
 	random := rand.New(rand.NewSource(0))
 	// Create a realistic account trie to hash
@@ -654,7 +655,7 @@ func makeAccounts(size int) (addresses [][20]byte, accounts [][]byte) {
 		var (
 			nonce = uint64(random.Int63())
 			root  = emptyRoot
-			code  = crypto.Keccak256(nil)
+			code  = crypto.Keccak256[P](nil)
 		)
 		// The big.Rand function is not deterministic with regards to 64 vs 32 bit systems,
 		// and will consume different amount of data from the rand source.
@@ -728,16 +729,16 @@ func TestCommitSequence(t *testing.T) {
 		{2000, common.FromHex("f7a184f20df01c94f09537401d11e68d97ad0c00115233107f51b9c287ce60c7"),
 			common.FromHex("ff795ea898ba1e4cfed4a33b4cf5535a347a02cf931f88d88719faf810f9a1c9")},
 	} {
-		addresses, accounts := makeAccounts(tc.count)
+		addresses, accounts := makeAccounts[nist.PublicKey](tc.count)
 		// This spongeDb is used to check the sequence of disk-db-writes
 		s := &spongeDb{sponge: sha3.NewLegacyKeccak256()}
 		db := NewDatabase(s)
-		trie, _ := New(common.Hash{}, db)
+		trie, _ := New[nist.PublicKey](common.Hash{}, db)
 		// Another sponge is used to check the callback-sequence
 		callbackSponge := sha3.NewLegacyKeccak256()
 		// Fill the trie with elements
 		for i := 0; i < tc.count; i++ {
-			trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+			trie.Update(crypto.Keccak256[nist.PublicKey](addresses[i][:]), accounts[i])
 		}
 		// Flush trie -> database
 		root, _ := trie.Commit(nil)
@@ -774,7 +775,7 @@ func TestCommitSequenceRandomBlobs(t *testing.T) {
 		// This spongeDb is used to check the sequence of disk-db-writes
 		s := &spongeDb{sponge: sha3.NewLegacyKeccak256()}
 		db := NewDatabase(s)
-		trie, _ := New(common.Hash{}, db)
+		trie, _ := New[nist.PublicKey](common.Hash{}, db)
 		// Another sponge is used to check the callback-sequence
 		callbackSponge := sha3.NewLegacyKeccak256()
 		// Fill the trie with elements
@@ -813,10 +814,10 @@ func TestCommitSequenceStackTrie(t *testing.T) {
 		// This spongeDb is used to check the sequence of disk-db-writes
 		s := &spongeDb{sponge: sha3.NewLegacyKeccak256(), id: "a"}
 		db := NewDatabase(s)
-		trie, _ := New(common.Hash{}, db)
+		trie, _ := New[nist.PublicKey](common.Hash{}, db)
 		// Another sponge is used for the stacktrie commits
 		stackTrieSponge := &spongeDb{sponge: sha3.NewLegacyKeccak256(), id: "b"}
-		stTrie := NewStackTrie(stackTrieSponge)
+		stTrie := NewStackTrie[nist.PublicKey](stackTrieSponge)
 		// Fill the trie with elements
 		for i := 1; i < count; i++ {
 			// For the stack trie, we need to do inserts in proper order
@@ -869,10 +870,10 @@ func TestCommitSequenceStackTrie(t *testing.T) {
 func TestCommitSequenceSmallRoot(t *testing.T) {
 	s := &spongeDb{sponge: sha3.NewLegacyKeccak256(), id: "a"}
 	db := NewDatabase(s)
-	trie, _ := New(common.Hash{}, db)
+	trie, _ := New[nist.PublicKey](common.Hash{}, db)
 	// Another sponge is used for the stacktrie commits
 	stackTrieSponge := &spongeDb{sponge: sha3.NewLegacyKeccak256(), id: "b"}
-	stTrie := NewStackTrie(stackTrieSponge)
+	stTrie := NewStackTrie[nist.PublicKey](stackTrieSponge)
 	// Add a single small-element to the trie(s)
 	key := make([]byte, 5)
 	key[0] = 1
@@ -903,47 +904,47 @@ func TestCommitSequenceSmallRoot(t *testing.T) {
 func BenchmarkHashFixedSize(b *testing.B) {
 	b.Run("10", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(20)
+		acc, add := makeAccounts[nist.PublicKey](20)
 		for i := 0; i < b.N; i++ {
-			benchmarkHashFixedSize(b, acc, add)
+			benchmarkHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100)
+		acc, add := makeAccounts[nist.PublicKey](100)
 		for i := 0; i < b.N; i++ {
-			benchmarkHashFixedSize(b, acc, add)
+			benchmarkHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 
 	b.Run("1K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(1000)
+		acc, add := makeAccounts[nist.PublicKey](1000)
 		for i := 0; i < b.N; i++ {
-			benchmarkHashFixedSize(b, acc, add)
+			benchmarkHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("10K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(10000)
+		acc, add := makeAccounts[nist.PublicKey](10000)
 		for i := 0; i < b.N; i++ {
-			benchmarkHashFixedSize(b, acc, add)
+			benchmarkHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100000)
+		acc, add := makeAccounts[nist.PublicKey](100000)
 		for i := 0; i < b.N; i++ {
-			benchmarkHashFixedSize(b, acc, add)
+			benchmarkHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 }
 
-func benchmarkHashFixedSize(b *testing.B, addresses [][20]byte, accounts [][]byte) {
+func benchmarkHashFixedSize[P crypto.PublicKey](b *testing.B, addresses [][20]byte, accounts [][]byte) {
 	b.ReportAllocs()
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[P](addresses[i][:]), accounts[i])
 	}
 	// Insert the accounts into the trie and hash it
 	b.StartTimer()
@@ -954,47 +955,47 @@ func benchmarkHashFixedSize(b *testing.B, addresses [][20]byte, accounts [][]byt
 func BenchmarkCommitAfterHashFixedSize(b *testing.B) {
 	b.Run("10", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(20)
+		acc, add := makeAccounts[nist.PublicKey](20)
 		for i := 0; i < b.N; i++ {
-			benchmarkCommitAfterHashFixedSize(b, acc, add)
+			benchmarkCommitAfterHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100)
+		acc, add := makeAccounts[nist.PublicKey](100)
 		for i := 0; i < b.N; i++ {
-			benchmarkCommitAfterHashFixedSize(b, acc, add)
+			benchmarkCommitAfterHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 
 	b.Run("1K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(1000)
+		acc, add := makeAccounts[nist.PublicKey](1000)
 		for i := 0; i < b.N; i++ {
-			benchmarkCommitAfterHashFixedSize(b, acc, add)
+			benchmarkCommitAfterHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("10K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(10000)
+		acc, add := makeAccounts[nist.PublicKey](10000)
 		for i := 0; i < b.N; i++ {
-			benchmarkCommitAfterHashFixedSize(b, acc, add)
+			benchmarkCommitAfterHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100000)
+		acc, add := makeAccounts[nist.PublicKey](100000)
 		for i := 0; i < b.N; i++ {
-			benchmarkCommitAfterHashFixedSize(b, acc, add)
+			benchmarkCommitAfterHashFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 }
 
-func benchmarkCommitAfterHashFixedSize(b *testing.B, addresses [][20]byte, accounts [][]byte) {
+func benchmarkCommitAfterHashFixedSize[P crypto.PublicKey](b *testing.B, addresses [][20]byte, accounts [][]byte) {
 	b.ReportAllocs()
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[nist.PublicKey](addresses[i][:]), accounts[i])
 	}
 	// Insert the accounts into the trie and hash it
 	trie.Hash()
@@ -1006,47 +1007,47 @@ func benchmarkCommitAfterHashFixedSize(b *testing.B, addresses [][20]byte, accou
 func BenchmarkDerefRootFixedSize(b *testing.B) {
 	b.Run("10", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(20)
+		acc, add := makeAccounts[nist.PublicKey](20)
 		for i := 0; i < b.N; i++ {
-			benchmarkDerefRootFixedSize(b, acc, add)
+			benchmarkDerefRootFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100)
+		acc, add := makeAccounts[nist.PublicKey](100)
 		for i := 0; i < b.N; i++ {
-			benchmarkDerefRootFixedSize(b, acc, add)
+			benchmarkDerefRootFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 
 	b.Run("1K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(1000)
+		acc, add := makeAccounts[nist.PublicKey](1000)
 		for i := 0; i < b.N; i++ {
-			benchmarkDerefRootFixedSize(b, acc, add)
+			benchmarkDerefRootFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("10K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(10000)
+		acc, add := makeAccounts[nist.PublicKey](10000)
 		for i := 0; i < b.N; i++ {
-			benchmarkDerefRootFixedSize(b, acc, add)
+			benchmarkDerefRootFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 	b.Run("100K", func(b *testing.B) {
 		b.StopTimer()
-		acc, add := makeAccounts(100000)
+		acc, add := makeAccounts[nist.PublicKey](100000)
 		for i := 0; i < b.N; i++ {
-			benchmarkDerefRootFixedSize(b, acc, add)
+			benchmarkDerefRootFixedSize[nist.PublicKey](b, acc, add)
 		}
 	})
 }
 
-func benchmarkDerefRootFixedSize(b *testing.B, addresses [][20]byte, accounts [][]byte) {
+func benchmarkDerefRootFixedSize[P crypto.PublicKey](b *testing.B, addresses [][20]byte, accounts [][]byte) {
 	b.ReportAllocs()
-	trie := newEmpty()
+	trie := newEmpty[nist.PublicKey]()
 	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+		trie.Update(crypto.Keccak256[P](addresses[i][:]), accounts[i])
 	}
 	h := trie.Hash()
 	trie.Commit(nil)
@@ -1067,15 +1068,15 @@ func tempDB() (string, *Database) {
 	return dir, NewDatabase(diskdb)
 }
 
-func getString(trie *Trie, k string) []byte {
+func getString[P crypto.PublicKey](trie *Trie[P], k string) []byte {
 	return trie.Get([]byte(k))
 }
 
-func updateString(trie *Trie, k, v string) {
+func updateString[P crypto.PublicKey](trie *Trie[P], k, v string) {
 	trie.Update([]byte(k), []byte(v))
 }
 
-func deleteString(trie *Trie, k string) {
+func deleteString[P crypto.PublicKey](trie *Trie[P], k string) {
 	trie.Delete([]byte(k))
 }
 

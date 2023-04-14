@@ -21,11 +21,12 @@ import (
 	"fmt"
 
 	"github.com/VictoriaMetrics/fastcache"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/trie"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -111,16 +112,16 @@ type Trie interface {
 // NewDatabase creates a backing store for state. The returned database is safe for
 // concurrent use, but does not retain any recent trie nodes in memory. To keep some
 // historical state in memory, use the NewDatabaseWithConfig constructor.
-func NewDatabase(db ethdb.Database) Database {
-	return NewDatabaseWithConfig(db, nil)
+func NewDatabase[P crypto.PublicKey](db ethdb.Database) Database {
+	return NewDatabaseWithConfig[P](db, nil)
 }
 
 // NewDatabaseWithConfig creates a backing store for state. The returned database
 // is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
 // large memory cache.
-func NewDatabaseWithConfig(db ethdb.Database, config *trie.Config) Database {
+func NewDatabaseWithConfig[P crypto.PublicKey](db ethdb.Database, config *trie.Config) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
-	return &cachingDB{
+	return &cachingDB[P]{
 		db:            trie.NewDatabaseWithConfig(db, config),
 		codeSizeCache: csc,
 		codeCache:     fastcache.New(codeCacheSize),
@@ -129,7 +130,7 @@ func NewDatabaseWithConfig(db ethdb.Database, config *trie.Config) Database {
 	}
 }
 
-type cachingDB struct {
+type cachingDB [P crypto.PublicKey] struct {
 	db            *trie.Database
 	codeSizeCache *lru.Cache
 	codeCache     *fastcache.Cache
@@ -141,13 +142,13 @@ type cachingDB struct {
 	accountExtraDataLinker rawdb.AccountExtraDataLinker
 }
 
-func (db *cachingDB) AccountExtraDataLinker() rawdb.AccountExtraDataLinker {
+func (db *cachingDB[P]) AccountExtraDataLinker() rawdb.AccountExtraDataLinker {
 	return db.accountExtraDataLinker
 }
 
 // OpenTrie opens the main account trie at a specific root hash.
-func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
-	tr, err := trie.NewSecure(root, db.db)
+func (db *cachingDB[P]) OpenTrie(root common.Hash) (Trie, error) {
+	tr, err := trie.NewSecure[P](root, db.db)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +156,8 @@ func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 }
 
 // OpenStorageTrie opens the storage trie of an account.
-func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
-	tr, err := trie.NewSecure(root, db.db)
+func (db *cachingDB[P]) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
+	tr, err := trie.NewSecure[P](root, db.db)
 	if err != nil {
 		return nil, err
 	}
@@ -164,9 +165,9 @@ func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
 }
 
 // CopyTrie returns an independent copy of the given trie.
-func (db *cachingDB) CopyTrie(t Trie) Trie {
+func (db *cachingDB[P]) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
-	case *trie.SecureTrie:
+	case *trie.SecureTrie[P]:
 		return t.Copy()
 	default:
 		panic(fmt.Errorf("unknown trie type %T", t))
@@ -174,7 +175,7 @@ func (db *cachingDB) CopyTrie(t Trie) Trie {
 }
 
 // ContractCode retrieves a particular contract's code.
-func (db *cachingDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
+func (db *cachingDB[P]) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
 		return code, nil
 	}
@@ -190,7 +191,7 @@ func (db *cachingDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error
 // ContractCodeWithPrefix retrieves a particular contract's code. If the
 // code can't be found in the cache, then check the existence with **new**
 // db scheme.
-func (db *cachingDB) ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]byte, error) {
+func (db *cachingDB[P]) ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]byte, error) {
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
 		return code, nil
 	}
@@ -204,7 +205,7 @@ func (db *cachingDB) ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]b
 }
 
 // ContractCodeSize retrieves a particular contracts code's size.
-func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
+func (db *cachingDB[P]) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
 	if cached, ok := db.codeSizeCache.Get(codeHash); ok {
 		return cached.(int), nil
 	}
@@ -213,6 +214,6 @@ func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, erro
 }
 
 // TrieDB retrieves any intermediate trie-node caching layer.
-func (db *cachingDB) TrieDB() *trie.Database {
+func (db *cachingDB[P]) TrieDB() *trie.Database {
 	return db.db
 }

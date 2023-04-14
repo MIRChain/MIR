@@ -68,7 +68,7 @@ type SimulatedBackend [P crypto.PublicKey] struct {
 
 	mu           sync.Mutex
 	pendingBlock *types.Block[P]   // Currently pending block that will be imported on request
-	pendingState *state.StateDB // Currently pending state that will be the active on request
+	pendingState *state.StateDB[P] // Currently pending state that will be the active on request
 
 	events *filters.EventSystem[P] // Event system for filtering log events live
 
@@ -144,11 +144,11 @@ func (b *SimulatedBackend[P]) rollback() {
 	blocks, _ := core.GenerateChain[P](b.config, b.blockchain.CurrentBlock(), ethash.NewFaker[P](), b.database, 1, func(int, *core.BlockGen[P]) {})
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), b.blockchain.StateCache(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), b.blockchain.StateCache(), nil)
 }
 
 // stateByBlockNumber retrieves a state by a given blocknumber.
-func (b *SimulatedBackend[P]) stateByBlockNumber(ctx context.Context, blockNumber *big.Int) (*state.StateDB, error) {
+func (b *SimulatedBackend[P]) stateByBlockNumber(ctx context.Context, blockNumber *big.Int) (*state.StateDB[P], error) {
 	if blockNumber == nil || blockNumber.Cmp(b.blockchain.CurrentBlock().Number()) == 0 {
 		statedb, _, err := b.blockchain.State()
 		return statedb, err
@@ -284,7 +284,7 @@ func (b *SimulatedBackend[P]) blockByNumberNoLock(ctx context.Context, number *b
 }
 
 // HeaderByHash returns a block header from the current canonical chain.
-func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -302,7 +302,7 @@ func (b *SimulatedBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
-func (b *SimulatedBackend[P]) HeaderByNumber(ctx context.Context, block *big.Int) (*types.Header, error) {
+func (b *SimulatedBackend[P]) HeaderByNumber(ctx context.Context, block *big.Int) (*types.Header[P], error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -365,8 +365,8 @@ func (b *SimulatedBackend[P]) PendingCodeAt(ctx context.Context, contract common
 	return b.pendingState.GetCode(contract), nil
 }
 
-func newRevertError(result *core.ExecutionResult) *revertError {
-	reason, errUnpack := abi.UnpackRevert(result.Revert())
+func newRevertError[P crypto.PublicKey](result *core.ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert[P](result.Revert())
 	err := errors.New("execution reverted")
 	if errUnpack == nil {
 		err = fmt.Errorf("execution reverted: %v", reason)
@@ -413,7 +413,7 @@ func (b *SimulatedBackend[P]) CallContract(ctx context.Context, call ethereum.Ca
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(res.Revert()) > 0 {
-		return nil, newRevertError(res)
+		return nil, newRevertError[P](res)
 	}
 	return res.Return(), res.Err
 }
@@ -430,7 +430,7 @@ func (b *SimulatedBackend[P]) PendingCallContract(ctx context.Context, call ethe
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(res.Revert()) > 0 {
-		return nil, newRevertError(res)
+		return nil, newRevertError[P](res)
 	}
 	return res.Return(), res.Err
 }
@@ -532,7 +532,7 @@ func (b *SimulatedBackend[P]) EstimateGas(ctx context.Context, call ethereum.Cal
 		if failed {
 			if result != nil && result.Err != vm.ErrOutOfGas {
 				if len(result.Revert()) > 0 {
-					return 0, newRevertError(result)
+					return 0, newRevertError[P](result)
 				}
 				return 0, result.Err
 			}
@@ -545,7 +545,7 @@ func (b *SimulatedBackend[P]) EstimateGas(ctx context.Context, call ethereum.Cal
 
 // callContract implements common code between normal and pending contract calls.
 // state is modified during execution, make sure to copy it if necessary.
-func (b *SimulatedBackend[P]) callContract(ctx context.Context, call ethereum.CallMsg, block *types.Block[P], stateDB *state.StateDB, privateState *state.StateDB) (*core.ExecutionResult, error) {
+func (b *SimulatedBackend[P]) callContract(ctx context.Context, call ethereum.CallMsg, block *types.Block[P], stateDB *state.StateDB[P], privateState *state.StateDB[P]) (*core.ExecutionResult, error) {
 	// Ensure message is initialized properly.
 	if call.GasPrice == nil {
 		call.GasPrice = big.NewInt(1)
@@ -600,7 +600,7 @@ func (b *SimulatedBackend[P]) SendTransaction(ctx context.Context, tx *types.Tra
 	stateDB, _, _ := b.blockchain.State()
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), stateDB.Database(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), stateDB.Database(), nil)
 	return nil
 }
 
@@ -682,9 +682,9 @@ func (b *SimulatedBackend[P]) SubscribeFilterLogs(ctx context.Context, query eth
 }
 
 // SubscribeNewHead returns an event subscription for a new header.
-func (b *SimulatedBackend[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (b *SimulatedBackend[P]) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header[P]) (ethereum.Subscription, error) {
 	// subscribe to a new head
-	sink := make(chan *types.Header)
+	sink := make(chan *types.Header[P])
 	sub := b.events.SubscribeNewHeads(sink)
 
 	return event.NewSubscription(func(quit <-chan struct{}) error {
@@ -724,7 +724,7 @@ func (b *SimulatedBackend[P]) AdjustTime(adjustment time.Duration) error {
 	stateDB, _, _ := b.blockchain.State()
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), stateDB.Database(), nil)
+	b.pendingState, _ = state.New[P](b.pendingBlock.Root(), stateDB.Database(), nil)
 
 	return nil
 }
@@ -761,14 +761,14 @@ func (fb *filterBackend[P]) EventMux() *event.TypeMux { panic("not supported") }
 
 func (fb *filterBackend[P]) PSMR() mps.PrivateStateMetadataResolver { return fb.bc.PrivateStateManager() }
 
-func (fb *filterBackend[P]) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header, error) {
+func (fb *filterBackend[P]) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header[P], error) {
 	if block == rpc.LatestBlockNumber {
 		return fb.bc.CurrentHeader(), nil
 	}
 	return fb.bc.GetHeaderByNumber(uint64(block.Int64())), nil
 }
 
-func (fb *filterBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (fb *filterBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	return fb.bc.GetHeaderByHash(hash), nil
 }
 

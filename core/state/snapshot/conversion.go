@@ -28,6 +28,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -51,19 +52,19 @@ type (
 )
 
 // GenerateAccountTrieRoot takes an account iterator and reproduces the root hash.
-func GenerateAccountTrieRoot(it AccountIterator) (common.Hash, error) {
-	return generateTrieRoot(nil, it, common.Hash{}, stackTrieGenerate, nil, newGenerateStats(), true)
+func GenerateAccountTrieRoot[P crypto.PublicKey](it AccountIterator) (common.Hash, error) {
+	return generateTrieRoot[P](nil, it, common.Hash{}, stackTrieGenerate[P], nil, newGenerateStats(), true)
 }
 
 // GenerateStorageTrieRoot takes a storage iterator and reproduces the root hash.
-func GenerateStorageTrieRoot(account common.Hash, it StorageIterator) (common.Hash, error) {
-	return generateTrieRoot(nil, it, account, stackTrieGenerate, nil, newGenerateStats(), true)
+func GenerateStorageTrieRoot[P crypto.PublicKey](account common.Hash, it StorageIterator) (common.Hash, error) {
+	return generateTrieRoot[P](nil, it, account, stackTrieGenerate[P], nil, newGenerateStats(), true)
 }
 
 // GenerateTrie takes the whole snapshot tree as the input, traverses all the
 // accounts as well as the corresponding storages and regenerate the whole state
 // (account trie + all storage tries).
-func GenerateTrie(snaptree *Tree, root common.Hash, src ethdb.Database, dst ethdb.KeyValueWriter) error {
+func GenerateTrie[P crypto.PublicKey](snaptree *Tree[P], root common.Hash, src ethdb.Database, dst ethdb.KeyValueWriter) error {
 	// Traverse all state by snapshot, re-generate the whole state trie
 	acctIt, err := snaptree.AccountIterator(root, common.Hash{})
 	if err != nil {
@@ -71,9 +72,9 @@ func GenerateTrie(snaptree *Tree, root common.Hash, src ethdb.Database, dst ethd
 	}
 	defer acctIt.Release()
 
-	got, err := generateTrieRoot(dst, acctIt, common.Hash{}, stackTrieGenerate, func(dst ethdb.KeyValueWriter, accountHash, codeHash common.Hash, stat *generateStats) (common.Hash, error) {
+	got, err := generateTrieRoot[P](dst, acctIt, common.Hash{}, stackTrieGenerate[P], func(dst ethdb.KeyValueWriter, accountHash, codeHash common.Hash, stat *generateStats) (common.Hash, error) {
 		// Migrate the code first, commit the contract code into the tmp db.
-		if codeHash != emptyCode {
+		if codeHash != crypto.Keccak256Hash[P](nil) {
 			code := rawdb.ReadCode(src, codeHash)
 			if len(code) == 0 {
 				return common.Hash{}, errors.New("failed to read contract code")
@@ -87,7 +88,7 @@ func GenerateTrie(snaptree *Tree, root common.Hash, src ethdb.Database, dst ethd
 		}
 		defer storageIt.Release()
 
-		hash, err := generateTrieRoot(dst, storageIt, accountHash, stackTrieGenerate, nil, stat, false)
+		hash, err := generateTrieRoot[P](dst, storageIt, accountHash, stackTrieGenerate[P], nil, stat, false)
 		if err != nil {
 			return common.Hash{}, err
 		}
@@ -242,7 +243,7 @@ func runReport(stats *generateStats, stop chan bool) {
 // generateTrieRoot generates the trie hash based on the snapshot iterator.
 // It can be used for generating account trie, storage trie or even the
 // whole state which connects the accounts and the corresponding storages.
-func generateTrieRoot(db ethdb.KeyValueWriter, it Iterator, account common.Hash, generatorFn trieGeneratorFn, leafCallback leafCallbackFn, stats *generateStats, report bool) (common.Hash, error) {
+func generateTrieRoot[P crypto.PublicKey](db ethdb.KeyValueWriter, it Iterator, account common.Hash, generatorFn trieGeneratorFn, leafCallback leafCallbackFn, stats *generateStats, report bool) (common.Hash, error) {
 	var (
 		in      = make(chan trieKV)         // chan to pass leaves
 		out     = make(chan common.Hash, 1) // chan to collect result
@@ -299,7 +300,7 @@ func generateTrieRoot(db ethdb.KeyValueWriter, it Iterator, account common.Hash,
 				fullData []byte
 			)
 			if leafCallback == nil {
-				fullData, err = FullAccountRLP(it.(AccountIterator).Account())
+				fullData, err = FullAccountRLP[P](it.(AccountIterator).Account())
 				if err != nil {
 					return stop(err)
 				}
@@ -311,7 +312,7 @@ func generateTrieRoot(db ethdb.KeyValueWriter, it Iterator, account common.Hash,
 					return stop(err)
 				}
 				// Fetch the next account and process it concurrently
-				account, err := FullAccount(it.(AccountIterator).Account())
+				account, err := FullAccount[P](it.(AccountIterator).Account())
 				if err != nil {
 					return stop(err)
 				}
@@ -360,8 +361,8 @@ func generateTrieRoot(db ethdb.KeyValueWriter, it Iterator, account common.Hash,
 	return stop(nil)
 }
 
-func stackTrieGenerate(db ethdb.KeyValueWriter, in chan trieKV, out chan common.Hash) {
-	t := trie.NewStackTrie(db)
+func stackTrieGenerate[P crypto.PublicKey] (db ethdb.KeyValueWriter, in chan trieKV, out chan common.Hash) {
+	t := trie.NewStackTrie[P](db)
 	for leaf := range in {
 		t.TryUpdate(leaf.key[:], leaf.value)
 	}

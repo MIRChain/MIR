@@ -20,8 +20,8 @@ var (
 )
 
 func init() {
-	payloadHash := crypto.Keccak512([]byte("encrypted-private-payload"))
-	privateTxHash := crypto.Keccak512([]byte("encrypted-private-tx"))
+	payloadHash := crypto.Keccak512[nist.PublicKey]([]byte("encrypted-private-payload"))
+	privateTxHash := crypto.Keccak512[nist.PublicKey]([]byte("encrypted-private-tx"))
 	for i := 0; i < 64; i++ {
 		tmPrivatePayloadHash[i] = payloadHash[i]
 		tmPrivateTxHash[i] = privateTxHash[i]
@@ -31,7 +31,7 @@ func init() {
 func TestBoundContract_Transact_ContractCreation_PrivateTransaction(t *testing.T) {
 	transactor := &mockTransactor{}
 
-	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI[nist.PublicKey]{}, nil, transactor, nil)
 
 	senderNonce := 1
 
@@ -62,7 +62,7 @@ func TestBoundContract_Transact_ContractCreation_PrivateTransaction(t *testing.T
 func TestBoundContract_Transact_ContractCreation_PrivacyPrecompile(t *testing.T) {
 	transactor := &mockTransactor{}
 
-	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](common.Address{}, abi.ABI[nist.PublicKey]{}, nil, transactor, nil)
 
 	senderNonce := 1
 
@@ -113,7 +113,7 @@ func TestBoundContract_Transact_Transaction_PrivateTransaction(t *testing.T) {
 	transactor := &mockTransactor{}
 
 	contractAddr := common.HexToAddress("0x1932c48b2bf8102ba33b4a6b545c32236e342f34")
-	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI[nist.PublicKey]{}, nil, transactor, nil)
 
 	senderNonce := 1
 
@@ -145,7 +145,7 @@ func TestBoundContract_Transact_Transaction_PrivacyPrecompile(t *testing.T) {
 	transactor := &mockTransactor{}
 
 	contractAddr := common.HexToAddress("0x1932c48b2bf8102ba33b4a6b545c32236e342f34")
-	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI{}, nil, transactor, nil)
+	c := NewBoundContract[nist.PublicKey](contractAddr, abi.ABI[nist.PublicKey]{}, nil, transactor, nil)
 
 	senderNonce := 1
 

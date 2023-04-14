@@ -32,7 +32,9 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // Tests that updating a state trie does not leak any database writes prior to
@@ -40,7 +42,7 @@ import (
 func TestUpdateLeaks(t *testing.T) {
 	// Create an empty state database
 	db := rawdb.NewMemoryDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](db), nil)
 
 	// Update it with some accounts
 	for i := byte(0); i < 255; i++ {
@@ -74,10 +76,10 @@ func TestIntermediateLeaks(t *testing.T) {
 	// Create two state databases, one transitioning to the final state, the other final from the beginning
 	transDb := rawdb.NewMemoryDatabase()
 	finalDb := rawdb.NewMemoryDatabase()
-	transState, _ := New(common.Hash{}, NewDatabase(transDb), nil)
-	finalState, _ := New(common.Hash{}, NewDatabase(finalDb), nil)
+	transState, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](transDb), nil)
+	finalState, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](finalDb), nil)
 
-	modify := func(state *StateDB, addr common.Address, i, tweak byte) {
+	modify := func(state *StateDB[nist.PublicKey], addr common.Address, i, tweak byte) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
 		state.SetNonce(addr, uint64(42*i+tweak))
 		if i%2 == 0 {
@@ -150,7 +152,7 @@ func TestIntermediateLeaks(t *testing.T) {
 // https://github.com/pavelkrolevets/MIR-pro/pull/15549.
 func TestCopy(t *testing.T) {
 	// Create a random state test to copy and modify "independently"
-	orig, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	orig, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
 	for i := byte(0); i < 255; i++ {
 		obj := orig.GetOrNewStateObject(common.BytesToAddress([]byte{i}))
@@ -181,7 +183,7 @@ func TestCopy(t *testing.T) {
 	}
 
 	// Finalise the changes on all concurrently
-	finalise := func(wg *sync.WaitGroup, db *StateDB) {
+	finalise := func(wg *sync.WaitGroup, db *StateDB[nist.PublicKey]) {
 		defer wg.Done()
 		db.Finalise(true)
 	}
@@ -213,9 +215,9 @@ func TestCopy(t *testing.T) {
 
 func TestSnapshotRandom(t *testing.T) {
 	config := &quick.Config{MaxCount: 1000}
-	err := quick.Check((*snapshotTest).run, config)
+	err := quick.Check((*snapshotTest[nist.PublicKey]).run, config)
 	if cerr, ok := err.(*quick.CheckError); ok {
-		test := cerr.In[0].(*snapshotTest)
+		test := cerr.In[0].(*snapshotTest[nist.PublicKey])
 		t.Errorf("%v:\n%s", test.err, test)
 	} else if err != nil {
 		t.Error(err)
@@ -233,47 +235,47 @@ func TestSnapshotRandom(t *testing.T) {
 // leading up to it are replayed on a fresh, empty state. The behaviour of all public
 // accessor methods on the reverted state must match the return value of the equivalent
 // methods on the replayed state.
-type snapshotTest struct {
+type snapshotTest [P crypto.PublicKey] struct {
 	addrs     []common.Address // all account addresses
-	actions   []testAction     // modifications to the state
+	actions   []testAction[P]     // modifications to the state
 	snapshots []int            // actions indexes at which snapshot is taken
 	err       error            // failure details are reported through this field
 }
 
-type testAction struct {
+type testAction [P crypto.PublicKey] struct {
 	name   string
-	fn     func(testAction, *StateDB)
+	fn     func(testAction[P], *StateDB[P])
 	args   []int64
 	noAddr bool
 }
 
 // newTestAction creates a random action that changes state.
-func newTestAction(addr common.Address, r *rand.Rand) testAction {
-	actions := []testAction{
+func newTestAction[P crypto.PublicKey](addr common.Address, r *rand.Rand) testAction[P] {
+	actions := []testAction[P]{
 		{
 			name: "SetBalance",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.SetBalance(addr, big.NewInt(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "AddBalance",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.AddBalance(addr, big.NewInt(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "SetNonce",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.SetNonce(addr, uint64(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "SetState",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				var key, val common.Hash
 				binary.BigEndian.PutUint16(key[:], uint16(a.args[0]))
 				binary.BigEndian.PutUint16(val[:], uint16(a.args[1]))
@@ -283,7 +285,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "SetCode",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				code := make([]byte, 16)
 				binary.BigEndian.PutUint64(code, uint64(a.args[0]))
 				binary.BigEndian.PutUint64(code[8:], uint64(a.args[1]))
@@ -293,7 +295,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "SetPrivacyMetadata",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 
 				privFlag := engine.PrivacyFlagType((uint64(a.args[0])%2)*2 + 1) // the only possible values should be 1 and 3
 				b := make([]byte, 8)
@@ -309,19 +311,19 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "CreateAccount",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.CreateAccount(addr)
 			},
 		},
 		{
 			name: "Suicide",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.Suicide(addr)
 			},
 		},
 		{
 			name: "AddRefund",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.AddRefund(uint64(a.args[0]))
 			},
 			args:   make([]int64, 1),
@@ -329,7 +331,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddLog",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				data := make([]byte, 2)
 				binary.BigEndian.PutUint16(data, uint16(a.args[0]))
 				s.AddLog(&types.Log{Address: addr, Data: data})
@@ -338,7 +340,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddPreimage",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				preimage := []byte{1}
 				hash := common.BytesToHash(preimage)
 				s.AddPreimage(hash, preimage)
@@ -347,13 +349,13 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddAddressToAccessList",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.AddAddressToAccessList(addr)
 			},
 		},
 		{
 			name: "AddSlotToAccessList",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction[P], s *StateDB[P]) {
 				s.AddSlotToAccessList(addr,
 					common.Hash{byte(a.args[0])})
 			},
@@ -375,16 +377,16 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 
 // Generate returns a new snapshot test of the given size. All randomness is
 // derived from r.
-func (*snapshotTest) Generate(r *rand.Rand, size int) reflect.Value {
+func (*snapshotTest[P]) Generate(r *rand.Rand, size int) reflect.Value {
 	// Generate random actions.
 	addrs := make([]common.Address, 50)
 	for i := range addrs {
 		addrs[i][0] = byte(i)
 	}
-	actions := make([]testAction, size)
+	actions := make([]testAction[P], size)
 	for i := range actions {
 		addr := addrs[r.Intn(len(addrs))]
-		actions[i] = newTestAction(addr, r)
+		actions[i] = newTestAction[P](addr, r)
 	}
 	// Generate snapshot indexes.
 	nsnapshots := int(math.Sqrt(float64(size)))
@@ -397,10 +399,10 @@ func (*snapshotTest) Generate(r *rand.Rand, size int) reflect.Value {
 		// Try to place the snapshots some number of actions apart from each other.
 		snapshots[i] = (i * snaplen) + r.Intn(snaplen)
 	}
-	return reflect.ValueOf(&snapshotTest{addrs, actions, snapshots, nil})
+	return reflect.ValueOf(&snapshotTest[P]{addrs, actions, snapshots, nil})
 }
 
-func (test *snapshotTest) String() string {
+func (test *snapshotTest[P]) String() string {
 	out := new(bytes.Buffer)
 	sindex := 0
 	for i, action := range test.actions {
@@ -413,10 +415,10 @@ func (test *snapshotTest) String() string {
 	return out.String()
 }
 
-func (test *snapshotTest) run() bool {
+func (test *snapshotTest[P]) run() bool {
 	// Run all actions and create snapshots.
 	var (
-		state, _     = New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		state, _     = New[P](common.Hash{}, NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
 		snapshotRevs = make([]int, len(test.snapshots))
 		sindex       = 0
 	)
@@ -430,7 +432,7 @@ func (test *snapshotTest) run() bool {
 	// Revert all snapshots in reverse order. Each revert must yield a state
 	// that is equivalent to fresh state with all actions up the snapshot applied.
 	for sindex--; sindex >= 0; sindex-- {
-		checkstate, _ := New(common.Hash{}, state.Database(), nil)
+		checkstate, _ := New[P](common.Hash{}, state.Database(), nil)
 		for _, action := range test.actions[:test.snapshots[sindex]] {
 			action.fn(action, checkstate)
 		}
@@ -444,7 +446,7 @@ func (test *snapshotTest) run() bool {
 }
 
 // checkEqual checks that methods of state and checkstate return the same values.
-func (test *snapshotTest) checkEqual(state, checkstate *StateDB) error {
+func (test *snapshotTest[P]) checkEqual(state, checkstate *StateDB[P]) error {
 	for _, addr := range test.addrs {
 		var err error
 		checkeq := func(op string, a, b interface{}) bool {
@@ -491,10 +493,10 @@ func (test *snapshotTest) checkEqual(state, checkstate *StateDB) error {
 }
 
 func TestTouchDelete(t *testing.T) {
-	s := newStateTest()
+	s := newStateTest[nist.PublicKey]()
 	s.state.GetOrNewStateObject(common.Address{})
 	root, _ := s.state.Commit(false)
-	s.state, _ = New(root, s.state.db, s.state.snaps)
+	s.state, _ = New[nist.PublicKey](root, s.state.db, s.state.snaps)
 
 	snapshot := s.state.Snapshot()
 	s.state.AddBalance(common.Address{}, new(big.Int))
@@ -511,7 +513,7 @@ func TestTouchDelete(t *testing.T) {
 // TestCopyOfCopy tests that modified objects are carried over to the copy, and the copy of the copy.
 // See https://github.com/pavelkrolevets/MIR-pro/pull/15225#issuecomment-380191512
 func TestCopyOfCopy(t *testing.T) {
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 	addr := common.HexToAddress("aaaa")
 	state.SetBalance(addr, big.NewInt(42))
 
@@ -528,7 +530,7 @@ func TestCopyOfCopy(t *testing.T) {
 //
 // See https://github.com/pavelkrolevets/MIR-pro/issues/20106.
 func TestCopyCommitCopy(t *testing.T) {
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
 	addr := common.HexToAddress("0xaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
@@ -600,7 +602,7 @@ func TestCopyCommitCopy(t *testing.T) {
 //
 // See https://github.com/pavelkrolevets/MIR-pro/issues/20106.
 func TestCopyCopyCommitCopy(t *testing.T) {
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
 	addr := common.HexToAddress("0xaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
@@ -690,13 +692,13 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 // first, but the journal wiped the entire state object on create-revert.
 func TestDeleteCreateRevert(t *testing.T) {
 	// Create an initial state with a single contract
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
 	addr := common.BytesToAddress([]byte("so"))
 	state.SetBalance(addr, big.NewInt(1))
 
 	root, _ := state.Commit(false)
-	state, _ = New(root, state.db, state.snaps)
+	state, _ = New[nist.PublicKey](root, state.db, state.snaps)
 
 	// Simulate self-destructing in one transaction, then create-reverting in another
 	state.Suicide(addr)
@@ -708,7 +710,7 @@ func TestDeleteCreateRevert(t *testing.T) {
 
 	// Commit the entire state and make sure we don't crash and have the correct state
 	root, _ = state.Commit(true)
-	state, _ = New(root, state.db, state.snaps)
+	state, _ = New[nist.PublicKey](root, state.db, state.snaps)
 
 	if state.getStateObject(addr) != nil {
 		t.Fatalf("self-destructed contract came alive")
@@ -722,9 +724,9 @@ func TestMissingTrieNodes(t *testing.T) {
 
 	// Create an initial state with a few accounts
 	memDb := rawdb.NewMemoryDatabase()
-	db := NewDatabase(memDb)
+	db := NewDatabase[nist.PublicKey](memDb)
 	var root common.Hash
-	state, _ := New(common.Hash{}, db, nil)
+	state, _ := New[nist.PublicKey](common.Hash{}, db, nil)
 	addr := common.BytesToAddress([]byte("so"))
 	{
 		state.SetBalance(addr, big.NewInt(1))
@@ -738,7 +740,7 @@ func TestMissingTrieNodes(t *testing.T) {
 		state.Database().TrieDB().Cap(0)
 	}
 	// Create a new state on the old root
-	state, _ = New(root, db, nil)
+	state, _ = New[nist.PublicKey](root, db, nil)
 	// Now we clear out the memdb
 	it := memDb.NewIterator(nil, nil)
 	for it.Next() {
@@ -772,8 +774,8 @@ func TestStateDBAccessList(t *testing.T) {
 	}
 
 	memDb := rawdb.NewMemoryDatabase()
-	db := NewDatabase(memDb)
-	state, _ := New(common.Hash{}, db, nil)
+	db := NewDatabase[nist.PublicKey](memDb)
+	state, _ := New[nist.PublicKey](common.Hash{}, db, nil)
 	state.accessList = newAccessList()
 
 	verifyAddrs := func(astrings ...string) {
@@ -941,8 +943,8 @@ func TestStateDBAccessList(t *testing.T) {
 func TestStorageRoot(t *testing.T) {
 	var (
 		mem      = rawdb.NewMemoryDatabase()
-		db       = NewDatabase(mem)
-		state, _ = New(common.Hash{}, db, nil)
+		db       = NewDatabase[nist.PublicKey](mem)
+		state, _ = New[nist.PublicKey](common.Hash{}, db, nil)
 		addr     = common.Address{1}
 		key      = common.Hash{1}
 		value    = common.Hash{42}
@@ -974,8 +976,8 @@ func TestStorageRoot(t *testing.T) {
 // Quorum - Privacy Enhancements
 func TestPrivacyMetadataIsSavedOnStateDbCommit(t *testing.T) {
 	ethDb := rawdb.NewMemoryDatabase()
-	stateDb := NewDatabase(ethDb)
-	state, _ := New(common.Hash{}, stateDb, nil)
+	stateDb := NewDatabase[nist.PublicKey](ethDb)
+	state, _ := New[nist.PublicKey](common.Hash{}, stateDb, nil)
 
 	addr := common.Address{1}
 	state.CreateAccount(addr)
@@ -1001,8 +1003,8 @@ func TestPrivacyMetadataIsSavedOnStateDbCommit(t *testing.T) {
 
 func TestPrivacyMetadataIsUpdatedOnAccountReCreateWithDifferentPrivacyMetadata(t *testing.T) {
 	ethDb := rawdb.NewMemoryDatabase()
-	stateDb := NewDatabase(ethDb)
-	state, _ := New(common.Hash{}, stateDb, nil)
+	stateDb := NewDatabase[nist.PublicKey](ethDb)
+	state, _ := New[nist.PublicKey](common.Hash{}, stateDb, nil)
 
 	addr := common.Address{1}
 	state.CreateAccount(addr)
@@ -1038,8 +1040,8 @@ func TestPrivacyMetadataIsUpdatedOnAccountReCreateWithDifferentPrivacyMetadata(t
 
 func TestPrivacyMetadataIsRemovedOnAccountSuicide(t *testing.T) {
 	ethDb := rawdb.NewMemoryDatabase()
-	stateDb := NewDatabase(ethDb)
-	state, _ := New(common.Hash{}, stateDb, nil)
+	stateDb := NewDatabase[nist.PublicKey](ethDb)
+	state, _ := New[nist.PublicKey](common.Hash{}, stateDb, nil)
 
 	addr := common.Address{1}
 	state.CreateAccount(addr)
@@ -1067,8 +1069,8 @@ func TestPrivacyMetadataIsRemovedOnAccountSuicide(t *testing.T) {
 
 func TestPrivacyMetadataChangesAreRolledBackOnRevert(t *testing.T) {
 	ethDb := rawdb.NewMemoryDatabase()
-	stateDb := NewDatabase(ethDb)
-	state, _ := New(common.Hash{}, stateDb, nil)
+	stateDb := NewDatabase[nist.PublicKey](ethDb)
+	state, _ := New[nist.PublicKey](common.Hash{}, stateDb, nil)
 
 	addr := common.Address{1}
 	state.CreateAccount(addr)

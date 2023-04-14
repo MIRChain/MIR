@@ -30,8 +30,8 @@ func UpgradeDB[P crypto.PublicKey](db ethdb.Database, chain chainReader[P]) erro
 	genesisHeader := chain.GetHeaderByNumber(0)
 
 	privateStatesTrieRoot := rawdb.GetPrivateStatesTrieRoot(db, genesisHeader.Root)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(db, nil, nil, false)
-	mpsRepo, err := NewMultiplePrivateStateRepository[P](db, state.NewDatabase(db), privateStatesTrieRoot, privateCacheProvider)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[P](db, nil, nil, false)
+	mpsRepo, err := NewMultiplePrivateStateRepository[P](db, state.NewDatabase[P](db), privateStatesTrieRoot, privateCacheProvider)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func UpgradeDB[P crypto.PublicKey](db ethdb.Database, chain chainReader[P]) erro
 		return err
 	}
 	// pre-populate with dummy one as the state root is derived from block root hash
-	privateState := &managedState{}
+	privateState := &managedState[P]{}
 	mpsRepo.managedStates[types.DefaultPrivateStateIdentifier] = privateState
 	for idx := uint64(1); idx <= currentBlockNumber; idx++ {
 		header := chain.GetHeaderByNumber(idx)
@@ -62,7 +62,7 @@ func UpgradeDB[P crypto.PublicKey](db ethdb.Database, chain chainReader[P]) erro
 					PostState:         receipt.PostState,
 					Status:            1,
 					CumulativeGasUsed: receipt.CumulativeGasUsed,
-					Bloom:             types.Bloom{},
+					Bloom:             types.Bloom[P]{},
 					Logs:              nil,
 					TxHash:            receipt.TxHash,
 					ContractAddress:   receipt.ContractAddress,

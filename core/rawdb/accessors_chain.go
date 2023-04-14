@@ -271,7 +271,7 @@ func WriteFastTxLookupLimit(db ethdb.KeyValueWriter, number uint64) {
 
 // Quorum
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func readHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawValue, *types.Header) {
+func readHeaderRLP[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawValue, *types.Header[P]) {
 	// First try to look up the data in ancient database. Extra hash
 	// comparison is necessary since ancient database only maintains
 	// the canonical data.
@@ -279,7 +279,7 @@ func readHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawVal
 
 	// Quorum: parse header to make sure we compare using the right hash (IBFT hash is based on a filtered header)
 	if len(data) > 0 {
-		header := decodeHeaderRLP(data)
+		header := decodeHeaderRLP[P](data)
 		if header.Hash() == hash {
 			return data, header
 		}
@@ -289,7 +289,7 @@ func readHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawVal
 	// Then try to look up the data in leveldb.
 	data, _ = db.Get(headerKey(number, hash))
 	if len(data) > 0 {
-		return data, decodeHeaderRLP(data) // Quorum: return decodeHeaderRLP(data)
+		return data, decodeHeaderRLP[P](data) // Quorum: return decodeHeaderRLP(data)
 	}
 	// In the background freezer is moving data from leveldb to flatten files.
 	// So during the first check for ancient db, the data is not yet in there,
@@ -299,7 +299,7 @@ func readHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawVal
 
 	// Quorum: parse header to make sure we compare using the right hash (IBFT hash is based on a filtered header)
 	if len(data) > 0 {
-		header := decodeHeaderRLP(data)
+		header := decodeHeaderRLP[P](data)
 		if header.Hash() == hash {
 			return data, header
 		}
@@ -310,8 +310,8 @@ func readHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawVal
 }
 
 // Quorum
-func decodeHeaderRLP(data rlp.RawValue) *types.Header {
-	header := new(types.Header)
+func decodeHeaderRLP[P crypto.PublicKey](data rlp.RawValue) *types.Header[P] {
+	header := new(types.Header[P])
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
 		log.Error("Invalid block header RLP", "err", err)
 		return nil
@@ -320,9 +320,9 @@ func decodeHeaderRLP(data rlp.RawValue) *types.Header {
 }
 
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
+func ReadHeaderRLP[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
 	// Quorum: original code implemented inside `readHeaderRLP(...)` with some modifications from Quorum
-	data, _ := readHeaderRLP(db, hash, number)
+	data, _ := readHeaderRLP[P](db, hash, number)
 	return data
 }
 
@@ -338,8 +338,8 @@ func HasHeader(db ethdb.Reader, hash common.Hash, number uint64) bool {
 }
 
 // ReadHeader retrieves the block header corresponding to the hash.
-func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header {
-	data, header := readHeaderRLP(db, hash, number)
+func ReadHeader[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) *types.Header[P] {
+	data, header := readHeaderRLP[P](db, hash, number)
 	if data == nil {
 		log.Trace("header data not found in ancient or level db", "hash", hash)
 		return nil
@@ -353,7 +353,7 @@ func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header 
 
 // WriteHeader stores a block header into the database and also stores the hash-
 // to-number mapping.
-func WriteHeader(db ethdb.KeyValueWriter, header *types.Header) {
+func WriteHeader[P crypto.PublicKey](db ethdb.KeyValueWriter, header *types.Header[P]) {
 	var (
 		hash   = header.Hash()
 		number = header.Number.Uint64()
@@ -705,7 +705,7 @@ func DeleteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 // Note, due to concurrent download of header and block body the header and thus
 // canonical hash can be stored in the database but the body data not (yet).
 func ReadBlock[P crypto.PublicKey](db ethdb.Reader, hash common.Hash, number uint64) *types.Block[P] {
-	header := ReadHeader(db, hash, number)
+	header := ReadHeader[P](db, hash, number)
 	if header == nil {
 		return nil
 	}
@@ -773,7 +773,7 @@ func DeleteBlockWithoutNumber(db ethdb.KeyValueWriter, hash common.Hash, number 
 const badBlockToKeep = 10
 
 type badBlock [P crypto.PublicKey] struct {
-	Header *types.Header
+	Header *types.Header[P]
 	Body   *types.Body[P]
 }
 
@@ -867,25 +867,25 @@ func DeleteBadBlocks(db ethdb.KeyValueWriter) {
 }
 
 // FindCommonAncestor returns the last common ancestor of two block headers
-func FindCommonAncestor(db ethdb.Reader, a, b *types.Header) *types.Header {
+func FindCommonAncestor[P crypto.PublicKey](db ethdb.Reader, a, b *types.Header[P]) *types.Header[P] {
 	for bn := b.Number.Uint64(); a.Number.Uint64() > bn; {
-		a = ReadHeader(db, a.ParentHash, a.Number.Uint64()-1)
+		a = ReadHeader[P](db, a.ParentHash, a.Number.Uint64()-1)
 		if a == nil {
 			return nil
 		}
 	}
 	for an := a.Number.Uint64(); an < b.Number.Uint64(); {
-		b = ReadHeader(db, b.ParentHash, b.Number.Uint64()-1)
+		b = ReadHeader[P](db, b.ParentHash, b.Number.Uint64()-1)
 		if b == nil {
 			return nil
 		}
 	}
 	for a.Hash() != b.Hash() {
-		a = ReadHeader(db, a.ParentHash, a.Number.Uint64()-1)
+		a = ReadHeader[P](db, a.ParentHash, a.Number.Uint64()-1)
 		if a == nil {
 			return nil
 		}
-		b = ReadHeader(db, b.ParentHash, b.Number.Uint64()-1)
+		b = ReadHeader[P](db, b.ParentHash, b.Number.Uint64()-1)
 		if b == nil {
 			return nil
 		}
@@ -894,7 +894,7 @@ func FindCommonAncestor(db ethdb.Reader, a, b *types.Header) *types.Header {
 }
 
 // ReadHeadHeader returns the current canonical head header.
-func ReadHeadHeader(db ethdb.Reader) *types.Header {
+func ReadHeadHeader[P crypto.PublicKey](db ethdb.Reader) *types.Header[P] {
 	headHeaderHash := ReadHeadHeaderHash(db)
 	if headHeaderHash == (common.Hash{}) {
 		return nil
@@ -903,7 +903,7 @@ func ReadHeadHeader(db ethdb.Reader) *types.Header {
 	if headHeaderNumber == nil {
 		return nil
 	}
-	return ReadHeader(db, headHeaderHash, *headHeaderNumber)
+	return ReadHeader[P](db, headHeaderHash, *headHeaderNumber)
 }
 
 // ReadHeadBlock returns the current canonical head block.

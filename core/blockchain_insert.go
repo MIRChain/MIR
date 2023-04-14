@@ -144,7 +144,7 @@ func (it *insertIterator[P]) peek() (*types.Block[P], error) {
 }
 
 // previous returns the previous header that was being processed, or nil.
-func (it *insertIterator[P]) previous() *types.Header {
+func (it *insertIterator[P]) previous() *types.Header[P] {
 	if it.index < 1 {
 		return nil
 	}

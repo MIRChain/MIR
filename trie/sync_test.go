@@ -22,14 +22,15 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 )
 
 // makeTestTrie create a sample test trie to test node-wise reconstruction.
-func makeTestTrie() (*Database, *SecureTrie, map[string][]byte) {
+func makeTestTrie[P crypto.PublicKey]() (*Database, *SecureTrie[P], map[string][]byte) {
 	// Create an empty trie
 	triedb := NewDatabase(memorydb.New())
-	trie, _ := NewSecure(common.Hash{}, triedb)
+	trie, _ := NewSecure[P](common.Hash{}, triedb)
 
 	// Fill it with some arbitrary data
 	content := make(map[string][]byte)
@@ -58,13 +59,13 @@ func makeTestTrie() (*Database, *SecureTrie, map[string][]byte) {
 
 // checkTrieContents cross references a reconstructed trie with an expected data
 // content map.
-func checkTrieContents(t *testing.T, db *Database, root []byte, content map[string][]byte) {
+func checkTrieContents[P crypto.PublicKey](t *testing.T, db *Database, root []byte, content map[string][]byte) {
 	// Check root availability and trie contents
-	trie, err := NewSecure(common.BytesToHash(root), db)
+	trie, err := NewSecure[P](common.BytesToHash(root), db)
 	if err != nil {
 		t.Fatalf("failed to create trie at %x: %v", root, err)
 	}
-	if err := checkTrieConsistency(db, common.BytesToHash(root)); err != nil {
+	if err := checkTrieConsistency[P](db, common.BytesToHash(root)); err != nil {
 		t.Fatalf("inconsistent trie at %x: %v", root, err)
 	}
 	for key, val := range content {
@@ -75,9 +76,9 @@ func checkTrieContents(t *testing.T, db *Database, root []byte, content map[stri
 }
 
 // checkTrieConsistency checks that all nodes in a trie are indeed present.
-func checkTrieConsistency(db *Database, root common.Hash) error {
+func checkTrieConsistency[P crypto.PublicKey](db *Database, root common.Hash) error {
 	// Create and iterate a trie rooted in a subnode
-	trie, err := NewSecure(root, db)
+	trie, err := NewSecure[P](root, db)
 	if err != nil {
 		return nil // Consider a non existent state consistent
 	}
@@ -91,11 +92,11 @@ func checkTrieConsistency(db *Database, root common.Hash) error {
 func TestEmptySync(t *testing.T) {
 	dbA := NewDatabase(memorydb.New())
 	dbB := NewDatabase(memorydb.New())
-	emptyA, _ := New(common.Hash{}, dbA)
-	emptyB, _ := New(emptyRoot, dbB)
+	emptyA, _ := New[nist.PublicKey](common.Hash{}, dbA)
+	emptyB, _ := New[nist.PublicKey](emptyRoot, dbB)
 
-	for i, trie := range []*Trie{emptyA, emptyB} {
-		sync := NewSync(trie.Hash(), memorydb.New(), nil, NewSyncBloom(1, memorydb.New()))
+	for i, trie := range []*Trie[nist.PublicKey]{emptyA, emptyB} {
+		sync := NewSync[nist.PublicKey](trie.Hash(), memorydb.New(), nil, NewSyncBloom(1, memorydb.New()))
 		if nodes, paths, codes := sync.Missing(1); len(nodes) != 0 || len(paths) != 0 || len(codes) != 0 {
 			t.Errorf("test %d: content requested for empty trie: %v, %v, %v", i, nodes, paths, codes)
 		}
@@ -104,19 +105,19 @@ func TestEmptySync(t *testing.T) {
 
 // Tests that given a root hash, a trie can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go.
-func TestIterativeSyncIndividual(t *testing.T)       { testIterativeSync(t, 1, false) }
-func TestIterativeSyncBatched(t *testing.T)          { testIterativeSync(t, 100, false) }
-func TestIterativeSyncIndividualByPath(t *testing.T) { testIterativeSync(t, 1, true) }
-func TestIterativeSyncBatchedByPath(t *testing.T)    { testIterativeSync(t, 100, true) }
+func TestIterativeSyncIndividual(t *testing.T)       { testIterativeSync[nist.PublicKey](t, 1, false) }
+func TestIterativeSyncBatched(t *testing.T)          { testIterativeSync[nist.PublicKey](t, 100, false) }
+func TestIterativeSyncIndividualByPath(t *testing.T) { testIterativeSync[nist.PublicKey](t, 1, true) }
+func TestIterativeSyncBatchedByPath(t *testing.T)    { testIterativeSync[nist.PublicKey](t, 100, true) }
 
-func testIterativeSync(t *testing.T, count int, bypath bool) {
+func testIterativeSync[P crypto.PublicKey](t *testing.T, count int, bypath bool) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[P]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[P](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	nodes, paths, codes := sched.Missing(count)
 	var (
@@ -143,7 +144,7 @@ func testIterativeSync(t *testing.T, count int, bypath bool) {
 			if err != nil {
 				t.Fatalf("failed to retrieve node data for path %x: %v", path, err)
 			}
-			results[len(hashQueue)+i] = SyncResult{crypto.Keccak256Hash(data), data}
+			results[len(hashQueue)+i] = SyncResult{crypto.Keccak256Hash[P](data), data}
 		}
 		for _, result := range results {
 			if err := sched.Process(result); err != nil {
@@ -165,19 +166,19 @@ func testIterativeSync(t *testing.T, count int, bypath bool) {
 		}
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[P](t, triedb, srcTrie.Hash().Bytes(), srcData)
 }
 
 // Tests that the trie scheduler can correctly reconstruct the state even if only
 // partial results are returned, and the others sent only later.
 func TestIterativeDelayedSync(t *testing.T) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[nist.PublicKey]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[nist.PublicKey](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	nodes, _, codes := sched.Missing(10000)
 	queue := append(append([]common.Hash{}, nodes...), codes...)
@@ -207,23 +208,23 @@ func TestIterativeDelayedSync(t *testing.T) {
 		queue = append(append(queue[len(results):], nodes...), codes...)
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[nist.PublicKey](t, triedb, srcTrie.Hash().Bytes(), srcData)
 }
 
 // Tests that given a root hash, a trie can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go, however in a
 // random order.
-func TestIterativeRandomSyncIndividual(t *testing.T) { testIterativeRandomSync(t, 1) }
-func TestIterativeRandomSyncBatched(t *testing.T)    { testIterativeRandomSync(t, 100) }
+func TestIterativeRandomSyncIndividual(t *testing.T) { testIterativeRandomSync[nist.PublicKey](t, 1) }
+func TestIterativeRandomSyncBatched(t *testing.T)    { testIterativeRandomSync[nist.PublicKey](t, 100) }
 
-func testIterativeRandomSync(t *testing.T, count int) {
+func testIterativeRandomSync[P crypto.PublicKey](t *testing.T, count int) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[P]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[P](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(count)
@@ -259,19 +260,19 @@ func testIterativeRandomSync(t *testing.T, count int) {
 		}
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[P](t, triedb, srcTrie.Hash().Bytes(), srcData)
 }
 
 // Tests that the trie scheduler can correctly reconstruct the state even if only
 // partial results are returned (Even those randomly), others sent only later.
 func TestIterativeRandomDelayedSync(t *testing.T) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[nist.PublicKey]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[nist.PublicKey](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(10000)
@@ -312,19 +313,19 @@ func TestIterativeRandomDelayedSync(t *testing.T) {
 		}
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[nist.PublicKey](t, triedb, srcTrie.Hash().Bytes(), srcData)
 }
 
 // Tests that a trie sync will not request nodes multiple times, even if they
 // have such references.
 func TestDuplicateAvoidanceSync(t *testing.T) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[nist.PublicKey]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[nist.PublicKey](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	nodes, _, codes := sched.Missing(0)
 	queue := append(append([]common.Hash{}, nodes...), codes...)
@@ -359,19 +360,19 @@ func TestDuplicateAvoidanceSync(t *testing.T) {
 		queue = append(append(queue[:0], nodes...), codes...)
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[nist.PublicKey](t, triedb, srcTrie.Hash().Bytes(), srcData)
 }
 
 // Tests that at any point in time during a sync, only complete sub-tries are in
 // the database.
 func TestIncompleteSync(t *testing.T) {
 	// Create a random trie to copy
-	srcDb, srcTrie, _ := makeTestTrie()
+	srcDb, srcTrie, _ := makeTestTrie[nist.PublicKey]()
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[nist.PublicKey](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	var added []common.Hash
 
@@ -401,7 +402,7 @@ func TestIncompleteSync(t *testing.T) {
 		for _, result := range results {
 			added = append(added, result.Hash)
 			// Check that all known sub-tries in the synced trie are complete
-			if err := checkTrieConsistency(triedb, result.Hash); err != nil {
+			if err := checkTrieConsistency[nist.PublicKey](triedb, result.Hash); err != nil {
 				t.Fatalf("trie inconsistent: %v", err)
 			}
 		}
@@ -415,7 +416,7 @@ func TestIncompleteSync(t *testing.T) {
 		value, _ := diskdb.Get(key)
 
 		diskdb.Delete(key)
-		if err := checkTrieConsistency(triedb, added[0]); err == nil {
+		if err := checkTrieConsistency[nist.PublicKey](triedb, added[0]); err == nil {
 			t.Fatalf("trie inconsistency not caught, missing: %x", key)
 		}
 		diskdb.Put(key, value)
@@ -426,12 +427,12 @@ func TestIncompleteSync(t *testing.T) {
 // depth.
 func TestSyncOrdering(t *testing.T) {
 	// Create a random trie to copy
-	srcDb, srcTrie, srcData := makeTestTrie()
+	srcDb, srcTrie, srcData := makeTestTrie[nist.PublicKey]()
 
 	// Create a destination trie and sync with the scheduler, tracking the requests
 	diskdb := memorydb.New()
 	triedb := NewDatabase(diskdb)
-	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
+	sched := NewSync[nist.PublicKey](srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
 	nodes, paths, _ := sched.Missing(1)
 	queue := append([]common.Hash{}, nodes...)
@@ -462,7 +463,7 @@ func TestSyncOrdering(t *testing.T) {
 		reqs = append(reqs, paths...)
 	}
 	// Cross check that the two tries are in sync
-	checkTrieContents(t, triedb, srcTrie.Hash().Bytes(), srcData)
+	checkTrieContents[nist.PublicKey](t, triedb, srcTrie.Hash().Bytes(), srcData)
 
 	// Check that the trie nodes have been requested path-ordered
 	for i := 0; i < len(reqs)-1; i++ {

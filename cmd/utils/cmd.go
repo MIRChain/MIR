@@ -270,7 +270,7 @@ func ExportAppendChain[P crypto.PublicKey](blockchain *core.BlockChain[P], fn st
 }
 
 // ImportPreimages imports a batch of exported hash preimages into the database.
-func ImportPreimages(db ethdb.Database, fn string) error {
+func ImportPreimages[P crypto.PublicKey](db ethdb.Database, fn string) error {
 	log.Info("Importing preimages", "file", fn)
 
 	// Open the file handle and potentially unwrap the gzip stream
@@ -302,7 +302,7 @@ func ImportPreimages(db ethdb.Database, fn string) error {
 			return err
 		}
 		// Accumulate the preimages and flush when enough ws gathered
-		preimages[crypto.Keccak256Hash(blob)] = common.CopyBytes(blob)
+		preimages[crypto.Keccak256Hash[P](blob)] = common.CopyBytes(blob)
 		if len(preimages) > 1024 {
 			rawdb.WritePreimages(db, preimages)
 			preimages = make(map[common.Hash][]byte)

@@ -24,19 +24,20 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 )
 
-func newEmptySecure() *SecureTrie {
-	trie, _ := NewSecure(common.Hash{}, NewDatabase(memorydb.New()))
+func newEmptySecure[P crypto.PublicKey]() *SecureTrie[P] {
+	trie, _ := NewSecure[P](common.Hash{}, NewDatabase(memorydb.New()))
 	return trie
 }
 
 // makeTestSecureTrie creates a large enough secure trie for testing.
-func makeTestSecureTrie() (*Database, *SecureTrie, map[string][]byte) {
+func makeTestSecureTrie[P crypto.PublicKey]() (*Database, *SecureTrie[P], map[string][]byte) {
 	// Create an empty trie
 	triedb := NewDatabase(memorydb.New())
-	trie, _ := NewSecure(common.Hash{}, triedb)
+	trie, _ := NewSecure[P](common.Hash{}, triedb)
 
 	// Fill it with some arbitrary data
 	content := make(map[string][]byte)
@@ -64,7 +65,7 @@ func makeTestSecureTrie() (*Database, *SecureTrie, map[string][]byte) {
 }
 
 func TestSecureDelete(t *testing.T) {
-	trie := newEmptySecure()
+	trie := newEmptySecure[nist.PublicKey]()
 	vals := []struct{ k, v string }{
 		{"do", "verb"},
 		{"ether", "wookiedoo"},
@@ -90,12 +91,12 @@ func TestSecureDelete(t *testing.T) {
 }
 
 func TestSecureGetKey(t *testing.T) {
-	trie := newEmptySecure()
+	trie := newEmptySecure[nist.PublicKey]()
 	trie.Update([]byte("foo"), []byte("bar"))
 
 	key := []byte("foo")
 	value := []byte("bar")
-	seckey := crypto.Keccak256(key)
+	seckey := crypto.Keccak256[nist.PublicKey](key)
 
 	if !bytes.Equal(trie.Get(key), value) {
 		t.Errorf("Get did not return bar")
@@ -107,10 +108,10 @@ func TestSecureGetKey(t *testing.T) {
 
 func TestSecureTrieConcurrency(t *testing.T) {
 	// Create an initial trie and copy if for concurrent access
-	_, trie, _ := makeTestSecureTrie()
+	_, trie, _ := makeTestSecureTrie[nist.PublicKey]()
 
 	threads := runtime.NumCPU()
-	tries := make([]*SecureTrie, threads)
+	tries := make([]*SecureTrie[nist.PublicKey], threads)
 	for i := 0; i < threads; i++ {
 		cpy := *trie
 		tries[i] = &cpy

@@ -27,6 +27,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,14 +92,14 @@ func TestEventId(t *testing.T) {
 			{ "type" : "event", "name" : "Check", "inputs": [{ "name" : "t", "type": "address" }, { "name": "b", "type": "uint256" }] }
 			]`,
 			expectations: map[string]common.Hash{
-				"Balance": crypto.Keccak256Hash([]byte("Balance(uint256)")),
-				"Check":   crypto.Keccak256Hash([]byte("Check(address,uint256)")),
+				"Balance": crypto.Keccak256Hash[nist.PublicKey]([]byte("Balance(uint256)")),
+				"Check":   crypto.Keccak256Hash[nist.PublicKey]([]byte("Check(address,uint256)")),
 			},
 		},
 	}
 
 	for _, test := range table {
-		abi, err := JSON(strings.NewReader(test.definition))
+		abi, err := JSON[nist.PublicKey](strings.NewReader(test.definition))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +132,7 @@ func TestEventString(t *testing.T) {
 	}
 
 	for _, test := range table {
-		abi, err := JSON(strings.NewReader(test.definition))
+		abi, err := JSON[nist.PublicKey](strings.NewReader(test.definition))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +148,7 @@ func TestEventString(t *testing.T) {
 // TestEventMultiValueWithArrayUnpack verifies that array fields will be counted after parsing array.
 func TestEventMultiValueWithArrayUnpack(t *testing.T) {
 	definition := `[{"name": "test", "type": "event", "inputs": [{"indexed": false, "name":"value1", "type":"uint8[2]"},{"indexed": false, "name":"value2", "type":"uint8"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	var i uint8 = 1
@@ -346,7 +347,7 @@ func unpackTestEventData(dest interface{}, hexData string, jsonEvent []byte, ass
 	assert.NoError(err, "Hex data should be a correct hex-string")
 	var e Event
 	assert.NoError(json.Unmarshal(jsonEvent, &e), "Should be able to unmarshal event ABI")
-	a := ABI{Events: map[string]Event{"e": e}}
+	a := ABI[nist.PublicKey]{Events: map[string]Event{"e": e}}
 	return a.UnpackIntoInterface(dest, "e", data)
 }
 
@@ -357,7 +358,7 @@ func TestEventUnpackIndexed(t *testing.T) {
 		Value1 uint8 // indexed
 		Value2 uint8
 	}
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	b.Write(packNum(reflect.ValueOf(uint8(8))))
@@ -374,7 +375,7 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 		Value1 [2]uint8 // indexed
 		Value2 string
 	}
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	stringOut := "abc"

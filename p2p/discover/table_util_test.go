@@ -241,7 +241,7 @@ func hexEncPrivkey[T crypto.PrivateKey](h string) T {
 }
 
 // hexEncPubkey decodes h as a public key.
-func hexEncPubkey(h string) (ret encPubkey) {
+func hexEncPubkey[P crypto.PublicKey] (h string) (ret encPubkey[P]) {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)

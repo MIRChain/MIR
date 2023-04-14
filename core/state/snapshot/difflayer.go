@@ -26,9 +26,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	bloomfilter "github.com/holiman/bloomfilter/v2"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
-	bloomfilter "github.com/holiman/bloomfilter/v2"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -97,9 +98,9 @@ func init() {
 //
 // The goal of a diff layer is to act as a journal, tracking recent modifications
 // made to the state, that have not yet graduated into a semi-immutable state.
-type diffLayer struct {
-	origin *diskLayer // Base disk layer to directly use on bloom misses
-	parent snapshot   // Parent snapshot modified by this one, never nil
+type diffLayer [P crypto.PublicKey] struct {
+	origin *diskLayer[P] // Base disk layer to directly use on bloom misses
+	parent snapshot[P]   // Parent snapshot modified by this one, never nil
 	memory uint64     // Approximate guess as to how much memory we use
 
 	root  common.Hash // Root hash to which this snapshot diff belongs to
@@ -168,9 +169,9 @@ func (h storageBloomHasher) Sum64() uint64 {
 
 // newDiffLayer creates a new diff on top of an existing snapshot, whether that's a low
 // level persistent database or a hierarchical diff already.
-func newDiffLayer(parent snapshot, root common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer {
+func newDiffLayer[P crypto.PublicKey]  (parent snapshot[P], root common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer[P] {
 	// Create the new layer with some pre-allocated data segments
-	dl := &diffLayer{
+	dl := &diffLayer[P]{
 		parent:      parent,
 		root:        root,
 		destructSet: destructs,
@@ -179,9 +180,9 @@ func newDiffLayer(parent snapshot, root common.Hash, destructs map[common.Hash]s
 		storageList: make(map[common.Hash][]common.Hash),
 	}
 	switch parent := parent.(type) {
-	case *diskLayer:
+	case *diskLayer[P]:
 		dl.rebloom(parent)
-	case *diffLayer:
+	case *diffLayer[P]:
 		dl.rebloom(parent.origin)
 	default:
 		panic("unknown parent type")
@@ -211,7 +212,7 @@ func newDiffLayer(parent snapshot, root common.Hash, destructs map[common.Hash]s
 
 // rebloom discards the layer's current bloom and rebuilds it from scratch based
 // on the parent's and the local diffs.
-func (dl *diffLayer) rebloom(origin *diskLayer) {
+func (dl *diffLayer[P]) rebloom(origin *diskLayer[P]) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 
@@ -223,7 +224,7 @@ func (dl *diffLayer) rebloom(origin *diskLayer) {
 	dl.origin = origin
 
 	// Retrieve the parent bloom or create a fresh empty one
-	if parent, ok := dl.parent.(*diffLayer); ok {
+	if parent, ok := dl.parent.(*diffLayer[P]); ok {
 		parent.lock.RLock()
 		dl.diffed, _ = parent.diffed.Copy()
 		parent.lock.RUnlock()
@@ -252,24 +253,24 @@ func (dl *diffLayer) rebloom(origin *diskLayer) {
 }
 
 // Root returns the root hash for which this snapshot was made.
-func (dl *diffLayer) Root() common.Hash {
+func (dl *diffLayer[P]) Root() common.Hash {
 	return dl.root
 }
 
 // Parent returns the subsequent layer of a diff layer.
-func (dl *diffLayer) Parent() snapshot {
+func (dl *diffLayer[P]) Parent() snapshot[P] {
 	return dl.parent
 }
 
 // Stale return whether this layer has become stale (was flattened across) or if
 // it's still live.
-func (dl *diffLayer) Stale() bool {
+func (dl *diffLayer[P]) Stale() bool {
 	return atomic.LoadUint32(&dl.stale) != 0
 }
 
 // Account directly retrieves the account associated with a particular hash in
 // the snapshot slim data format.
-func (dl *diffLayer) Account(hash common.Hash) (*Account, error) {
+func (dl *diffLayer[P]) Account(hash common.Hash) (*Account, error) {
 	data, err := dl.AccountRLP(hash)
 	if err != nil {
 		return nil, err
@@ -288,7 +289,7 @@ func (dl *diffLayer) Account(hash common.Hash) (*Account, error) {
 // hash in the snapshot slim data format.
 //
 // Note the returned account is not a copy, please don't modify it.
-func (dl *diffLayer) AccountRLP(hash common.Hash) ([]byte, error) {
+func (dl *diffLayer[P]) AccountRLP(hash common.Hash) ([]byte, error) {
 	// Check the bloom filter first whether there's even a point in reaching into
 	// all the maps in all the layers below
 	dl.lock.RLock()
@@ -296,7 +297,7 @@ func (dl *diffLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 	if !hit {
 		hit = dl.diffed.Contains(destructBloomHasher(hash))
 	}
-	var origin *diskLayer
+	var origin *diskLayer[P]
 	if !hit {
 		origin = dl.origin // extract origin while holding the lock
 	}
@@ -315,7 +316,7 @@ func (dl *diffLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 // accountRLP is an internal version of AccountRLP that skips the bloom filter
 // checks and uses the internal maps to try and retrieve the data. It's meant
 // to be used if a higher layer's bloom filter hit already.
-func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
+func (dl *diffLayer[P]) accountRLP(hash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -341,7 +342,7 @@ func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
 		return nil, nil
 	}
 	// Account unknown to this diff, resolve from parent
-	if diff, ok := dl.parent.(*diffLayer); ok {
+	if diff, ok := dl.parent.(*diffLayer[P]); ok {
 		return diff.accountRLP(hash, depth+1)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
@@ -354,7 +355,7 @@ func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
 // is consulted.
 //
 // Note the returned slot is not a copy, please don't modify it.
-func (dl *diffLayer) Storage(accountHash, storageHash common.Hash) ([]byte, error) {
+func (dl *diffLayer[P]) Storage(accountHash, storageHash common.Hash) ([]byte, error) {
 	// Check the bloom filter first whether there's even a point in reaching into
 	// all the maps in all the layers below
 	dl.lock.RLock()
@@ -362,7 +363,7 @@ func (dl *diffLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 	if !hit {
 		hit = dl.diffed.Contains(destructBloomHasher(accountHash))
 	}
-	var origin *diskLayer
+	var origin *diskLayer[P]
 	if !hit {
 		origin = dl.origin // extract origin while holding the lock
 	}
@@ -381,7 +382,7 @@ func (dl *diffLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 // storage is an internal version of Storage that skips the bloom filter checks
 // and uses the internal maps to try and retrieve the data. It's meant  to be
 // used if a higher layer's bloom filter hit already.
-func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([]byte, error) {
+func (dl *diffLayer[P]) storage(accountHash, storageHash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -413,7 +414,7 @@ func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([
 		return nil, nil
 	}
 	// Storage slot unknown to this diff, resolve from parent
-	if diff, ok := dl.parent.(*diffLayer); ok {
+	if diff, ok := dl.parent.(*diffLayer[P]); ok {
 		return diff.storage(accountHash, storageHash, depth+1)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
@@ -423,23 +424,23 @@ func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([
 
 // Update creates a new layer on top of the existing snapshot diff tree with
 // the specified data items.
-func (dl *diffLayer) Update(blockRoot common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer {
-	return newDiffLayer(dl, blockRoot, destructs, accounts, storage)
+func (dl *diffLayer[P]) Update(blockRoot common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer[P] {
+	return newDiffLayer[P](dl, blockRoot, destructs, accounts, storage)
 }
 
 // flatten pushes all data from this point downwards, flattening everything into
 // a single diff at the bottom. Since usually the lowermost diff is the largest,
 // the flattening builds up from there in reverse.
-func (dl *diffLayer) flatten() snapshot {
+func (dl *diffLayer[P]) flatten() snapshot[P] {
 	// If the parent is not diff, we're the first in line, return unmodified
-	parent, ok := dl.parent.(*diffLayer)
+	parent, ok := dl.parent.(*diffLayer[P])
 	if !ok {
 		return dl
 	}
 	// Parent is a diff, flatten it first (note, apart from weird corned cases,
 	// flatten will realistically only ever merge 1 layer, so there's no need to
 	// be smarter about grouping flattens together).
-	parent = parent.flatten().(*diffLayer)
+	parent = parent.flatten().(*diffLayer[P])
 
 	parent.lock.Lock()
 	defer parent.lock.Unlock()
@@ -473,7 +474,7 @@ func (dl *diffLayer) flatten() snapshot {
 		parent.storageData[accountHash] = comboData
 	}
 	// Return the combo parent
-	return &diffLayer{
+	return &diffLayer[P]{
 		parent:      parent.parent,
 		origin:      parent.origin,
 		root:        dl.root,
@@ -490,7 +491,7 @@ func (dl *diffLayer) flatten() snapshot {
 // the deleted ones.
 //
 // Note, the returned slice is not a copy, so do not modify it.
-func (dl *diffLayer) AccountList() []common.Hash {
+func (dl *diffLayer[P]) AccountList() []common.Hash {
 	// If an old list already exists, return it
 	dl.lock.RLock()
 	list := dl.accountList
@@ -526,7 +527,7 @@ func (dl *diffLayer) AccountList() []common.Hash {
 // not empty but the flag is true.
 //
 // Note, the returned slice is not a copy, so do not modify it.
-func (dl *diffLayer) StorageList(accountHash common.Hash) ([]common.Hash, bool) {
+func (dl *diffLayer[P]) StorageList(accountHash common.Hash) ([]common.Hash, bool) {
 	dl.lock.RLock()
 	_, destructed := dl.destructSet[accountHash]
 	if _, ok := dl.storageData[accountHash]; !ok {

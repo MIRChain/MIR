@@ -40,7 +40,7 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
 	// emptyCode is the known hash of the empty EVM bytecode.
-	emptyCode = crypto.Keccak256(nil)
+	// emptyCode = crypto.Keccak256(nil)
 )
 
 var (
@@ -195,7 +195,7 @@ func verifyState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 		log.Error("Failed to load head block")
 		return errors.New("no head block")
 	}
-	snaptree, err := snapshot.New(chaindb, trie.NewDatabase(chaindb), 256, headBlock.Root(), false, false, false)
+	snaptree, err := snapshot.New[P](chaindb, trie.NewDatabase(chaindb), 256, headBlock.Root(), false, false, false)
 	if err != nil {
 		log.Error("Failed to open snapshot tree", "err", err)
 		return err
@@ -253,7 +253,7 @@ func traverseState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 		log.Info("Start traversing the state", "root", root, "number", headBlock.NumberU64())
 	}
 	triedb := trie.NewDatabase(chaindb)
-	t, err := trie.NewSecure(root, triedb)
+	t, err := trie.NewSecure[P](root, triedb)
 	if err != nil {
 		log.Error("Failed to open trie", "root", root, "err", err)
 		return err
@@ -274,7 +274,7 @@ func traverseState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 			return err
 		}
 		if acc.Root != emptyRoot {
-			storageTrie, err := trie.NewSecure(acc.Root, triedb)
+			storageTrie, err := trie.NewSecure[P](acc.Root, triedb)
 			if err != nil {
 				log.Error("Failed to open storage trie", "root", acc.Root, "err", err)
 				return err
@@ -288,6 +288,7 @@ func traverseState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 				return storageIter.Err
 			}
 		}
+		var emptyCode = crypto.Keccak256[P](nil)
 		if !bytes.Equal(acc.CodeHash, emptyCode) {
 			code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.CodeHash))
 			if len(code) == 0 {
@@ -343,7 +344,7 @@ func traverseRawState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context)
 		log.Info("Start traversing the state", "root", root, "number", headBlock.NumberU64())
 	}
 	triedb := trie.NewDatabase(chaindb)
-	t, err := trie.NewSecure(root, triedb)
+	t, err := trie.NewSecure[P](root, triedb)
 	if err != nil {
 		log.Error("Failed to open trie", "root", root, "err", err)
 		return err
@@ -380,7 +381,7 @@ func traverseRawState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context)
 				return errors.New("invalid account")
 			}
 			if acc.Root != emptyRoot {
-				storageTrie, err := trie.NewSecure(acc.Root, triedb)
+				storageTrie, err := trie.NewSecure[P](acc.Root, triedb)
 				if err != nil {
 					log.Error("Failed to open storage trie", "root", acc.Root, "err", err)
 					return errors.New("missing storage trie")
@@ -409,6 +410,7 @@ func traverseRawState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context)
 					return storageIter.Error()
 				}
 			}
+			var emptyCode = crypto.Keccak256[P]()
 			if !bytes.Equal(acc.CodeHash, emptyCode) {
 				code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.CodeHash))
 				if len(code) == 0 {

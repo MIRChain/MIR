@@ -54,7 +54,7 @@ type Blockchain [P crypto.PublicKey] interface {
 	Genesis() *types.Block[P]
 
 	// CurrentHeader retrieves the current head header of the canonical chain.
-	CurrentHeader() *types.Header
+	CurrentHeader() *types.Header[P]
 }
 
 // ID is a fork identifier as defined by EIP-2124.

@@ -46,10 +46,10 @@ var (
 // Current state information for building the next block
 type work [P crypto.PublicKey] struct {
 	config       *params.ChainConfig
-	publicState  *state.StateDB
-	privateState *state.StateDB
+	publicState  *state.StateDB[P]
+	privateState *state.StateDB[P]
 	Block        *types.Block[P]
-	header       *types.Header
+	header       *types.Header[P]
 }
 
 type minter [T crypto.PrivateKey, P crypto.PublicKey]  struct {
@@ -269,7 +269,7 @@ func (minter *minter[T,P]) createWork() *work[P] {
 		coinbase = minter.coinbase
 	}
 
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     newBlockNumber,
 		Difficulty: ethash.CalcDifficulty(minter.config, uint64(tstamp), parent.Header()),
@@ -359,7 +359,7 @@ func (minter *minter[T,P]) mintNewBlock() {
 	header.Extra = make([]byte, extraVanity+len(extraSealBytes))
 	copy(header.Extra[extraVanity:], extraSealBytes)
 
-	block := types.NewBlock(header, committedTxes, nil, publicReceipts, new(trie.Trie))
+	block := types.NewBlock(header, committedTxes, nil, publicReceipts, new(trie.Trie[P]))
 
 	log.Info("Generated next block", "block num", block.Number(), "num txes", txCount)
 

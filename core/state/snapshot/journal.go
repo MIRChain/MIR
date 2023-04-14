@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const journalVersion uint64 = 0
@@ -67,7 +68,7 @@ type journalStorage struct {
 }
 
 // loadAndParseJournal tries to parse the snapshot journal in latest format.
-func loadAndParseJournal(db ethdb.KeyValueStore, base *diskLayer) (snapshot, journalGenerator, error) {
+func loadAndParseJournal[P crypto.PublicKey](db ethdb.KeyValueStore, base *diskLayer[P]) (snapshot[P], journalGenerator, error) {
 	// Retrieve the disk layer generator. It must exist, no matter the
 	// snapshot is fully generated or not. Otherwise the entire disk
 	// layer is invalid.
@@ -117,7 +118,7 @@ func loadAndParseJournal(db ethdb.KeyValueStore, base *diskLayer) (snapshot, jou
 		return base, generator, nil
 	}
 	// Load all the snapshot diffs from the journal
-	snapshot, err := loadDiffLayer(base, r)
+	snapshot, err := loadDiffLayer[P](base, r)
 	if err != nil {
 		return nil, journalGenerator{}, err
 	}
@@ -126,7 +127,7 @@ func loadAndParseJournal(db ethdb.KeyValueStore, base *diskLayer) (snapshot, jou
 }
 
 // loadSnapshot loads a pre-existing state snapshot backed by a key-value store.
-func loadSnapshot(diskdb ethdb.KeyValueStore, triedb *trie.Database, cache int, root common.Hash, recovery bool) (snapshot, bool, error) {
+func loadSnapshot[P crypto.PublicKey](diskdb ethdb.KeyValueStore, triedb *trie.Database, cache int, root common.Hash, recovery bool) (snapshot[P], bool, error) {
 	// If snapshotting is disabled (initial sync in progress), don't do anything,
 	// wait for the chain to permit us to do something meaningful
 	if rawdb.ReadSnapshotDisabled(diskdb) {
@@ -138,7 +139,7 @@ func loadSnapshot(diskdb ethdb.KeyValueStore, triedb *trie.Database, cache int, 
 	if baseRoot == (common.Hash{}) {
 		return nil, false, errors.New("missing or corrupted snapshot")
 	}
-	base := &diskLayer{
+	base := &diskLayer[P]{
 		diskdb: diskdb,
 		triedb: triedb,
 		cache:  fastcache.New(cache * 1024 * 1024),
@@ -197,7 +198,7 @@ func loadSnapshot(diskdb ethdb.KeyValueStore, triedb *trie.Database, cache int, 
 
 // loadDiffLayer reads the next sections of a snapshot journal, reconstructing a new
 // diff and verifying that it can be linked to the requested parent.
-func loadDiffLayer(parent snapshot, r *rlp.Stream) (snapshot, error) {
+func loadDiffLayer[P crypto.PublicKey](parent snapshot[P], r *rlp.Stream) (snapshot[P], error) {
 	// Read the next diff journal entry
 	var root common.Hash
 	if err := r.Decode(&root); err != nil {
@@ -243,12 +244,12 @@ func loadDiffLayer(parent snapshot, r *rlp.Stream) (snapshot, error) {
 		}
 		storageData[entry.Hash] = slots
 	}
-	return loadDiffLayer(newDiffLayer(parent, root, destructSet, accountData, storageData), r)
+	return loadDiffLayer[P](newDiffLayer[P](parent, root, destructSet, accountData, storageData), r)
 }
 
 // Journal terminates any in-progress snapshot generation, also implicitly pushing
 // the progress into the database.
-func (dl *diskLayer) Journal(buffer *bytes.Buffer) (common.Hash, error) {
+func (dl *diskLayer[P]) Journal(buffer *bytes.Buffer) (common.Hash, error) {
 	// If the snapshot is currently being generated, abort it
 	var stats *generatorStats
 	if dl.genAbort != nil {
@@ -275,7 +276,7 @@ func (dl *diskLayer) Journal(buffer *bytes.Buffer) (common.Hash, error) {
 
 // Journal writes the memory layer contents into a buffer to be stored in the
 // database as the snapshot journal.
-func (dl *diffLayer) Journal(buffer *bytes.Buffer) (common.Hash, error) {
+func (dl *diffLayer[P]) Journal(buffer *bytes.Buffer) (common.Hash, error) {
 	// Journal the parent first
 	base, err := dl.parent.Journal(buffer)
 	if err != nil {

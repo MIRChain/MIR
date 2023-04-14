@@ -165,7 +165,7 @@ func TestWallet_SignData(t *testing.T) {
 	mockClient := mock_plugin.NewMockService(ctrl)
 	mockClient.
 		EXPECT().
-		Sign(gomock.Any(), acct1, crypto.Keccak256(toSign)).
+		Sign(gomock.Any(), acct1, crypto.Keccak256[nist.PublicKey](toSign)).
 		Return(want, nil)
 
 	w := validWallet(mockClient)
@@ -185,7 +185,7 @@ func TestWallet_SignDataWithPassphrase(t *testing.T) {
 	mockClient := mock_plugin.NewMockService(ctrl)
 	mockClient.
 		EXPECT().
-		UnlockAndSign(gomock.Any(), acct1, crypto.Keccak256(toSign), "pwd").
+		UnlockAndSign(gomock.Any(), acct1, crypto.Keccak256[nist.PublicKey](toSign), "pwd").
 		Return(want, nil)
 
 	w := validWallet(mockClient)

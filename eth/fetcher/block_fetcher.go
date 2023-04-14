@@ -70,7 +70,7 @@ var (
 var errTerminated = errors.New("terminated")
 
 // HeaderRetrievalFn is a callback type for retrieving a header from the local chain.
-type HeaderRetrievalFn func(common.Hash) *types.Header
+type HeaderRetrievalFn[P crypto.PublicKey] func(common.Hash) *types.Header[P]
 
 // blockRetrievalFn is a callback type for retrieving a block from the local chain.
 type blockRetrievalFn[P crypto.PublicKey] func(common.Hash) *types.Block[P]
@@ -82,7 +82,7 @@ type headerRequesterFn func(common.Hash) error
 type bodyRequesterFn func([]common.Hash) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
-type headerVerifierFn func(header *types.Header) error
+type headerVerifierFn[P crypto.PublicKey] func(header *types.Header[P]) error
 
 // blockBroadcasterFn is a callback type for broadcasting a block to connected peers.
 type blockBroadcasterFn[P crypto.PublicKey] func(block *types.Block[P], propagate bool)
@@ -91,7 +91,7 @@ type blockBroadcasterFn[P crypto.PublicKey] func(block *types.Block[P], propagat
 type chainHeightFn func() uint64
 
 // headersInsertFn is a callback type to insert a batch of headers into the local chain.
-type headersInsertFn func(headers []*types.Header) (int, error)
+type headersInsertFn[P crypto.PublicKey] func(headers []*types.Header[P]) (int, error)
 
 // chainInsertFn is a callback type to insert a batch of blocks into the local chain.
 type chainInsertFn[P crypto.PublicKey] func(types.Blocks[P]) (int, error)
@@ -101,10 +101,10 @@ type peerDropFn func(id string)
 
 // blockAnnounce is the hash notification of the availability of a new block in the
 // network.
-type blockAnnounce struct {
+type blockAnnounce [P crypto.PublicKey] struct {
 	hash   common.Hash   // Hash of the block being announced
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
-	header *types.Header // Header of the block partially reassembled (new protocol)
+	header *types.Header[P] // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
 
 	origin string // Identifier of the peer originating the notification
@@ -114,9 +114,9 @@ type blockAnnounce struct {
 }
 
 // headerFilterTask represents a batch of headers needing fetcher filtering.
-type headerFilterTask struct {
+type headerFilterTask [P crypto.PublicKey] struct {
 	peer    string          // The source peer of block headers
-	headers []*types.Header // Collection of headers to filter
+	headers []*types.Header[P] // Collection of headers to filter
 	time    time.Time       // Arrival time of the headers
 }
 
@@ -125,7 +125,7 @@ type headerFilterTask struct {
 type bodyFilterTask [P crypto.PublicKey]struct {
 	peer         string                 // The source peer of block bodies
 	transactions [][]*types.Transaction[P] // Collection of transactions per block bodies
-	uncles       [][]*types.Header      // Collection of uncles per block bodies
+	uncles       [][]*types.Header[P]      // Collection of uncles per block bodies
 	time         time.Time              // Arrival time of the blocks' contents
 }
 
@@ -133,7 +133,7 @@ type bodyFilterTask [P crypto.PublicKey]struct {
 type blockOrHeaderInject [P crypto.PublicKey] struct {
 	origin string
 
-	header *types.Header // Used for light mode fetcher which only cares about header.
+	header *types.Header[P] // Used for light mode fetcher which only cares about header.
 	block  *types.Block[P]  // Used for normal mode fetcher which imports full block.
 }
 
@@ -159,10 +159,10 @@ type BlockFetcher [P crypto.PublicKey] struct {
 	light bool // The indicator whether it's a light fetcher or normal one.
 
 	// Various event channels
-	notify chan *blockAnnounce
+	notify chan *blockAnnounce[P]
 	inject chan *blockOrHeaderInject[P]
 
-	headerFilter chan chan *headerFilterTask
+	headerFilter chan chan *headerFilterTask[P]
 	bodyFilter   chan chan *bodyFilterTask[P]
 
 	done chan common.Hash
@@ -170,10 +170,10 @@ type BlockFetcher [P crypto.PublicKey] struct {
 
 	// Announce states
 	announces  map[string]int                   // Per peer blockAnnounce counts to prevent memory exhaustion
-	announced  map[common.Hash][]*blockAnnounce // Announced blocks, scheduled for fetching
-	fetching   map[common.Hash]*blockAnnounce   // Announced blocks, currently fetching
-	fetched    map[common.Hash][]*blockAnnounce // Blocks with headers fetched, scheduled for body retrieval
-	completing map[common.Hash]*blockAnnounce   // Blocks with headers, currently body-completing
+	announced  map[common.Hash][]*blockAnnounce[P] // Announced blocks, scheduled for fetching
+	fetching   map[common.Hash]*blockAnnounce[P]   // Announced blocks, currently fetching
+	fetched    map[common.Hash][]*blockAnnounce[P] // Blocks with headers fetched, scheduled for body retrieval
+	completing map[common.Hash]*blockAnnounce[P]   // Blocks with headers, currently body-completing
 
 	// Block cache
 	queue  *prque.Prque                         // Queue containing the import operations (block number sorted)
@@ -181,12 +181,12 @@ type BlockFetcher [P crypto.PublicKey] struct {
 	queued map[common.Hash]*blockOrHeaderInject[P] // Set of already queued blocks (to dedup imports)
 
 	// Callbacks
-	getHeader      HeaderRetrievalFn  // Retrieves a header from the local chain
+	getHeader      HeaderRetrievalFn[P]  // Retrieves a header from the local chain
 	getBlock       blockRetrievalFn[P]   // Retrieves a block from the local chain
-	verifyHeader   headerVerifierFn   // Checks if a block's headers have a valid proof of work
+	verifyHeader   headerVerifierFn[P]   // Checks if a block's headers have a valid proof of work
 	broadcastBlock blockBroadcasterFn[P] // Broadcasts a block to connected peers
 	chainHeight    chainHeightFn      // Retrieves the current chain's height
-	insertHeaders  headersInsertFn    // Injects a batch of headers into the chain
+	insertHeaders  headersInsertFn[P]    // Injects a batch of headers into the chain
 	insertChain    chainInsertFn[P]      // Injects a batch of blocks into the chain
 	dropPeer       peerDropFn         // Drops a peer for misbehaving
 
@@ -195,24 +195,24 @@ type BlockFetcher [P crypto.PublicKey] struct {
 	queueChangeHook    func(common.Hash, bool)           // Method to call upon adding or deleting a block from the import queue
 	fetchingHook       func([]common.Hash)               // Method to call upon starting a block (eth/61) or header (eth/62) fetch
 	completingHook     func([]common.Hash)               // Method to call upon starting a block body fetch (eth/62)
-	importedHook       func(*types.Header, *types.Block[P]) // Method to call upon successful header or block import (both eth/61 and eth/62)
+	importedHook       func(*types.Header[P], *types.Block[P]) // Method to call upon successful header or block import (both eth/61 and eth/62)
 }
 
 // NewBlockFetcher creates a block fetcher to retrieve blocks based on hash announcements.
-func NewBlockFetcher[P crypto.PublicKey](light bool, getHeader HeaderRetrievalFn, getBlock blockRetrievalFn[P], verifyHeader headerVerifierFn, broadcastBlock blockBroadcasterFn[P], chainHeight chainHeightFn, insertHeaders headersInsertFn, insertChain chainInsertFn[P], dropPeer peerDropFn) *BlockFetcher[P] {
+func NewBlockFetcher[P crypto.PublicKey](light bool, getHeader HeaderRetrievalFn[P], getBlock blockRetrievalFn[P], verifyHeader headerVerifierFn[P], broadcastBlock blockBroadcasterFn[P], chainHeight chainHeightFn, insertHeaders headersInsertFn[P], insertChain chainInsertFn[P], dropPeer peerDropFn) *BlockFetcher[P] {
 	return &BlockFetcher[P]{
 		light:          light,
-		notify:         make(chan *blockAnnounce),
+		notify:         make(chan *blockAnnounce[P]),
 		inject:         make(chan *blockOrHeaderInject[P]),
-		headerFilter:   make(chan chan *headerFilterTask),
+		headerFilter:   make(chan chan *headerFilterTask[P]),
 		bodyFilter:     make(chan chan *bodyFilterTask[P]),
 		done:           make(chan common.Hash),
 		quit:           make(chan struct{}),
 		announces:      make(map[string]int),
-		announced:      make(map[common.Hash][]*blockAnnounce),
-		fetching:       make(map[common.Hash]*blockAnnounce),
-		fetched:        make(map[common.Hash][]*blockAnnounce),
-		completing:     make(map[common.Hash]*blockAnnounce),
+		announced:      make(map[common.Hash][]*blockAnnounce[P]),
+		fetching:       make(map[common.Hash]*blockAnnounce[P]),
+		fetched:        make(map[common.Hash][]*blockAnnounce[P]),
+		completing:     make(map[common.Hash]*blockAnnounce[P]),
 		queue:          prque.New(nil),
 		queues:         make(map[string]int),
 		queued:         make(map[common.Hash]*blockOrHeaderInject[P]),
@@ -243,7 +243,7 @@ func (f *BlockFetcher[P]) Stop() {
 // the network.
 func (f *BlockFetcher[P]) Notify(peer string, hash common.Hash, number uint64, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
-	block := &blockAnnounce{
+	block := &blockAnnounce[P]{
 		hash:        hash,
 		number:      number,
 		time:        time,
@@ -275,11 +275,11 @@ func (f *BlockFetcher[P]) Enqueue(peer string, block *types.Block[P]) error {
 
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
-func (f *BlockFetcher[P]) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
+func (f *BlockFetcher[P]) FilterHeaders(peer string, headers []*types.Header[P], time time.Time) []*types.Header[P] {
 	log.Trace("Filtering headers", "peer", peer, "headers", len(headers))
 
 	// Send the filter channel to the fetcher
-	filter := make(chan *headerFilterTask)
+	filter := make(chan *headerFilterTask[P])
 
 	select {
 	case f.headerFilter <- filter:
@@ -288,7 +288,7 @@ func (f *BlockFetcher[P]) FilterHeaders(peer string, headers []*types.Header, ti
 	}
 	// Request the filtering of the header list
 	select {
-	case filter <- &headerFilterTask{peer: peer, headers: headers, time: time}:
+	case filter <- &headerFilterTask[P]{peer: peer, headers: headers, time: time}:
 	case <-f.quit:
 		return nil
 	}
@@ -303,7 +303,7 @@ func (f *BlockFetcher[P]) FilterHeaders(peer string, headers []*types.Header, ti
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *BlockFetcher[P]) FilterBodies(peer string, transactions [][]*types.Transaction[P], uncles [][]*types.Header, time time.Time) ([][]*types.Transaction[P], [][]*types.Header) {
+func (f *BlockFetcher[P]) FilterBodies(peer string, transactions [][]*types.Transaction[P], uncles [][]*types.Header[P], time time.Time) ([][]*types.Transaction[P], [][]*types.Header[P]) {
 	log.Trace("Filtering bodies", "peer", peer, "txs", len(transactions), "uncles", len(uncles))
 
 	// Send the filter channel to the fetcher
@@ -508,7 +508,7 @@ func (f *BlockFetcher[P]) loop() {
 			// Headers arrived from a remote peer. Extract those that were explicitly
 			// requested by the fetcher, and return everything else so it's delivered
 			// to other parts of the system.
-			var task *headerFilterTask
+			var task *headerFilterTask[P]
 			select {
 			case task = <-filter:
 			case <-f.quit:
@@ -518,7 +518,7 @@ func (f *BlockFetcher[P]) loop() {
 
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
-			unknown, incomplete, complete, lightHeaders := []*types.Header{}, []*blockAnnounce{}, []*types.Block[P]{}, []*blockAnnounce{}
+			unknown, incomplete, complete, lightHeaders := []*types.Header[P]{}, []*blockAnnounce[P]{}, []*types.Block[P]{}, []*blockAnnounce[P]{}
 			for _, header := range task.headers {
 				hash := header.Hash()
 
@@ -547,7 +547,7 @@ func (f *BlockFetcher[P]) loop() {
 						announce.time = task.time
 
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash {
+						if header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash[P]() {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
 							block := types.NewBlockWithHeader[P](header)
@@ -570,7 +570,7 @@ func (f *BlockFetcher[P]) loop() {
 			}
 			headerFilterOutMeter.Mark(int64(len(unknown)))
 			select {
-			case filter <- &headerFilterTask{headers: unknown, time: task.time}:
+			case filter <- &headerFilterTask[P]{headers: unknown, time: task.time}:
 			case <-f.quit:
 				return
 			}
@@ -626,7 +626,7 @@ func (f *BlockFetcher[P]) loop() {
 							continue
 						}
 						if txnHash == (common.Hash{}) {
-							txnHash = types.DeriveSha(types.Transactions[P](task.transactions[i]), trie.NewStackTrie(nil))
+							txnHash = types.DeriveSha(types.Transactions[P](task.transactions[i]), trie.NewStackTrie[P](nil))
 						}
 						if txnHash != announce.header.TxHash {
 							continue
@@ -706,7 +706,7 @@ func (f *BlockFetcher[P]) rescheduleComplete(complete *time.Timer) {
 
 // enqueue schedules a new header or block import operation, if the component
 // to be imported has not yet been seen.
-func (f *BlockFetcher[P]) enqueue(peer string, header *types.Header, block *types.Block[P]) {
+func (f *BlockFetcher[P]) enqueue(peer string, header *types.Header[P], block *types.Block[P]) {
 	var (
 		hash   common.Hash
 		number uint64
@@ -752,7 +752,7 @@ func (f *BlockFetcher[P]) enqueue(peer string, header *types.Header, block *type
 // importHeaders spawns a new goroutine to run a header insertion into the chain.
 // If the header's number is at the same height as the current import phase, it
 // updates the phase states accordingly.
-func (f *BlockFetcher[P]) importHeaders(peer string, header *types.Header) {
+func (f *BlockFetcher[P]) importHeaders(peer string, header *types.Header[P]) {
 	hash := header.Hash()
 	log.Debug("Importing propagated header", "peer", peer, "number", header.Number, "hash", hash)
 
@@ -771,7 +771,7 @@ func (f *BlockFetcher[P]) importHeaders(peer string, header *types.Header) {
 			return
 		}
 		// Run the actual import and log any issues
-		if _, err := f.insertHeaders([]*types.Header{header}); err != nil {
+		if _, err := f.insertHeaders([]*types.Header[P]{header}); err != nil {
 			log.Debug("Propagated header import failed", "peer", peer, "number", header.Number, "hash", hash, "err", err)
 			return
 		}
