@@ -28,22 +28,22 @@ import (
 )
 
 var (
-	c1 = &contract{
+	c1 = &contract[nist.PublicKey]{
 		name:     "c1",
-		abi:      mustParse(c1AbiDefinition),
+		abi:      mustParse[nist.PublicKey](c1AbiDefinition),
 		bytecode: common.Hex2Bytes("608060405234801561001057600080fd5b506040516020806105a88339810180604052602081101561003057600080fd5b81019080805190602001909291905050508060008190555050610550806100586000396000f3fe608060405260043610610051576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b1146100565780636d4ce63c146100a5578063d7139463146100d0575b600080fd5b34801561006257600080fd5b5061008f6004803603602081101561007957600080fd5b810190808035906020019092919050505061010b565b6040518082815260200191505060405180910390f35b3480156100b157600080fd5b506100ba61011e565b6040518082815260200191505060405180910390f35b3480156100dc57600080fd5b50610109600480360360208110156100f357600080fd5b8101908080359060200190929190505050610127565b005b6000816000819055506000549050919050565b60008054905090565b600030610132610212565b808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001915050604051809103906000f080158015610184573d6000803e3d6000fd5b5090508073ffffffffffffffffffffffffffffffffffffffff166360fe47b1836040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050600060405180830381600087803b1580156101f657600080fd5b505af115801561020a573d6000803e3d6000fd5b505050505050565b604051610302806102238339019056fe608060405234801561001057600080fd5b506040516020806103028339810180604052602081101561003057600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610271806100916000396000f3fe608060405260043610610046576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b11461004b5780636d4ce63c14610086575b600080fd5b34801561005757600080fd5b506100846004803603602081101561006e57600080fd5b81019080803590602001909291905050506100b1565b005b34801561009257600080fd5b5061009b610180565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166360fe47b1826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050602060405180830381600087803b15801561014157600080fd5b505af1158015610155573d6000803e3d6000fd5b505050506040513d602081101561016b57600080fd5b81019080805190602001909291905050505050565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040160206040518083038186803b15801561020557600080fd5b505afa158015610219573d6000803e3d6000fd5b505050506040513d602081101561022f57600080fd5b810190808051906020019092919050505090509056fea165627a7a72305820a537f4c360ce5c6f55523298e314e6456e5c3e02c170563751dfda37d3aeddb30029a165627a7a7230582060396bfff29d2dfc5a9f4216bfba5e24d031d54fd4b26ebebde1a26c59df0c1e0029"),
 	}
-	c2 = &contract{
+	c2 = &contract[nist.PublicKey]{
 		name:     "c2",
-		abi:      mustParse(c2AbiDefinition),
+		abi:      mustParse[nist.PublicKey](c2AbiDefinition),
 		bytecode: common.Hex2Bytes("608060405234801561001057600080fd5b506040516020806102f58339810180604052602081101561003057600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610264806100916000396000f3fe608060405234801561001057600080fd5b5060043610610053576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b1146100585780636d4ce63c14610086575b600080fd5b6100846004803603602081101561006e57600080fd5b81019080803590602001909291905050506100a4565b005b61008e610173565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166360fe47b1826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050602060405180830381600087803b15801561013457600080fd5b505af1158015610148573d6000803e3d6000fd5b505050506040513d602081101561015e57600080fd5b81019080805190602001909291905050505050565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040160206040518083038186803b1580156101f857600080fd5b505afa15801561020c573d6000803e3d6000fd5b505050506040513d602081101561022257600080fd5b810190808051906020019092919050505090509056fea165627a7a72305820dd8a5dcf693e1969289c444a282d0684a9760bac26f1e4e0139d46821ec1979b0029"),
 	}
 
 	// exec hash helper vars (accounts/tries)
 	signingAddress = common.StringToAddress("contract")
 
-	c1AccAddress = crypto.CreateAddress(signingAddress, 0)
-	c2AccAddress = crypto.CreateAddress(signingAddress, 1)
+	c1AccAddress = crypto.CreateAddress[nist.PublicKey](signingAddress, 0)
+	c2AccAddress = crypto.CreateAddress[nist.PublicKey](signingAddress, 1)
 
 	// this is used as the field key in account storage (which is the index/sequence of the field in the contract)
 	// both contracts have only one field (c1 - has the value while c2 has c1's address)
@@ -55,9 +55,9 @@ var (
 	valC1Address = append(common.Hex2Bytes("000000000000000000000000"), c1AccAddress.Bytes()...)
 
 	// this is the contract storage trie after storing value 42
-	c1StorageTrieWithValue42   = secureTrieWithStoredValue(firstFieldKey, val42)
-	c1StorageTrieWithValue53   = secureTrieWithStoredValue(firstFieldKey, val53)
-	c2StorageTrieWithC1Address = secureTrieWithStoredValue(firstFieldKey, valC1Address)
+	c1StorageTrieWithValue42   = secureTrieWithStoredValue[nist.PublicKey](firstFieldKey, val42)
+	c1StorageTrieWithValue53   = secureTrieWithStoredValue[nist.PublicKey](firstFieldKey, val53)
+	c2StorageTrieWithC1Address = secureTrieWithStoredValue[nist.PublicKey](firstFieldKey, valC1Address)
 
 	// The contract bytecode above includes the constructor bytecode (which is removed by the EVM before storing the
 	// contract bytecode) thus it can't be used to calculate the code hash for the contract.
@@ -69,13 +69,13 @@ var (
 	c2AccountWithC1AddressStored = &state.Account{Nonce: 1, Balance: big.NewInt(0), Root: c2StorageTrieWithC1Address.Hash(), CodeHash: c2CodeHash.Bytes()}
 )
 
-type contract struct {
-	abi      abi.ABI
+type contract [P crypto.PublicKey] struct {
+	abi      abi.ABI[P]
 	bytecode []byte
 	name     string
 }
 
-func (c *contract) create(args ...interface{}) []byte {
+func (c *contract[P]) create(args ...interface{}) []byte {
 	bytes, err := c.abi.Pack("", args...)
 	if err != nil {
 		panic("can't pack: " + err.Error())
@@ -83,7 +83,7 @@ func (c *contract) create(args ...interface{}) []byte {
 	return append(c.bytecode, bytes...)
 }
 
-func (c *contract) set(value int64) []byte {
+func (c *contract[P]) set(value int64) []byte {
 	bytes, err := c.abi.Pack("set", big.NewInt(value))
 	if err != nil {
 		panic("can't pack: " + err.Error())
@@ -91,7 +91,7 @@ func (c *contract) set(value int64) []byte {
 	return bytes
 }
 
-func (c *contract) get() []byte {
+func (c *contract[P]) get() []byte {
 	bytes, err := c.abi.Pack("get")
 	if err != nil {
 		panic("can't pack: " + err.Error())
@@ -104,8 +104,8 @@ func init() {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 }
 
-func secureTrieWithStoredValue(key []byte, value []byte) *trie.SecureTrie {
-	res, _ := trie.NewSecure(common.Hash{}, trie.NewDatabase(rawdb.NewMemoryDatabase()))
+func secureTrieWithStoredValue[P crypto.PublicKey](key []byte, value []byte) *trie.SecureTrie[P] {
+	res, _ := trie.NewSecure[P](common.Hash{}, trie.NewDatabase(rawdb.NewMemoryDatabase()))
 	v, _ := rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
 	res.Update(key, v)
 	return res
@@ -113,7 +113,7 @@ func secureTrieWithStoredValue(key []byte, value []byte) *trie.SecureTrie {
 
 func contractCodeHashes() (c1CodeHash common.Hash, c2CodeHash common.Hash) {
 	assert := testifyassert.New(nil)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create public c1
 	cfg.setData(c1.create(big.NewInt(42)))
@@ -137,7 +137,7 @@ func TestApplyMessage_Private_whenTypicalCreate_Success(t *testing.T) {
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
-	cfg := newConfig().
+	cfg := newConfig[nist.PublicKey]().
 		setPrivacyFlag(engine.PrivacyFlagStandardPrivate).
 		setData([]byte("arbitrary encrypted payload hash"))
 	gp := new(GasPool).AddGas(math.MaxUint64)
@@ -163,7 +163,7 @@ func TestApplyMessage_Private_whenCreatePartyProtectionC1_Success(t *testing.T) 
 	assert := testifyassert.New(t)
 
 	// calling C1.Create party protection
-	cfg := newConfig().
+	cfg := newConfig[nist.PublicKey]().
 		setPrivacyFlag(engine.PrivacyFlagPartyProtection).
 		setData([]byte("arbitrary encrypted payload hash"))
 	gp := new(GasPool).AddGas(math.MaxUint64)
@@ -189,7 +189,7 @@ func TestApplyMessage_Private_whenCreatePartyProtectionC1WithPrivacyEnhancements
 	assert := testifyassert.New(t)
 
 	// calling C1.Create party protection
-	cfg := newConfig().
+	cfg := newConfig[nist.PublicKey]().
 		setPrivacyFlag(engine.PrivacyFlagPartyProtection).
 		setData([]byte("arbitrary encrypted payload hash"))
 
@@ -218,7 +218,7 @@ func TestApplyMessage_Private_whenInteractWithPartyProtectionC1_Success(t *testi
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	//create party protection c1
 	c1EncPayloadHash := []byte("c1")
@@ -253,13 +253,13 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testi
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	//create state validation c1
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -268,7 +268,7 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testi
 		setNonce(1).
 		setTo(c1Address)
 	privateMsg := newTypicalPrivateMessage(cfg)
-	mr, _ := calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored})
+	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored})
 	//since state validation need ACHashes, MerkleRoot and PrivacyFlag
 	mockPM.When("Receive").Return(c1.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -291,13 +291,13 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithEmptyMRFromTe
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create state validation c1
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -328,13 +328,13 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithWrongMRFromTe
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	//create state validation c1
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -367,7 +367,7 @@ func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	//act like doesnt exist on non-party node
 	c1EncPayloadHash := []byte("c1")
@@ -401,7 +401,7 @@ func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	//act like doesnt exist on non-party node
 	c1EncPayloadHash := []byte("c1")
@@ -436,7 +436,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsExistingStandardPriv
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create c1 like c1 already exist before privacy enhancements
 	c1EncPayloadHash := []byte("c1")
@@ -478,7 +478,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsNewStandardPrivateC1
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create default standard private c1
 	c1EncPayloadHash := []byte("c1")
@@ -520,7 +520,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPartyProtectionC
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create party protection c1
 	c1EncPayloadHash := []byte("c1")
@@ -565,7 +565,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2AndC1ButMissingC1CreationInTe
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create c1 as a party protection
 	c1EncPayloadHash := []byte("c1")
@@ -612,7 +612,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2AndC1AndC0ButMissingC0InState
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create party protection c1
 	c1EncPayloadHash := []byte("c1")
@@ -658,13 +658,13 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create party protection c1
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// create state validation c2
@@ -672,7 +672,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c2EncPayloadHash).
 		setNonce(1)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	c2Address := createContract(cfg, mockPM, assert, c2, c1Address)
 
 	// calling C2.Set() state validation
@@ -681,11 +681,11 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 		setNonce(2).
 		setTo(c2Address)
 
-	stuff := crypto.Keccak256Hash(c2.bytecode)
+	stuff := crypto.Keccak256Hash[nist.PublicKey](c2.bytecode)
 	log.Trace("stuff", "c2code", stuff[:])
 
 	privateMsg := newTypicalPrivateMessage(cfg)
-	mr, _ := calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	//since state validation need ACHashes, PrivacyFlag & MerkleRoot
 	mockPM.When("Receive").Return(c2.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -709,7 +709,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create party protection c1
 	c1EncPayloadHash := []byte("c1")
@@ -722,7 +722,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c2EncPayloadHash).
 		setNonce(1)
-	cfg.acMerkleRoot, _ = calcAccMR(accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	c2Address := createContract(cfg, mockPM, assert, c2, c1Address)
 
 	// calling C2.Set() state validation
@@ -732,7 +732,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC
 		setTo(c2Address)
 	privateMsg := newTypicalPrivateMessage(cfg)
 	// use the correctly calculated MR so that it can't be a source of false positives
-	mr, _ := calcAccMR(accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	//since state validation need ACHashes, PrivacyFlag & MerkleRoot
 	mockPM.When("Receive").Return(c2.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -756,7 +756,7 @@ func TestApplyMessage_Private_whenStandardPrivateC2InteractsWithPublicC1_Fail(t 
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create public c1
 	cfg.setData(c1.create(big.NewInt(42)))
@@ -794,7 +794,7 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPublicC1_Fail(t 
 	mockPM := newMockPrivateTransactionManager()
 	private.Ptm = mockPM
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 
 	// create public c1
 	cfg.setData(c1.create(big.NewInt(42)))
@@ -835,7 +835,7 @@ func TestApplyMessage_Private_whenTxManagerReturnsError_Success(t *testing.T) {
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
-	cfg := newConfig().
+	cfg := newConfig[nist.PublicKey]().
 		setPrivacyFlag(engine.PrivacyFlagStandardPrivate).
 		setData([]byte("arbitrary encrypted payload hash"))
 	gp := new(GasPool).AddGas(math.MaxUint64)
@@ -859,7 +859,7 @@ func TestApplyMessage_Private_whenTxManagerReturnsEmptyResult_Success(t *testing
 	assert := testifyassert.New(t)
 
 	// calling C1.Create standard private
-	cfg := newConfig().
+	cfg := newConfig[nist.PublicKey]().
 		setPrivacyFlag(engine.PrivacyFlagStandardPrivate).
 		setData([]byte("arbitrary encrypted payload hash"))
 	gp := new(GasPool).AddGas(math.MaxUint64)
@@ -875,7 +875,7 @@ func TestApplyMessage_Private_whenTxManagerReturnsEmptyResult_Success(t *testing
 	mockPM.Verify(assert)
 }
 
-func createContract(cfg *config, mockPM *mockPrivateTransactionManager, assert *testifyassert.Assertions, c *contract, args ...interface{}) common.Address {
+func createContract[P crypto.PublicKey](cfg *config[P], mockPM *mockPrivateTransactionManager, assert *testifyassert.Assertions, c *contract[P], args ...interface{}) common.Address {
 	defer mockPM.reset()
 
 	privateMsg := newTypicalPrivateMessage(cfg)
@@ -902,7 +902,7 @@ func createContract(cfg *config, mockPM *mockPrivateTransactionManager, assert *
 	return address
 }
 
-func createPublicContract(cfg *config, assert *testifyassert.Assertions, c *contract) common.Address {
+func createPublicContract[P crypto.PublicKey](cfg *config[P], assert *testifyassert.Assertions, c *contract[P]) common.Address {
 	pubcfg := cfg.setPublicToPrivateState()
 	msg := newTypicalPublicMessage(pubcfg)
 
@@ -918,12 +918,12 @@ func createPublicContract(cfg *config, assert *testifyassert.Assertions, c *cont
 	return address
 }
 
-func newTypicalPrivateMessage(cfg *config) PrivateMessage {
-	var tx *types.Transaction[nist.PublicKey]
+func newTypicalPrivateMessage[P crypto.PublicKey](cfg *config[P]) PrivateMessage {
+	var tx *types.Transaction[P]
 	if cfg.to == nil {
-		tx = types.NewContractCreation[nist.PublicKey](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewContractCreation[P](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
-		tx = types.NewTransaction[nist.PublicKey](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewTransaction[P](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	}
 	tx.SetPrivate()
 	if cfg.privacyFlag < math.MaxUint64 {
@@ -933,7 +933,7 @@ func newTypicalPrivateMessage(cfg *config) PrivateMessage {
 	} else {
 		tx.SetTxPrivacyMetadata(nil) // simulate standard private transaction
 	}
-	msg, err := tx.AsMessage(&stubSigner{})
+	msg, err := tx.AsMessage(&stubSigner[P]{})
 	if err != nil {
 		panic(fmt.Sprintf("can't create a new private message: %s", err))
 	}
@@ -941,15 +941,15 @@ func newTypicalPrivateMessage(cfg *config) PrivateMessage {
 	return PrivateMessage(msg)
 }
 
-func newTypicalPublicMessage(cfg *config) Message {
-	var tx *types.Transaction[nist.PublicKey]
+func newTypicalPublicMessage[P crypto.PublicKey](cfg *config[P]) Message {
+	var tx *types.Transaction[P]
 	if cfg.to == nil {
-		tx = types.NewContractCreation[nist.PublicKey](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewContractCreation[P](cfg.nonce, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	} else {
-		tx = types.NewTransaction[nist.PublicKey](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
+		tx = types.NewTransaction[P](cfg.nonce, *cfg.to, big.NewInt(0), math.MaxUint64, big.NewInt(0), cfg.data)
 	}
 	tx.SetTxPrivacyMetadata(nil)
-	msg, err := tx.AsMessage(&stubSigner{})
+	msg, err := tx.AsMessage(&stubSigner[P]{})
 	if err != nil {
 		panic(fmt.Sprintf("can't create a new private message: %s", err))
 	}
@@ -962,8 +962,8 @@ type accEntry struct {
 	account *state.Account
 }
 
-func calcAccMR(entries ...accEntry) (common.Hash, error) {
-	combined := new(trie.Trie)
+func calcAccMR[P crypto.PublicKey](entries ...accEntry) (common.Hash, error) {
+	combined := new(trie.Trie[P])
 	for _, entry := range entries {
 		data, err := rlp.EncodeToBytes(entry.account)
 		if err != nil {
@@ -976,7 +976,7 @@ func calcAccMR(entries ...accEntry) (common.Hash, error) {
 	return combined.Hash(), nil
 }
 
-type config struct {
+type config [P crypto.PublicKey] struct {
 	from  common.Address
 	to    *common.Address
 	data  []byte
@@ -985,48 +985,48 @@ type config struct {
 	privacyFlag  engine.PrivacyFlagType
 	acMerkleRoot common.Hash
 
-	currentTx *types.Transaction[nist.PublicKey]
+	currentTx *types.Transaction[P]
 
-	publicState, privateState *state.StateDB
+	publicState, privateState *state.StateDB[P]
 }
 
-func newConfig() *config {
+func newConfig[P crypto.PublicKey]() *config[P] {
 	pubDatabase := rawdb.NewMemoryDatabase()
 	privDatabase := rawdb.NewMemoryDatabase()
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(pubDatabase), nil)
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(privDatabase), nil)
-	return &config{
+	publicState, _ := state.New[P](common.Hash{}, state.NewDatabase[P](pubDatabase), nil)
+	privateState, _ := state.New[P](common.Hash{}, state.NewDatabase[P](privDatabase), nil)
+	return &config[P]{
 		privateState: privateState,
 		publicState:  publicState,
 	}
 }
 
-func (cfg config) setPublicToPrivateState() *config {
+func (cfg config[P]) setPublicToPrivateState() *config[P] {
 	cfg.privateState = cfg.publicState
 	return &cfg
 }
 
-func (cfg *config) setPrivacyFlag(f engine.PrivacyFlagType) *config {
+func (cfg *config[P]) setPrivacyFlag(f engine.PrivacyFlagType) *config[P] {
 	cfg.privacyFlag = f
 	return cfg
 }
 
-func (cfg *config) setData(bytes []byte) *config {
+func (cfg *config[P]) setData(bytes []byte) *config[P] {
 	cfg.data = bytes
 	return cfg
 }
 
-func (cfg *config) setNonce(n uint64) *config {
+func (cfg *config[P]) setNonce(n uint64) *config[P] {
 	cfg.nonce = n
 	return cfg
 }
 
-func (cfg *config) setTo(address common.Address) *config {
+func (cfg *config[P]) setTo(address common.Address) *config[P] {
 	cfg.to = &address
 	return cfg
 }
 
-func newEVM(cfg *config) *vm.EVM[nist.PublicKey] {
+func newEVM[P crypto.PublicKey](cfg *config[P]) *vm.EVM[P] {
 	context := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -1042,7 +1042,7 @@ func newEVM(cfg *config) *vm.EVM[nist.PublicKey] {
 		Origin:   common.Address{},
 		GasPrice: big.NewInt(0),
 	}
-	evm := vm.NewEVM(context, txContext, cfg.publicState, cfg.privateState, &params.ChainConfig{
+	evm := vm.NewEVM[P](context, txContext, cfg.publicState, cfg.privateState, &params.ChainConfig{
 		ChainID:                  big.NewInt(1),
 		ByzantiumBlock:           new(big.Int),
 		HomesteadBlock:           new(big.Int),
@@ -1053,39 +1053,39 @@ func newEVM(cfg *config) *vm.EVM[nist.PublicKey] {
 		EIP158Block:              new(big.Int),
 		IsQuorum:                 true,
 		PrivacyEnhancementsBlock: new(big.Int),
-	}, vm.Config[nist.PublicKey]{})
+	}, vm.Config[P]{})
 	evm.SetCurrentTX(cfg.currentTx)
 	return evm
 }
 
-func mustParse(def string) abi.ABI {
-	ret, err := abi.JSON(strings.NewReader(def))
+func mustParse[P crypto.PublicKey](def string) abi.ABI[P] {
+	ret, err := abi.JSON[P](strings.NewReader(def))
 	if err != nil {
 		panic(fmt.Sprintf("Can't parse ABI def %s", err))
 	}
 	return ret
 }
 
-type stubSigner struct {
+type stubSigner [P crypto.PublicKey] struct {
 }
 
-func (ss *stubSigner) Sender(tx *types.Transaction[nist.PublicKey]) (common.Address, error) {
+func (ss *stubSigner[P]) Sender(tx *types.Transaction[P]) (common.Address, error) {
 	return signingAddress, nil
 }
 
-func (ss *stubSigner) SignatureValues(tx *types.Transaction[nist.PublicKey], sig []byte) (r, s, v *big.Int, err error) {
+func (ss *stubSigner[P]) SignatureValues(tx *types.Transaction[P], sig []byte) (r, s, v *big.Int, err error) {
 	panic("implement me")
 }
 
-func (ss *stubSigner) Hash(tx *types.Transaction[nist.PublicKey]) common.Hash {
+func (ss *stubSigner[P]) Hash(tx *types.Transaction[P]) common.Hash {
 	panic("implement me")
 }
 
-func (ss *stubSigner) Equal(types.Signer[nist.PublicKey]) bool {
+func (ss *stubSigner[P]) Equal(types.Signer[P]) bool {
 	panic("implement me")
 }
 
-func (ss *stubSigner) ChainID() *big.Int {
+func (ss *stubSigner[P]) ChainID() *big.Int {
 	panic("implement me")
 }
 
@@ -1257,7 +1257,7 @@ const (
 `
 )
 
-func verifyGasPoolCalculation(t *testing.T, pm private.PrivateTransactionManager) {
+func verifyGasPoolCalculation[P crypto.PublicKey](t *testing.T, pm private.PrivateTransactionManager) {
 	assert := testifyassert.New(t)
 	saved := private.Ptm
 	defer func() {
@@ -1272,8 +1272,8 @@ func verifyGasPoolCalculation(t *testing.T, pm private.PrivateTransactionManager
 	expectedGasPool := new(GasPool).AddGas(177988) // only intrinsic gas is deducted
 
 	db := rawdb.NewMemoryDatabase()
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[P](common.Hash{}, state.NewDatabase[P](db), nil)
+	publicState, _ := state.New[P](common.Hash{}, state.NewDatabase[P](db), nil)
 	msg := privateCallMsg{
 		callmsg: callmsg{
 			addr:     common.Address{2},
@@ -1322,7 +1322,7 @@ func TestStateTransition_TransitionDb_GasPoolCalculation_whenNonPartyNodeProcess
 			},
 		},
 	}
-	verifyGasPoolCalculation(t, stubPTM)
+	verifyGasPoolCalculation[nist.PublicKey](t, stubPTM)
 }
 
 func TestStateTransition_TransitionDb_GasPoolCalculation_whenPartyNodeProcessingPrivateTransactions(t *testing.T) {
@@ -1334,7 +1334,7 @@ func TestStateTransition_TransitionDb_GasPoolCalculation_whenPartyNodeProcessing
 			},
 		},
 	}
-	verifyGasPoolCalculation(t, stubPTM)
+	verifyGasPoolCalculation[nist.PublicKey](t, stubPTM)
 }
 
 type privateCallMsg struct {

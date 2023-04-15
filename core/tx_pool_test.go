@@ -90,7 +90,7 @@ func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key
 	return tx
 }
 
-// Quorum - created setupTxPoolWithConfig(...) from original setupTxPool() to allow passing a ChainConfig as argument
+// Quorum - created setupTxPoolWithConfig(...) from original setupTxPool[nist.PrivateKey,nist.PublicKey]() to allow passing a ChainConfig as argument
 func setupTxPoolWithConfig[T crypto.PrivateKey, P crypto.PublicKey](config *params.ChainConfig) (*TxPool[P], T) {
 	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain[P]{statedb, nil, 10000000, new(event.Feed)}
@@ -105,12 +105,12 @@ func setupTxPool[T crypto.PrivateKey, P crypto.PublicKey]() (*TxPool[P], T) {
 	return setupTxPoolWithConfig[T,P](params.TestChainConfig)
 }
 
-func setupQuorumTxPool() (*TxPool[P], nist.PrivateKey) {
-	return setupTxPoolWithConfig(params.QuorumTestChainConfig)
+func setupQuorumTxPool[T crypto.PrivateKey, P crypto.PublicKey]() (*TxPool[P], T) {
+	return setupTxPoolWithConfig[T,P](params.QuorumTestChainConfig)
 }
 
 // validateTxPoolInternals checks various consistency invariants within the pool.
-func validateTxPoolInternals(pool *TxPool[P]) error {
+func validateTxPoolInternals[P crypto.PublicKey](pool *TxPool[P]) error {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -172,8 +172,8 @@ func deriveSender(tx *types.Transaction[nist.PublicKey]) (common.Address, error)
 	return  types.Sender[nist.PublicKey](types.HomesteadSigner[nist.PublicKey]{}, tx)
 }
 
-type testChain struct {
-	*testBlockChain
+type testChain [P crypto.PublicKey] struct {
+	*testBlockChain[P]
 	address common.Address
 	trigger *bool
 }
@@ -181,13 +181,13 @@ type testChain struct {
 // testChain.State() is used multiple times to reset the pending state.
 // when simulate is true it will create a state that indicates
 // that tx0 and tx1 are included in the chain.
-func (c *testChain) State() (*state.StateDB, mps.PrivateStateRepository[nist.PublicKey], error) {
+func (c *testChain[P]) State() (*state.StateDB[P], mps.PrivateStateRepository[nist.PublicKey], error) {
 	// delay "state change" by one. The tx pool fetches the
 	// state multiple times and by delaying it a bit we simulate
 	// a state change between those fetches.
 	stdb := c.statedb
 	if *c.trigger {
-		c.statedb, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		c.statedb, _ = state.New[P](common.Hash{}, state.NewDatabase[P](rawdb.NewMemoryDatabase()), nil)
 		// simulate that the new head block included tx0 and tx1
 		c.statedb.SetNonce(c.address, 2)
 		c.statedb.SetBalance(c.address, new(big.Int).SetUint64(params.Ether))
@@ -205,13 +205,13 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 	var (
 		key, _     = crypto.GenerateKey[nist.PrivateKey]()
 		address    = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
-		statedb, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		statedb, _ = state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 		trigger    = false
 	)
 
 	// setup pool with 2 transaction in it
 	statedb.SetBalance(address, new(big.Int).SetUint64(params.Ether))
-	blockchain := &testChain{&testBlockChain{statedb, nil, 1000000000, new(event.Feed)}, address, &trigger}
+	blockchain := &testChain[nist.PublicKey]{&testBlockChain[nist.PublicKey]{statedb, nil, 1000000000, new(event.Feed)}, address, &trigger}
 
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
@@ -249,7 +249,7 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 func TestInvalidTransactions(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	tx := transaction(0, 100, key)
@@ -295,8 +295,8 @@ func TestInvalidTransactions(t *testing.T) {
 	}
 
 	// Quorum
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 	params.QuorumTestChainConfig.TransactionSizeLimit = 128
 	pool2 := NewTxPool[nist.PublicKey](testTxPoolConfig, params.QuorumTestChainConfig, blockchain)
 
@@ -327,7 +327,7 @@ func TestInvalidTransactions(t *testing.T) {
 
 //Test for transactions that are only invalid on Quorum
 func TestQuorumInvalidTransactions(t *testing.T) {
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	tx := transaction(0, 0, key)
@@ -339,7 +339,7 @@ func TestQuorumInvalidTransactions(t *testing.T) {
 
 //Test for transactions that are only invalid on Quorum
 func TestQuorumTransactionSizeLimitTransition(t *testing.T) {
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	data := make([]byte, (64*1024)+1)
@@ -360,7 +360,7 @@ func TestQuorumTransactionSizeLimitTransition(t *testing.T) {
 }
 
 func TestValidateTx_whenValueZeroTransferForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 	zeroValue := common.Big0
 	zeroGasPrice := common.Big0
@@ -374,7 +374,7 @@ func TestValidateTx_whenValueZeroTransferForPrivateTransaction(t *testing.T) {
 }
 
 func TestValidateTx_whenValueNonZeroTransferForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 	arbitraryValue := common.Big3
 	arbitraryTx, balance, from := newPrivateTransaction(arbitraryValue, nil, key)
@@ -396,7 +396,7 @@ func newPrivateTransaction(value *big.Int, data []byte, key nist.PrivateKey) (*t
 }
 
 func TestValidateTx_whenValueNonZeroWithSmartContractForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 	arbitraryValue := common.Big3
 	arbitraryTx, balance, from := newPrivateTransaction(arbitraryValue, []byte("arbitrary bytecode"), key)
@@ -410,7 +410,7 @@ func TestValidateTx_whenValueNonZeroWithSmartContractForPrivateTransaction(t *te
 func TestTransactionQueue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	tx := transaction(0, 100, key)
@@ -441,7 +441,7 @@ func TestTransactionQueue(t *testing.T) {
 func TestTransactionQueue2(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	tx1 := transaction(0, 100, key)
@@ -467,7 +467,7 @@ func TestTransactionQueue2(t *testing.T) {
 func TestTransactionNegativeValue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(-1), 100, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
@@ -481,15 +481,15 @@ func TestTransactionNegativeValue(t *testing.T) {
 func TestTransactionChainFork(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	resetState := func() {
-		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
-		pool.chain = &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+		pool.chain = &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 		<-pool.requestReset(nil, nil)
 	}
 	resetState()
@@ -510,15 +510,15 @@ func TestTransactionChainFork(t *testing.T) {
 func TestTransactionDoubleNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	resetState := func() {
-		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
-		pool.chain = &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+		pool.chain = &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 		<-pool.requestReset(nil, nil)
 	}
 	resetState()
@@ -561,7 +561,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 func TestTransactionMissingNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -585,7 +585,7 @@ func TestTransactionNonceRecovery(t *testing.T) {
 	t.Parallel()
 
 	const n = 10
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -611,7 +611,7 @@ func TestTransactionDropping(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -688,7 +688,7 @@ func TestTransactionDropping(t *testing.T) {
 		t.Errorf("total transaction mismatch: have %d, want %d", pool.all.Count(), 4)
 	}
 	// Reduce the block gas limit, check that invalidated transactions are dropped
-	pool.chain.(*testBlockChain[P]).gasLimit = 100
+	pool.chain.(*testBlockChain[nist.PublicKey]).gasLimit = 100
 	<-pool.requestReset(nil, nil)
 
 	if _, ok := pool.pending[account].txs.items[tx0.Nonce()]; !ok {
@@ -715,8 +715,8 @@ func TestTransactionPostponing(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the postponing with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -829,7 +829,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -883,7 +883,7 @@ func TestTransactionQueueAccountLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -928,8 +928,8 @@ func testTransactionQueueGlobalLimiting(t *testing.T, nolocals bool) {
 	t.Parallel()
 
 	// Create the pool to test the limit enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.NoLocals = nolocals
@@ -1020,8 +1020,8 @@ func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
 	evictionInterval = time.Millisecond * 100
 
 	// Create the pool to test the non-expiration enforcement
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
@@ -1164,7 +1164,7 @@ func TestTransactionPendingLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -1205,8 +1205,8 @@ func TestTransactionPendingGlobalLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the limit enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
@@ -1253,7 +1253,7 @@ func TestTransactionAllowedTxSize(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupQuorumTxPool()
+	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	pool.chainconfig.Transitions = []params.Transition{}
@@ -1311,8 +1311,8 @@ func TestTransactionCapClearsFromAll(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the limit enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.AccountSlots = 2
@@ -1345,8 +1345,8 @@ func TestTransactionPendingMinimumAllowance(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the limit enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
@@ -1393,8 +1393,8 @@ func TestTransactionPoolRepricing(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -1514,8 +1514,8 @@ func TestTransactionPoolRepricingKeepsLocals(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -1576,8 +1576,8 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.GlobalSlots = 2
@@ -1682,8 +1682,8 @@ func TestTransactionPoolStableUnderpricing(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.GlobalSlots = 128
@@ -1747,8 +1747,8 @@ func TestTransactionDeduplication(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -1813,8 +1813,8 @@ func TestTransactionReplacement(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -1908,8 +1908,8 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	os.Remove(journal)
 
 	// Create the original pool to inject transaction into the journal
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
 	config.NoLocals = nolocals
@@ -1951,7 +1951,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	// Terminate the old pool, bump the local nonce, create a new pool and ensure relevant transaction survive
 	pool.Stop()
 	statedb.SetNonce(crypto.PubkeyToAddress[nist.PublicKey](*local.Public()), 1)
-	blockchain = &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	blockchain = &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool = NewTxPool[nist.PublicKey](config, params.TestChainConfig, blockchain)
 
@@ -1978,7 +1978,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	pool.Stop()
 
 	statedb.SetNonce(crypto.PubkeyToAddress[nist.PublicKey](*local.Public()), 1)
-	blockchain = &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	blockchain = &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 	pool = NewTxPool[nist.PublicKey](config, params.TestChainConfig, blockchain)
 
 	pending, queued = pool.Stats()
@@ -2006,8 +2006,8 @@ func TestTransactionStatusCheck(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the status retrievals with
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, nil, 1000000, new(event.Feed)}
+	statedb, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain[nist.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -2082,7 +2082,7 @@ func BenchmarkPendingDemotion10000(b *testing.B) { benchmarkPendingDemotion(b, 1
 
 func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2107,7 +2107,7 @@ func BenchmarkFuturePromotion10000(b *testing.B) { benchmarkFuturePromotion(b, 1
 
 func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2135,7 +2135,7 @@ func BenchmarkPoolBatchLocalInsert10000(b *testing.B) { benchmarkPoolBatchInsert
 
 func benchmarkPoolBatchInsert(b *testing.B, size int, local bool) {
 	// Generate a batch of transactions to enqueue into the pool
-	pool, key := setupTxPool()
+	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2179,7 +2179,7 @@ func BenchmarkInsertRemoteWithAllLocals(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		pool, _ := setupTxPool()
+		pool, _ := setupTxPool[nist.PrivateKey,nist.PublicKey]()
 		pool.currentState.AddBalance(account, big.NewInt(100000000))
 		for _, local := range locals {
 			pool.AddLocal(local)
@@ -2201,10 +2201,10 @@ type testPoolConfig struct {
 	eip155Block    *big.Int
 }
 
-func setupNewTxPool(tt testPoolConfig) *TxPool[P] {
+func setupNewTxPool[P crypto.PublicKey](tt testPoolConfig) *TxPool[P] {
 	db := rawdb.NewMemoryDatabase()
-	stateDB, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
-	blockchain := &testBlockChain{stateDB, nil, 1000000, new(event.Feed)}
+	stateDB, _ := state.New[P](common.Hash{}, state.NewDatabase[P](db), nil)
+	blockchain := &testBlockChain[P]{stateDB, nil, 1000000, new(event.Feed)}
 	chainConfig := &params.ChainConfig{
 		ChainID:        big.NewInt(10),
 		HomesteadBlock: tt.homesteadBlock,
@@ -2214,7 +2214,7 @@ func setupNewTxPool(tt testPoolConfig) *TxPool[P] {
 		ByzantiumBlock: big.NewInt(0),
 		Ethash:         new(params.EthashConfig),
 	}
-	return NewTxPool[nist.PublicKey](testTxPoolConfig, chainConfig, blockchain)
+	return NewTxPool[P](testTxPoolConfig, chainConfig, blockchain)
 }
 
 //Checks that the EIP155 signer is assigned to the TxPool when eip155Block is different then null, even invalid config
@@ -2229,7 +2229,7 @@ func TestEIP155SignerOnTxPool(t *testing.T) {
 	}
 	for _, tt := range flagtests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := setupNewTxPool(tt)
+			pool := setupNewTxPool[nist.PublicKey](tt)
 			if reflect.TypeOf(types.EIP155Signer[nist.PublicKey]{}) != reflect.TypeOf(pool.signer) {
 				t.Fail()
 			}
@@ -2245,7 +2245,7 @@ func TestHomesteadSignerOnTxPool(t *testing.T) {
 	}
 	for _, tt := range flagtests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := setupNewTxPool(tt)
+			pool := setupNewTxPool[nist.PublicKey](tt)
 			if reflect.TypeOf(types.HomesteadSigner[nist.PublicKey]{}) != reflect.TypeOf(pool.signer) {
 				t.Fail()
 			}

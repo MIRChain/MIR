@@ -27,6 +27,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -94,7 +95,7 @@ func TestHandleNewBlockMessage_whenTypical(t *testing.T) {
 	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
-	arbitraryBlock, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
+	arbitraryBlock, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage[nist.PublicKey](t, false)
 	postAndWait(backend, arbitraryBlock, t)
 
 	handled, err := tryUntilMessageIsHandled(backend, arbitraryAddress, arbitraryP2PMessage)
@@ -113,8 +114,8 @@ func TestHandleNewBlockMessage_whenNotAProposedBlock(t *testing.T) {
 	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
-	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, false)
-	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header{
+	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage[nist.PublicKey](t, false)
+	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header[nist.PublicKey]{
 		Number:    big.NewInt(1),
 		Root:      common.StringToHash("someroot"),
 		GasLimit:  1,
@@ -137,8 +138,8 @@ func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
 	_, backend := NewBlockChain(1, nil)
 	defer backend.Stop()
 	arbitraryAddress := common.StringToAddress("arbitrary")
-	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage(t, true)
-	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header{
+	_, arbitraryP2PMessage := buildArbitraryP2PNewBlockMessage[nist.PublicKey](t, true)
+	postAndWait(backend, types.NewBlock[nist.PublicKey](&types.Header[nist.PublicKey]{
 		Number:    big.NewInt(1),
 		GasLimit:  1,
 		MixDigest: types.IstanbulDigest,
@@ -156,7 +157,7 @@ func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
 	}
 }
 
-func postAndWait(backend *Backend[nist.PrivateKey,nist.PublicKey], block *types.Block[nist.PublicKey], t *testing.T) {
+func postAndWait[T crypto.PrivateKey,P crypto.PublicKey](backend *Backend[T,P], block *types.Block[P], t *testing.T) {
 	eventSub := backend.EventMux().Subscribe(istanbul.RequestEvent{})
 	defer eventSub.Unsubscribe()
 	stop := make(chan struct{}, 1)
@@ -173,12 +174,12 @@ func postAndWait(backend *Backend[nist.PrivateKey,nist.PublicKey], block *types.
 	<-stop
 }
 
-func buildArbitraryP2PNewBlockMessage(t *testing.T, invalidMsg bool) (*types.Block[nist.PublicKey], p2p.Msg) {
-	arbitraryBlock := types.NewBlock[nist.PublicKey](&types.Header{
+func buildArbitraryP2PNewBlockMessage[P crypto.PublicKey](t *testing.T, invalidMsg bool) (*types.Block[P], p2p.Msg) {
+	arbitraryBlock := types.NewBlock[P](&types.Header[P]{
 		Number:    big.NewInt(1),
 		GasLimit:  0,
 		MixDigest: types.IstanbulDigest,
-	}, nil, nil, nil, new(trie.Trie[nist.PublicKey]))
+	}, nil, nil, nil, new(trie.Trie[P]))
 	request := []interface{}{&arbitraryBlock, big.NewInt(1)}
 	if invalidMsg {
 		request = []interface{}{"invalid msg"}

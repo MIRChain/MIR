@@ -19,8 +19,8 @@ import (
 func TestDefaultPSRCopy(t *testing.T) {
 
 	testdb := rawdb.NewMemoryDatabase()
-	testCache := state.NewDatabase(testdb)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
+	testCache := state.NewDatabase[nist.PublicKey](testdb)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](testdb, nil, testCache, false)
 	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	testState, _ := psr.DefaultState()
@@ -42,7 +42,7 @@ func TestDefaultPSRCopy(t *testing.T) {
 	}
 
 	// Finalise the changes on all concurrently
-	finalise := func(wg *sync.WaitGroup, db *state.StateDB) {
+	finalise := func(wg *sync.WaitGroup, db *state.StateDB[nist.PublicKey]) {
 		defer wg.Done()
 		db.Finalise(true)
 	}
@@ -76,8 +76,8 @@ func TestDefaultPSRCopy(t *testing.T) {
 func TestDefaultPSRReset(t *testing.T) {
 
 	testdb := rawdb.NewMemoryDatabase()
-	testCache := state.NewDatabase(testdb)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
+	testCache := state.NewDatabase[nist.PublicKey](testdb)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](testdb, nil, testCache, false)
 	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	testState, _ := psr.DefaultState()
@@ -103,8 +103,8 @@ func TestDefaultPSRReset(t *testing.T) {
 
 func TestOnlyPrivateStateAccessible(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
-	testCache := state.NewDatabase(testdb)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
+	testCache := state.NewDatabase[nist.PublicKey](testdb)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](testdb, nil, testCache, false)
 	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
 
 	privateState, _ := psr.DefaultState()
@@ -118,10 +118,10 @@ func TestOnlyPrivateStateAccessible(t *testing.T) {
 //TestDefaultPSRCommitAndWrite tests that statedb is updated but not written to db
 func TestDefaultPSRCommit(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
-	testCache := state.NewDatabase(testdb)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
+	testCache := state.NewDatabase[nist.PublicKey](testdb)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](testdb, nil, testCache, false)
 	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
-	header := &types.Header{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
 	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	testState, _ := psr.DefaultState()
@@ -149,10 +149,10 @@ func TestDefaultPSRCommit(t *testing.T) {
 //TestDefaultPSRCommitAndWrite tests that statedb is updated and written to db
 func TestDefaultPSRCommitAndWrite(t *testing.T) {
 	testdb := rawdb.NewMemoryDatabase()
-	testCache := state.NewDatabase(testdb)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(testdb, nil, testCache, false)
+	testCache := state.NewDatabase[nist.PublicKey](testdb)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](testdb, nil, testCache, false)
 	psr, _ := NewDefaultPrivateStateRepository[nist.PublicKey](testdb, testCache, privateCacheProvider, common.Hash{})
-	header := &types.Header{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(int64(1)), Root: common.Hash{123}}
 	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	testState, _ := psr.DefaultState()

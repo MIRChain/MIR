@@ -9,11 +9,12 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
-var dualStateTestHeader = types.Header{
+var dualStateTestHeader = types.Header[nist.PublicKey]{
 	Number:     new(big.Int),
 	Time:       43,
 	Difficulty: new(big.Int).SetUint64(1000488),
@@ -38,10 +39,10 @@ func TestDualStatePrivateToPublicCall(t *testing.T) {
 	callAddr := common.Address{1}
 
 	db := rawdb.NewMemoryDatabase()
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(common.Address{2}, common.Hex2Bytes("600a6000526001601ff300"))
 
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	privateState.SetCode(callAddr, common.Hex2Bytes("60016000600060006000730200000000000000000000000000000000000000620186a0f160005160005500"))
 
 	author := common.Address{}
@@ -68,10 +69,10 @@ func TestDualStatePublicToPrivateCall(t *testing.T) {
 	callAddr := common.Address{1}
 
 	db := rawdb.NewMemoryDatabase()
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	privateState.SetCode(common.Address{2}, common.Hex2Bytes("600a6000526001601ff300"))
 
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(callAddr, common.Hex2Bytes("60016000600060006000730200000000000000000000000000000000000000620186a0f160005160005500"))
 
 	author := common.Address{}
@@ -98,10 +99,10 @@ func TestDualStateReadOnly(t *testing.T) {
 	callAddr := common.Address{1}
 
 	db := rawdb.NewMemoryDatabase()
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(common.Address{2}, common.Hex2Bytes("600a60005500"))
 
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	privateState.SetCode(callAddr, common.Hex2Bytes("60016000600060006000730200000000000000000000000000000000000000620186a0f160005160005500"))
 
 	author := common.Address{}
@@ -143,7 +144,7 @@ var (
 	callerContractCode = "6001600060006000730200000000000000000000000000000000000000620186a0fa60016000f300"
 )
 
-func verifyStaticCall(t *testing.T, privateState *state.StateDB, publicState *state.StateDB, expectedHash common.Hash) {
+func verifyStaticCall[P crypto.PublicKey](t *testing.T, privateState *state.StateDB[P], publicState *state.StateDB[P], expectedHash common.Hash) {
 	author := common.Address{}
 	msg := callmsg{
 		addr:     author,
@@ -174,7 +175,7 @@ func verifyStaticCall(t *testing.T, privateState *state.StateDB, publicState *st
 func TestStaticCall_whenPublicToPublic(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
 
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(callerAddress, common.Hex2Bytes(callerContractCode))
 	publicState.SetCode(calleeAddress, common.Hex2Bytes(calleeContractCode))
 
@@ -184,10 +185,10 @@ func TestStaticCall_whenPublicToPublic(t *testing.T) {
 func TestStaticCall_whenPublicToPrivateInTheParty(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
 
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	privateState.SetCode(calleeAddress, common.Hex2Bytes(calleeContractCode))
 
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(callerAddress, common.Hex2Bytes(callerContractCode))
 
 	verifyStaticCall(t, privateState, publicState, common.Hash{10})
@@ -197,9 +198,9 @@ func TestStaticCall_whenPublicToPrivateNotInTheParty(t *testing.T) {
 
 	db := rawdb.NewMemoryDatabase()
 
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(callerAddress, common.Hex2Bytes(callerContractCode))
 
 	verifyStaticCall(t, privateState, publicState, common.Hash{0})
@@ -208,10 +209,10 @@ func TestStaticCall_whenPublicToPrivateNotInTheParty(t *testing.T) {
 func TestStaticCall_whenPrivateToPublic(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
 
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	privateState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	privateState.SetCode(callerAddress, common.Hex2Bytes(callerContractCode))
 
-	publicState, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	publicState, _ := state.New[nist.PublicKey](common.Hash{}, state.NewDatabase[nist.PublicKey](db), nil)
 	publicState.SetCode(calleeAddress, common.Hex2Bytes(calleeContractCode))
 
 	verifyStaticCall(t, privateState, publicState, common.Hash{10})

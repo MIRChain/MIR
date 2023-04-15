@@ -88,8 +88,8 @@ func init() {
 	emptyChain = &chainData[nist.PublicKey]{blocks, 0}
 }
 
-func (chain *chainData[P]) headers() []*types.Header {
-	hdrs := make([]*types.Header, len(chain.blocks))
+func (chain *chainData[P]) headers() []*types.Header[P] {
+	hdrs := make([]*types.Header[P], len(chain.blocks))
 	for i, b := range chain.blocks {
 		hdrs[i] = b.Header()
 	}
@@ -100,8 +100,8 @@ func (chain *chainData[P]) Len() int {
 	return len(chain.blocks)
 }
 
-func dummyPeer(id string) *peerConnection {
-	p := &peerConnection{
+func dummyPeer[P crypto.PublicKey](id string) *peerConnection[P] {
+	p := &peerConnection[P]{
 		id:      id,
 		lacking: make(map[common.Hash]struct{}),
 	}
@@ -136,7 +136,7 @@ func TestBasics(t *testing.T) {
 	// Items are now queued for downloading, next step is that we tell the
 	// queue that a certain peer will deliver them for us
 	{
-		peer := dummyPeer("peer-1")
+		peer := dummyPeer[nist.PublicKey]("peer-1")
 		fetchReq, _, throttle := q.ReserveBodies(peer, 50)
 		if !throttle {
 			// queue size is only 10, so throttling should occur
@@ -157,7 +157,7 @@ func TestBasics(t *testing.T) {
 		t.Errorf("expected receipt task queue to be %d, got %d", exp, got)
 	}
 	{
-		peer := dummyPeer("peer-2")
+		peer := dummyPeer[nist.PublicKey]("peer-2")
 		fetchReq, _, throttle := q.ReserveBodies(peer, 50)
 
 		// The second peer should hit throttling
@@ -178,7 +178,7 @@ func TestBasics(t *testing.T) {
 	{
 		// The receipt delivering peer should not be affected
 		// by the throttling of body deliveries
-		peer := dummyPeer("peer-3")
+		peer := dummyPeer[nist.PublicKey]("peer-3")
 		fetchReq, _, throttle := q.ReserveReceipts(peer, 50)
 		if !throttle {
 			// queue size is only 10, so throttling should occur
@@ -232,7 +232,7 @@ func TestEmptyBlocks(t *testing.T) {
 	// That should trigger all of them to suddenly become 'done'
 	{
 		// Reserve blocks
-		peer := dummyPeer("peer-1")
+		peer := dummyPeer[nist.PublicKey]("peer-1")
 		fetchReq, _, _ := q.ReserveBodies(peer, 50)
 
 		// there should be nothing to fetch, blocks are empty
@@ -248,7 +248,7 @@ func TestEmptyBlocks(t *testing.T) {
 		t.Errorf("expected receipt task queue to be %d, got %d", 0, q.receiptTaskQueue.Size())
 	}
 	{
-		peer := dummyPeer("peer-3")
+		peer := dummyPeer[nist.PublicKey]("peer-3")
 		fetchReq, _, _ := q.ReserveReceipts(peer, 50)
 
 		// there should be nothing to fetch, blocks are empty
@@ -320,12 +320,12 @@ func XTestDelivery(t *testing.T) {
 		// reserve body fetch
 		i := 4
 		for {
-			peer := dummyPeer(fmt.Sprintf("peer-%d", i))
+			peer := dummyPeer[nist.PublicKey](fmt.Sprintf("peer-%d", i))
 			f, _, _ := q.ReserveBodies(peer, rand.Intn(30))
 			if f != nil {
-				var emptyList []*types.Header
+				var emptyList []*types.Header[nist.PublicKey]
 				var txs [][]*types.Transaction[nist.PublicKey]
-				var uncles [][]*types.Header
+				var uncles [][]*types.Header[nist.PublicKey]
 				numToSkip := rand.Intn(len(f.Headers))
 				for _, hdr := range f.Headers[0 : len(f.Headers)-numToSkip] {
 					txs = append(txs, world.getTransactions(hdr.Number.Uint64()))
@@ -345,7 +345,7 @@ func XTestDelivery(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		// reserve receiptfetch
-		peer := dummyPeer("peer-3")
+		peer := dummyPeer[nist.PublicKey]("peer-3")
 		for {
 			f, _, _ := q.ReserveReceipts(peer, rand.Intn(50))
 			if f != nil {
@@ -438,9 +438,9 @@ func (n *network[T,P]) progress(numBlocks int) {
 
 }
 
-func (n *network[T,P]) headers(from int) []*types.Header {
+func (n *network[T,P]) headers(from int) []*types.Header[P] {
 	numHeaders := 128
-	var hdrs []*types.Header
+	var hdrs []*types.Header[P]
 	index := from - n.offset
 
 	for index >= len(n.chain) {

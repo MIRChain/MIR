@@ -28,6 +28,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -77,7 +78,7 @@ func TestCalcDifficulty(t *testing.T) {
 
 	for name, test := range tests {
 		number := new(big.Int).Sub(test.CurrentBlocknumber, big.NewInt(1))
-		diff := CalcDifficulty(config, test.CurrentTimestamp, &types.Header{
+		diff := CalcDifficulty(config, test.CurrentTimestamp, &types.Header[nist.PublicKey]{
 			Number:     number,
 			Time:       test.ParentTimestamp,
 			Difficulty: test.ParentDifficulty,
@@ -108,22 +109,22 @@ func TestDifficultyCalculators(t *testing.T) {
 			diffBig.Set(params.MinimumDifficulty)
 		}
 		//rand.Read(difficulty)
-		header := &types.Header{
+		header := &types.Header[nist.PublicKey]{
 			Difficulty: diffBig,
 			Number:     new(big.Int).SetUint64(rand.Uint64() % 50_000_000),
 			Time:       rand.Uint64() - timeDelta,
 		}
 		if rand.Uint32()&1 == 0 {
-			header.UncleHash = types.EmptyUncleHash
+			header.UncleHash = types.EmptyUncleHash[nist.PublicKey]()
 		}
 		bombDelay := new(big.Int).SetUint64(rand.Uint64() % 50_000_000)
 		for i, pair := range []struct {
-			bigFn  func(time uint64, parent *types.Header) *big.Int
-			u256Fn func(time uint64, parent *types.Header) *big.Int
+			bigFn  func(time uint64, parent *types.Header[nist.PublicKey]) *big.Int
+			u256Fn func(time uint64, parent *types.Header[nist.PublicKey]) *big.Int
 		}{
-			{calcDifficultyFrontier[P], CalcDifficultyFrontierU256},
-			{calcDifficultyHomestead[P], CalcDifficultyHomesteadU256},
-			{makeDifficultyCalculator[P](bombDelay), MakeDifficultyCalculatorU256(bombDelay)},
+			{calcDifficultyFrontier[nist.PublicKey], CalcDifficultyFrontierU256[nist.PublicKey]},
+			{calcDifficultyHomestead[nist.PublicKey], CalcDifficultyHomesteadU256[nist.PublicKey]},
+			{makeDifficultyCalculator[nist.PublicKey](bombDelay), MakeDifficultyCalculatorU256[nist.PublicKey](bombDelay)},
 		} {
 			time := header.Time + timeDelta
 			want := pair.bigFn(time, header)
@@ -140,11 +141,11 @@ func TestDifficultyCalculators(t *testing.T) {
 }
 
 func BenchmarkDifficultyCalculator(b *testing.B) {
-	x1 := makeDifficultyCalculator(big.NewInt(1000000))
-	x2 := MakeDifficultyCalculatorU256(big.NewInt(1000000))
-	h := &types.Header{
+	x1 := makeDifficultyCalculator[nist.PublicKey](big.NewInt(1000000))
+	x2 := MakeDifficultyCalculatorU256[nist.PublicKey](big.NewInt(1000000))
+	h := &types.Header[nist.PublicKey]{
 		ParentHash: common.Hash{},
-		UncleHash:  types.EmptyUncleHash,
+		UncleHash:  types.EmptyUncleHash[nist.PublicKey](),
 		Difficulty: big.NewInt(0xffffff),
 		Number:     big.NewInt(500000),
 		Time:       1000000,

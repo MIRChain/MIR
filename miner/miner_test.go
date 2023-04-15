@@ -73,7 +73,7 @@ type testBlockChain [P crypto.PublicKey] struct {
 }
 
 func (bc *testBlockChain[P]) CurrentBlock() *types.Block[P] {
-	return types.NewBlock[P](&types.Header{
+	return types.NewBlock[P](&types.Header[P]{
 		GasLimit: bc.gasLimit,
 	}, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
@@ -98,7 +98,7 @@ func TestMiner(t *testing.T) {
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
 	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	// Subsequent downloader events after a successful DoneEvent should not cause the
@@ -135,7 +135,7 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 	waitForMiningState(t, miner, false)
 
 	// Downloader finally succeeds.
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	// Downloader starts again.
@@ -158,7 +158,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 	waitForMiningState(t, miner, false)
 
 	// Downloader finally succeeds.
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	miner.Stop()
@@ -216,7 +216,7 @@ func TestMinerSetEtherbase(t *testing.T) {
 	// Now user tries to configure proper mining address
 	miner.Start(common.HexToAddress("0x1337"))
 	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 
 	waitForMiningState(t, miner, true)
 	// The miner should now be using the good address

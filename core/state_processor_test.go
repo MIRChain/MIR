@@ -107,7 +107,7 @@ func TestStateProcessorErrors(t *testing.T) {
 		// trigger that one, we'd have to allocate a _huge_ chunk of data, such that the
 		// multiplication len(data) +gas_per_byte overflows uint64. Not testable at the moment
 	} {
-		block := GenerateBadBlock(genesis,  ethash.NewFaker[nist.PublicKey](), tt.txs)
+		block := GenerateBadBlock[nist.PublicKey](genesis,  ethash.NewFaker[nist.PublicKey](), tt.txs)
 		_, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{block})
 		if err == nil {
 			t.Fatal("block imported without errors")
@@ -122,11 +122,11 @@ func TestStateProcessorErrors(t *testing.T) {
 // valid, and no proper post-state can be made. But from the perspective of the blockchain, the block is sufficiently
 // valid to be considered for import:
 // - valid pow (fake), ancestry, difficulty, gaslimit etc
-func GenerateBadBlock(parent *types.Block[nist.PublicKey], engine consensus.Engine[nist.PublicKey], txs types.Transactions[nist.PublicKey]) *types.Block[nist.PublicKey] {
-	header := &types.Header{
+func GenerateBadBlock[P crypto.PublicKey](parent *types.Block[P], engine consensus.Engine[P], txs types.Transactions[P]) *types.Block[P] {
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(&fakeChainReader[nist.PublicKey]{params.TestChainConfig}, parent.Time()+10, &types.Header{
+		Difficulty: engine.CalcDifficulty(&fakeChainReader[P]{params.TestChainConfig}, parent.Time()+10, &types.Header[P]{
 			Number:     parent.Number(),
 			Time:       parent.Time(),
 			Difficulty: parent.Difficulty(),
@@ -135,9 +135,9 @@ func GenerateBadBlock(parent *types.Block[nist.PublicKey], engine consensus.Engi
 		GasLimit:  CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit(), parent.GasLimit()),
 		Number:    new(big.Int).Add(parent.Number(), common.Big1),
 		Time:      parent.Time() + 10,
-		UncleHash: types.EmptyUncleHash,
+		UncleHash: types.EmptyUncleHash[P](),
 	}
-	var receipts []*types.Receipt[nist.PublicKey]
+	var receipts []*types.Receipt[P]
 
 	// The post-state result doesn't need to be correct (this is a bad block), but we do need something there
 	// Preferably something unique. So let's use a combo of blocknum + txhash
@@ -147,7 +147,7 @@ func GenerateBadBlock(parent *types.Block[nist.PublicKey], engine consensus.Engi
 	for _, tx := range txs {
 		txh := tx.Hash()
 		hasher.Write(txh[:])
-		receipt := types.NewReceipt[nist.PublicKey](nil, false, cumulativeGas+tx.Gas())
+		receipt := types.NewReceipt[P](nil, false, cumulativeGas+tx.Gas())
 		receipt.TxHash = tx.Hash()
 		receipt.GasUsed = tx.Gas()
 		receipts = append(receipts, receipt)
@@ -155,5 +155,5 @@ func GenerateBadBlock(parent *types.Block[nist.PublicKey], engine consensus.Engi
 	}
 	header.Root = common.BytesToHash(hasher.Sum(nil))
 	// Assemble and return the final block for sealing
-	return types.NewBlock[nist.PublicKey](header, txs, nil, receipts, trie.NewStackTrie(nil))
+	return types.NewBlock[P](header, txs, nil, receipts, trie.NewStackTrie[P](nil))
 }

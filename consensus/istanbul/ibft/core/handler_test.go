@@ -65,7 +65,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[nist.PublicKey](1),
 	})
 	// with a unmatched payload. msgPrepare should match with *istanbul.Subject in normal case.
 	msg = &ibfttypes.Message{
@@ -86,7 +86,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(2),
+		Proposal: makeBlock[nist.PublicKey](2),
 	})
 	// with a unmatched payload. istanbul.MsgCommit should match with *istanbul.Subject in normal case.
 	msg = &ibfttypes.Message{
@@ -107,7 +107,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(3),
+		Proposal: makeBlock[nist.PublicKey](3),
 	})
 	// invalid message code. message code is not exists in list
 	msg = &ibfttypes.Message{

@@ -48,7 +48,7 @@ func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey] () *testerAcco
 
 // checkpoint creates a Clique checkpoint signer section from the provided list
 // of authorized signers and embeds it into the provided header.
-func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header, signers []string) {
+func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header[P], signers []string) {
 	auths := make([]common.Address, len(signers))
 	for i, signer := range signers {
 		auths[i] = ap.address(signer)
@@ -86,7 +86,7 @@ func (ap *testerAccountPool[T,P]) address(account string) common.Address {
 
 // sign calculates a Clique digital signature for the given block and embeds it
 // back into the header.
-func (ap *testerAccountPool[T,P]) sign(header *types.Header, signer string) {
+func (ap *testerAccountPool[T,P]) sign(header *types.Header[P], signer string) {
 	// Ensure we have a persistent key for the signer
 	if reflect.ValueOf(ap.accounts[signer]).IsZero() {
 		ap.accounts[signer], _ = crypto.GenerateKey[T]()

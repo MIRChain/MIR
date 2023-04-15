@@ -57,7 +57,7 @@ func TestCheckRequestMsg(t *testing.T) {
 
 	// old request
 	r = &istanbul.Request{
-		Proposal: makeBlock(0),
+		Proposal: makeBlock[nist.PublicKey](0),
 	}
 	err = c.checkRequestMsg(r)
 	if err != istanbulcommon.ErrOldMessage {
@@ -66,7 +66,7 @@ func TestCheckRequestMsg(t *testing.T) {
 
 	// future request
 	r = &istanbul.Request{
-		Proposal: makeBlock(2),
+		Proposal: makeBlock[nist.PublicKey](2),
 	}
 	err = c.checkRequestMsg(r)
 	if err != istanbulcommon.ErrFutureMessage {
@@ -75,7 +75,7 @@ func TestCheckRequestMsg(t *testing.T) {
 
 	// current request
 	r = &istanbul.Request{
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[nist.PublicKey](1),
 	}
 	err = c.checkRequestMsg(r)
 	if err != nil {
@@ -100,13 +100,13 @@ func TestStoreRequestMsg(t *testing.T) {
 	}
 	requests := []istanbul.Request{
 		{
-			Proposal: makeBlock(1),
+			Proposal: makeBlock[nist.PublicKey](1),
 		},
 		{
-			Proposal: makeBlock(2),
+			Proposal: makeBlock[nist.PublicKey](2),
 		},
 		{
-			Proposal: makeBlock(3),
+			Proposal: makeBlock[nist.PublicKey](3),
 		},
 	}
 

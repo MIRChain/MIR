@@ -38,7 +38,7 @@ func TestMessageSetWithPreprepare(t *testing.T) {
 	}
 	pp := &istanbul.Preprepare[nist.PublicKey]{
 		View:     view,
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[nist.PublicKey](1),
 	}
 
 	rawPP, err := rlp.EncodeToBytes(pp)

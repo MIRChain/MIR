@@ -114,7 +114,7 @@ func TestReimportMirroredState(t *testing.T) {
 }
 
 func TestSealHash(t *testing.T) {
-	have := SealHash(&types.Header{
+	have := SealHash(&types.Header[nist.PublicKey]{
 		Difficulty: new(big.Int),
 		Number:     new(big.Int),
 		Extra:      make([]byte, 32+65),

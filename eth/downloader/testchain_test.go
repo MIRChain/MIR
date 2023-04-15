@@ -59,7 +59,7 @@ func init() {
 type testChain [T crypto.PrivateKey,P crypto.PublicKey] struct {
 	genesis  *types.Block[P]
 	chain    []common.Hash
-	headerm  map[common.Hash]*types.Header
+	headerm  map[common.Hash]*types.Header[P]
 	blockm   map[common.Hash]*types.Block[P]
 	receiptm map[common.Hash][]*types.Receipt[P]
 	tdm      map[common.Hash]*big.Int
@@ -96,7 +96,7 @@ func (tc *testChain[T,P]) shorten(length int) *testChain[T,P] {
 func (tc *testChain[T,P]) copy(newlen int) *testChain[T,P] {
 	cpy := &testChain[T,P]{
 		genesis:  tc.genesis,
-		headerm:  make(map[common.Hash]*types.Header, newlen),
+		headerm:  make(map[common.Hash]*types.Header[P], newlen),
 		blockm:   make(map[common.Hash]*types.Block[P], newlen),
 		receiptm: make(map[common.Hash][]*types.Receipt[P], newlen),
 		tdm:      make(map[common.Hash]*big.Int, newlen),
@@ -146,7 +146,7 @@ func (tc *testChain[T,P]) generate(n int, seed byte, parent *types.Block[P], hea
 		}
 		// if the block number is a multiple of 5, add a bonus uncle to the block
 		if i > 0 && i%5 == 0 {
-			block.AddUncle(&types.Header{
+			block.AddUncle(&types.Header[P]{
 				ParentHash: block.PrevBlock(i - 1).Hash(),
 				Number:     big.NewInt(block.Number().Int64() - 1),
 			})
@@ -182,14 +182,14 @@ func (tc *testChain[T,P]) td(hash common.Hash) *big.Int {
 }
 
 // headersByHash returns headers in order from the given hash.
-func (tc *testChain[T,P]) headersByHash(origin common.Hash, amount int, skip int, reverse bool) []*types.Header {
+func (tc *testChain[T,P]) headersByHash(origin common.Hash, amount int, skip int, reverse bool) []*types.Header[P] {
 	num, _ := tc.hashToNumber(origin)
 	return tc.headersByNumber(num, amount, skip, reverse)
 }
 
 // headersByNumber returns headers from the given number.
-func (tc *testChain[T,P]) headersByNumber(origin uint64, amount int, skip int, reverse bool) []*types.Header {
-	result := make([]*types.Header, 0, amount)
+func (tc *testChain[T,P]) headersByNumber(origin uint64, amount int, skip int, reverse bool) []*types.Header[P] {
+	result := make([]*types.Header[P], 0, amount)
 
 	if !reverse {
 		for num := origin; num < uint64(len(tc.chain)) && len(result) < amount; num += uint64(skip) + 1 {
@@ -219,9 +219,9 @@ func (tc *testChain[T,P]) receipts(hashes []common.Hash) [][]*types.Receipt[P] {
 }
 
 // bodies returns the block bodies of the given block hashes.
-func (tc *testChain[T,P]) bodies(hashes []common.Hash) ([][]*types.Transaction[P], [][]*types.Header) {
+func (tc *testChain[T,P]) bodies(hashes []common.Hash) ([][]*types.Transaction[P], [][]*types.Header[P]) {
 	transactions := make([][]*types.Transaction[P], 0, len(hashes))
-	uncles := make([][]*types.Header, 0, len(hashes))
+	uncles := make([][]*types.Header[P], 0, len(hashes))
 	for _, hash := range hashes {
 		if block, ok := tc.blockm[hash]; ok {
 			transactions = append(transactions, block.Transactions())

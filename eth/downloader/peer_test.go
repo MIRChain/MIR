@@ -19,26 +19,28 @@ package downloader
 import (
 	"sort"
 	"testing"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestPeerThroughputSorting(t *testing.T) {
-	a := &peerConnection{
+	a := &peerConnection[nist.PublicKey]{
 		id:               "a",
 		headerThroughput: 1.25,
 	}
-	b := &peerConnection{
+	b := &peerConnection[nist.PublicKey]{
 		id:               "b",
 		headerThroughput: 1.21,
 	}
-	c := &peerConnection{
+	c := &peerConnection[nist.PublicKey]{
 		id:               "c",
 		headerThroughput: 1.23,
 	}
 
-	peers := []*peerConnection{a, b, c}
+	peers := []*peerConnection[nist.PublicKey]{a, b, c}
 	tps := []float64{a.headerThroughput,
 		b.headerThroughput, c.headerThroughput}
-	sortPeers := &peerThroughputSort{peers, tps}
+	sortPeers := &peerThroughputSort[nist.PublicKey]{peers, tps}
 	sort.Sort(sortPeers)
 	if got, exp := sortPeers.p[0].id, "a"; got != exp {
 		t.Errorf("sort fail, got %v exp %v", got, exp)

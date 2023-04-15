@@ -630,7 +630,7 @@ type StubBackend [T crypto.PrivateKey, P crypto.PublicKey]struct{}
 
 var _ ethapi.Backend[nist.PrivateKey,nist.PublicKey] = &StubBackend[nist.PrivateKey,nist.PublicKey]{}
 
-func (sb *StubBackend[T,P]) CurrentHeader() *types.Header {
+func (sb *StubBackend[T,P]) CurrentHeader() *types.Header[P] {
 	panic("implement me")
 }
 
@@ -650,7 +650,7 @@ func (sb *StubBackend[T,P]) IsAuthorized(authToken *proto.PreAuthenticatedAuthen
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmconfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
+func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header[P], vmconfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
 	panic("implement me")
 }
 
@@ -702,15 +702,15 @@ func (sb *StubBackend[T,P]) SetHead(number uint64) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header[P], error) {
 	panic("implement me")
 }
 
@@ -726,11 +726,11 @@ func (sb *StubBackend[T,P]) BlockByNumberOrHash(ctx context.Context, blockNrOrHa
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header[P], error) {
 	panic("implement me")
 }
 

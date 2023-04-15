@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -12,7 +14,7 @@ import (
 
 func Test_freezer_Close(t *testing.T) {
 	// Close first time
-	mockFreezer := newFreezerMock(t)
+	mockFreezer := newFreezerMock[nist.PublicKey](t)
 	err := mockFreezer.Close()
 	assert.Nil(t, err)
 
@@ -51,9 +53,9 @@ func (_m *releaserMock) Release() error {
 	return r0
 }
 
-func newFreezerMock(t *testing.T) *freezer {
+func newFreezerMock[P crypto.PublicKey](t *testing.T) *freezer[P] {
 	mockLock := new(releaserMock)
-	mockFreezer := &freezer{
+	mockFreezer := &freezer[P]{
 		tables:       make(map[string]*freezerTable),
 		instanceLock: mockLock,
 		quit:         make(chan struct{}),

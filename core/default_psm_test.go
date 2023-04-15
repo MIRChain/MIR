@@ -37,7 +37,7 @@ func TestLegacyPrivateStateCreated(t *testing.T) {
 
 	for _, block := range blocks {
 		parent := blockmap[block.ParentHash()]
-		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
+		statedb, _ := state.New[nist.PublicKey](parent.Root(), blockchain.StateCache(), nil)
 		privateStateRepo, _ := blockchain.PrivateStateManager().StateRepository(parent.Root())
 
 		_, privateReceipts, _, _, _ := blockchain.Processor().Process(block, statedb, privateStateRepo, vm.Config[nist.PublicKey]{})
@@ -93,7 +93,7 @@ func TestDefaultResolver(t *testing.T) {
 
 	_, _, blockchain := buildTestChain(1, params.QuorumTestChainConfig)
 
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(blockchain.db, nil, nil, false)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](blockchain.db, nil, nil, false)
 
 	mpsm := newDefaultPrivateStateManager[nist.PublicKey](blockchain.db, privateCacheProvider)
 

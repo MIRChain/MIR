@@ -40,11 +40,11 @@ var (
 )
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
+func makeHeaderChain[P crypto.PublicKey](parent *types.Header[P], n int, db ethdb.Database, seed int) []*types.Header[P] {
 	blocks, _ := core.GenerateChain[P](params.TestChainConfig, types.NewBlockWithHeader[P](parent),  ethash.NewFaker[P](), db, n, func(i int, b *core.BlockGen[P]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.Header[P], len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -56,7 +56,7 @@ func makeHeaderChain[P crypto.PublicKey](parent *types.Header, n int, db ethdb.D
 // header only chain.
 func newCanonical[P crypto.PublicKey](n int) (ethdb.Database, *LightChain[P], error) {
 	db := rawdb.NewMemoryDatabase()
-	gspec := core.Genesis[nist.PublicKey]{Config: params.TestChainConfig}
+	gspec := core.Genesis[P]{Config: params.TestChainConfig}
 	genesis := gspec.MustCommit(db)
 	blockchain, _ := NewLightChain[P](&dummyOdr[P]{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config,  ethash.NewFaker[P](), nil)
 
@@ -118,7 +118,7 @@ func testFork[P crypto.PublicKey](t *testing.T, LightChain *LightChain[P], i, n 
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
-func testHeaderChainImport[P crypto.PublicKey](chain []*types.Header, lightchain *LightChain[P]) error {
+func testHeaderChainImport[P crypto.PublicKey](chain []*types.Header[P], lightchain *LightChain[P]) error {
 	for _, header := range chain {
 		// Try and validate the header
 		if err := lightchain.engine.VerifyHeader(lightchain.hc, header, true); err != nil {
@@ -245,14 +245,14 @@ func TestBrokenHeaderChain(t *testing.T) {
 	}
 }
 
-func makeHeaderChainWithDiff[P crypto.PublicKey](genesis *types.Block[P], d []int, seed byte) []*types.Header {
-	var chain []*types.Header
+func makeHeaderChainWithDiff[P crypto.PublicKey](genesis *types.Block[P], d []int, seed byte) []*types.Header[P] {
+	var chain []*types.Header[P]
 	for i, difficulty := range d {
-		header := &types.Header{
+		header := &types.Header[P]{
 			Coinbase:    common.Address{seed},
 			Number:      big.NewInt(int64(i + 1)),
 			Difficulty:  big.NewInt(int64(difficulty)),
-			UncleHash:   types.EmptyUncleHash,
+			UncleHash:   types.EmptyUncleHash[P](),
 			TxHash:      types.EmptyRootHash,
 			ReceiptHash: types.EmptyRootHash,
 		}

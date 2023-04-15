@@ -186,53 +186,53 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen[nist.Publ
 }
 
 func BenchmarkChainRead_header_10k(b *testing.B) {
-	benchReadChain(b, false, 10000)
+	benchReadChain[nist.PublicKey](b, false, 10000)
 }
 func BenchmarkChainRead_full_10k(b *testing.B) {
-	benchReadChain(b, true, 10000)
+	benchReadChain[nist.PublicKey](b, true, 10000)
 }
 func BenchmarkChainRead_header_100k(b *testing.B) {
-	benchReadChain(b, false, 100000)
+	benchReadChain[nist.PublicKey](b, false, 100000)
 }
 func BenchmarkChainRead_full_100k(b *testing.B) {
-	benchReadChain(b, true, 100000)
+	benchReadChain[nist.PublicKey](b, true, 100000)
 }
 func BenchmarkChainRead_header_500k(b *testing.B) {
-	benchReadChain(b, false, 500000)
+	benchReadChain[nist.PublicKey](b, false, 500000)
 }
 func BenchmarkChainRead_full_500k(b *testing.B) {
-	benchReadChain(b, true, 500000)
+	benchReadChain[nist.PublicKey](b, true, 500000)
 }
 func BenchmarkChainWrite_header_10k(b *testing.B) {
-	benchWriteChain(b, false, 10000)
+	benchWriteChain[nist.PublicKey](b, false, 10000)
 }
 func BenchmarkChainWrite_full_10k(b *testing.B) {
-	benchWriteChain(b, true, 10000)
+	benchWriteChain[nist.PublicKey](b, true, 10000)
 }
 func BenchmarkChainWrite_header_100k(b *testing.B) {
-	benchWriteChain(b, false, 100000)
+	benchWriteChain[nist.PublicKey](b, false, 100000)
 }
 func BenchmarkChainWrite_full_100k(b *testing.B) {
-	benchWriteChain(b, true, 100000)
+	benchWriteChain[nist.PublicKey](b, true, 100000)
 }
 func BenchmarkChainWrite_header_500k(b *testing.B) {
-	benchWriteChain(b, false, 500000)
+	benchWriteChain[nist.PublicKey](b, false, 500000)
 }
 func BenchmarkChainWrite_full_500k(b *testing.B) {
-	benchWriteChain(b, true, 500000)
+	benchWriteChain[nist.PublicKey](b, true, 500000)
 }
 
 // makeChainForBench writes a given number of headers or empty blocks/receipts
 // into a database.
-func makeChainForBench(db ethdb.Database, full bool, count uint64) {
+func makeChainForBench[P crypto.PublicKey](db ethdb.Database, full bool, count uint64) {
 	var hash common.Hash
 	for n := uint64(0); n < count; n++ {
-		header := &types.Header{
+		header := &types.Header[P]{
 			Coinbase:    common.Address{},
 			Number:      big.NewInt(int64(n)),
 			ParentHash:  hash,
 			Difficulty:  big.NewInt(1),
-			UncleHash:   types.EmptyUncleHash,
+			UncleHash:   types.EmptyUncleHash[P](),
 			TxHash:      types.EmptyRootHash,
 			ReceiptHash: types.EmptyRootHash,
 		}
@@ -243,14 +243,14 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 		rawdb.WriteTd(db, hash, n, big.NewInt(int64(n+1)))
 
 		if full || n == 0 {
-			block := types.NewBlockWithHeader[nist.PublicKey](header)
+			block := types.NewBlockWithHeader[P](header)
 			rawdb.WriteBody(db, hash, n, block.Body())
-			rawdb.WriteReceipts[nist.PublicKey](db, hash, n, nil)
+			rawdb.WriteReceipts[P](db, hash, n, nil)
 		}
 	}
 }
 
-func benchWriteChain(b *testing.B, full bool, count uint64) {
+func benchWriteChain[P crypto.PublicKey](b *testing.B, full bool, count uint64) {
 	for i := 0; i < b.N; i++ {
 		dir, err := ioutil.TempDir("", "eth-chain-bench")
 		if err != nil {
@@ -260,13 +260,13 @@ func benchWriteChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		makeChainForBench(db, full, count)
+		makeChainForBench[P](db, full, count)
 		db.Close()
 		os.RemoveAll(dir)
 	}
 }
 
-func benchReadChain(b *testing.B, full bool, count uint64) {
+func benchReadChain[P crypto.PublicKey](b *testing.B, full bool, count uint64) {
 	dir, err := ioutil.TempDir("", "eth-chain-bench")
 	if err != nil {
 		b.Fatalf("cannot create temporary directory: %v", err)
@@ -277,7 +277,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", dir, err)
 	}
-	makeChainForBench(db, full, count)
+	makeChainForBench[P](db, full, count)
 	db.Close()
 
 	b.ReportAllocs()

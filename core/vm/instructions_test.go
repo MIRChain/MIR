@@ -91,13 +91,13 @@ func init() {
 	}
 }
 
-func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFunc[nist.PublicKey], name string) {
+func testTwoOperandOp[P crypto.PublicKey](t *testing.T, tests []TwoOperandTestcase, opFn executionFunc[P], name string) {
 
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
 		stack          = newstack()
 		pc             = uint64(0)
-		evmInterpreter = env.interpreter.(*EVMInterpreter[nist.PublicKey])
+		evmInterpreter = env.interpreter.(*EVMInterpreter[P])
 	)
 
 	for i, test := range tests {
@@ -106,7 +106,7 @@ func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFu
 		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Expected))
 		stack.push(x)
 		stack.push(y)
-		opFn(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		opFn(&pc, evmInterpreter, &ScopeContext[P]{nil, stack, nil})
 		if len(stack.data) != 1 {
 			t.Errorf("Expected one item on stack after %v, got %d: ", name, len(stack.data))
 		}
@@ -221,7 +221,7 @@ func TestAddMod(t *testing.T) {
 		stack.push(z)
 		stack.push(y)
 		stack.push(x)
-		opAddmod[nist.PublicKey](&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		opAddmod[nist.PublicKey](&pc, evmInterpreter, &ScopeContext[nist.PublicKey]{nil, stack, nil})
 		actual := stack.pop()
 		if actual.Cmp(expected) != 0 {
 			t.Errorf("Testcase %d, expected  %x, got %x", i, expected, actual)
@@ -230,12 +230,12 @@ func TestAddMod(t *testing.T) {
 }
 
 // getResult is a convenience function to generate the expected values
-func getResult(args []*twoOperandParams, opFn executionFunc[nist.PublicKey]) []TwoOperandTestcase {
+func getResult[P crypto.PublicKey](args []*twoOperandParams, opFn executionFunc[P]) []TwoOperandTestcase {
 	var (
-		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
 		stack       = newstack()
 		pc          = uint64(0)
-		interpreter = env.interpreter.(*EVMInterpreter[nist.PublicKey])
+		interpreter = env.interpreter.(*EVMInterpreter[P])
 	)
 	result := make([]TwoOperandTestcase, len(args))
 	for i, param := range args {
@@ -243,7 +243,7 @@ func getResult(args []*twoOperandParams, opFn executionFunc[nist.PublicKey]) []T
 		y := new(uint256.Int).SetBytes(common.Hex2Bytes(param.y))
 		stack.push(x)
 		stack.push(y)
-		opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
+		opFn(&pc, interpreter, &ScopeContext[P]{nil, stack, nil})
 		actual := stack.pop()
 		result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual)}
 	}
@@ -280,9 +280,9 @@ func TestJsonTestcases(t *testing.T) {
 	}
 }
 
-func opBenchmark(bench *testing.B, op executionFunc[nist.PublicKey], args ...string) {
+func opBenchmark[P crypto.PublicKey](bench *testing.B, op executionFunc[P], args ...string) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
 		stack          = newstack()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
@@ -301,7 +301,7 @@ func opBenchmark(bench *testing.B, op executionFunc[nist.PublicKey], args ...str
 			a.SetBytes(arg)
 			stack.push(a)
 		}
-		op(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		op(&pc, evmInterpreter, &ScopeContext[P]{nil, stack, nil})
 		stack.pop()
 	}
 }
@@ -527,12 +527,12 @@ func TestOpMstore(t *testing.T) {
 	pc := uint64(0)
 	v := "abcdef00000000000000abba000000000deaf000000c0de00100000000133700"
 	stack.pushN(*new(uint256.Int).SetBytes(common.Hex2Bytes(v)), *new(uint256.Int))
-	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+	opMstore(&pc, evmInterpreter, &ScopeContext[nist.PublicKey]{mem, stack, nil})
 	if got := common.Bytes2Hex(mem.GetCopy(0, 32)); got != v {
 		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
 	}
 	stack.pushN(*new(uint256.Int).SetUint64(0x1), *new(uint256.Int))
-	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+	opMstore(&pc, evmInterpreter, &ScopeContext[nist.PublicKey]{mem, stack, nil})
 	if common.Bytes2Hex(mem.GetCopy(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
 	}
@@ -555,7 +555,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
 		stack.pushN(*value, *memStart)
-		opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+		opMstore(&pc, evmInterpreter, &ScopeContext[nist.PublicKey]{mem, stack, nil})
 	}
 }
 
@@ -574,7 +574,7 @@ func BenchmarkOpSHA3(bench *testing.B) {
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
 		stack.pushN(*uint256.NewInt(32), *start)
-		opSha3(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+		opSha3(&pc, evmInterpreter, &ScopeContext[nist.PublicKey]{mem, stack, nil})
 	}
 }
 
@@ -634,8 +634,8 @@ func TestCreate2Addreses(t *testing.T) {
 		origin := common.BytesToAddress(common.FromHex(tt.origin))
 		salt := common.BytesToHash(common.FromHex(tt.salt))
 		code := common.FromHex(tt.code)
-		codeHash := crypto.Keccak256(code)
-		address := crypto.CreateAddress2(origin, salt, codeHash)
+		codeHash := crypto.Keccak256[nist.PublicKey](code)
+		address := crypto.CreateAddress2[nist.PublicKey](origin, salt, codeHash)
 		/*
 			stack          := newstack()
 			// salt, but we don't need that for this test

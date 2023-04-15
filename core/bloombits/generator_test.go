@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that batched bloom bits are correctly rotated from the input bloom
@@ -39,7 +40,7 @@ func TestGenerator(t *testing.T) {
 		}
 	}
 	// Crunch the input through the generator and verify the result
-	gen, err := NewGenerator(types.BloomBitLength)
+	gen, err := NewGenerator[nist.PublicKey](types.BloomBitLength)
 	if err != nil {
 		t.Fatalf("failed to create bloombit generator: %v", err)
 	}
@@ -66,7 +67,7 @@ func BenchmarkGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// Crunch the input through the generator and verify the result
-			gen, err := NewGenerator(types.BloomBitLength)
+			gen, err := NewGenerator[nist.PublicKey](types.BloomBitLength)
 			if err != nil {
 				b.Fatalf("failed to create bloombit generator: %v", err)
 			}
@@ -85,7 +86,7 @@ func BenchmarkGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// Crunch the input through the generator and verify the result
-			gen, err := NewGenerator(types.BloomBitLength)
+			gen, err := NewGenerator[nist.PublicKey](types.BloomBitLength)
 			if err != nil {
 				b.Fatalf("failed to create bloombit generator: %v", err)
 			}
