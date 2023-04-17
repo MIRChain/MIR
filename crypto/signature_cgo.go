@@ -49,7 +49,10 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		v := int((sig[64]) & ^byte(4))
 		r := new(big.Int).SetBytes(sig[:32])
 		s := new(big.Int).SetBytes(sig[32:64])
-		X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, digestHash, r, s, v)
+		revHash := make([]byte, 32)
+		copy(revHash, digestHash)
+		reverse(revHash)
+		X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, v)
 		pubKey := gost3410.PublicKey{
 			C: gost3410.GostCurve,
 			X: X,
@@ -61,15 +64,11 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		return gost3410.Marshal(gost3410.GostCurve, pubKey.X, pubKey.Y), nil
 	case *csp.PublicKey:
 		r, s, revHash := RevertCSP(digestHash, sig)
-		pub := make([]byte, 0, 64)
 		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, int(sig[64]))
 		if err != nil{
 			return nil, err
 		}
-		pub = append(pub, Y.Bytes()...)
-		pub = append(pub, X.Bytes()...)
-		reverse(pub)
-		return pub, nil
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), X, Y), nil
 	default:
 		return nil, fmt.Errorf("no crypto alg was set")
 	}
@@ -134,14 +133,17 @@ func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 		if len(digestHash) != DigestLength {
 			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
 		}
-		sig, err := prv.SignDigest(digestHash, rand.Reader)
+		revHash := make([]byte, 32)
+		copy(revHash, digestHash)
+		reverse(revHash)
+		sig, err := prv.SignDigest(revHash, rand.Reader)
 		if err != nil {
 			return nil, err
 		}
 		r := new(big.Int).SetBytes(sig[:32])
 		s := new(big.Int).SetBytes(sig[32:64])
 		for i := 0; i < (1+1)*2; i++ {
-			X, Y, err := gost3410.RecoverCompact(*prv.C, digestHash, r, s, i)
+			X, Y, err := gost3410.RecoverCompact(*prv.C, revHash, r, s, i)
 			if err == nil && X.Cmp(prv.PublicKey.X) == 0 && Y.Cmp(prv.PublicKey.Y) == 0 {
 				resSig = append(resSig, sig...)
 				resSig = append(resSig, byte(i))
@@ -193,7 +195,10 @@ func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
 		if err != nil {
 			return false
 		}
-		ver, err := pub.VerifyDigest(digestHash, signature[:64])
+		revHash := make([]byte, 32)
+		copy(revHash, digestHash)
+		reverse(revHash)
+		ver, err := pub.VerifyDigest(revHash, signature[:64])
 		if err != nil {
 			return false
 		}

@@ -182,7 +182,7 @@ func TestStoreBacklog(t *testing.T) {
 	// push preprepare msg
 	preprepare := &istanbul.Preprepare[nist.PublicKey]{
 		View:     v,
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[nist.PublicKey](1),
 	}
 	prepreparePayload, _ := ibfttypes.Encode(preprepare)
 	m := &ibfttypes.Message{
@@ -292,7 +292,7 @@ func TestProcessBacklog(t *testing.T) {
 	}
 	preprepare := &istanbul.Preprepare[nist.PublicKey]{
 		View:     v,
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[nist.PublicKey](1),
 	}
 	prepreparePayload, _ := ibfttypes.Encode(preprepare)
 

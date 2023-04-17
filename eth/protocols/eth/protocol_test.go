@@ -79,7 +79,7 @@ func TestEth66EmptyMessages(t *testing.T) {
 	for i, msg := range []interface{}{
 		// Headers
 		GetBlockHeadersPacket66{1111, nil},
-		BlockHeadersPacket66{1111, nil},
+		BlockHeadersPacket66[nist.PublicKey]{1111, nil},
 		// Bodies
 		GetBlockBodiesPacket66{1111, nil},
 		BlockBodiesPacket66[nist.PublicKey]{1111, nil},
@@ -96,7 +96,7 @@ func TestEth66EmptyMessages(t *testing.T) {
 		PooledTransactionsRLPPacket66{1111, nil},
 
 		// Headers
-		BlockHeadersPacket66{1111, BlockHeadersPacket([]*types.Header{})},
+		BlockHeadersPacket66[nist.PublicKey]{1111, BlockHeadersPacket[nist.PublicKey]([]*types.Header[nist.PublicKey]{})},
 		// Bodies
 		GetBlockBodiesPacket66{1111, GetBlockBodiesPacket([]common.Hash{})},
 		BlockBodiesPacket66[nist.PublicKey]{1111, BlockBodiesPacket[nist.PublicKey]([]*BlockBody[nist.PublicKey]{})},
@@ -124,7 +124,7 @@ func TestEth66Messages(t *testing.T) {
 
 	// Some basic structs used during testing
 	var (
-		header       *types.Header
+		header       *types.Header[nist.PublicKey]
 		blockBody    *BlockBody[nist.PublicKey]
 		blockBodyRlp rlp.RawValue
 		txs          []*types.Transaction[nist.PublicKey]
@@ -135,7 +135,7 @@ func TestEth66Messages(t *testing.T) {
 
 		err error
 	)
-	header = &types.Header{
+	header = &types.Header[nist.PublicKey]{
 		Difficulty: big.NewInt(2222),
 		Number:     big.NewInt(3333),
 		GasLimit:   4444,
@@ -161,7 +161,7 @@ func TestEth66Messages(t *testing.T) {
 	// init the block body data, both object and rlp form
 	blockBody = &BlockBody[nist.PublicKey]{
 		Transactions: txs,
-		Uncles:       []*types.Header{header},
+		Uncles:       []*types.Header[nist.PublicKey]{header},
 	}
 	blockBodyRlp, err = rlp.EncodeToBytes(blockBody)
 	if err != nil {
@@ -214,7 +214,7 @@ func TestEth66Messages(t *testing.T) {
 			common.FromHex("ca820457c682270f050580"),
 		},
 		{
-			BlockHeadersPacket66{1111, BlockHeadersPacket{header}},
+			BlockHeadersPacket66[nist.PublicKey]{1111, BlockHeadersPacket[nist.PublicKey]{header}},
 			common.FromHex("f90202820457f901fcf901f9a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000940000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000b90100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008208ae820d0582115c8215b3821a0a827788a00000000000000000000000000000000000000000000000000000000000000000880000000000000000"),
 		},
 		{

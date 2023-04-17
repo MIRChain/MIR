@@ -31,7 +31,7 @@ func TestPrepareExtra(t *testing.T) {
 	vanity := make([]byte, types.IstanbulExtraVanity)
 	expectedResult := append(vanity, hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")...)
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: vanity,
 	}
 
@@ -68,7 +68,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 	var expectedErr error
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: append(vanity, istRawData...),
 	}
 
@@ -111,7 +111,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 	var expectedErr error
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: append(vanity, istRawData...),
 	}
 

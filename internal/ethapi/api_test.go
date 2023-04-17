@@ -919,8 +919,8 @@ func (sb *StubBackend[T,P]) UnprotectedAllowed() bool {
 	return sb.allowUnprotectedTxs
 }
 
-func (sb *StubBackend[T,P]) CurrentHeader() *types.Header {
-	return &types.Header{Number: sb.CurrentHeadNumber}
+func (sb *StubBackend[T,P]) CurrentHeader() *types.Header[P] {
+	return &types.Header[P]{Number: sb.CurrentHeadNumber}
 }
 
 func (sb *StubBackend[T,P]) Engine() consensus.Engine[P] {
@@ -939,9 +939,9 @@ func (sb *StubBackend[T,P]) IsAuthorized(authToken *proto.PreAuthenticatedAuthen
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmconfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
+func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header[P], vmconfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
 	sb.getEVMCalled = true
-	vmCtx := core.NewEVMBlockContext[P](&types.Header{
+	vmCtx := core.NewEVMBlockContext[P](&types.Header[P]{
 		Coinbase:   arbitraryFrom,
 		Number:     arbitraryCurrentBlockNumber,
 		Time:       0,
@@ -958,7 +958,7 @@ func (sb *StubBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state 
 }
 
 func (sb *StubBackend[T,P]) CurrentBlock() *types.Block[P] {
-	return types.NewBlock[P](&types.Header{
+	return types.NewBlock[P](&types.Header[P]{
 		Number: arbitraryCurrentBlockNumber,
 	}, nil, nil, nil, new(trie.Trie[P]))
 }
@@ -1015,15 +1015,15 @@ func (sb *StubBackend[T,P]) SetHead(number uint64) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+func (sb *StubBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header[P], error) {
 	panic("implement me")
 }
 
@@ -1039,11 +1039,11 @@ func (sb *StubBackend[T,P]) BlockByNumberOrHash(ctx context.Context, blockNrOrHa
 	return sb.CurrentBlock(), nil
 }
 
-func (sb *StubBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header[P], error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 
-func (sb *StubBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header[P], error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 

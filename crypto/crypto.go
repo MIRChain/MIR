@@ -95,6 +95,8 @@ func NewKeccakState[P PublicKey]() KeccakState {
 		return sha3.NewLegacyKeccak256().(KeccakState)
 	case *gost3410.PublicKey:
 		return gost3411.New256().(KeccakState)
+	case *csp.PublicKey:
+		return csp.New256().(KeccakState)
 	default:
 		panic("cant infer crypto type for hashing alg")
 	}
@@ -293,7 +295,7 @@ func FromECDSAPub[P PublicKey](pub P) []byte {
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
-		return p.Raw()
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), p.X, p.Y)
 	default:
 		panic("cant infer pubkey type")
 	}
@@ -420,6 +422,11 @@ func ValidateSignatureValues[P crypto.PublicKey](v byte, r, s *big.Int, homestea
 			return false
 		}
 		return r.Cmp(gost3410.GostCurve.Q) < 0 && s.Cmp(gost3410.GostCurve.Q) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
+	case *csp.PublicKey:
+		if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+			return false
+		}
+		return true
 	default:
 		return false
 	}

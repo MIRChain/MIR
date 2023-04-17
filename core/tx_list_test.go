@@ -34,7 +34,7 @@ func TestStrictTxListAdd(t *testing.T) {
 
 	txs := make(types.Transactions[nist.PublicKey], 1024)
 	for i := 0; i < len(txs); i++ {
-		txs[i] = transaction(uint64(i), 0, key)
+		txs[i] = transaction[nist.PrivateKey, nist.PublicKey](uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
 	list := newTxList[nist.PublicKey](true)
@@ -58,7 +58,7 @@ func BenchmarkTxListAdd(t *testing.B) {
 
 	txs := make(types.Transactions[nist.PublicKey], 100000)
 	for i := 0; i < len(txs); i++ {
-		txs[i] = transaction(uint64(i), 0, key)
+		txs[i] = transaction[nist.PrivateKey, nist.PublicKey](uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
 	list := newTxList[nist.PublicKey](true)

@@ -352,7 +352,7 @@ func TestStreamUncleBlock(t *testing.T) {
 			// and 1 uncle.
 			if taskIndex == 2 {
 				have := task.block.Header().UncleHash
-				want := types.CalcUncleHash([]*types.Header{b.uncleBlock.Header()})
+				want := types.CalcUncleHash([]*types.Header[nist.PublicKey]{b.uncleBlock.Header()})
 				if have != want {
 					t.Errorf("uncle hash mismatch: have %s, want %s", have.Hex(), want.Hex())
 				}

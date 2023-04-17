@@ -72,7 +72,7 @@ func (odr *testOdr[P]) Retrieve(ctx context.Context, req OdrRequest) error {
 		return ErrOdrDisabled
 	}
 	switch req := req.(type) {
-	case *BlockRequest:
+	case *BlockRequest[P]:
 		number := rawdb.ReadHeaderNumber(odr.sdb, req.Hash)
 		if number != nil {
 			req.Rlp = rawdb.ReadBodyRLP(odr.sdb, req.Hash, *number)
@@ -180,7 +180,7 @@ func odrContractCall[P crypto.PublicKey] (ctx context.Context, db ethdb.Database
 
 		var (
 			st     *state.StateDB[P]
-			header *types.Header
+			header *types.Header[P]
 			chain  core.ChainContext[P]
 		)
 		if bc == nil {
@@ -270,7 +270,7 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn[nist.PublicKey]) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	headers := make([]*types.Header, len(gchain))
+	headers := make([]*types.Header[nist.PublicKey], len(gchain))
 	for i, block := range gchain {
 		headers[i] = block.Header()
 	}

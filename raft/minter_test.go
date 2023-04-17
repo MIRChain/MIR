@@ -36,7 +36,7 @@ func TestSignHeader(t *testing.T) {
 	//create some fake header to sign
 	fakeParentHash := common.HexToHash("0xc2c1dc1be8054808c69e06137429899d")
 
-	header := &types.Header{
+	header := &types.Header[nist.PublicKey]{
 		ParentHash: fakeParentHash,
 		Number:     big.NewInt(1),
 		Difficulty: big.NewInt(1),

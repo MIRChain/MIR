@@ -60,7 +60,7 @@ func getBlock(transactions int, uncles int, dataSize int) *types.Block[nist.Publ
 					b.AddTx(tx)
 				}
 				for i := 0; i < uncles; i++ {
-					b.AddUncle(&types.Header{ParentHash: b.PrevBlock(n - 1 - i).Hash(), Number: big.NewInt(int64(n - i))})
+					b.AddUncle(&types.Header[nist.PublicKey]{ParentHash: b.PrevBlock(n - 1 - i).Hash(), Number: big.NewInt(int64(n - i))})
 				}
 			}
 		})
@@ -113,7 +113,7 @@ func testRlpIterator(t *testing.T, txs, uncles, datasize int) {
 	var gotHashes []common.Hash
 	var expHashes []common.Hash
 	for txIt.Next() {
-		gotHashes = append(gotHashes, crypto.Keccak256Hash(txIt.Value()))
+		gotHashes = append(gotHashes, crypto.Keccak256Hash[nist.PublicKey](txIt.Value()))
 	}
 
 	var expBody types.Body[nist.PublicKey]

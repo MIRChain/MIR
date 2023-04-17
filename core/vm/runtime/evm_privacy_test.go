@@ -15,6 +15,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/private/engine"
@@ -70,26 +71,26 @@ contract C2  {
 }
 */
 
-type contract struct {
-	abi      abi.ABI
+type contract [P crypto.PublicKey] struct {
+	abi      abi.ABI[P]
 	bytecode []byte
 	name     string
 }
 
 var (
-	c1, c2        *contract
+	c1, c2        *contract[nist.PublicKey]
 	stubPrivateTx *types.Transaction[nist.PublicKey]
 )
 
 func init() {
-	c1 = &contract{
+	c1 = &contract[nist.PublicKey]{
 		name:     "c1",
-		abi:      mustParse(c1AbiDefinition),
+		abi:      mustParse[nist.PublicKey](c1AbiDefinition),
 		bytecode: common.Hex2Bytes("608060405234801561001057600080fd5b506040516020806105a88339810180604052602081101561003057600080fd5b81019080805190602001909291905050508060008190555050610550806100586000396000f3fe608060405260043610610051576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b1146100565780636d4ce63c146100a5578063d7139463146100d0575b600080fd5b34801561006257600080fd5b5061008f6004803603602081101561007957600080fd5b810190808035906020019092919050505061010b565b6040518082815260200191505060405180910390f35b3480156100b157600080fd5b506100ba61011e565b6040518082815260200191505060405180910390f35b3480156100dc57600080fd5b50610109600480360360208110156100f357600080fd5b8101908080359060200190929190505050610127565b005b6000816000819055506000549050919050565b60008054905090565b600030610132610212565b808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001915050604051809103906000f080158015610184573d6000803e3d6000fd5b5090508073ffffffffffffffffffffffffffffffffffffffff166360fe47b1836040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050600060405180830381600087803b1580156101f657600080fd5b505af115801561020a573d6000803e3d6000fd5b505050505050565b604051610302806102238339019056fe608060405234801561001057600080fd5b506040516020806103028339810180604052602081101561003057600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610271806100916000396000f3fe608060405260043610610046576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b11461004b5780636d4ce63c14610086575b600080fd5b34801561005757600080fd5b506100846004803603602081101561006e57600080fd5b81019080803590602001909291905050506100b1565b005b34801561009257600080fd5b5061009b610180565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166360fe47b1826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050602060405180830381600087803b15801561014157600080fd5b505af1158015610155573d6000803e3d6000fd5b505050506040513d602081101561016b57600080fd5b81019080805190602001909291905050505050565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040160206040518083038186803b15801561020557600080fd5b505afa158015610219573d6000803e3d6000fd5b505050506040513d602081101561022f57600080fd5b810190808051906020019092919050505090509056fea165627a7a72305820a537f4c360ce5c6f55523298e314e6456e5c3e02c170563751dfda37d3aeddb30029a165627a7a7230582060396bfff29d2dfc5a9f4216bfba5e24d031d54fd4b26ebebde1a26c59df0c1e0029"),
 	}
-	c2 = &contract{
+	c2 = &contract[nist.PublicKey]{
 		name:     "c2",
-		abi:      mustParse(c2AbiDefinition),
+		abi:      mustParse[nist.PublicKey](c2AbiDefinition),
 		bytecode: common.Hex2Bytes("608060405234801561001057600080fd5b506040516020806102f58339810180604052602081101561003057600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610264806100916000396000f3fe608060405234801561001057600080fd5b5060043610610053576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b1146100585780636d4ce63c14610086575b600080fd5b6100846004803603602081101561006e57600080fd5b81019080803590602001909291905050506100a4565b005b61008e610173565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166360fe47b1826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050602060405180830381600087803b15801561013457600080fd5b505af1158015610148573d6000803e3d6000fd5b505050506040513d602081101561015e57600080fd5b81019080805190602001909291905050505050565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040160206040518083038186803b1580156101f857600080fd5b505afa15801561020c573d6000803e3d6000fd5b505050506040513d602081101561022257600080fd5b810190808051906020019092919050505090509056fea165627a7a72305820dd8a5dcf693e1969289c444a282d0684a9760bac26f1e4e0139d46821ec1979b0029"),
 	}
 	log.PrintOrigins(true)
@@ -98,7 +99,7 @@ func init() {
 
 func TestPrivacyEnhancements_CreateC1(t *testing.T) {
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 	initialValue := int64(42)
 	var affectedContracts []common.Address
 	var getPrivacyMetadataFunc func(common.Address) (*state.PrivacyMetadata, error)
@@ -111,7 +112,7 @@ func TestPrivacyEnhancements_CreateC1(t *testing.T) {
 		PrivacyFlag: engine.PrivacyFlagStateValidation,
 	})
 
-	c1Address := createC1(assert, cfg, initialValue)
+	c1Address := createC1[nist.PublicKey](assert, cfg, initialValue)
 	assert.Empty(affectedContracts, "Contract C1 creation doesn't affect any other contract")
 	pm, err := getPrivacyMetadataFunc(c1Address)
 	assert.NoError(err, "Privacy Metadata must exist")
@@ -126,17 +127,17 @@ func TestPrivacyEnhancements_CreateC1(t *testing.T) {
 
 func TestPrivacyEnhancements_CreateC2(t *testing.T) {
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 	stubPrivateTx = nil
 	initialValue := int64(30)
 
-	c1Address := createC1(assert, cfg, initialValue)
+	c1Address := createC1[nist.PublicKey](assert, cfg, initialValue)
 
 	var affectedContracts []common.Address
 	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
 		affectedContracts = evm.AffectedContracts()
 	}
-	c2Address := createC2(assert, cfg, c1Address)
+	c2Address := createC2[nist.PublicKey](assert, cfg, c1Address)
 	assert.Empty(affectedContracts, "Contract C2 creation doesn't affect any other contract")
 
 	actualValue := callContractFunction(assert, cfg, c2, c2Address, "get")
@@ -149,12 +150,12 @@ func TestPrivacyEnhancements_CreateC2(t *testing.T) {
 
 func TestPrivacyEnhancements_CreateC2FromC1Function(t *testing.T) {
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 	stubPrivateTx = nil
 	initialValue := int64(30)
 	newValue := int64(40)
 
-	c1Address := createC1(assert, cfg, initialValue)
+	c1Address := createC1[nist.PublicKey](assert, cfg, initialValue)
 
 	var affectedContracts []common.Address
 	cfg.onAfterEVM = func(evm *vm.EVM[nist.PublicKey]) {
@@ -168,7 +169,7 @@ func TestPrivacyEnhancements_CreateC2FromC1Function(t *testing.T) {
 
 func TestPrivacyEnhancements_CreateC1_StandardPrivate(t *testing.T) {
 	assert := testifyassert.New(t)
-	cfg := newConfig()
+	cfg := newConfig[nist.PublicKey]()
 	initialValue := int64(42)
 	var affectedContracts []common.Address
 	var getPrivacyMetadataFunc func(common.Address) (*state.PrivacyMetadata, error)
@@ -181,7 +182,7 @@ func TestPrivacyEnhancements_CreateC1_StandardPrivate(t *testing.T) {
 		PrivacyFlag: engine.PrivacyFlagStandardPrivate,
 	})
 
-	c1Address := createC1(assert, cfg, initialValue)
+	c1Address := createC1[nist.PublicKey](assert, cfg, initialValue)
 	assert.Empty(affectedContracts, "Contract C1 creation doesn't affect any other contract")
 	_, err := getPrivacyMetadataFunc(c1Address)
 	assert.Error(err, "Privacy Metadata must not exist")
@@ -192,8 +193,8 @@ func TestPrivacyEnhancements_CreateC1_StandardPrivate(t *testing.T) {
 	assert.Equal(c1Address, affectedContracts[0], "Calling C1.get() affects C1 contract itself")
 }
 
-func callContractFunction(assert *testifyassert.Assertions, cfg *extendedConfig, c *contract, address common.Address, name string, args ...interface{}) int64 {
-	f := mustPack(assert, c, name, args...)
+func callContractFunction[P crypto.PublicKey](assert *testifyassert.Assertions, cfg *extendedConfig[P], c *contract[P], address common.Address, name string, args ...interface{}) int64 {
+	f := mustPack[P](assert, c, name, args...)
 	ret, _, err := call(address, f, cfg)
 	sig := fmt.Sprintf("%s.%s", c.name, name)
 	assert.NoError(err, "Execute %s", sig)
@@ -210,8 +211,9 @@ func callContractFunction(assert *testifyassert.Assertions, cfg *extendedConfig,
 	return actualValue.Int64()
 }
 
-func createC2(assert *testifyassert.Assertions, cfg *extendedConfig, c1Address common.Address) common.Address {
-	constructorCode := mustPack(assert, c2, "", c1Address)
+func createC2[P crypto.PublicKey](assert *testifyassert.Assertions, cfg *extendedConfig[P], c1Address common.Address) common.Address {
+	var c2 *contract[P]
+	constructorCode := mustPack[P](assert, c2, "", c1Address)
 
 	_, address, _, err := create(append(c2.bytecode, constructorCode...), cfg)
 	assert.NoError(err, "Create contract C2")
@@ -220,8 +222,9 @@ func createC2(assert *testifyassert.Assertions, cfg *extendedConfig, c1Address c
 	return address
 }
 
-func createC1(assert *testifyassert.Assertions, cfg *extendedConfig, initialValue int64) common.Address {
-	constructorCode := mustPack(assert, c1, "", big.NewInt(initialValue))
+func createC1[P crypto.PublicKey](assert *testifyassert.Assertions, cfg *extendedConfig[P], initialValue int64) common.Address {
+	var c1 *contract[P]
+	constructorCode := mustPack[P](assert, c1, "", big.NewInt(initialValue))
 
 	_, address, _, err := create(append(c1.bytecode, constructorCode...), cfg)
 	assert.NoError(err, "Create contract C1")
@@ -230,35 +233,35 @@ func createC1(assert *testifyassert.Assertions, cfg *extendedConfig, initialValu
 	return address
 }
 
-func mustPack(assert *testifyassert.Assertions, c *contract, name string, args ...interface{}) []byte {
+func mustPack[P crypto.PublicKey](assert *testifyassert.Assertions, c *contract[P], name string, args ...interface{}) []byte {
 	bytes, err := c.abi.Pack(name, args...)
 	assert.NoError(err, "Pack method")
 	return bytes
 }
 
-func newConfig() *extendedConfig {
-	cfg := new(Config[nist.PublicKey])
+func newConfig[P crypto.PublicKey]() *extendedConfig[P] {
+	cfg := new(Config[P])
 	setDefaults(cfg)
 	cfg.Debug = true
 	database := rawdb.NewMemoryDatabase()
-	cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(database), nil)
-	privateState, _ := state.New(common.Hash{}, state.NewDatabase(database), nil)
+	cfg.State, _ = state.New[P](common.Hash{}, state.NewDatabase[P](database), nil)
+	privateState, _ := state.New[P](common.Hash{}, state.NewDatabase[P](database), nil)
 
 	cfg.ChainConfig.IsQuorum = true
 	cfg.ChainConfig.ByzantiumBlock = big.NewInt(0)
-	return &extendedConfig{
+	return &extendedConfig[P]{
 		Config:       cfg,
 		privateState: privateState,
 	}
 }
 
-type extendedConfig struct {
-	*Config[nist.PublicKey]
-	privateState *state.StateDB
-	onAfterEVM   func(evm *vm.EVM[nist.PublicKey])
+type extendedConfig [P crypto.PublicKey] struct {
+	*Config[P]
+	privateState *state.StateDB[P]
+	onAfterEVM   func(evm *vm.EVM[P])
 }
 
-func newEVM(cfg *extendedConfig) *vm.EVM[nist.PublicKey] {
+func newEVM[P crypto.PublicKey](cfg *extendedConfig[P]) *vm.EVM[P] {
 	context := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
@@ -274,19 +277,20 @@ func newEVM(cfg *extendedConfig) *vm.EVM[nist.PublicKey] {
 		Origin:   cfg.Origin,
 		GasPrice: cfg.GasPrice,
 	}
-	evm := vm.NewEVM[nist.PublicKey](context, txContext, cfg.State, cfg.privateState, cfg.ChainConfig, cfg.EVMConfig)
+	evm := vm.NewEVM[P](context, txContext, cfg.State, cfg.privateState, cfg.ChainConfig, cfg.EVMConfig)
+	var stubPrivateTx *types.Transaction[P]
 	evm.SetCurrentTX(stubPrivateTx)
 	return evm
 }
 
-func newTypicalPrivateTx(cfg *extendedConfig) *types.Transaction[nist.PublicKey] {
+func newTypicalPrivateTx[P crypto.PublicKey](cfg *extendedConfig[P]) *types.Transaction[nist.PublicKey] {
 	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, cfg.Value, cfg.GasLimit, cfg.GasPrice, []byte("arbitrary payload"))
 	tx.SetPrivate()
 	return tx
 }
 
 // Create executes the code using the EVM create method
-func create(input []byte, cfg *extendedConfig) ([]byte, common.Address, uint64, error) {
+func create[P crypto.PublicKey](input []byte, cfg *extendedConfig[P]) ([]byte, common.Address, uint64, error) {
 	var (
 		vmenv  = newEVM(cfg)
 		sender = vm.AccountRef(cfg.Origin)
@@ -312,7 +316,7 @@ func create(input []byte, cfg *extendedConfig) ([]byte, common.Address, uint64, 
 //
 // Call, unlike Execute, requires a config and also requires the State field to
 // be set.
-func call(address common.Address, input []byte, cfg *extendedConfig) ([]byte, uint64, error) {
+func call[P crypto.PublicKey](address common.Address, input []byte, cfg *extendedConfig[P]) ([]byte, uint64, error) {
 	vmenv := newEVM(cfg)
 	defer func() {
 		if cfg.onAfterEVM != nil {
@@ -333,8 +337,8 @@ func call(address common.Address, input []byte, cfg *extendedConfig) ([]byte, ui
 	return ret, leftOverGas, err
 }
 
-func mustParse(def string) abi.ABI {
-	abi, err := abi.JSON(strings.NewReader(def))
+func mustParse[P crypto.PublicKey](def string) abi.ABI[P] {
+	abi, err := abi.JSON[P](strings.NewReader(def))
 	if err != nil {
 		log.Error("Can't parse ABI def", "err", err)
 		os.Exit(1)

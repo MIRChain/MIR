@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestJumpDestAnalysis(t *testing.T) {
@@ -69,7 +70,7 @@ func BenchmarkJumpdestHashing_1200k(bench *testing.B) {
 	code := make([]byte, 1200000)
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
-		crypto.Keccak256Hash(code)
+		crypto.Keccak256Hash[nist.PublicKey](code)
 	}
 	bench.StopTimer()
 }

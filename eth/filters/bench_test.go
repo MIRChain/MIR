@@ -86,14 +86,14 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 	cnt := (*headNum - 512) / sectionSize
 	var dataSize, compSize uint64
 	for sectionIdx := uint64(0); sectionIdx < cnt; sectionIdx++ {
-		bc, err := bloombits.NewGenerator(uint(sectionSize))
+		bc, err := bloombits.NewGenerator[nist.PublicKey](uint(sectionSize))
 		if err != nil {
 			b.Fatalf("failed to create generator: %v", err)
 		}
-		var header *types.Header
+		var header *types.Header[nist.PublicKey]
 		for i := sectionIdx * sectionSize; i < (sectionIdx+1)*sectionSize; i++ {
 			hash := rawdb.ReadCanonicalHash(db, i)
-			header = rawdb.ReadHeader(db, hash, i)
+			header = rawdb.ReadHeader[nist.PublicKey](db, hash, i)
 			if header == nil {
 				b.Fatalf("Error creating bloomBits data")
 			}

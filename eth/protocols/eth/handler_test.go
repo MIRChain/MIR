@@ -250,7 +250,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 	// Run each of the tests and verify the results against the chain
 	for i, tt := range tests {
 		// Collect the headers to expect in the response
-		var headers []*types.Header
+		var headers []*types.Header[nist.PublicKey]
 		for _, hash := range tt.expect {
 			headers = append(headers, backend.chain.GetBlockByHash(hash).Header())
 		}
@@ -265,7 +265,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 				RequestId:             123,
 				GetBlockHeadersPacket: tt.query,
 			})
-			if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66{
+			if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66[nist.PublicKey]{
 				RequestId:          123,
 				BlockHeadersPacket: headers,
 			}); err != nil {
@@ -287,7 +287,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 						RequestId:             456,
 						GetBlockHeadersPacket: tt.query,
 					})
-					if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66{
+					if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66[nist.PublicKey]{
 						RequestId:          456,
 						BlockHeadersPacket: headers,
 					}); err != nil {

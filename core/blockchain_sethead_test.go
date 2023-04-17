@@ -33,6 +33,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -173,7 +174,7 @@ func testShortSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -216,7 +217,7 @@ func testShortFastSyncedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -258,7 +259,7 @@ func testShortFastSyncingSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -304,7 +305,7 @@ func testShortOldForkedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -354,7 +355,7 @@ func testShortOldForkedFastSyncedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -403,7 +404,7 @@ func testShortOldForkedFastSyncingSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -453,7 +454,7 @@ func testShortNewlyForkedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    10,
 		sidechainBlocks:    8,
 		freezeThreshold:    16,
@@ -506,7 +507,7 @@ func testShortNewlyForkedFastSyncedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    10,
 		sidechainBlocks:    8,
 		freezeThreshold:    16,
@@ -559,7 +560,7 @@ func testShortNewlyForkedFastSyncingSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    10,
 		sidechainBlocks:    8,
 		freezeThreshold:    16,
@@ -608,7 +609,7 @@ func testShortReorgedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -662,7 +663,7 @@ func testShortReorgedFastSyncedSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -714,7 +715,7 @@ func testShortReorgedFastSyncingSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C7
 	// Expected head fast block: C7
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -762,7 +763,7 @@ func testLongShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -808,7 +809,7 @@ func testLongDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -860,7 +861,7 @@ func testLongFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -906,7 +907,7 @@ func testLongFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -957,7 +958,7 @@ func testLongFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -1007,7 +1008,7 @@ func testLongFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -1061,7 +1062,7 @@ func testLongOldForkedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1109,7 +1110,7 @@ func testLongOldForkedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1164,7 +1165,7 @@ func testLongOldForkedFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1217,7 +1218,7 @@ func testLongOldForkedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1271,7 +1272,7 @@ func testLongOldForkedFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1324,7 +1325,7 @@ func testLongOldForkedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1376,7 +1377,7 @@ func testLongNewerForkedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1427,7 +1428,7 @@ func testLongNewerForkedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1479,7 +1480,7 @@ func testLongNewerForkedFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1530,7 +1531,7 @@ func testLongNewerForkedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C
-	testSetHead(t, &rewindTest{
+	testSetHead[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1552,13 +1553,13 @@ func testLongNewerForkedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 // chain is above the committed block. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongFastSyncinghallowSetHead.
 func TestLongNewerForkedFastSyncingShallowSetHead(t *testing.T) {
-	testLongNewerForkedFastSyncingShallowSetHead(t, false)
+	testLongNewerForkedFastSyncingShallowSetHead[nist.PublicKey](t, false)
 }
 func TestLongNewerForkedFastSyncingShallowSetHeadWithSnapshots(t *testing.T) {
-	testLongNewerForkedFastSyncingShallowSetHead(t, true)
+	testLongNewerForkedFastSyncingShallowSetHead[nist.PublicKey](t, true)
 }
 
-func testLongNewerForkedFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
+func testLongNewerForkedFastSyncingShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12
@@ -1582,7 +1583,7 @@ func testLongNewerForkedFastSyncingShallowSetHead(t *testing.T, snapshots bool) 
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1604,13 +1605,13 @@ func testLongNewerForkedFastSyncingShallowSetHead(t *testing.T, snapshots bool) 
 // chain is above the committed block. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongFastSyncingDeepSetHead.
 func TestLongNewerForkedFastSyncingDeepSetHead(t *testing.T) {
-	testLongNewerForkedFastSyncingDeepSetHead(t, false)
+	testLongNewerForkedFastSyncingDeepSetHead[nist.PublicKey](t, false)
 }
 func TestLongNewerForkedFastSyncingDeepSetHeadWithSnapshots(t *testing.T) {
-	testLongNewerForkedFastSyncingDeepSetHead(t, true)
+	testLongNewerForkedFastSyncingDeepSetHead[nist.PublicKey](t, true)
 }
 
-func testLongNewerForkedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
+func testLongNewerForkedFastSyncingDeepSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18->C19->C20->C21->C22->C23->C24 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12
@@ -1633,7 +1634,7 @@ func testLongNewerForkedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1653,10 +1654,10 @@ func testLongNewerForkedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 // chain, where a recent block - newer than the ancient limit - was already committed
 // to disk and then sethead was called. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongShallowSetHead.
-func TestLongReorgedShallowSetHead(t *testing.T)              { testLongReorgedShallowSetHead(t, false) }
-func TestLongReorgedShallowSetHeadWithSnapshots(t *testing.T) { testLongReorgedShallowSetHead(t, true) }
+func TestLongReorgedShallowSetHead(t *testing.T)              { testLongReorgedShallowSetHead[nist.PublicKey](t, false) }
+func TestLongReorgedShallowSetHeadWithSnapshots(t *testing.T) { testLongReorgedShallowSetHead[nist.PublicKey](t, true) }
 
-func testLongReorgedShallowSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1680,7 +1681,7 @@ func testLongReorgedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1700,10 +1701,10 @@ func testLongReorgedShallowSetHead(t *testing.T, snapshots bool) {
 // chain, where a recent block - older than the ancient limit - was already committed
 // to disk and then sethead was called. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongDeepSetHead.
-func TestLongReorgedDeepSetHead(t *testing.T)              { testLongReorgedDeepSetHead(t, false) }
-func TestLongReorgedDeepSetHeadWithSnapshots(t *testing.T) { testLongReorgedDeepSetHead(t, true) }
+func TestLongReorgedDeepSetHead(t *testing.T)              { testLongReorgedDeepSetHead[nist.PublicKey](t, false) }
+func TestLongReorgedDeepSetHeadWithSnapshots(t *testing.T) { testLongReorgedDeepSetHead[nist.PublicKey](t, true) }
 
-func testLongReorgedDeepSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedDeepSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18->C19->C20->C21->C22->C23->C24 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1726,7 +1727,7 @@ func testLongReorgedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1748,13 +1749,13 @@ func testLongReorgedDeepSetHead(t *testing.T, snapshots bool) {
 // freezer will delete the sidechain since it's dangling, reverting to
 // TestLongFastSyncedShallowSetHead.
 func TestLongReorgedFastSyncedShallowSetHead(t *testing.T) {
-	testLongReorgedFastSyncedShallowSetHead(t, false)
+	testLongReorgedFastSyncedShallowSetHead[nist.PublicKey](t, false)
 }
 func TestLongReorgedFastSyncedShallowSetHeadWithSnapshots(t *testing.T) {
-	testLongReorgedFastSyncedShallowSetHead(t, true)
+	testLongReorgedFastSyncedShallowSetHead[nist.PublicKey](t, true)
 }
 
-func testLongReorgedFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedFastSyncedShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1778,7 +1779,7 @@ func testLongReorgedFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1800,13 +1801,13 @@ func testLongReorgedFastSyncedShallowSetHead(t *testing.T, snapshots bool) {
 // freezer will delete the sidechain since it's dangling, reverting to
 // TestLongFastSyncedDeepSetHead.
 func TestLongReorgedFastSyncedDeepSetHead(t *testing.T) {
-	testLongReorgedFastSyncedDeepSetHead(t, false)
+	testLongReorgedFastSyncedDeepSetHead[nist.PublicKey](t, false)
 }
 func TestLongReorgedFastSyncedDeepSetHeadWithSnapshots(t *testing.T) {
-	testLongReorgedFastSyncedDeepSetHead(t, true)
+	testLongReorgedFastSyncedDeepSetHead[nist.PublicKey](t, true)
 }
 
-func testLongReorgedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedFastSyncedDeepSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18->C19->C20->C21->C22->C23->C24 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1829,7 +1830,7 @@ func testLongReorgedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1852,13 +1853,13 @@ func testLongReorgedFastSyncedDeepSetHead(t *testing.T, snapshots bool) {
 // head, since we can just pick up fast syncing from there. The side chain is
 // completely nuked by the freezer.
 func TestLongReorgedFastSyncingShallowSetHead(t *testing.T) {
-	testLongReorgedFastSyncingShallowSetHead(t, false)
+	testLongReorgedFastSyncingShallowSetHead[nist.PublicKey](t, false)
 }
 func TestLongReorgedFastSyncingShallowSetHeadWithSnapshots(t *testing.T) {
-	testLongReorgedFastSyncingShallowSetHead(t, true)
+	testLongReorgedFastSyncingShallowSetHead[nist.PublicKey](t, true)
 }
 
-func testLongReorgedFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedFastSyncingShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1882,7 +1883,7 @@ func testLongReorgedFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1905,13 +1906,13 @@ func testLongReorgedFastSyncingShallowSetHead(t *testing.T, snapshots bool) {
 // head, since we can just pick up fast syncing from there. The side chain is
 // completely nuked by the freezer.
 func TestLongReorgedFastSyncingDeepSetHead(t *testing.T) {
-	testLongReorgedFastSyncingDeepSetHead(t, false)
+	testLongReorgedFastSyncingDeepSetHead[nist.PublicKey](t, false)
 }
 func TestLongReorgedFastSyncingDeepSetHeadWithSnapshots(t *testing.T) {
-	testLongReorgedFastSyncingDeepSetHead(t, true)
+	testLongReorgedFastSyncingDeepSetHead[nist.PublicKey](t, true)
 }
 
-func testLongReorgedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
+func testLongReorgedFastSyncingDeepSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
 	//   G->C1->C2->C3->C4->C5->C6->C7->C8->C9->C10->C11->C12->C13->C14->C15->C16->C17->C18->C19->C20->C21->C22->C23->C24 (HEAD)
 	//   └->S1->S2->S3->S4->S5->S6->S7->S8->S9->S10->S11->S12->S13->S14->S15->S16->S17->S18->S19->S20->S21->S22->S23->S24->S25->S26
@@ -1934,7 +1935,7 @@ func testLongReorgedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 	// Expected head header    : C6
 	// Expected head fast block: C6
 	// Expected head block     : G
-	testSetHead(t, &rewindTest{
+	testSetHead[P](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1950,7 +1951,7 @@ func testLongReorgedFastSyncingDeepSetHead(t *testing.T, snapshots bool) {
 	}, snapshots)
 }
 
-func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
+func testSetHead[P crypto.PublicKey](t *testing.T, tt *rewindTest, snapshots bool) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump(false))
@@ -1962,7 +1963,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	}
 	os.RemoveAll(datadir)
 
-	db, err := rawdb.NewLevelDBDatabaseWithFreezer(datadir, 0, 0, datadir, "", false)
+	db, err := rawdb.NewLevelDBDatabaseWithFreezer[P](datadir, 0, 0, datadir, "", false)
 	if err != nil {
 		t.Fatalf("Failed to create persistent database: %v", err)
 	}
@@ -1970,8 +1971,8 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 
 	// Initialize a fresh chain
 	var (
-		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
-		engine  = ethash.NewFullFaker[nist.PublicKey]()
+		genesis = new(Genesis[P]).MustCommit(db)
+		engine  = ethash.NewFullFaker[P]()
 		config  = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,
@@ -1983,21 +1984,21 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain[nist.PublicKey](db, config, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, err := NewBlockChain[P](db, config, params.AllEthashProtocolChanges, engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
 	// If sidechain blocks are needed, make a light chain and import it
-	var sideblocks types.Blocks[nist.PublicKey]
+	var sideblocks types.Blocks[P]
 	if tt.sidechainBlocks > 0 {
-		sideblocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
+		sideblocks, _ = GenerateChain[P](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[P]) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	canonblocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
+	canonblocks, _ := GenerateChain[P](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[P]) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -2060,7 +2061,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 
 // verifyNoGaps checks that there are no gaps after the initial set of blocks in
 // the database and errors if found.
-func verifyNoGaps(t *testing.T, chain *BlockChain[nist.PublicKey], canonical bool, inserted types.Blocks[nist.PublicKey]) {
+func verifyNoGaps[P crypto.PublicKey](t *testing.T, chain *BlockChain[P], canonical bool, inserted types.Blocks[P]) {
 	t.Helper()
 
 	var end uint64
@@ -2112,7 +2113,7 @@ func verifyNoGaps(t *testing.T, chain *BlockChain[nist.PublicKey], canonical boo
 
 // verifyCutoff checks that there are no chain data available in the chain after
 // the specified limit, but that it is available before.
-func verifyCutoff(t *testing.T, chain *BlockChain[nist.PublicKey], canonical bool, inserted types.Blocks[nist.PublicKey], head int) {
+func verifyCutoff[P crypto.PublicKey](t *testing.T, chain *BlockChain[P], canonical bool, inserted types.Blocks[P], head int) {
 	t.Helper()
 
 	for i := 1; i <= len(inserted); i++ {

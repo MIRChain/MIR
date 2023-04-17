@@ -95,11 +95,11 @@ func newTestBackend[P crypto.PublicKey](t *testing.T, n int, gspec *core.Genesis
 	return backend
 }
 
-func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	return b.chain.GetHeaderByHash(hash), nil
 }
 
-func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error) {
 	if number == rpc.PendingBlockNumber || number == rpc.LatestBlockNumber {
 		return b.chain.CurrentHeader(), nil
 	}

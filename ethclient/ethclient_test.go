@@ -279,7 +279,7 @@ func TestEthClient(t *testing.T) {
 func testHeader[P crypto.PublicKey](t *testing.T, chain []*types.Block[P], client *rpc.Client) {
 	tests := map[string]struct {
 		block   *big.Int
-		want    *types.Header
+		want    *types.Header[P]
 		wantErr error
 	}{
 		"genesis": {

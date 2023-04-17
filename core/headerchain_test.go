@@ -26,12 +26,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
-func verifyUnbrokenCanonchain(hc *HeaderChain[nist.PublicKey]) error {
+func verifyUnbrokenCanonchain[P crypto.PublicKey](hc *HeaderChain[P]) error {
 	h := hc.CurrentHeader()
 	for {
 		canonHash := rawdb.ReadCanonicalHash(hc.chainDb, h.Number.Uint64())
@@ -51,7 +52,7 @@ func verifyUnbrokenCanonchain(hc *HeaderChain[nist.PublicKey]) error {
 	return nil
 }
 
-func testInsert(t *testing.T, hc *HeaderChain[nist.PublicKey], chain []*types.Header, wantStatus WriteStatus, wantErr error) {
+func testInsert[P crypto.PublicKey](t *testing.T, hc *HeaderChain[P], chain []*types.Header[P], wantStatus WriteStatus, wantErr error) {
 	t.Helper()
 
 	status, err := hc.InsertHeaderChain(chain, time.Now())

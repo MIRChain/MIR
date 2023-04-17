@@ -23,6 +23,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 func TestHeaderHash(t *testing.T) {
@@ -31,7 +32,7 @@ func TestHeaderHash(t *testing.T) {
 	expectedHash := common.HexToHash("0xcefefd3ade63a5955bca4562ed840b67f39e74df217f7e5f7241a6e9552cca70")
 
 	// for istanbul consensus
-	header := &Header{MixDigest: IstanbulDigest, Extra: expectedExtra}
+	header := &Header[nist.PublicKey]{MixDigest: IstanbulDigest, Extra: expectedExtra}
 	if !reflect.DeepEqual(header.Hash(), expectedHash) {
 		t.Errorf("expected: %v, but got: %v", expectedHash.Hex(), header.Hash().Hex())
 	}
@@ -39,8 +40,8 @@ func TestHeaderHash(t *testing.T) {
 	// append useless information to extra-data
 	unexpectedExtra := append(expectedExtra, []byte{1, 2, 3}...)
 	header.Extra = unexpectedExtra
-	if !reflect.DeepEqual(header.Hash(), rlpHash(header)) {
-		t.Errorf("expected: %v, but got: %v", rlpHash(header).Hex(), header.Hash().Hex())
+	if !reflect.DeepEqual(header.Hash(), rlpHash[nist.PublicKey](header)) {
+		t.Errorf("expected: %v, but got: %v", rlpHash[nist.PublicKey](header).Hex(), header.Hash().Hex())
 	}
 }
 
@@ -69,7 +70,7 @@ func TestExtractToQBFTExtra(t *testing.T) {
 		},
 	}
 	for _, test := range testCases {
-		h := &Header{Extra: test.istRawData}
+		h := &Header[nist.PublicKey]{Extra: test.istRawData}
 		istanbulExtra, err := ExtractQBFTExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
@@ -112,7 +113,7 @@ func TestExtractToIstanbul(t *testing.T) {
 		},
 	}
 	for _, test := range testCases {
-		h := &Header{Extra: append(test.vanity, test.istRawData...)}
+		h := &Header[nist.PublicKey]{Extra: append(test.vanity, test.istRawData...)}
 		istanbulExtra, err := ExtractIstanbulExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)

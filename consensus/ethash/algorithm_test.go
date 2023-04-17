@@ -706,7 +706,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	defer os.RemoveAll(cachedir)
 
 	// Define a heavy enough block, one from mainnet should do
-	block := types.NewBlockWithHeader[nist.PublicKey](&types.Header{
+	block := types.NewBlockWithHeader[nist.PublicKey](&types.Header[nist.PublicKey]{
 		Number:      big.NewInt(3311058),
 		ParentHash:  common.HexToHash("0xd783efa4d392943503f28438ad5830b2d5964696ffc285f338585e9fe0a37a05"),
 		UncleHash:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),

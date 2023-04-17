@@ -32,6 +32,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -61,7 +62,7 @@ func testShortRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -101,7 +102,7 @@ func testShortFastSyncedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -141,7 +142,7 @@ func testShortFastSyncingRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -184,7 +185,7 @@ func testShortOldForkedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -231,7 +232,7 @@ func testShortOldForkedFastSyncedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -278,7 +279,7 @@ func testShortOldForkedFastSyncingRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -321,7 +322,7 @@ func testShortNewlyForkedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    6,
 		freezeThreshold:    16,
@@ -368,7 +369,7 @@ func testShortNewlyForkedFastSyncedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    6,
 		freezeThreshold:    16,
@@ -415,7 +416,7 @@ func testShortNewlyForkedFastSyncingRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    6,
 		freezeThreshold:    16,
@@ -457,7 +458,7 @@ func testShortReorgedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -503,7 +504,7 @@ func testShortReorgedFastSyncedRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -549,7 +550,7 @@ func testShortReorgedFastSyncingRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C8
 	// Expected head fast block: C8
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    8,
 		sidechainBlocks:    10,
 		freezeThreshold:    16,
@@ -594,7 +595,7 @@ func testLongShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -638,7 +639,7 @@ func testLongDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -687,7 +688,7 @@ func testLongFastSyncedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -731,7 +732,7 @@ func testLongFastSyncedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -781,7 +782,7 @@ func testLongFastSyncingShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -827,7 +828,7 @@ func testLongFastSyncingDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C24
 	// Expected head fast block: C24
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    0,
 		freezeThreshold:    16,
@@ -879,7 +880,7 @@ func testLongOldForkedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -926,7 +927,7 @@ func testLongOldForkedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -978,7 +979,7 @@ func testLongOldForkedFastSyncedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1029,7 +1030,7 @@ func testLongOldForkedFastSyncedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1081,7 +1082,7 @@ func testLongOldForkedFastSyncingShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1133,7 +1134,7 @@ func testLongOldForkedFastSyncingDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C24
 	// Expected head fast block: C24
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    3,
 		freezeThreshold:    16,
@@ -1185,7 +1186,7 @@ func testLongNewerForkedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1232,7 +1233,7 @@ func testLongNewerForkedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1284,7 +1285,7 @@ func testLongNewerForkedFastSyncedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1335,7 +1336,7 @@ func testLongNewerForkedFastSyncedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1387,7 +1388,7 @@ func testLongNewerForkedFastSyncingShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1439,7 +1440,7 @@ func testLongNewerForkedFastSyncingDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C24
 	// Expected head fast block: C24
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    12,
 		freezeThreshold:    16,
@@ -1486,7 +1487,7 @@ func testLongReorgedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1532,7 +1533,7 @@ func testLongReorgedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1584,7 +1585,7 @@ func testLongReorgedFastSyncedShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1634,7 +1635,7 @@ func testLongReorgedFastSyncedDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C4
 	// Expected head fast block: C4
 	// Expected head block     : C4
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1685,7 +1686,7 @@ func testLongReorgedFastSyncingShallowRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C18
 	// Expected head fast block: C18
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    18,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1736,7 +1737,7 @@ func testLongReorgedFastSyncingDeepRepair(t *testing.T, snapshots bool) {
 	// Expected head header    : C24
 	// Expected head fast block: C24
 	// Expected head block     : G
-	testRepair(t, &rewindTest{
+	testRepair[nist.PublicKey](t, &rewindTest{
 		canonicalBlocks:    24,
 		sidechainBlocks:    26,
 		freezeThreshold:    16,
@@ -1751,7 +1752,7 @@ func testLongReorgedFastSyncingDeepRepair(t *testing.T, snapshots bool) {
 	}, snapshots)
 }
 
-func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
+func testRepair[P crypto.PublicKey](t *testing.T, tt *rewindTest, snapshots bool) {
 	// It's hard to follow the test case, visualize the input
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump(true))
@@ -1763,7 +1764,7 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 	}
 	os.RemoveAll(datadir)
 
-	db, err := rawdb.NewLevelDBDatabaseWithFreezer(datadir, 0, 0, datadir, "", false)
+	db, err := rawdb.NewLevelDBDatabaseWithFreezer[P](datadir, 0, 0, datadir, "", false)
 	if err != nil {
 		t.Fatalf("Failed to create persistent database: %v", err)
 	}
@@ -1771,8 +1772,8 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 
 	// Initialize a fresh chain
 	var (
-		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
-		engine  = ethash.NewFullFaker[nist.PublicKey]()
+		genesis = new(Genesis[P]).MustCommit(db)
+		engine  = ethash.NewFullFaker[P]()
 		config  = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,
@@ -1784,21 +1785,21 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain[nist.PublicKey](db, config, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, err := NewBlockChain[P](db, config, params.AllEthashProtocolChanges, engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
 	// If sidechain blocks are needed, make a light chain and import it
-	var sideblocks types.Blocks[nist.PublicKey]
+	var sideblocks types.Blocks[P]
 	if tt.sidechainBlocks > 0 {
-		sideblocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
+		sideblocks, _ = GenerateChain[P](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen[P]) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	canonblocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[nist.PublicKey]) {
+	canonblocks, _ := GenerateChain[P](params.TestChainConfig, genesis, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen[P]) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -1831,13 +1832,13 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 	db.Close()
 
 	// Start a new blockchain back up and see where the repait leads us
-	db, err = rawdb.NewLevelDBDatabaseWithFreezer(datadir, 0, 0, datadir, "", false)
+	db, err = rawdb.NewLevelDBDatabaseWithFreezer[P](datadir, 0, 0, datadir, "", false)
 	if err != nil {
 		t.Fatalf("Failed to reopen persistent database: %v", err)
 	}
 	defer db.Close()
 
-	chain, err = NewBlockChain[nist.PublicKey](db, nil, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, err = NewBlockChain[P](db, nil, params.AllEthashProtocolChanges, engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}

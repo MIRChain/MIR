@@ -573,6 +573,7 @@ func (pool *TxPool[P]) validateTx(tx *types.Transaction[P], local bool) error {
 	if err != nil {
 		return ErrInvalidSender
 	}
+
 	if pool.chainconfig.IsQuorum {
 		// Quorum
 		if tx.IsPrivacyMarker() {

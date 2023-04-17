@@ -33,13 +33,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 // snapshotTestBasic wraps the common testing fields in the snapshot tests.
-type snapshotTestBasic struct {
+type snapshotTestBasic [P crypto.PublicKey] struct {
 	chainBlocks   int    // Number of blocks to generate for the canonical chain
 	snapshotBlock uint64 // Block number of the relevant snapshot disk layer
 	commitBlock   uint64 // Block number for which to commit the state to disk
@@ -54,10 +55,10 @@ type snapshotTestBasic struct {
 	datadir string
 	db      ethdb.Database
 	gendb   ethdb.Database
-	engine  consensus.Engine[nist.PublicKey]
+	engine  consensus.Engine[P]
 }
 
-func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain[nist.PublicKey], []*types.Block[nist.PublicKey]) {
+func (basic *snapshotTestBasic[P]) prepare(t *testing.T) (*BlockChain[P], []*types.Block[P]) {
 	// Create a temporary persistent database
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -65,14 +66,14 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain[nist.PublicKe
 	}
 	os.RemoveAll(datadir)
 
-	db, err := rawdb.NewLevelDBDatabaseWithFreezer(datadir, 0, 0, datadir, "", false)
+	db, err := rawdb.NewLevelDBDatabaseWithFreezer[P](datadir, 0, 0, datadir, "", false)
 	if err != nil {
 		t.Fatalf("Failed to create persistent database: %v", err)
 	}
 	// Initialize a fresh chain
 	var (
-		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
-		engine  = ethash.NewFullFaker[nist.PublicKey]()
+		genesis = new(Genesis[P]).MustCommit(db)
+		engine  = ethash.NewFullFaker[P]()
 		gendb   = rawdb.NewMemoryDatabase()
 
 		// Snapshot is enabled, the first snapshot is created from the Genesis.
@@ -80,11 +81,11 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain[nist.PublicKe
 		// will happen during the block insertion.
 		cacheConfig = defaultCacheConfig
 	)
-	chain, err := NewBlockChain[nist.PublicKey](db, cacheConfig, params.AllEthashProtocolChanges, engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, err := NewBlockChain[P](db, cacheConfig, params.AllEthashProtocolChanges, engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
-	blocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, engine, gendb, basic.chainBlocks, func(i int, b *BlockGen[nist.PublicKey]) {})
+	blocks, _ := GenerateChain[P](params.TestChainConfig, genesis, engine, gendb, basic.chainBlocks, func(i int, b *BlockGen[P]) {})
 
 	// Insert the blocks with configured settings.
 	var breakpoints []uint64
@@ -126,7 +127,7 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain[nist.PublicKe
 	return chain, blocks
 }
 
-func (basic *snapshotTestBasic) verify(t *testing.T, chain *BlockChain[nist.PublicKey], blocks []*types.Block[nist.PublicKey]) {
+func (basic *snapshotTestBasic[P]) verify(t *testing.T, chain *BlockChain[P], blocks []*types.Block[P]) {
 	// Iterate over all the remaining blocks and ensure there are no gaps
 	verifyNoGaps(t, chain, true, blocks)
 	verifyCutoff(t, chain, true, blocks, basic.expCanonicalBlocks)
@@ -155,7 +156,7 @@ func (basic *snapshotTestBasic) verify(t *testing.T, chain *BlockChain[nist.Publ
 	}
 }
 
-func (basic *snapshotTestBasic) dump() string {
+func (basic *snapshotTestBasic[P]) dump() string {
 	buffer := new(strings.Builder)
 
 	fmt.Fprint(buffer, "Chain:\n  G")
@@ -203,7 +204,7 @@ func (basic *snapshotTestBasic) dump() string {
 	return buffer.String()
 }
 
-func (basic *snapshotTestBasic) teardown() {
+func (basic *snapshotTestBasic[P]) teardown() {
 	basic.db.Close()
 	basic.gendb.Close()
 	os.RemoveAll(basic.datadir)
@@ -211,11 +212,11 @@ func (basic *snapshotTestBasic) teardown() {
 
 // snapshotTest is a test case type for normal snapshot recovery.
 // It can be used for testing that restart Geth normally.
-type snapshotTest struct {
-	snapshotTestBasic
+type snapshotTest [P crypto.PublicKey] struct {
+	snapshotTestBasic[P]
 }
 
-func (snaptest *snapshotTest) test(t *testing.T) {
+func (snaptest *snapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -223,7 +224,7 @@ func (snaptest *snapshotTest) test(t *testing.T) {
 
 	// Restart the chain normally
 	chain.Stop()
-	newchain, err := NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -234,11 +235,11 @@ func (snaptest *snapshotTest) test(t *testing.T) {
 
 // crashSnapshotTest is a test case type for innormal snapshot recovery.
 // It can be used for testing that restart Geth after the crash.
-type crashSnapshotTest struct {
-	snapshotTestBasic
+type crashSnapshotTest [P crypto.PublicKey] struct {
+	snapshotTestBasic[P]
 }
 
-func (snaptest *crashSnapshotTest) test(t *testing.T) {
+func (snaptest *crashSnapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -249,7 +250,7 @@ func (snaptest *crashSnapshotTest) test(t *testing.T) {
 	db.Close()
 
 	// Start a new blockchain back up and see where the repair leads us
-	newdb, err := rawdb.NewLevelDBDatabaseWithFreezer(snaptest.datadir, 0, 0, snaptest.datadir, "", false)
+	newdb, err := rawdb.NewLevelDBDatabaseWithFreezer[P](snaptest.datadir, 0, 0, snaptest.datadir, "", false)
 	if err != nil {
 		t.Fatalf("Failed to reopen persistent database: %v", err)
 	}
@@ -259,13 +260,13 @@ func (snaptest *crashSnapshotTest) test(t *testing.T) {
 	// the crash, we do restart twice here: one after the crash and one
 	// after the normal stop. It's used to ensure the broken snapshot
 	// can be detected all the time.
-	newchain, err := NewBlockChain[nist.PublicKey](newdb, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](newdb, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
 	newchain.Stop()
 
-	newchain, err = NewBlockChain[nist.PublicKey](newdb, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err = NewBlockChain[P](newdb, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -279,12 +280,12 @@ func (snaptest *crashSnapshotTest) test(t *testing.T) {
 // - restart without enabling the snapshot
 // - insert a few blocks
 // - restart with enabling the snapshot again
-type gappedSnapshotTest struct {
-	snapshotTestBasic
+type gappedSnapshotTest [P crypto.PublicKey] struct {
+	snapshotTestBasic[P]
 	gapped int // Number of blocks to insert without enabling snapshot
 }
 
-func (snaptest *gappedSnapshotTest) test(t *testing.T) {
+func (snaptest *gappedSnapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -292,7 +293,7 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 
 	// Insert blocks without enabling snapshot if gapping is required.
 	chain.Stop()
-	gappedBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.gapped, func(i int, b *BlockGen[nist.PublicKey]) {})
+	gappedBlocks, _ := GenerateChain[P](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.gapped, func(i int, b *BlockGen[P]) {})
 
 	// Insert a few more blocks without enabling snapshot
 	var cacheConfig = &CacheConfig{
@@ -301,7 +302,7 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 		TrieTimeLimit:  5 * time.Minute,
 		SnapshotLimit:  0,
 	}
-	newchain, err := NewBlockChain[nist.PublicKey](snaptest.db, cacheConfig, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](snaptest.db, cacheConfig, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -309,7 +310,7 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 	newchain.Stop()
 
 	// Restart the chain with enabling the snapshot
-	newchain, err = NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err = NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -322,12 +323,12 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 // - have a complete snapshot
 // - set the head to a lower point
 // - restart
-type setHeadSnapshotTest struct {
-	snapshotTestBasic
+type setHeadSnapshotTest [P crypto.PublicKey] struct {
+	snapshotTestBasic[P]
 	setHead uint64 // Block number to set head back to
 }
 
-func (snaptest *setHeadSnapshotTest) test(t *testing.T) {
+func (snaptest *setHeadSnapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -337,7 +338,7 @@ func (snaptest *setHeadSnapshotTest) test(t *testing.T) {
 	chain.SetHead(snaptest.setHead)
 	chain.Stop()
 
-	newchain, err := NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -353,12 +354,12 @@ func (snaptest *setHeadSnapshotTest) test(t *testing.T) {
 // - commit the snapshot
 // - crash
 // - restart again
-type restartCrashSnapshotTest struct {
-	snapshotTestBasic
+type restartCrashSnapshotTest[P crypto.PublicKey]  struct {
+	snapshotTestBasic[P]
 	newBlocks int
 }
 
-func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
+func (snaptest *restartCrashSnapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -368,11 +369,11 @@ func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
 	// and state committed.
 	chain.Stop()
 
-	newchain, err := NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
-	newBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.newBlocks, func(i int, b *BlockGen[nist.PublicKey]) {})
+	newBlocks, _ := GenerateChain[P](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.newBlocks, func(i int, b *BlockGen[P]) {})
 	newchain.InsertChain(newBlocks)
 
 	// Commit the entire snapshot into the disk if requested. Note only
@@ -385,7 +386,7 @@ func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
 	// journal and latest state will be committed
 
 	// Restart the chain after the crash
-	newchain, err = NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err = NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -399,12 +400,12 @@ func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
 // - restart, insert more blocks without enabling the snapshot
 // - restart again with enabling the snapshot
 // - crash
-type wipeCrashSnapshotTest struct {
-	snapshotTestBasic
+type wipeCrashSnapshotTest [P crypto.PublicKey] struct {
+	snapshotTestBasic[P]
 	newBlocks int
 }
 
-func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
+func (snaptest *wipeCrashSnapshotTest[P]) test(t *testing.T) {
 	// It's hard to follow the test case, visualize the input
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// fmt.Println(tt.dump())
@@ -420,11 +421,11 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 		TrieTimeLimit:  5 * time.Minute,
 		SnapshotLimit:  0,
 	}
-	newchain, err := NewBlockChain[nist.PublicKey](snaptest.db, config, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err := NewBlockChain[P](snaptest.db, config, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
-	newBlocks, _ := GenerateChain[nist.PublicKey](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.newBlocks, func(i int, b *BlockGen[nist.PublicKey]) {})
+	newBlocks, _ := GenerateChain[P](params.TestChainConfig, blocks[len(blocks)-1], snaptest.engine, snaptest.gendb, snaptest.newBlocks, func(i int, b *BlockGen[P]) {})
 	newchain.InsertChain(newBlocks)
 	newchain.Stop()
 
@@ -436,13 +437,13 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 		SnapshotLimit:  256,
 		SnapshotWait:   false, // Don't wait rebuild
 	}
-	newchain, err = NewBlockChain[nist.PublicKey](snaptest.db, config, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err = NewBlockChain[P](snaptest.db, config, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
 	// Simulate the blockchain crash.
 
-	newchain, err = NewBlockChain[nist.PublicKey](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	newchain, err = NewBlockChain[P](snaptest.db, nil, params.AllEthashProtocolChanges, snaptest.engine, vm.Config[P]{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -470,8 +471,8 @@ func TestRestartWithNewSnapshot(t *testing.T) {
 	// Expected head fast block: C8
 	// Expected head block     : C8
 	// Expected snapshot disk  : G
-	test := &snapshotTest{
-		snapshotTestBasic{
+	test := &snapshotTest[nist.PublicKey]{
+		snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      0,
 			commitBlock:        0,
@@ -509,8 +510,8 @@ func TestNoCommitCrashWithNewSnapshot(t *testing.T) {
 	// Expected head fast block: C8
 	// Expected head block     : G
 	// Expected snapshot disk  : C4
-	test := &crashSnapshotTest{
-		snapshotTestBasic{
+	test := &crashSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      4,
 			commitBlock:        0,
@@ -548,8 +549,8 @@ func TestLowCommitCrashWithNewSnapshot(t *testing.T) {
 	// Expected head fast block: C8
 	// Expected head block     : C2
 	// Expected snapshot disk  : C4
-	test := &crashSnapshotTest{
-		snapshotTestBasic{
+	test := &crashSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      4,
 			commitBlock:        2,
@@ -587,8 +588,8 @@ func TestHighCommitCrashWithNewSnapshot(t *testing.T) {
 	// Expected head fast block: C8
 	// Expected head block     : G
 	// Expected snapshot disk  : C4
-	test := &crashSnapshotTest{
-		snapshotTestBasic{
+	test := &crashSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      4,
 			commitBlock:        6,
@@ -624,8 +625,8 @@ func TestGappedNewSnapshot(t *testing.T) {
 	// Expected head fast block: C10
 	// Expected head block     : C10
 	// Expected snapshot disk  : C10
-	test := &gappedSnapshotTest{
-		snapshotTestBasic: snapshotTestBasic{
+	test := &gappedSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic: snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      0,
 			commitBlock:        0,
@@ -662,8 +663,8 @@ func TestSetHeadWithNewSnapshot(t *testing.T) {
 	// Expected head fast block: C4
 	// Expected head block     : C4
 	// Expected snapshot disk  : G
-	test := &setHeadSnapshotTest{
-		snapshotTestBasic: snapshotTestBasic{
+	test := &setHeadSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic: snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      0,
 			commitBlock:        0,
@@ -700,8 +701,8 @@ func TestRecoverSnapshotFromWipingCrash(t *testing.T) {
 	// Expected head fast block: C10
 	// Expected head block     : C8
 	// Expected snapshot disk  : C10
-	test := &wipeCrashSnapshotTest{
-		snapshotTestBasic: snapshotTestBasic{
+	test := &wipeCrashSnapshotTest[nist.PublicKey]{
+		snapshotTestBasic: snapshotTestBasic[nist.PublicKey]{
 			chainBlocks:        8,
 			snapshotBlock:      4,
 			commitBlock:        0,

@@ -51,6 +51,14 @@ func (ho *HashOptions) cAlg(hmac bool) C.ALG_ID {
 	return C.CALG_GR3411_2012_256
 }
 
+func New256() hash.Hash {
+	hash, err := NewHash(HashOptions{HashAlg: GOST_R3411_12_256})
+	if err != nil {
+		panic(err) // yes, panic here, no point to continue
+	}
+	return hash
+}
+
 func NewHash(options HashOptions) (*Hash, error) {
 	res := &Hash{algID: options.cAlg(!options.HMACKey.IsZero())}
 	if !options.HMACKey.IsZero() {
@@ -100,6 +108,28 @@ func (h *Hash) Write(buf []byte) (n int, err error) {
 	return write(h.hHash, buf)
 }
 
+func (h *Hash) Read(b []byte) (n int, err error) {
+	var hHash C.HCRYPTHASH
+	if C.CryptDuplicateHash(h.hHash, nil, 0, &hHash) == 0 {
+		panic(getErr("Error duplicating hash"))
+	}
+	defer func() {
+		if C.CryptDestroyHash(hHash) == 0 {
+			panic(getErr("Error destroying hash"))
+		}
+	}()
+	var len C.DWORD
+	slen := C.DWORD(C.sizeof_DWORD)
+	if C.CryptGetHashParam(hHash, C.HP_HASHSIZE, (*C.uchar)(unsafe.Pointer(&len)), &slen, 0) == 0 {
+		panic(getErr("Error getting hash size"))
+	}
+	res := make([]byte, int(len))
+	if C.CryptGetHashParam(hHash, C.HP_HASHVAL, (*C.BYTE)(&res[0]), &len, 0) == 0 {
+		panic(getErr("Error getting hash value"))
+	}
+	copy(b, res)
+	return int(len), nil
+}
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
 func (h *Hash) Sum(b []byte) []byte {

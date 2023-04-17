@@ -149,7 +149,7 @@ func (self *testSystemBackend) LastProposal() (istanbul.Proposal, common.Address
 	if l > 0 {
 		return self.committedMsgs[l-1].commitProposal, common.Address{}
 	}
-	return makeBlock(0), common.Address{}
+	return makeBlock[nist.PublicKey](0), common.Address{}
 }
 
 // Only block height 5 will return true

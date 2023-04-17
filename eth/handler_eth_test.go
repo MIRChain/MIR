@@ -591,10 +591,10 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	} else {
 		atomic.StoreUint32(&handler.handler.fastSync, 0)
 	}
-	var response *types.Header
+	var response *types.Header[nist.PublicKey]
 	if checkpoint {
 		number := (uint64(rand.Intn(500))+1)*params.CHTFrequency - 1
-		response = &types.Header{Number: big.NewInt(int64(number)), Extra: []byte("valid")}
+		response = &types.Header[nist.PublicKey]{Number: big.NewInt(int64(number)), Extra: []byte("valid")}
 
 		handler.handler.checkpointNumber = number
 		handler.handler.checkpointHash = response.Hash()
@@ -629,15 +629,15 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		// Create a block to reply to the challenge if no timeout is simulated
 		if !timeout {
 			if empty {
-				if err := remote.SendBlockHeaders([]*types.Header{}); err != nil {
+				if err := remote.SendBlockHeaders([]*types.Header[nist.PublicKey]{}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			} else if match {
-				if err := remote.SendBlockHeaders([]*types.Header{response}); err != nil {
+				if err := remote.SendBlockHeaders([]*types.Header[nist.PublicKey]{response}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			} else {
-				if err := remote.SendBlockHeaders([]*types.Header{{Number: response.Number}}); err != nil {
+				if err := remote.SendBlockHeaders([]*types.Header[nist.PublicKey]{{Number: response.Number}}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			}
@@ -800,7 +800,7 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	malformedEverything.TxHash[0]++
 
 	// Try to broadcast all malformations and ensure they all get discarded
-	for _, header := range []*types.Header{malformedUncles, malformedTransactions, malformedEverything} {
+	for _, header := range []*types.Header[nist.PublicKey]{malformedUncles, malformedTransactions, malformedEverything} {
 		block := types.NewBlockWithHeader[nist.PublicKey](header).WithBody(head.Transactions(), head.Uncles())
 		if err := src.SendNewBlock(block, big.NewInt(131136)); err != nil {
 			t.Fatalf("failed to broadcast block: %v", err)

@@ -24,13 +24,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func newTestPreprepare(v *istanbul.View) *istanbul.Preprepare[nist.PublicKey] {
-	return &istanbul.Preprepare[nist.PublicKey]{
+func newTestPreprepare[P crypto.PublicKey](v *istanbul.View) *istanbul.Preprepare[P] {
+	return &istanbul.Preprepare[P]{
 		View:     v,
-		Proposal: newTestProposal(),
+		Proposal: newTestProposal[P](),
 	}
 }
 
@@ -58,7 +59,7 @@ func TestHandlePreprepare(t *testing.T) {
 				}
 				return sys
 			}(),
-			newTestProposal(),
+			newTestProposal[nist.PublicKey](),
 			nil,
 			false,
 		},
@@ -73,7 +74,7 @@ func TestHandlePreprepare(t *testing.T) {
 					if i != 0 {
 						c.state = ibfttypes.StateAcceptRequest
 						// hack: force set subject that future message can be simulated
-						c.current = newTestRoundState(
+						c.current = newTestRoundState[nist.PublicKey](
 							&istanbul.View{
 								Round:    big.NewInt(0),
 								Sequence: big.NewInt(0),
@@ -87,7 +88,7 @@ func TestHandlePreprepare(t *testing.T) {
 				}
 				return sys
 			}(),
-			makeBlock(1),
+			makeBlock[nist.PublicKey](1),
 			istanbulcommon.ErrFutureMessage,
 			false,
 		},
@@ -109,7 +110,7 @@ func TestHandlePreprepare(t *testing.T) {
 				}
 				return sys
 			}(),
-			makeBlock(1),
+			makeBlock[nist.PublicKey](1),
 			istanbulcommon.ErrNotFromProposer,
 			false,
 		},
@@ -129,7 +130,7 @@ func TestHandlePreprepare(t *testing.T) {
 				}
 				return sys
 			}(),
-			makeBlock(1),
+			makeBlock[nist.PublicKey](1),
 			istanbulcommon.ErrOldMessage,
 			false,
 		},
@@ -210,8 +211,8 @@ OUTER:
 func TestHandlePreprepareWithLock(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
 	F := uint64(1) // F does not affect tests
-	proposal := newTestProposal()
-	mismatchProposal := makeBlock(10)
+	proposal := newTestProposal[nist.PublicKey]()
+	mismatchProposal := makeBlock[nist.PublicKey](10)
 	newSystem := func() *testSystem {
 		sys := NewTestSystemWithBackend(N, F)
 

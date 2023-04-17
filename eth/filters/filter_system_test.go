@@ -62,7 +62,7 @@ func (b *testBackend[P]) ChainDb() ethdb.Database {
 	return b.db
 }
 
-func (b *testBackend[P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header[P], error) {
 	var (
 		hash common.Hash
 		num  uint64
@@ -78,15 +78,15 @@ func (b *testBackend[P]) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNu
 		num = uint64(blockNr)
 		hash = rawdb.ReadCanonicalHash(b.db, num)
 	}
-	return rawdb.ReadHeader(b.db, hash, num), nil
+	return rawdb.ReadHeader[P](b.db, hash, num), nil
 }
 
-func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	number := rawdb.ReadHeaderNumber(b.db, hash)
 	if number == nil {
 		return nil, nil
 	}
-	return rawdb.ReadHeader(b.db, hash, *number), nil
+	return rawdb.ReadHeader[P](b.db, hash, *number), nil
 }
 
 func (b *testBackend[P]) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts[P], error) {
@@ -208,9 +208,9 @@ func TestBlockSubscription(t *testing.T) {
 		chainEvents = append(chainEvents, core.ChainEvent[nist.PublicKey]{Hash: blk.Hash(), Block: blk})
 	}
 
-	chan0 := make(chan *types.Header)
+	chan0 := make(chan *types.Header[nist.PublicKey])
 	sub0 := api.events.SubscribeNewHeads(chan0)
-	chan1 := make(chan *types.Header)
+	chan1 := make(chan *types.Header[nist.PublicKey])
 	sub1 := api.events.SubscribeNewHeads(chan1)
 
 	go func() { // simulate client

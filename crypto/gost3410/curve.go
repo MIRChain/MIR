@@ -192,8 +192,7 @@ func (our *Curve) Equal(their *Curve) bool {
 		our.Co.Cmp(their.Co) == 0
 }
 
-// DecompressPoint decompresses a point on the given curve given the X point and
-// the solution to use.
+// DecompressPoint finds a solution of Y oddness .
 func (curve *Curve) DecompressPoint(x *big.Int, ybit bool) (*big.Int, error) {
 	// y = +-sqrt(x^3 + ax + b)
 	x3 := new(big.Int).Mul(x, x)

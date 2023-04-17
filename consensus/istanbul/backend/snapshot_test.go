@@ -43,24 +43,24 @@ type testerVote struct {
 // testerAccountPool is a pool to maintain currently active tester accounts,
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
-type testerAccountPool struct {
+type testerAccountPool [T crypto.PrivateKey,P crypto.PublicKey]struct {
 	accounts map[string]nist.PrivateKey
 }
 
-func newTesterAccountPool() *testerAccountPool {
-	return &testerAccountPool{
+func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey]() *testerAccountPool[T,P] {
+	return &testerAccountPool[T,P]{
 		accounts: make(map[string]nist.PrivateKey),
 	}
 }
 
-func (ap *testerAccountPool) writeValidatorVote(header *types.Header, validator string, recipientAddress string, authorize bool) error {
+func (ap *testerAccountPool[T,P]) writeValidatorVote(header *types.Header[P], validator string, recipientAddress string, authorize bool) error {
 	return qbftengine.ApplyHeaderQBFTExtra(
 		header,
 		qbftengine.WriteVote(ap.address(recipientAddress), authorize),
 	)
 }
 
-func (ap *testerAccountPool) address(account string) common.Address {
+func (ap *testerAccountPool[T,P]) address(account string) common.Address {
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
 		ap.accounts[account], _ = crypto.GenerateKey[nist.PrivateKey]()
@@ -314,7 +314,7 @@ func TestVoting(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of validators
-		accounts := newTesterAccountPool()
+		accounts := newTesterAccountPool[nist.PrivateKey,nist.PublicKey]()
 
 		validators := make([]common.Address, len(tt.validators))
 		for j, validator := range tt.validators {
@@ -343,10 +343,10 @@ func TestVoting(t *testing.T) {
 		)
 
 		// Assemble a chain of headers from the cast votes
-		headers := make([]*types.Header, len(tt.votes))
+		headers := make([]*types.Header[nist.PublicKey], len(tt.votes))
 		for j, vote := range tt.votes {
 			blockNumber := big.NewInt(int64(j) + 1)
-			headers[j] = &types.Header{
+			headers[j] = &types.Header[nist.PublicKey]{
 				Number:     blockNumber,
 				Time:       uint64(int64(j) * int64(config.GetConfig(blockNumber).BlockPeriod)),
 				Coinbase:   accounts.address(vote.validator),

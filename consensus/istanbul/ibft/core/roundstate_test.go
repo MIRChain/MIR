@@ -23,14 +23,15 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
-func newTestRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState[nist.PublicKey] {
-	return &roundState[nist.PublicKey]{
+func newTestRoundState[P crypto.PublicKey](view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState[P] {
+	return &roundState[P]{
 		round:      view.Round,
 		sequence:   view.Sequence,
-		Preprepare: newTestPreprepare(view),
+		Preprepare: newTestPreprepare[P](view),
 		Prepares:   newMessageSet(validatorSet),
 		Commits:    newMessageSet(validatorSet),
 		mu:         new(sync.RWMutex),
@@ -42,7 +43,7 @@ func newTestRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet) 
 
 func TestLockHash(t *testing.T) {
 	sys := NewTestSystemWithBackend(1, 0)
-	rs := newTestRoundState(
+	rs := newTestRoundState[nist.PublicKey](
 		&istanbul.View{
 			Round:    big.NewInt(0),
 			Sequence: big.NewInt(0),
