@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -62,6 +63,15 @@ var hasherPoolGost = sync.Pool {
 	},
 }
 
+var hasherPoolCsp = sync.Pool {
+	New: func() interface{} {
+		return &hasher[csp.PublicKey]{
+			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
+			sha: crypto.NewKeccakState[csp.PublicKey](),
+		}
+	},
+}
+
 func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
 	var pub P
 	switch any(&pub).(type){
@@ -71,6 +81,10 @@ func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
 		return h
 	case *gost3410.PublicKey:
 		h := hasherPoolGost.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	case *csp.PublicKey:
+		h := hasherPoolCsp.Get().(*hasher[P])
 		h.parallel = parallel
 		return h
 	default:
@@ -85,6 +99,8 @@ func returnHasherToPool[P crypto.PublicKey](h *hasher[P]) {
 		hasherPoolNist.Put(h)
 	case *gost3410.PublicKey:
 		hasherPoolGost.Put(h)
+	case *csp.PublicKey:
+		hasherPoolCsp.Put(h)
 	default:
 		panic("cant infer pub key type for hasher")
 	}

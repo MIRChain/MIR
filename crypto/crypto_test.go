@@ -236,7 +236,10 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
-	ver, err := gostKey.Public().VerifyDigest(digest, gostSig[:64])
+	revHash := make([]byte, 32)
+	copy(revHash, digest)
+	reverse(revHash)
+	ver, err := gostKey.Public().VerifyDigest(revHash, gostSig[:64])
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
@@ -245,19 +248,25 @@ func TestSign(t *testing.T) {
 	assert.Equal(t, true, ver)
 	r := new(big.Int).SetBytes(gostSig[:32])
 	s := new(big.Int).SetBytes(gostSig[32:64])
-	for i := 0; i < (1+1)*2; i++ {
-		X, Y, err := gost3410.RecoverCompact(*gostKey.C, digest, r, s, i)
-		if err == nil && X.Cmp(gostKey.Public().X) == 0 && Y.Cmp(gostKey.Public().Y) == 0 {
-			t.Log("Recovered X ", X.String())
-			t.Log("Recovered Y ", Y.String())
-		}
+	X, Y, err := gost3410.RecoverCompact(*gost3410.GostCurve, revHash, r, s, int((gostSig[64]) & ^byte(4)))
+	if err == nil && X.Cmp(gostKey.Public().X) == 0 && Y.Cmp(gostKey.Public().Y) == 0 {
+		t.Log("Recovered X ", X.String())
+		t.Log("Recovered Y ", Y.String())
 	}
+	
 	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](digest, gostSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}
+	if !bytes.Equal(gostKey.Public().X.Bytes(), recoveredGostPub[1:33]) {
+		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().X.Bytes(), recoveredGostPub[1:33])
+	}
+	if !bytes.Equal(gostKey.Public().Y.Bytes(), recoveredGostPub[33:65]) {
+		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Y.Bytes(), recoveredGostPub[33:65])
+	}
+
 	if !bytes.Equal(gostKey.Public().Raw(), recoveredGostPub[1:]) {
-		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub)
+		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub[1:])
 	}
 
 	CryptoAlg = GOST_CSP
@@ -297,8 +306,8 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}
-	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], recoveredGostPub) {
-		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[1:66], recoveredGostPub) {
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[1:66], recoveredGostPub)
 	}
 }
 
@@ -365,8 +374,8 @@ func TestSignCSPRecoverGOST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}
-	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], recoveredGostPub) {
-		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], recoveredGostPub)
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[1:66], recoveredGostPub) {
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[1:66], recoveredGostPub)
 	}
 	// Trying to Ecrecover from CSP sig to pure GOST pub key
 	// 1. Reverse and convert CSP sig to 65 bytes [r,s]+1
@@ -380,15 +389,15 @@ func TestSignCSPRecoverGOST(t *testing.T) {
 		t.Fatalf("Pub key mismatch: want: %d have: %d", crt.Public().X, new(big.Int).SetBytes(revPub[1:33]))
 	}
 	revSig := make([]byte, 65)
-	r, s, revHash := RevertCSP(digest, sig)
+	r, s, _ := RevertCSP(digest, sig)
 	copy(revSig[:32], r.Bytes())
 	copy(revSig[32:64], s.Bytes())
 	revSig[64] = sig[64]
 	// Verify csp sig using pure gost crypto
-	ver := VerifySignature[gost3410.PublicKey](revPub, revHash, revSig)
+	ver := VerifySignature[gost3410.PublicKey](revPub, digest, revSig)
 	assert.Equal(t, true, ver)
 
-	recoveredGostPub, err = Ecrecover[gost3410.PublicKey](revHash, revSig)
+	recoveredGostPub, err = Ecrecover[gost3410.PublicKey](digest, revSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
 	}

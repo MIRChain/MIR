@@ -72,7 +72,7 @@ func (prv PublicKey) GetY() *big.Int {
 func Marshal(curve gost3410.Curve, x, y *big.Int) []byte {
 	byteLen := (curve.Params().BitSize + 7) / 8
 	ret := make([]byte, 1+2*byteLen)
-	ret[0] = 4 // uncompressed point
+	ret[0] = 64 // uncompressed point
 	tmp := make([]byte, 2*byteLen)
 	y.FillBytes(tmp[ : byteLen])
 	x.FillBytes(tmp[byteLen : 2*byteLen])

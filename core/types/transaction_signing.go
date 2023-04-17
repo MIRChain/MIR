@@ -476,7 +476,7 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 	if err != nil {
 		return common.Address{}, err
 	}
-	if len(pub) == 0 || pub[0] != 4 {
+	if len(pub) == 0 || !(pub[0] == 4 || pub[0] == 64){
 		return common.Address{}, errors.New("invalid public key")
 	}
 	var addr common.Address
