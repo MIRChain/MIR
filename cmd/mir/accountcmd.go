@@ -49,7 +49,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 				Name:      "import",
 				Usage:     "Import Ethereum presale wallet",
 				ArgsUsage: "<keyFile>",
-				Action:    utils.MigrateFlags(importWallet[nist.PrivateKey, nist.PublicKey]),
+				Action:    utils.MigrateFlags(importWallet),
 				Category:  "ACCOUNT COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -97,7 +97,7 @@ Make sure you backup your keys regularly.`,
 			{
 				Name:   "list",
 				Usage:  "Print summary of existing accounts",
-				Action: utils.MigrateFlags(accountList[nist.PrivateKey, nist.PublicKey]),
+				Action: utils.MigrateFlags(accountList),
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
@@ -135,7 +135,7 @@ password to file or expose in any other way.
 			{
 				Name:      "update",
 				Usage:     "Update an existing account",
-				Action:    utils.MigrateFlags(accountUpdate[nist.PrivateKey, nist.PublicKey]),
+				Action:    utils.MigrateFlags(accountUpdate),
 				ArgsUsage: "<address>",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -203,13 +203,44 @@ nodes.
 	}
 )
 
-func accountList[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
-	var index int
-	for _, wallet := range stack.AccountManager().Wallets() {
-		for _, account := range wallet.Accounts() {
-			fmt.Printf("Account #%d: {%x} %s\n", index, account.Address, &account.URL)
-			index++
+func accountList(ctx *cli.Context) error {
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			stack, _ := makeConfigNode[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			var index int
+			for _, wallet := range stack.AccountManager().Wallets() {
+				for _, account := range wallet.Accounts() {
+					fmt.Printf("Account #%d: {%x} %s\n", index, account.Address, &account.URL)
+					index++
+				}
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			//TODO
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
+			var index int
+			for _, wallet := range stack.AccountManager().Wallets() {
+				for _, account := range wallet.Accounts() {
+					fmt.Printf("Account #%d: {%x} %s\n", index, account.Address, &account.URL)
+					index++
+				}
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			//TODO
+		} else {
+			fmt.Errorf("wrong crypto flag")
 		}
 	}
 	return nil
@@ -347,42 +378,120 @@ func accountCreate(ctx *cli.Context) error {
 
 // accountUpdate transitions an account from a previous format to the current
 // one, also providing the possibility to change the pass-phrase.
-func accountUpdate[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
+func accountUpdate(ctx *cli.Context) error {
 	if len(ctx.Args()) == 0 {
 		utils.Fatalf("No accounts specified to update")
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
-
-	for _, addr := range ctx.Args() {
-		account, oldPassword := unlockAccount(ks, addr, 0, nil)
-		newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
-		if err := ks.Update(account, oldPassword, newPassword); err != nil {
-			utils.Fatalf("Could not update the account: %v", err)
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
+		
+			for _, addr := range ctx.Args() {
+				account, oldPassword := unlockAccount(ks, addr, 0, nil)
+				newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
+				if err := ks.Update(account, oldPassword, newPassword); err != nil {
+					utils.Fatalf("Could not update the account: %v", err)
+				}
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			//TODO
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			stack, _ := makeConfigNode[nist.PrivateKey,nist.PublicKey](ctx)
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey,nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey,nist.PublicKey])
+		
+			for _, addr := range ctx.Args() {
+				account, oldPassword := unlockAccount(ks, addr, 0, nil)
+				newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
+				if err := ks.Update(account, oldPassword, newPassword); err != nil {
+					utils.Fatalf("Could not update the account: %v", err)
+				}
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			//TODO
+		} else {
+			fmt.Errorf("wrong crypto flag")
 		}
 	}
 	return nil
 }
 
-func importWallet[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	keyfile := ctx.Args().First()
-	if len(keyfile) == 0 {
-		utils.Fatalf("keyfile must be given as argument")
-	}
-	keyJSON, err := ioutil.ReadFile(keyfile)
-	if err != nil {
-		utils.Fatalf("Could not read wallet file: %v", err)
-	}
+func importWallet(ctx *cli.Context) error {
+		keyfile := ctx.Args().First()
+		if len(keyfile) == 0 {
+			utils.Fatalf("keyfile must be given as argument")
+		}
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+			if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+				}
+				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+				}
+				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+				}
+				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+					gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+				}
+				keyfile := ctx.Args().First()
+				if len(keyfile) == 0 {
+					utils.Fatalf("keyfile must be given as argument")
+				}
+				keyJSON, err := ioutil.ReadFile(keyfile)
+				if err != nil {
+					utils.Fatalf("Could not read wallet file: %v", err)
+				}
+		
+				stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+				passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
+		
+				ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
+				acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
+				if err != nil {
+					utils.Fatalf("%v", err)
+				}
+				fmt.Printf("Address: {%x}\n", acct.Address)
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" { 
+			keyfile := ctx.Args().First()
+			if len(keyfile) == 0 {
+				utils.Fatalf("keyfile must be given as argument")
+			}
+			keyJSON, err := ioutil.ReadFile(keyfile)
+			if err != nil {
+				utils.Fatalf("Could not read wallet file: %v", err)
+			}
 
-	stack, _ := makeConfigNode[T,P](ctx)
-	passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
+			stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
+			passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
 
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
-	acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
-	if err != nil {
-		utils.Fatalf("%v", err)
-	}
-	fmt.Printf("Address: {%x}\n", acct.Address)
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey, nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey, nist.PublicKey])
+			acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
+			if err != nil {
+				utils.Fatalf("%v", err)
+			}
+			fmt.Printf("Address: {%x}\n", acct.Address)
+		}  else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			//TODO
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			//TODO
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
 	return nil
 }
 
