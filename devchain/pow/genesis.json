@@ -8,8 +8,7 @@
     "eip158Block": 0,
     "byzantiumBlock": 0,
     "constantinopleBlock": 0,
-    "ethash": {},
-    "isQuorum": false
+    "ethash": {}
   },
   "nonce": "0x0",
   "timestamp": "0x5cd1f462",

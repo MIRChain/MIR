@@ -172,21 +172,9 @@ var (
 		Name:  "mainnet",
 		Usage: "Ethereum mainnet",
 	}
-	GoerliFlag = cli.BoolFlag{
-		Name:  "goerli",
-		Usage: "Görli network: pre-configured proof-of-authority test network",
-	}
-	YoloV3Flag = cli.BoolFlag{
-		Name:  "yolov3",
-		Usage: "YOLOv3 network: pre-configured proof-of-authority shortlived test network.",
-	}
-	RinkebyFlag = cli.BoolFlag{
-		Name:  "rinkeby",
-		Usage: "Rinkeby network: pre-configured proof-of-authority test network",
-	}
-	RopstenFlag = cli.BoolFlag{
-		Name:  "ropsten",
-		Usage: "Ropsten network: pre-configured proof-of-work test network",
+	SoyuzFlag = cli.BoolFlag{
+		Name:  "soyuz",
+		Usage: "Soyuz network: pre-configured proof-of-work test network",
 	}
 	DeveloperFlag = cli.BoolFlag{
 		Name:  "dev",
@@ -1098,19 +1086,10 @@ var (
 // then a subdirectory of the specified datadir will be used.
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
-		if ctx.GlobalBool(RopstenFlag.Name) {
-			// Maintain compatibility with older Geth configurations storing the
-			// Ropsten database in `testnet` instead of `ropsten`.
-			return filepath.Join(path, "ropsten")
-		}
-		if ctx.GlobalBool(RinkebyFlag.Name) {
-			return filepath.Join(path, "rinkeby")
-		}
-		if ctx.GlobalBool(GoerliFlag.Name) {
-			return filepath.Join(path, "goerli")
-		}
-		if ctx.GlobalBool(YoloV3Flag.Name) {
-			return filepath.Join(path, "yolo-v3")
+		if ctx.GlobalBool(SoyuzFlag.Name) {
+			// Maintain compatibility with older Mir configurations storing the
+			// Soyuz database in `testnet` instead of `ropsten`.
+			return filepath.Join(path, "soyuz")
 		}
 		return path
 	}
@@ -1155,20 +1134,14 @@ func setNodeUserIdent[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context,
 // flags, reverting to pre-configured ones if none have been specified.
 func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	var urls []string
-	if ctx.GlobalString(CryptoSwitchFlag.Name) == "nist" {
+	if ctx.GlobalString(CryptoSwitchFlag.Name) == "gost" {
 		urls = params.MainnetBootnodes
 	}
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
-	case ctx.GlobalBool(RopstenFlag.Name):
-		urls = params.RopstenBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case ctx.GlobalBool(GoerliFlag.Name):
-		urls = params.GoerliBootnodes
-	case ctx.GlobalBool(YoloV3Flag.Name):
-		urls = params.YoloV3Bootnodes
+	case ctx.GlobalBool(SoyuzFlag.Name):
+		urls = params.SoyuzBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1641,24 +1614,18 @@ func setDataDir[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		cfg.DataDir = "" // unless explicitly requested, use memory databases
-	case ctx.GlobalBool(RopstenFlag.Name) && cfg.DataDir == node.DefaultDataDir():
-		// Maintain compatibility with older Geth configurations storing the
-		// Ropsten database in `testnet` instead of `ropsten`.
+	case ctx.GlobalBool(SoyuzFlag.Name) && cfg.DataDir == node.DefaultDataDir():
+		// Maintain compatibility with older Mir configurations storing the
+		// Soyuz database in `testnet` instead of `soyuz`.
 		legacyPath := filepath.Join(node.DefaultDataDir(), "testnet")
 		if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-			log.Warn("Using the deprecated `testnet` datadir. Future versions will store the Ropsten chain in `ropsten`.")
+			log.Warn("Using the deprecated `testnet` datadir. Future versions will store the Soyuz chain in `Soyus`.")
 			cfg.DataDir = legacyPath
 		} else {
-			cfg.DataDir = filepath.Join(node.DefaultDataDir(), "ropsten")
+			cfg.DataDir = filepath.Join(node.DefaultDataDir(), "soyuz")
 		}
 
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "ropsten")
-	case ctx.GlobalBool(RinkebyFlag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
-	case ctx.GlobalBool(GoerliFlag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "goerli")
-	case ctx.GlobalBool(YoloV3Flag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "yolo-v3")
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "soyuz")
 	}
 	if err := SetPlugins(ctx, cfg); err != nil {
 		Fatalf(err.Error())
@@ -2030,7 +1997,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], cfg *ethconfig.Config[P]) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, RopstenFlag, RinkebyFlag, GoerliFlag, YoloV3Flag)
+	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, SoyuzFlag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
 	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
@@ -2192,29 +2159,12 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 		}
 		cfg.Genesis = core.DefaultGenesisBlock[P]()
 		SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
-	case ctx.GlobalBool(RopstenFlag.Name):
+	case ctx.GlobalBool(SoyuzFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 3
 		}
-		cfg.Genesis = core.DefaultRopstenGenesisBlock[P]()
-		SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 4
-		}
-		cfg.Genesis = core.DefaultRinkebyGenesisBlock[P]()
-		SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
-	case ctx.GlobalBool(GoerliFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 5
-		}
-		cfg.Genesis = core.DefaultGoerliGenesisBlock[P]()
-		SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
-	case ctx.GlobalBool(YoloV3Flag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = new(big.Int).SetBytes([]byte("yolov3x")).Uint64() // "yolov3x"
-		}
-		cfg.Genesis = core.DefaultYoloV3GenesisBlock[P]()
+		cfg.Genesis = core.DefaultSoyuzGenesisBlock[P]()
+		SetDNSDiscoveryDefaults(cfg, params.SoyuzGenesisHash)
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1337
@@ -2507,14 +2457,8 @@ func MakeGenesis[P crypto.PublicKey](ctx *cli.Context) *core.Genesis[P] {
 	switch {
 	case ctx.GlobalBool(MainnetFlag.Name):
 		genesis = core.DefaultGenesisBlock[P]()
-	// case ctx.GlobalBool(RopstenFlag.Name):
-	// 	genesis = core.DefaultRopstenGenesisBlock()
-	// case ctx.GlobalBool(RinkebyFlag.Name):
-	// 	genesis = core.DefaultRinkebyGenesisBlock()
-	// case ctx.GlobalBool(GoerliFlag.Name):
-	// 	genesis = core.DefaultGoerliGenesisBlock()
-	// case ctx.GlobalBool(YoloV3Flag.Name):
-	// 	genesis = core.DefaultYoloV3GenesisBlock()
+	case ctx.GlobalBool(SoyuzFlag.Name):
+		genesis = core.DefaultSoyuzGenesisBlock[P]()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
 	}

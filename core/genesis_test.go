@@ -17,6 +17,7 @@
 package core
 
 import (
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"reflect"
@@ -24,6 +25,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 
 	//"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
@@ -34,13 +37,13 @@ import (
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
-	block := DefaultGenesisBlock[nist.PublicKey]().ToBlock(nil)
+	block := DefaultGenesisBlock[gost3410.PublicKey]().ToBlock(nil)
 	if block.Hash() != params.MainnetGenesisHash {
 		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
 	}
-	block = DefaultRopstenGenesisBlock[nist.PublicKey]().ToBlock(nil)
-	if block.Hash() != params.RopstenGenesisHash {
-		t.Errorf("wrong ropsten genesis hash, got %v, want %v", block.Hash(), params.RopstenGenesisHash)
+	block = DefaultSoyuzGenesisBlock[gost3410.PublicKey]().ToBlock(nil)
+	if block.Hash() != params.SoyuzGenesisHash {
+		t.Errorf("wrong ropsten genesis hash, got %v, want %v", block.Hash(), params.SoyuzGenesisHash)
 	}
 }
 
@@ -135,29 +138,24 @@ func TestSetupGenesis(t *testing.T) {
 
 // TestGenesisHashes checks the congruity of default genesis data to corresponding hardcoded genesis hash values.
 func TestGenesisHashes(t *testing.T) {
+	h := gost3411.New256()
+	h.Write([]byte("мирумир"))
+	t.Log(hex.EncodeToString(h.Sum(nil)))
+	h.Reset()
+	h.Write([]byte("Союз1"))
+	t.Log(hex.EncodeToString(h.Sum(nil)))
+
 	cases := []struct {
-		genesis *Genesis[nist.PublicKey]
+		genesis *Genesis[gost3410.PublicKey]
 		hash    common.Hash
 	}{
 		{
-			genesis: DefaultGenesisBlock[nist.PublicKey](),
+			genesis: DefaultGenesisBlock[gost3410.PublicKey](),
 			hash:    params.MainnetGenesisHash,
 		},
 		{
-			genesis: DefaultGoerliGenesisBlock[nist.PublicKey](),
-			hash:    params.GoerliGenesisHash,
-		},
-		{
-			genesis: DefaultRopstenGenesisBlock[nist.PublicKey](),
-			hash:    params.RopstenGenesisHash,
-		},
-		{
-			genesis: DefaultRinkebyGenesisBlock[nist.PublicKey](),
-			hash:    params.RinkebyGenesisHash,
-		},
-		{
-			genesis: DefaultYoloV3GenesisBlock[nist.PublicKey](),
-			hash:    params.YoloV3GenesisHash,
+			genesis: DefaultSoyuzGenesisBlock[gost3410.PublicKey](),
+			hash:    params.SoyuzGenesisHash,
 		},
 	}
 	for i, c := range cases {

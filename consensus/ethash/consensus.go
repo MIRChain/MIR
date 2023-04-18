@@ -406,10 +406,12 @@ func makeDifficultyCalculator[P crypto.PublicKey](bombDelay *big.Int) func(time 
 		periodCount.Div(periodCount, expDiffPeriod)
 
 		// the exponential factor, commonly referred to as "the bomb"
-		// diff = diff + 2^(periodCount - 2)
+		// Mir remove diff exp bomb as we dont need it
+		// diff = diff + 2^(periodCount - 2) // original bomb
+		// diff = diff // mir adj
 		if periodCount.Cmp(big1) > 0 {
-			y.Sub(periodCount, big2)
-			y.Exp(big2, y, nil)
+			// y.Sub(periodCount, big2)
+			// y.Exp(big2, y, nil)
 			x.Add(x, y)
 		}
 		return x
@@ -456,10 +458,12 @@ func calcDifficultyHomestead[P crypto.PublicKey](time uint64, parent *types.Head
 	periodCount.Div(periodCount, expDiffPeriod)
 
 	// the exponential factor, commonly referred to as "the bomb"
-	// diff = diff + 2^(periodCount - 2)
+	// Mir remove diff exp bomb as we dont need it
+	// diff = diff + 2^(periodCount - 2) // original bomb
+	// diff = diff // mir adj
 	if periodCount.Cmp(big1) > 0 {
-		y.Sub(periodCount, big2)
-		y.Exp(big2, y, nil)
+		// y.Sub(periodCount, big2)
+		// y.Exp(big2, y, nil)
 		x.Add(x, y)
 	}
 	return x
@@ -488,11 +492,13 @@ func calcDifficultyFrontier[P crypto.PublicKey](time uint64, parent *types.Heade
 
 	periodCount := new(big.Int).Add(parent.Number, big1)
 	periodCount.Div(periodCount, expDiffPeriod)
+	// Mir remove diff exp bomb as we dont need it
 	if periodCount.Cmp(big1) > 0 {
-		// diff = diff + 2^(periodCount - 2)
-		expDiff := periodCount.Sub(periodCount, big2)
-		expDiff.Exp(big2, expDiff, nil)
-		diff.Add(diff, expDiff)
+		// diff = diff + 2^(periodCount - 2) // original bomb
+		// diff = diff // mir adj
+		// expDiff := periodCount.Sub(periodCount, big2)
+		// expDiff.Exp(big2, expDiff, nil)
+		// diff.Add(diff, expDiff)
 		diff = math.BigMax(diff, params.MinimumDifficulty)
 	}
 	return diff

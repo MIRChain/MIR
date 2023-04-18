@@ -232,7 +232,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], config 
 	if bcVersion != nil {
 		dbVer = fmt.Sprintf("%d", *bcVersion)
 	}
-	log.Info("Initialising Ethereum protocol", "network", config.NetworkId, "dbversion", dbVer)
+	log.Info("Initialising Mir protocol", "network", config.NetworkId, "dbversion", dbVer)
 	if chainConfig.IsQuorum {
 		log.Info("Initialising Quorum consensus protocol", "name", quorumConsensusProtocolName, "versions", quorumConsensusProtocolVersions, "network", config.NetworkId, "dbversion", dbVer)
 	}

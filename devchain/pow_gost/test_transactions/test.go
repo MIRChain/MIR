@@ -183,6 +183,7 @@ func TestTransferFromCSPtoGost(){
 	if err != nil {
 		log.Fatal(err)
 		}
+	log.Printf("Tx hash  %s", signedTx.Hash().Hex())
 	log.Printf("Account balance %s", balanceCheck.String())
 }
 
