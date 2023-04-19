@@ -370,7 +370,7 @@ func DefaultGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 		Config:     params.MainnetChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
-		GasLimit:   5000,
+		GasLimit:   700000000,
 		Difficulty: big.NewInt(17179869184),
 		Alloc:      decodePrealloc(mainnetAllocData),
 	}
@@ -382,7 +382,7 @@ func DefaultSoyuzGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 		Config:     params.SoyuzChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x98a80a3407fedcf1a657355f21aea4026f7d283f6223c577e14705dbde9ce295"),
-		GasLimit:   16777216,
+		GasLimit:   700000000,
 		Difficulty: big.NewInt(1048576),
 		Alloc:      decodePrealloc(soyuzAllocData),
 	}

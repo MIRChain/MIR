@@ -2158,13 +2158,15 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 			cfg.NetworkId = 1
 		}
 		cfg.Genesis = core.DefaultGenesisBlock[P]()
-		SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+		// TODO Mir set Default DNSDiscovery nodes
+		// SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 3
 		}
 		cfg.Genesis = core.DefaultSoyuzGenesisBlock[P]()
-		SetDNSDiscoveryDefaults(cfg, params.SoyuzGenesisHash)
+		// TODO Mir set Default DNSDiscovery nodes
+		// SetDNSDiscoveryDefaults(cfg, params.SoyuzGenesisHash)
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1337
@@ -2212,8 +2214,9 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
 	default:
+		// TODO Mir set Default DNSDiscovery nodes
 		if cfg.NetworkId == 1 {
-			SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+			// SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
 		}
 	}
 }

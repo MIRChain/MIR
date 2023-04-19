@@ -22,13 +22,13 @@ import "github.com/pavelkrolevets/MIR-pro/common"
 // the main Mir network.
 var MainnetBootnodes = []string{
 	// Mir Go Bootnodes
-	"enode://9c1009859fc162852c898d6ab2b83c60cb225086c5416514b1437d4404aee35630163dc80c3bcafb3d115cae2d29ea6b6743e56d2078b5a96cff64b774569323@194.87.80.101:30303",   // bootnode-ruvds-moscow
+	"enode://257d97c6a6f471b6fde14b27a56a33843614be1d2e825f93b34316c90b9da89af722ca2e431642760ba36fdd1b9202d2a21feef692190f59e1c84f49e84c6bd0@194.87.80.101:30301",   // bootnode-ruvds-moscow
 }
 
 // SoyuzBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Soyuz test network.
 var SoyuzBootnodes = []string{
-	"enode://9c1009859fc162852c898d6ab2b83c60cb225086c5416514b1437d4404aee35630163dc80c3bcafb3d115cae2d29ea6b6743e56d2078b5a96cff64b774569323@52.176.7.10:30303",    // US-Azure geth
+	"enode://482a912f6a6ea695b95a8634c29c00ae4b8f97d9f6df39d7981e34bcbd386a3d1c7f593b4209c2e2926a3933ad11da250fb5103618875d5a3b84bf78f45f36e3@194.87.80.101:30303",    // bootnode-ruvds-moscow
 }
 
 var V5Bootnodes = []string{

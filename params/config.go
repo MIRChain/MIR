@@ -31,22 +31,22 @@ import (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash = common.HexToHash("0xb4c7c6f41be1be5f3b5286b9c9264d3d80e69be5316ef1901fdaa09ac7b697a0")
-	SoyuzGenesisHash = common.HexToHash("0x5cd94bdbfbdd4db7a8e5b29f87670b7f1886bc9bcb3a3df8c45d746a0300ce6c")
+	MainnetGenesisHash = common.HexToHash("0x00ff17a7de0e3833ca49125f2f266e09c5ba1927e107ab34374e19e97d356ec4")
+	SoyuzGenesisHash = common.HexToHash("0x8e09a1617e6d5f98f5f784e0077d4e054842c2f9ae99d4570e1e4470b1e6d190")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
 var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
-	MainnetGenesisHash: MainnetTrustedCheckpoint,
-	SoyuzGenesisHash: SoyuzTrustedCheckpoint,
+	// MainnetGenesisHash: MainnetTrustedCheckpoint,
+	// SoyuzGenesisHash: SoyuzTrustedCheckpoint,
 }
 
 // CheckpointOracles associates each known checkpoint oracles with the genesis hash of
 // the chain it belongs to.
 var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
-	MainnetGenesisHash: MainnetCheckpointOracle,
-	SoyuzGenesisHash: SoyuzCheckpointOracle,
+	// MainnetGenesisHash: MainnetCheckpointOracle,
+	// SoyuzGenesisHash: SoyuzCheckpointOracle,
 }
 
 var (
@@ -69,25 +69,25 @@ var (
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
-	MainnetTrustedCheckpoint = &TrustedCheckpoint{
-		SectionIndex: 371,
-		SectionHead:  common.HexToHash("0x50fd3cec5376ede90ef9129772022690cd1467f22c18abb7faa11e793c51e9c9"),
-		CHTRoot:      common.HexToHash("0xb57b4b22a77b5930847b1ca9f62daa11eae6578948cb7b18997f2c0fe5757025"),
-		BloomRoot:    common.HexToHash("0xa338f8a868a194fa90327d0f5877f656a9f3640c618d2a01a01f2e76ef9ef954"),
-	}
+	// MainnetTrustedCheckpoint = &TrustedCheckpoint{
+	// 	SectionIndex: 371,
+	// 	SectionHead:  common.HexToHash("0x50fd3cec5376ede90ef9129772022690cd1467f22c18abb7faa11e793c51e9c9"),
+	// 	CHTRoot:      common.HexToHash("0xb57b4b22a77b5930847b1ca9f62daa11eae6578948cb7b18997f2c0fe5757025"),
+	// 	BloomRoot:    common.HexToHash("0xa338f8a868a194fa90327d0f5877f656a9f3640c618d2a01a01f2e76ef9ef954"),
+	// }
 
 	// MainnetCheckpointOracle contains a set of configs for the main network oracle.
-	MainnetCheckpointOracle = &CheckpointOracleConfig{
-		Address: common.HexToAddress("0x9a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a"),
-		Signers: []common.Address{
-			common.HexToAddress("0x1b2C260efc720BE89101890E4Db589b44E950527"), // Peter
-			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
-			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
-			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
-			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
-		},
-		Threshold: 2,
-	}
+	// MainnetCheckpointOracle = &CheckpointOracleConfig{
+	// 	Address: common.HexToAddress("0x9a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a"),
+	// 	Signers: []common.Address{
+	// 		common.HexToAddress("0x1b2C260efc720BE89101890E4Db589b44E950527"), // Peter
+	// 		common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
+	// 		common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
+	// 		common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
+	// 		common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
+	// 	},
+	// 	Threshold: 2,
+	// }
 
 	// SoyuzChainConfig contains the chain parameters to run a node on the Soyuz test network.
 	SoyuzChainConfig = &ChainConfig{
@@ -108,25 +108,25 @@ var (
 	}
 
 	// SoyuzTrustedCheckpoint contains the light client trusted checkpoint for the Soyuz test network.
-	SoyuzTrustedCheckpoint = &TrustedCheckpoint{
-		SectionIndex: 279,
-		SectionHead:  common.HexToHash("0x4a4912848d4c06090097073357c10015d11c6f4544a0f93cbdd584701c3b7d58"),
-		CHTRoot:      common.HexToHash("0x9053b7867ae921e80a4e2f5a4b15212e4af3d691ca712fb33dc150e9c6ea221c"),
-		BloomRoot:    common.HexToHash("0x3dc04cb1be7ddc271f3f83469b47b76184a79d7209ef51d85b1539ea6d25a645"),
-	}
+	// SoyuzTrustedCheckpoint = &TrustedCheckpoint{
+	// 	SectionIndex: 279,
+	// 	SectionHead:  common.HexToHash("0x4a4912848d4c06090097073357c10015d11c6f4544a0f93cbdd584701c3b7d58"),
+	// 	CHTRoot:      common.HexToHash("0x9053b7867ae921e80a4e2f5a4b15212e4af3d691ca712fb33dc150e9c6ea221c"),
+	// 	BloomRoot:    common.HexToHash("0x3dc04cb1be7ddc271f3f83469b47b76184a79d7209ef51d85b1539ea6d25a645"),
+	// }
 
 	// SoyuzCheckpointOracle contains a set of configs for the Soyuz test network oracle.
-	SoyuzCheckpointOracle = &CheckpointOracleConfig{
-		Address: common.HexToAddress("0xEF79475013f154E6A65b54cB2742867791bf0B84"),
-		Signers: []common.Address{
-			common.HexToAddress("0x32162F3581E88a5f62e8A61892B42C46E2c18f7b"), // Peter
-			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
-			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
-			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
-			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
-		},
-		Threshold: 2,
-	}
+	// SoyuzCheckpointOracle = &CheckpointOracleConfig{
+	// 	Address: common.HexToAddress("0xEF79475013f154E6A65b54cB2742867791bf0B84"),
+	// 	Signers: []common.Address{
+	// 		common.HexToAddress("0x32162F3581E88a5f62e8A61892B42C46E2c18f7b"), // Peter
+	// 		common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
+	// 		common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
+	// 		common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
+	// 		common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
+	// 	},
+	// 	Threshold: 2,
+	// }
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.

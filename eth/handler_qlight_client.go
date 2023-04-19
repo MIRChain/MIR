@@ -242,7 +242,7 @@ func (h *handler[T,P]) runQLightClientPeer(peer *qlightproto.Peer[T,P], handler 
 			return p2p.DiscTooManyPeers
 		}
 	}
-	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
+	peer.Log().Debug("Mir peer connected", "name", peer.Name())
 
 	// Register the peer locally
 	if err := h.peers.registerQPeer(peer); err != nil {

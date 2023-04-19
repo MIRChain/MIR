@@ -309,8 +309,8 @@ func (c *Config[T,P]) ExtRPCEnabled() bool {
 func (c *Config[T,P]) NodeName() string {
 	name := c.name()
 	// Backwards compatibility: previous versions used title-cased "Geth", keep that.
-	if name == "geth" || name == "geth-testnet" {
-		name = "Geth"
+	if name == "mir" || name == "mir-testnet" {
+		name = "Mir"
 	}
 	if c.UserIdent != "" {
 		name += "/" + c.UserIdent
