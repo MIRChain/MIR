@@ -10,8 +10,8 @@ tmux detach -s "node1"
 # tmux send-keys -t "node2" "sh run2.sh" C-m &&
 # tmux detach -s "node2"
 
-# tmux new -s "node3" -d &&
-# tmux send-keys -t "node3" "sh run3.sh" C-m &&
-# tmux detach -s "node3"
+tmux new -s "node3" -d &&
+tmux send-keys -t "node3" "sh run3.sh" C-m &&
+tmux detach -s "node3"
 
 

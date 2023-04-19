@@ -345,10 +345,7 @@ func TestCheckTransitionsData(t *testing.T) {
 
 	tests := []test{
 		{stored: MainnetChainConfig, wantErr: nil},
-		{stored: RopstenChainConfig, wantErr: nil},
-		{stored: RinkebyChainConfig, wantErr: nil},
-		{stored: GoerliChainConfig, wantErr: nil},
-		{stored: YoloV3ChainConfig, wantErr: nil},
+		{stored: SoyuzChainConfig, wantErr: nil},
 		{stored: AllEthashProtocolChanges, wantErr: nil},
 		{stored: AllCliqueProtocolChanges, wantErr: nil},
 		{stored: TestChainConfig, wantErr: nil},
@@ -458,10 +455,7 @@ func TestGetMaxCodeSize(t *testing.T) {
 	maxCodeDefault := 32 * 1024
 	tests := []test{
 		{MainnetChainConfig, 0, MaxCodeSize},
-		{RopstenChainConfig, 0, MaxCodeSize},
-		{RinkebyChainConfig, 0, MaxCodeSize},
-		{GoerliChainConfig, 0, MaxCodeSize},
-		{YoloV3ChainConfig, 0, MaxCodeSize},
+		{SoyuzChainConfig, 0, MaxCodeSize},
 		{AllEthashProtocolChanges, 0, 35 * 1024},
 		{AllCliqueProtocolChanges, 0, maxCodeDefault},
 		{TestChainConfig, 0, maxCodeDefault},

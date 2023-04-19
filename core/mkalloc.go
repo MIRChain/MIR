@@ -36,6 +36,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }
@@ -46,7 +47,7 @@ func (a allocList) Len() int           { return len(a) }
 func (a allocList) Less(i, j int) bool { return a[i].Addr.Cmp(a[j].Addr) < 0 }
 func (a allocList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-func makelist(g *core.Genesis) allocList {
+func makelist(g *core.Genesis[gost3410.PublicKey]) allocList {
 	a := make(allocList, 0, len(g.Alloc))
 	for addr, account := range g.Alloc {
 		if len(account.Storage) > 0 || len(account.Code) > 0 || account.Nonce != 0 {
@@ -59,7 +60,7 @@ func makelist(g *core.Genesis) allocList {
 	return a
 }
 
-func makealloc(g *core.Genesis) string {
+func makealloc(g *core.Genesis[gost3410.PublicKey]) string {
 	a := makelist(g)
 	data, err := rlp.EncodeToBytes(a)
 	if err != nil {
@@ -74,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := new(core.Genesis)
+	g := new(core.Genesis[gost3410.PublicKey])
 	file, err := os.Open(os.Args[1])
 	if err != nil {
 		panic(err)

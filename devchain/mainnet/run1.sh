@@ -1,11 +1,9 @@
 #!/bin/bash
-echo "Starting node1 ..."
+echo "Starting mainnet miner ..."
 
 ../../build/bin/mir --crypto gost \
-  --gostcurve id-GostR3410-2001-CryptoPro-A-ParamSet \
   --datadir node1 \
-  --identity node1 \
-  --syncmode full \
+  --identity mainnet-worker \
   --port 30311  \
   --ws \
   --ws.addr 0.0.0.0 \
@@ -16,8 +14,7 @@ echo "Starting node1 ..."
   --http.port 8545 \
   --http.corsdomain "*" \
   --http.api shh,personal,db,eth,net,web3,txpool,miner,admin \
-  --bootnodes 'enode://fb5f060ea4f9c3caecc9de4f7f9b1b3124373cfbb278f7c064dc68f8a5f31d16b39a3f08d549c8b0eb5399a7dce0503de4a4e83eb92d97c24f22d760e82e9304@127.0.0.1:30310' \
-  --networkid 6581 \
   --mine \
   --miner.threads=1 \
-  --verbosity 4 
+  --mainnet \
+  --verbosity 4

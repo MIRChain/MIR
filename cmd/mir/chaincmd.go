@@ -70,10 +70,7 @@ It expects the genesis file as argument.`,
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			utils.MainnetFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
-			utils.GoerliFlag,
-			utils.YoloV3Flag,
+			utils.SoyuzFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -208,7 +205,8 @@ func getIsQuorum(file io.Reader) bool {
 	}
 
 	// unspecified defaults to true
-	return altGenesis.Config.IsQuorum == nil || *altGenesis.Config.IsQuorum
+	// Mir defaults to false
+	return altGenesis.Config.IsQuorum != nil
 }
 
 func initGenesisType(ctx *cli.Context) error {
@@ -270,7 +268,7 @@ func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 	// Quorum
 	file.Seek(0, 0)
 	genesis.Config.IsQuorum = getIsQuorum(file)
-
+	fmt.Printf("Is Quorum %t \n ", genesis.Config.IsQuorum)
 	// check the data given as a part of newMaxConfigData to ensure that
 	// its in expected order
 	err = genesis.Config.CheckMaxCodeConfigData()
