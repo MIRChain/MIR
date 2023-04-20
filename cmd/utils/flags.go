@@ -222,7 +222,7 @@ var (
 	GCModeFlag = cli.StringFlag{
 		Name:  "gcmode",
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
-		Value: "full",
+		Value: "archive",
 	}
 	SnapshotFlag = cli.BoolTFlag{
 		Name:  "snapshot",
@@ -2540,31 +2540,21 @@ func MakeChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		// for Raft
 		engine = ethash.NewFullFaker[P]()
 	} else {
-		ethashConf := ethconfig.Defaults[P]().Ethash
-		if ctx.Bool(FakePoWFlag.Name) {
-			ethashConf.PowMode = ethash.ModeFake
+		engine = ethash.NewFaker[P]()
+		if !ctx.Bool(FakePoWFlag.Name) {
+			ethashConf := ethconfig.Defaults[P]().Ethash
+			engine = ethash.New[P](ethash.Config{
+				CacheDir:         stack.ResolvePath(ethashConf.CacheDir),
+				CachesInMem:      ethashConf.CachesInMem,
+				CachesOnDisk:     ethashConf.CachesOnDisk,
+				CachesLockMmap:   ethashConf.CachesLockMmap,
+				DatasetDir:       stack.ResolvePath(ethashConf.DatasetDir),
+				DatasetsInMem:    ethashConf.DatasetsInMem,
+				DatasetsOnDisk:   ethashConf.DatasetsOnDisk,
+				DatasetsLockMmap: ethashConf.DatasetsLockMmap,
+				NotifyFull:       ethashConf.NotifyFull,
+			}, nil, false)
 		}
-		switch ethashConf.PowMode {
-		case ethash.ModeFake:
-			log.Warn("Ethash used in fake mode")
-		case ethash.ModeTest:
-			log.Warn("Ethash used in test mode")
-		case ethash.ModeShared:
-			log.Warn("Ethash used in shared mode")
-		}
-		
-		engine = ethash.New[P](ethash.Config{
-			PowMode:          ethashConf.PowMode,
-			CacheDir:         stack.ResolvePath(ethashConf.CacheDir),
-			CachesInMem:      ethashConf.CachesInMem,
-			CachesOnDisk:     ethashConf.CachesOnDisk,
-			CachesLockMmap:   ethashConf.CachesLockMmap,
-			DatasetDir:       stack.ResolvePath(ethashConf.DatasetDir),
-			DatasetsInMem:    ethashConf.DatasetsInMem,
-			DatasetsOnDisk:   ethashConf.DatasetsOnDisk,
-			DatasetsLockMmap: ethashConf.DatasetsLockMmap,
-			NotifyFull:       ethashConf.NotifyFull,
-		}, nil, false)
 	}
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)

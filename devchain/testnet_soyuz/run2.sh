@@ -9,4 +9,4 @@ echo "Starting node2 ..."
     --gcmode=archive \
     --port 30312 \
     --soyuz \
-    --verbosity 10
+    --verbosity 4

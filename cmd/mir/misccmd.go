@@ -124,7 +124,7 @@ func makecache(ctx *cli.Context) error {
 func makedag(ctx *cli.Context) error {
 	args := ctx.Args()
 	if len(args) != 2 {
-		utils.Fatalf(`Usage: geth makedag <block number> <outputdir>`)
+		utils.Fatalf(`Usage: mir makedag <block number> <outputdir>`)
 	}
 	block, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {

@@ -68,3 +68,4 @@ build/PEEPS
 /devchain*/*/learner*/raft-wal/
 /devchain*/*/learner*/mir.ipc
 
+.ethash
