@@ -350,13 +350,13 @@ func (p *Peer[T,P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int) {
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
-func (p *Peer[T,P]) SendBlockHeaders(headers []*types.Header) error {
-	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket(headers))
+func (p *Peer[T,P]) SendBlockHeaders(headers []*types.Header[P]) error {
+	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket[P](headers))
 }
 
 // ReplyBlockHeaders is the eth/66 version of SendBlockHeaders.
-func (p *Peer[T,P]) ReplyBlockHeaders(id uint64, headers []*types.Header) error {
-	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket66{
+func (p *Peer[T,P]) ReplyBlockHeaders(id uint64, headers []*types.Header[P]) error {
+	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket66[P]{
 		RequestId:          id,
 		BlockHeadersPacket: headers,
 	})

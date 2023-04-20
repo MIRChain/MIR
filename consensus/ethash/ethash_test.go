@@ -28,12 +28,13 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Tests that ethash works correctly in test mode.
 func TestTestMode(t *testing.T) {
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 
 	ethash := NewTester[nist.PublicKey](nil, false)
 	defer ethash.Close()
@@ -83,7 +84,7 @@ func TestCacheFileEvict(t *testing.T) {
 	wg.Wait()
 }
 
-func verifyTest(wg *sync.WaitGroup, e *Ethash[nist.PublicKey], workerIndex, epochs int) {
+func verifyTest[P crypto.PublicKey](wg *sync.WaitGroup, e *Ethash[P], workerIndex, epochs int) {
 	defer wg.Done()
 
 	const wiggle = 4 * epochLength
@@ -93,7 +94,7 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash[nist.PublicKey], workerIndex, epoc
 		if block < 0 {
 			block = 0
 		}
-		header := &types.Header{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
+		header := &types.Header[P]{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
 		e.verifySeal(nil, header, false)
 	}
 }
@@ -106,7 +107,7 @@ func TestRemoteSealer(t *testing.T) {
 	if _, err := api.GetWork(); err != errNoMiningWork {
 		t.Error("expect to return an error indicate there is no mining work")
 	}
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader[nist.PublicKey](header)
 	sealhash := ethash.SealHash(header)
 
@@ -126,7 +127,7 @@ func TestRemoteSealer(t *testing.T) {
 		t.Error("expect to return false when submit a fake solution")
 	}
 	// Push new block with same block number to replace the original one.
-	header = &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
+	header = &types.Header[nist.PublicKey]{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
 	block = types.NewBlockWithHeader[nist.PublicKey](header)
 	sealhash = ethash.SealHash(header)
 	ethash.Seal(nil, block, results, nil)

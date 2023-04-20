@@ -40,10 +40,10 @@ type node [P crypto.PublicKey] struct {
 	livenessChecks uint      // how often liveness was checked
 }
 
-type encPubkey [64]byte
+type encPubkey [P crypto.PublicKey] [64]byte
 
-func encodePubkey [P crypto.PublicKey] (key P) encPubkey {
-	var e encPubkey 
+func encodePubkey [P crypto.PublicKey] (key P) encPubkey[P] {
+	var e encPubkey[P] 
 	math.ReadBits(key.GetX(), e[:len(e)/2])
 	math.ReadBits(key.GetY(), e[len(e)/2:])
 	return e
@@ -53,7 +53,7 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 	var pub P
 	switch p:= any(&pub).(type){
 	case *nist.PublicKey:
-		if len(e) != len(encPubkey{}) {
+		if len(e) != len(encPubkey[P]{}) {
 			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
 		}
 		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
@@ -65,7 +65,7 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 		}
 		*p = nist.PublicKey{k}
 	case *gost3410.PublicKey:
-		if len(e) != len(encPubkey{}) {
+		if len(e) != len(encPubkey[P]{}) {
 			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
 		}
 		k := &gost3410.PublicKey{C: gost3410.GostCurve, X: new(big.Int), Y: new(big.Int)}
@@ -78,7 +78,7 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 		// }
 		*p = *k
 	case *csp.PublicKey:
-		if len(e) != len(encPubkey{}) {
+		if len(e) != len(encPubkey[P]{}) {
 			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
 		}
 		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
@@ -95,8 +95,8 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 	return pub, nil
 }
 
-func (e encPubkey) id() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+func (e encPubkey[P]) id() enode.ID {
+	return enode.ID(crypto.Keccak256Hash[P](e[:]))
 }
 
 func wrapNode[P crypto.PublicKey](n *enode.Node[P]) *node[P] {

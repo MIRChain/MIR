@@ -21,16 +21,16 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = bind.Bind
+	// _ = bind.Bind
 	_ = common.Big1
-	_ = types.BloomLookup
+	// _ = types.BloomLookup
 	_ = event.NewSubscription
 )
 
 // SimpleABI is the input ABI used to generate the binding from.
 const SimpleABI = "[{\"inputs\":[],\"name\":\"getValue\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"v\",\"type\":\"bytes16\"}],\"name\":\"setValue\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"value\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
-var SimpleParsedABI, _ = abi.JSON(strings.NewReader(SimpleABI))
+// var SimpleParsedABI, _ = abi.JSON(strings.NewReader(SimpleABI))
 
 // SimpleFuncSigs maps the 4-byte function signature to its string representation.
 var SimpleFuncSigs = map[string]string{
@@ -44,7 +44,7 @@ var SimpleBin = "0x608060405234801561001057600080fd5b5060ff8061001f6000396000f3f
 
 // DeploySimple deploys a new Ethereum contract, binding an instance of Simple to it.
 func DeploySimple[P crypto.PublicKey] (auth *bind.TransactOpts[P], backend bind.ContractBackend[P]) (common.Address, *types.Transaction[P], *Simple[P], error) {
-	parsed, err := abi.JSON(strings.NewReader(SimpleABI))
+	parsed, err := abi.JSON[P](strings.NewReader(SimpleABI))
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -153,7 +153,7 @@ func NewSimpleFilterer[P crypto.PublicKey](address common.Address, filterer bind
 
 // bindSimple binds a generic wrapper to an already deployed contract.
 func bindSimple[P crypto.PublicKey](address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor[P], filterer bind.ContractFilterer) (*bind.BoundContract[P], error) {
-	parsed, err := abi.JSON(strings.NewReader(SimpleABI))
+	parsed, err := abi.JSON[P](strings.NewReader(SimpleABI))
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,9 @@
 package qbftengine
 
-import "github.com/pavelkrolevets/MIR-pro/core/types"
+import (
+	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+)
 
 type ApplyQBFTExtra func(*types.QBFTExtra) error
 
@@ -16,7 +19,7 @@ func Combine(applies ...ApplyQBFTExtra) ApplyQBFTExtra {
 	}
 }
 
-func ApplyHeaderQBFTExtra(header *types.Header, applies ...ApplyQBFTExtra) error {
+func ApplyHeaderQBFTExtra[P crypto.PublicKey](header *types.Header[P], applies ...ApplyQBFTExtra) error {
 	extra, err := getExtra(header)
 	if err != nil {
 		return err

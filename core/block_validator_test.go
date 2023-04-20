@@ -25,6 +25,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
@@ -38,7 +39,7 @@ func TestHeaderVerification(t *testing.T) {
 		genesis   = gspec.MustCommit(testdb)
 		blocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), testdb, 8, nil)
 	)
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.Header[nist.PublicKey], len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -52,10 +53,10 @@ func TestHeaderVerification(t *testing.T) {
 
 			if valid {
 				engine :=  ethash.NewFaker[nist.PublicKey]()
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+				_, results = engine.VerifyHeaders(chain, []*types.Header[nist.PublicKey]{headers[i]}, []bool{true})
 			} else {
 				engine := ethash.NewFakeFailer[nist.PublicKey](headers[i].Number.Uint64())
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+				_, results = engine.VerifyHeaders(chain, []*types.Header[nist.PublicKey]{headers[i]}, []bool{true})
 			}
 			// Wait for the verification result
 			select {
@@ -90,7 +91,7 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		genesis   = gspec.MustCommit(testdb)
 		blocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, 8, nil)
 	)
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.Header[nist.PublicKey], len(blocks))
 	seals := make([]bool, len(blocks))
 
 	for i, block := range blocks {
@@ -150,19 +151,19 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 
 // Tests that aborting a header validation indeed prevents further checks from being
 // run, as well as checks that no left-over goroutines are leaked.
-func TestHeaderConcurrentAbortion2(t *testing.T)  { testHeaderConcurrentAbortion(t, 2) }
-func TestHeaderConcurrentAbortion8(t *testing.T)  { testHeaderConcurrentAbortion(t, 8) }
-func TestHeaderConcurrentAbortion32(t *testing.T) { testHeaderConcurrentAbortion(t, 32) }
+func TestHeaderConcurrentAbortion2(t *testing.T)  { testHeaderConcurrentAbortion[nist.PublicKey](t, 2) }
+func TestHeaderConcurrentAbortion8(t *testing.T)  { testHeaderConcurrentAbortion[nist.PublicKey](t, 8) }
+func TestHeaderConcurrentAbortion32(t *testing.T) { testHeaderConcurrentAbortion[nist.PublicKey](t, 32) }
 
-func testHeaderConcurrentAbortion(t *testing.T, threads int) {
+func testHeaderConcurrentAbortion[P crypto.PublicKey](t *testing.T, threads int) {
 	// Create a simple chain to verify
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
-		gspec     = &Genesis[nist.PublicKey]{Config: params.TestChainConfig}
+		gspec     = &Genesis[P]{Config: params.TestChainConfig}
 		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, 1024, nil)
+		blocks, _ = GenerateChain[P](params.TestChainConfig, genesis,  ethash.NewFaker[P](), testdb, 1024, nil)
 	)
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.Header[P], len(blocks))
 	seals := make([]bool, len(blocks))
 
 	for i, block := range blocks {
@@ -174,7 +175,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	defer runtime.GOMAXPROCS(old)
 
 	// Start the verifications and immediately abort
-	chain, _ := NewBlockChain[nist.PublicKey](testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer[nist.PublicKey](time.Millisecond), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, _ := NewBlockChain[P](testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer[P](time.Millisecond), vm.Config[P]{}, nil, nil, nil)
 	defer chain.Stop()
 
 	abort, results := chain.engine.VerifyHeaders(chain, headers, seals)

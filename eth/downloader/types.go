@@ -34,20 +34,20 @@ type dataPack interface {
 }
 
 // headerPack is a batch of block headers returned by a peer.
-type headerPack struct {
+type headerPack [P crypto.PublicKey] struct {
 	peerID  string
-	headers []*types.Header
+	headers []*types.Header[P]
 }
 
-func (p *headerPack) PeerId() string { return p.peerID }
-func (p *headerPack) Items() int     { return len(p.headers) }
-func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) }
+func (p *headerPack[P]) PeerId() string { return p.peerID }
+func (p *headerPack[P]) Items() int     { return len(p.headers) }
+func (p *headerPack[P]) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) }
 
 // bodyPack is a batch of block bodies returned by a peer.
 type bodyPack [P crypto.PublicKey] struct {
 	peerID       string
 	transactions [][]*types.Transaction[P]
-	uncles       [][]*types.Header
+	uncles       [][]*types.Header[P]
 }
 
 func (p *bodyPack[P]) PeerId() string { return p.peerID }

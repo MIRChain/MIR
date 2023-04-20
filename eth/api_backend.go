@@ -93,7 +93,7 @@ func (b *EthAPIBackend[T,P]) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error) {
 	// Pending block is only known by the miner
 	if number == rpc.PendingBlockNumber {
 		block := b.eth.miner.PendingBlock()
@@ -106,7 +106,7 @@ func (b *EthAPIBackend[T,P]) HeaderByNumber(ctx context.Context, number rpc.Bloc
 	return b.eth.blockchain.GetHeaderByNumber(uint64(number)), nil
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header[P], error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.HeaderByNumber(ctx, blockNr)
 	}
@@ -123,7 +123,7 @@ func (b *EthAPIBackend[T,P]) HeaderByNumberOrHash(ctx context.Context, blockNrOr
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-func (b *EthAPIBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (b *EthAPIBackend[T,P]) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error) {
 	return b.eth.blockchain.GetHeaderByHash(hash), nil
 }
 
@@ -169,7 +169,7 @@ func (b *EthAPIBackend[T,P]) BlockByNumberOrHash(ctx context.Context, blockNrOrH
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header[P], error) {
 	psm, err := b.PSMR().ResolveForUserContext(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -184,13 +184,13 @@ func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number 
 				return nil, nil, err
 			}
 			publicState, privateState, err := b.eth.BlockChain().StateAtPSI(header.Root, psm.ID)
-			return EthAPIState{publicState, privateState}, header, err
+			return EthAPIState[P]{publicState, privateState}, header, err
 		}
 		block, publicState, privateState := b.eth.miner.Pending(psm.ID)
 		if block == nil || publicState == nil || privateState == nil {
 			return nil, nil, fmt.Errorf("Unable to retrieve the pending state from the miner.")
 		}
-		return EthAPIState{publicState, privateState}, block.Header(), nil
+		return EthAPIState[P]{publicState, privateState}, block.Header(), nil
 	}
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, number)
@@ -201,11 +201,11 @@ func (b *EthAPIBackend[T,P]) StateAndHeaderByNumber(ctx context.Context, number 
 		return nil, nil, errors.New("header not found")
 	}
 	stateDb, privateState, err := b.eth.BlockChain().StateAtPSI(header.Root, psm.ID)
-	return EthAPIState{stateDb, privateState}, header, err
+	return EthAPIState[P]{stateDb, privateState}, header, err
 
 }
 
-func (b *EthAPIBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (b *EthAPIBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header[P], error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.StateAndHeaderByNumber(ctx, blockNr)
 	}
@@ -225,7 +225,7 @@ func (b *EthAPIBackend[T,P]) StateAndHeaderByNumberOrHash(ctx context.Context, b
 			return nil, nil, err
 		}
 		stateDb, privateState, err := b.eth.BlockChain().StateAtPSI(header.Root, psm.ID)
-		return EthAPIState{stateDb, privateState}, header, err
+		return EthAPIState[P]{stateDb, privateState}, header, err
 
 	}
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
@@ -287,8 +287,8 @@ func (b *EthAPIBackend[T,P]) GetTd(ctx context.Context, hash common.Hash) *big.I
 	return b.eth.blockchain.GetTdByHash(hash)
 }
 
-func (b *EthAPIBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
-	statedb := state.(EthAPIState)
+func (b *EthAPIBackend[T,P]) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header[P], vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error) {
+	statedb := state.(EthAPIState[P])
 	vmError := func() error { return nil }
 	if vmConfig == nil {
 		vmConfig = b.eth.blockchain.GetVMConfig()
@@ -440,7 +440,7 @@ func (b *EthAPIBackend[T,P]) Engine() consensus.Engine[P] {
 	return b.eth.engine
 }
 
-func (b *EthAPIBackend[T,P]) CurrentHeader() *types.Header {
+func (b *EthAPIBackend[T,P]) CurrentHeader() *types.Header[P] {
 	return b.eth.blockchain.CurrentHeader()
 }
 
@@ -452,11 +452,11 @@ func (b *EthAPIBackend[T,P]) StartMining(threads int) error {
 	return b.eth.StartMining(threads)
 }
 
-func (b *EthAPIBackend[T,P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (b *EthAPIBackend[T,P]) StateAtBlock(ctx context.Context, block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return b.eth.stateAtBlock(block, reexec, base, checkLive)
 }
 
-func (b *EthAPIBackend[T,P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, *state.StateDB, mps.PrivateStateRepository[P], error) {
+func (b *EthAPIBackend[T,P]) StateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return b.eth.stateAtTransaction(ctx, block, txIndex, reexec)
 }
 
@@ -490,25 +490,25 @@ func (b *EthAPIBackend[T,P]) IsPrivacyMarkerTransactionCreationEnabled() bool {
 }
 
 // used by Quorum
-type EthAPIState struct {
-	state, privateState *state.StateDB
+type EthAPIState [P crypto.PublicKey] struct {
+	state, privateState *state.StateDB[P]
 }
 
-func (s EthAPIState) GetBalance(addr common.Address) *big.Int {
+func (s EthAPIState[P]) GetBalance(addr common.Address) *big.Int {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetBalance(addr)
 	}
 	return s.state.GetBalance(addr)
 }
 
-func (s EthAPIState) GetCode(addr common.Address) []byte {
+func (s EthAPIState[P]) GetCode(addr common.Address) []byte {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetCode(addr)
 	}
 	return s.state.GetCode(addr)
 }
 
-func (s EthAPIState) SetNonce(addr common.Address, nonce uint64) {
+func (s EthAPIState[P]) SetNonce(addr common.Address, nonce uint64) {
 	if s.privateState.Exist(addr) {
 		s.privateState.SetNonce(addr, nonce)
 	} else {
@@ -516,7 +516,7 @@ func (s EthAPIState) SetNonce(addr common.Address, nonce uint64) {
 	}
 }
 
-func (s EthAPIState) SetCode(addr common.Address, code []byte) {
+func (s EthAPIState[P]) SetCode(addr common.Address, code []byte) {
 	if s.privateState.Exist(addr) {
 		s.privateState.SetCode(addr, code)
 	} else {
@@ -524,7 +524,7 @@ func (s EthAPIState) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (s EthAPIState) SetBalance(addr common.Address, balance *big.Int) {
+func (s EthAPIState[P]) SetBalance(addr common.Address, balance *big.Int) {
 	if s.privateState.Exist(addr) {
 		s.privateState.SetBalance(addr, balance)
 	} else {
@@ -532,7 +532,7 @@ func (s EthAPIState) SetBalance(addr common.Address, balance *big.Int) {
 	}
 }
 
-func (s EthAPIState) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
+func (s EthAPIState[P]) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
 	if s.privateState.Exist(addr) {
 		s.privateState.SetStorage(addr, storage)
 	} else {
@@ -540,7 +540,7 @@ func (s EthAPIState) SetStorage(addr common.Address, storage map[common.Hash]com
 	}
 }
 
-func (s EthAPIState) SetState(a common.Address, key common.Hash, value common.Hash) {
+func (s EthAPIState[P]) SetState(a common.Address, key common.Hash, value common.Hash) {
 	if s.privateState.Exist(a) {
 		s.privateState.SetState(a, key, value)
 	} else {
@@ -548,35 +548,35 @@ func (s EthAPIState) SetState(a common.Address, key common.Hash, value common.Ha
 	}
 }
 
-func (s EthAPIState) GetState(a common.Address, b common.Hash) common.Hash {
+func (s EthAPIState[P]) GetState(a common.Address, b common.Hash) common.Hash {
 	if s.privateState.Exist(a) {
 		return s.privateState.GetState(a, b)
 	}
 	return s.state.GetState(a, b)
 }
 
-func (s EthAPIState) GetNonce(addr common.Address) uint64 {
+func (s EthAPIState[P]) GetNonce(addr common.Address) uint64 {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetNonce(addr)
 	}
 	return s.state.GetNonce(addr)
 }
 
-func (s EthAPIState) GetPrivacyMetadata(addr common.Address) (*state.PrivacyMetadata, error) {
+func (s EthAPIState[P]) GetPrivacyMetadata(addr common.Address) (*state.PrivacyMetadata, error) {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetPrivacyMetadata(addr)
 	}
 	return nil, fmt.Errorf("%x: %w", addr, common.ErrNotPrivateContract)
 }
 
-func (s EthAPIState) GetManagedParties(addr common.Address) ([]string, error) {
+func (s EthAPIState[P]) GetManagedParties(addr common.Address) ([]string, error) {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetManagedParties(addr)
 	}
 	return nil, fmt.Errorf("%x: %w", addr, common.ErrNotPrivateContract)
 }
 
-func (s EthAPIState) GetRLPEncodedStateObject(addr common.Address) ([]byte, error) {
+func (s EthAPIState[P]) GetRLPEncodedStateObject(addr common.Address) ([]byte, error) {
 	getFunc := s.state.GetRLPEncodedStateObject
 	if s.privateState.Exist(addr) {
 		getFunc = s.privateState.GetRLPEncodedStateObject
@@ -584,35 +584,35 @@ func (s EthAPIState) GetRLPEncodedStateObject(addr common.Address) ([]byte, erro
 	return getFunc(addr)
 }
 
-func (s EthAPIState) GetProof(addr common.Address) ([][]byte, error) {
+func (s EthAPIState[P]) GetProof(addr common.Address) ([][]byte, error) {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetProof(addr)
 	}
 	return s.state.GetProof(addr)
 }
 
-func (s EthAPIState) GetStorageProof(addr common.Address, h common.Hash) ([][]byte, error) {
+func (s EthAPIState[P]) GetStorageProof(addr common.Address, h common.Hash) ([][]byte, error) {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetStorageProof(addr, h)
 	}
 	return s.state.GetStorageProof(addr, h)
 }
 
-func (s EthAPIState) StorageTrie(addr common.Address) state.Trie {
+func (s EthAPIState[P]) StorageTrie(addr common.Address) state.Trie {
 	if s.privateState.Exist(addr) {
 		return s.privateState.StorageTrie(addr)
 	}
 	return s.state.StorageTrie(addr)
 }
 
-func (s EthAPIState) Error() error {
+func (s EthAPIState[P]) Error() error {
 	if s.privateState.Error() != nil {
 		return s.privateState.Error()
 	}
 	return s.state.Error()
 }
 
-func (s EthAPIState) GetCodeHash(addr common.Address) common.Hash {
+func (s EthAPIState[P]) GetCodeHash(addr common.Address) common.Hash {
 	if s.privateState.Exist(addr) {
 		return s.privateState.GetCodeHash(addr)
 	}

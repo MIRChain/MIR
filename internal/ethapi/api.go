@@ -709,7 +709,7 @@ func (s *PublicBlockChainAPI[T,P]) GetProof(ctx context.Context, address common.
 		storageHash = storageTrie.Hash()
 	} else {
 		// no storageTrie means the account does not exist, so the codeHash is the hash of an empty bytearray.
-		codeHash = crypto.Keccak256Hash(nil)
+		codeHash = crypto.Keccak256Hash[P](nil)
 	}
 
 	// create the proof for the storageKeys
@@ -938,10 +938,10 @@ type OverrideAccount struct {
 }
 
 // StateOverride is the collection of overridden accounts.
-type StateOverride map[common.Address]OverrideAccount
+type StateOverride [P crypto.PublicKey] map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state *state.StateDB) error {
+func (diff *StateOverride[P]) Apply(state *state.StateDB[P]) error {
 	if diff == nil {
 		return nil
 	}
@@ -978,7 +978,7 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 // Quorum - Multitenancy
 // Before returning the result, we need to inspect the EVM and
 // perform verification check
-func DoCall[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Context, b Backend[T,P], args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, vmCfg vm.Config[P], timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
+func DoCall[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Context, b Backend[T,P], args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride[P], vmCfg vm.Config[P], timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -1030,8 +1030,8 @@ func DoCall[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Context, b Back
 	return result, nil
 }
 
-func newRevertError(result *core.ExecutionResult) *revertError {
-	reason, errUnpack := abi.UnpackRevert(result.Revert())
+func newRevertError[P crypto.PublicKey](result *core.ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert[P](result.Revert())
 	err := errors.New("execution reverted")
 	if errUnpack == nil {
 		err = fmt.Errorf("execution reverted: %v", reason)
@@ -1069,19 +1069,19 @@ func (e *revertError) ErrorData() interface{} {
 // Quorum
 // - replaced the default 5s time out with the value passed in vm.calltimeout
 // - multi tenancy verification
-func (s *PublicBlockChainAPI[T,P]) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI[T,P]) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride[P]) (hexutil.Bytes, error) {
 	var accounts map[common.Address]OverrideAccount
 	if overrides != nil {
 		accounts = *overrides
 	}
-	stateOverride := StateOverride(accounts)
+	stateOverride := StateOverride[P](accounts)
 	result, err := DoCall(ctx, s.b, args, blockNrOrHash, &stateOverride, vm.Config[P]{}, s.b.CallTimeOut(), s.b.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(result.Revert()) > 0 {
-		return nil, newRevertError(result)
+		return nil, newRevertError[P](result)
 	}
 	return result.Return(), result.Err
 }
@@ -1184,7 +1184,7 @@ func DoEstimateGas[T crypto.PrivateKey, P crypto.PublicKey] (ctx context.Context
 		if failed {
 			if result != nil && result.Err != vm.ErrOutOfGas {
 				if len(result.Revert()) > 0 {
-					return 0, newRevertError(result)
+					return 0, newRevertError[P](result)
 				}
 				return 0, result.Err
 			}
@@ -1312,7 +1312,7 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
-func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+func RPCMarshalHeader[P crypto.PublicKey](head *types.Header[P]) map[string]interface{} {
 	return map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -1372,7 +1372,7 @@ func RPCMarshalBlock[P crypto.PublicKey](block *types.Block[P], inclTx bool, ful
 
 // rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field, which requires
 // a `PublicBlockchainAPI`.
-func (s *PublicBlockChainAPI[T,P]) rpcMarshalHeader(ctx context.Context, header *types.Header) map[string]interface{} {
+func (s *PublicBlockChainAPI[T,P]) rpcMarshalHeader(ctx context.Context, header *types.Header[P]) map[string]interface{} {
 	fields := RPCMarshalHeader(header)
 	fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(ctx, header.Hash()))
 	return fields
@@ -1537,7 +1537,7 @@ func AccessList[T crypto.PrivateKey, P crypto.PublicKey] (ctx context.Context, b
 	if args.To != nil {
 		to = *args.To
 	} else {
-		to = crypto.CreateAddress(args.From, uint64(*args.Nonce))
+		to = crypto.CreateAddress[P](args.From, uint64(*args.Nonce))
 	}
 	var input []byte
 	if args.Input != nil {
@@ -1569,7 +1569,7 @@ func AccessList[T crypto.PrivateKey, P crypto.PublicKey] (ctx context.Context, b
 		}
 		// Copy the original db so we don't modify it
 		// statedb := db.Copy()
-		statedb := db.(*state.StateDB).Copy()
+		statedb := db.(*state.StateDB[P]).Copy()
 		msg := types.NewMessage(args.From, args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas), args.GasPrice.ToInt(), input, accessList, false)
 
 		// Apply the transaction with the access list tracer
@@ -2155,7 +2155,7 @@ func SubmitTransaction[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Cont
 	}
 
 	if tx.To() == nil {
-		addr := crypto.CreateAddress(from, tx.Nonce())
+		addr := crypto.CreateAddress[P](from, tx.Nonce())
 		log.Info("Submitted contract creation", "hash", tx.Hash().Hex(), "from", from, "nonce", tx.Nonce(), "contract", addr.Hex(), "value", tx.Value())
 		log.EmitCheckpoint(log.TxCreated, "tx", tx.Hash().Hex(), "to", addr.Hex())
 	} else {
@@ -2635,7 +2635,7 @@ func (api *PublicDebugAPI[T,P]) TestSignCliqueBlock(ctx context.Context, address
 		return common.Address{}, err
 	}
 	var signer common.Address
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	copy(signer[:], crypto.Keccak256[P](pubkey[1:])[12:])
 
 	return signer, nil
 }
@@ -3176,7 +3176,7 @@ func simulateExecutionForPE[T crypto.PrivateKey, P crypto.PublicKey](ctx context
 		} else {
 			log.Trace("Simulated execution", "error", err)
 			if len(data) > 0 && errors.Is(err, vm.ErrExecutionReverted) {
-				reason, errUnpack := abi.UnpackRevert(data)
+				reason, errUnpack := abi.UnpackRevert[P](data)
 
 				reasonError := errors.New("execution reverted")
 				if errUnpack == nil {

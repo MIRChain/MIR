@@ -30,6 +30,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/common/compiler"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/internal/flags"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"gopkg.in/urfave/cli.v1"
@@ -237,7 +238,7 @@ func abigen(c *cli.Context) error {
 			nameParts := strings.Split(name, ":")
 			types = append(types, nameParts[len(nameParts)-1])
 
-			libPattern := crypto.Keccak256Hash([]byte(name)).String()[2:36]
+			libPattern := crypto.Keccak256Hash[nist.PublicKey]([]byte(name)).String()[2:36]
 			libs[libPattern] = nameParts[len(nameParts)-1]
 		}
 	}
@@ -254,7 +255,7 @@ func abigen(c *cli.Context) error {
 		}
 	}
 	// Generate the contract binding
-	code, err := bind.Bind(types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases)
+	code, err := bind.Bind[nist.PublicKey](types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases)
 	if err != nil {
 		utils.Fatalf("Failed to generate ABI binding: %v", err)
 	}

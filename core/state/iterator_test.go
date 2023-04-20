@@ -21,16 +21,17 @@ import (
 	"testing"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 )
 
 // Tests that the node iterator indeed walks over the entire database contents.
 func TestNodeIteratorCoverage(t *testing.T) {
 	// Create some arbitrary test state to iterate
-	db, root, _ := makeTestState()
+	db, root, _ := makeTestState[nist.PublicKey]()
 	db.TrieDB().Commit(root, false, nil)
 
-	state, err := New(root, db, nil)
+	state, err := New[nist.PublicKey](root, db, nil)
 	if err != nil {
 		t.Fatalf("failed to create state trie at %x: %v", root, err)
 	}

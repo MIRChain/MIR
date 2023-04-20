@@ -25,27 +25,28 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
-func makeBlock(number int64) *types.Block[nist.PublicKey] {
-	header := &types.Header{
+func makeBlock[P crypto.PublicKey](number int64) *types.Block[P] {
+	header := &types.Header[P]{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),
 		GasLimit:   0,
 		GasUsed:    0,
 		Time:       0,
 	}
-	block := &types.Block[nist.PublicKey]{}
+	block := &types.Block[P]{}
 	return block.WithSeal(header)
 }
 
-func testPreprepare(t *testing.T) {
-	pp := &istanbul.Preprepare[nist.PublicKey]{
+func testPreprepare[P crypto.PublicKey](t *testing.T) {
+	pp := &istanbul.Preprepare[P]{
 		View: &istanbul.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
 		},
-		Proposal: makeBlock(1),
+		Proposal: makeBlock[P](1),
 	}
 	prepreparePayload, _ := Encode(pp)
 
@@ -66,7 +67,7 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedPP *istanbul.Preprepare[nist.PublicKey]
+	var decodedPP *istanbul.Preprepare[P]
 	err = decodedMsg.Decode(&decodedPP)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -188,7 +189,7 @@ func testSubjectWithSignature(t *testing.T) {
 }
 
 func TestMessageEncodeDecode(t *testing.T) {
-	testPreprepare(t)
+	testPreprepare[nist.PublicKey](t)
 	testSubject(t)
 	testSubjectWithSignature(t)
 }

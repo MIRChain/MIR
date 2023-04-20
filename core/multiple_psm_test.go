@@ -89,13 +89,13 @@ func TestMultiplePSMRStateCreated(t *testing.T) {
 	mockpsm.EXPECT().PSIs().Return([]types.PrivateStateIdentifier{PSI1PSM.ID, PSI2PSM.ID, types.DefaultPrivateStateIdentifier, types.ToPrivateStateIdentifier("other")}).AnyTimes()
 
 	blocks, blockmap, blockchain := buildTestChain(2, params.QuorumMPSTestChainConfig)
-	cache := state.NewDatabase(blockchain.db)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(blockchain.db, nil, cache, false)
+	cache := state.NewDatabase[nist.PublicKey](blockchain.db)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](blockchain.db, nil, cache, false)
 	blockchain.privateStateManager = mockpsm
 
 	for _, block := range blocks {
 		parent := blockmap[block.ParentHash()]
-		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
+		statedb, _ := state.New[nist.PublicKey](parent.Root(), blockchain.StateCache(), nil)
 		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository[nist.PublicKey](blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
 
 		privateStateRepo, err := blockchain.PrivateStateManager().StateRepository(parent.Root())
@@ -190,12 +190,12 @@ func TestMPSReset(t *testing.T) {
 
 	blocks, blockmap, blockchain := buildTestChain(2, params.QuorumMPSTestChainConfig)
 	blockchain.privateStateManager = mockpsm
-	cache := state.NewDatabase(blockchain.db)
-	privateCacheProvider := privatecache.NewPrivateCacheProvider(blockchain.db, nil, cache, false)
+	cache := state.NewDatabase[nist.PublicKey](blockchain.db)
+	privateCacheProvider := privatecache.NewPrivateCacheProvider[nist.PublicKey](blockchain.db, nil, cache, false)
 
 	for _, block := range blocks {
 		parent := blockmap[block.ParentHash()]
-		statedb, _ := state.New(parent.Root(), blockchain.StateCache(), nil)
+		statedb, _ := state.New[nist.PublicKey](parent.Root(), blockchain.StateCache(), nil)
 		mockpsm.EXPECT().StateRepository(gomock.Any()).Return(mps.NewMultiplePrivateStateRepository[nist.PublicKey](blockchain.db, cache, common.Hash{}, privateCacheProvider)).AnyTimes()
 
 		privateStateRepo, err := blockchain.PrivateStateManager().StateRepository(parent.Root())

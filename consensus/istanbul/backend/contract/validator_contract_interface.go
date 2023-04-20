@@ -21,16 +21,16 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = bind.Bind
+	// _ = bind.Bind
 	_ = common.Big1
-	_ = types.BloomLookup
+	// _ = types.BloomLookup
 	_ = event.NewSubscription
 )
 
 // ValidatorContractInterfaceABI is the input ABI used to generate the binding from.
 const ValidatorContractInterfaceABI = "[{\"constant\":true,\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
-var ValidatorContractInterfaceParsedABI, _ = abi.JSON(strings.NewReader(ValidatorContractInterfaceABI))
+// var ValidatorContractInterfaceParsedABI, _ = abi.JSON(strings.NewReader(ValidatorContractInterfaceABI))
 
 // ValidatorContractInterface is an auto generated Go binding around an Ethereum contract.
 type ValidatorContractInterface [P crypto.PublicKey] struct {
@@ -129,7 +129,7 @@ func NewValidatorContractInterfaceFilterer[P crypto.PublicKey](address common.Ad
 
 // bindValidatorContractInterface binds a generic wrapper to an already deployed contract.
 func bindValidatorContractInterface[P crypto.PublicKey](address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor[P], filterer bind.ContractFilterer) (*bind.BoundContract[P], error) {
-	parsed, err := abi.JSON(strings.NewReader(ValidatorContractInterfaceABI))
+	parsed, err := abi.JSON[P](strings.NewReader(ValidatorContractInterfaceABI))
 	if err != nil {
 		return nil, err
 	}

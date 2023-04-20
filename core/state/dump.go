@@ -111,7 +111,7 @@ func (d iterativeDump) OnRoot(root common.Hash) {
 	}{root})
 }
 
-func (s *StateDB) DumpToCollector(c DumpCollector, excludeCode, excludeStorage, excludeMissingPreimages bool, start []byte, maxResults int) (nextKey []byte) {
+func (s *StateDB[P]) DumpToCollector(c DumpCollector, excludeCode, excludeStorage, excludeMissingPreimages bool, start []byte, maxResults int) (nextKey []byte) {
 	missingPreimages := 0
 	c.OnRoot(s.trie.Hash())
 
@@ -171,7 +171,7 @@ func (s *StateDB) DumpToCollector(c DumpCollector, excludeCode, excludeStorage, 
 }
 
 // RawDump returns the entire state an a single large object
-func (s *StateDB) RawDump(excludeCode, excludeStorage, excludeMissingPreimages bool) Dump {
+func (s *StateDB[P]) RawDump(excludeCode, excludeStorage, excludeMissingPreimages bool) Dump {
 	dump := &Dump{
 		Accounts: make(map[common.Address]DumpAccount),
 	}
@@ -180,7 +180,7 @@ func (s *StateDB) RawDump(excludeCode, excludeStorage, excludeMissingPreimages b
 }
 
 // Dump returns a JSON string representing the entire state as a single json-object
-func (s *StateDB) Dump(excludeCode, excludeStorage, excludeMissingPreimages bool) []byte {
+func (s *StateDB[P]) Dump(excludeCode, excludeStorage, excludeMissingPreimages bool) []byte {
 	dump := s.RawDump(excludeCode, excludeStorage, excludeMissingPreimages)
 	json, err := json.MarshalIndent(dump, "", "    ")
 	if err != nil {
@@ -189,7 +189,7 @@ func (s *StateDB) Dump(excludeCode, excludeStorage, excludeMissingPreimages bool
 	return json
 }
 
-func (self *StateDB) DumpAddress(address common.Address) (DumpAccount, bool) {
+func (self *StateDB[P]) DumpAddress(address common.Address) (DumpAccount, bool) {
 	if !self.Exist(address) {
 		return DumpAccount{}, false
 	}
@@ -220,12 +220,12 @@ func (self *StateDB) DumpAddress(address common.Address) (DumpAccount, bool) {
 }
 
 // IterativeDump dumps out accounts as json-objects, delimited by linebreaks on stdout
-func (s *StateDB) IterativeDump(excludeCode, excludeStorage, excludeMissingPreimages bool, output *json.Encoder) {
+func (s *StateDB[P]) IterativeDump(excludeCode, excludeStorage, excludeMissingPreimages bool, output *json.Encoder) {
 	s.DumpToCollector(iterativeDump{output}, excludeCode, excludeStorage, excludeMissingPreimages, nil, 0)
 }
 
 // IteratorDump dumps out a batch of accounts starts with the given start key
-func (s *StateDB) IteratorDump(excludeCode, excludeStorage, excludeMissingPreimages bool, start []byte, maxResults int) IteratorDump {
+func (s *StateDB[P]) IteratorDump(excludeCode, excludeStorage, excludeMissingPreimages bool, start []byte, maxResults int) IteratorDump {
 	iterator := &IteratorDump{
 		Accounts: make(map[common.Address]DumpAccount),
 	}

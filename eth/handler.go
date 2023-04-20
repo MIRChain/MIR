@@ -243,7 +243,7 @@ func newHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T
 	h.downloader = downloader.New[T,P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
-	validator := func(header *types.Header) error {
+	validator := func(header *types.Header[P]) error {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {
@@ -341,11 +341,11 @@ func (h *handler[T,P]) runEthPeer(peer *eth.Peer[T,P], handler eth.Handler[T,P])
 			return p2p.DiscTooManyPeers
 		}
 	}
-	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
+	peer.Log().Debug("Mir peer connected", "name", peer.Name())
 
 	// Register the peer locally
 	if err := h.peers.registerPeer(peer, snap); err != nil {
-		peer.Log().Error("Ethereum peer registration failed", "err", err)
+		peer.Log().Error("Mir peer registration failed", "err", err)
 
 		// Quorum
 		// When the Register() returns an error, the Run method corresponding to `eth` protocol returns with the error, causing the peer to drop, signal subprotocol as well to exit the `Run` method

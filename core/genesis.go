@@ -192,8 +192,8 @@ func SetupGenesisBlockWithOverride[P crypto.PublicKey](db ethdb.Database, genesi
 	}
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
-	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
+	header := rawdb.ReadHeader[P](db, stored, 0)
+	if _, err := state.New[P](header.Root, state.NewDatabaseWithConfig[P](db, nil), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock[P]()
 		}
@@ -275,14 +275,8 @@ func (g *Genesis[P]) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.MainnetGenesisHash:
 		return params.MainnetChainConfig
-	case ghash == params.RopstenGenesisHash:
-		return params.RopstenChainConfig
-	case ghash == params.RinkebyGenesisHash:
-		return params.RinkebyChainConfig
-	case ghash == params.GoerliGenesisHash:
-		return params.GoerliChainConfig
-	case ghash == params.YoloV3GenesisHash:
-		return params.YoloV3ChainConfig
+	case ghash == params.SoyuzGenesisHash:
+		return params.SoyuzChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -294,7 +288,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](db), nil)
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -304,7 +298,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
-	head := &types.Header{
+	head := &types.Header[P]{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       g.Timestamp,
@@ -326,7 +320,7 @@ func (g *Genesis[P]) ToBlock(db ethdb.Database) *types.Block[P] {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock[P](head, nil, nil, nil, trie.NewStackTrie(nil))
+	return types.NewBlock[P](head, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
 
 // Commit writes the block and state of a genesis specification to the database.
@@ -375,60 +369,25 @@ func DefaultGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 	return &Genesis[P]{
 		Config:     params.MainnetChainConfig,
 		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
-		GasLimit:   5000,
+		ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
+		GasLimit:   700000000,
 		Difficulty: big.NewInt(17179869184),
 		Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }
 
-// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
-func DefaultRopstenGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
+// DefaultSoyuzGenesisBlock returns the Soyuz network genesis block.
+func DefaultSoyuzGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 	return &Genesis[P]{
-		Config:     params.RopstenChainConfig,
+		Config:     params.SoyuzChainConfig,
 		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
+		ExtraData:  hexutil.MustDecode("0x98a80a3407fedcf1a657355f21aea4026f7d283f6223c577e14705dbde9ce295"),
+		GasLimit:   700000000,
 		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(ropstenAllocData),
+		Alloc:      decodePrealloc(soyuzAllocData),
 	}
 }
 
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
-func DefaultRinkebyGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
-	return &Genesis[P]{
-		Config:     params.RinkebyChainConfig,
-		Timestamp:  1492009146,
-		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   4700000,
-		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(rinkebyAllocData),
-	}
-}
-
-// DefaultGoerliGenesisBlock returns the Görli network genesis block.
-func DefaultGoerliGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
-	return &Genesis[P]{
-		Config:     params.GoerliChainConfig,
-		Timestamp:  1548854791,
-		ExtraData:  hexutil.MustDecode("0x22466c6578692069732061207468696e6722202d204166726900000000000000e0a2bd4258d2768837baa26a28fe71dc079f84c70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   10485760,
-		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(goerliAllocData),
-	}
-}
-
-func DefaultYoloV3GenesisBlock[P crypto.PublicKey]() *Genesis[P] {
-	// Full genesis: https://gist.github.com/holiman/c6ed9269dce28304ad176314caa75e97
-	return &Genesis[P]{
-		Config:     params.YoloV3ChainConfig,
-		Timestamp:  0x6027dd2e,
-		ExtraData:  hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000001041afbcb359d5a8dc58c15b2ff51354ff8a217d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   0x47b760,
-		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(yoloV3AllocData),
-	}
-}
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
 func DeveloperGenesisBlock[P crypto.PublicKey](period uint64, faucet common.Address) *Genesis[P] {

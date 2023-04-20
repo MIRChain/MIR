@@ -52,10 +52,10 @@ var (
 	incrementByOnePS1    = common.BytesToEncryptedPayloadHash([]byte("incContractPS1"))
 	incrementByOnePS1PS2 = common.BytesToEncryptedPayloadHash([]byte("incContractPS1PS2"))
 
-	AccumulatorParsedABI, _         = abi.JSON(strings.NewReader(AccumulatorABI))
+	AccumulatorParsedABI, _         = abi.JSON[nist.PublicKey](strings.NewReader(AccumulatorABI))
 	AccumulatorBin                  = "0x608060405234801561001057600080fd5b5060405161018a38038061018a8339818101604052602081101561003357600080fd5b8101908080519060200190929190505050806000819055505061012f8061005b6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80632a1afcd91460415780636d4ce63c14605d578063812600df146079575b600080fd5b604760a4565b6040518082815260200191505060405180910390f35b606360aa565b6040518082815260200191505060405180910390f35b60a260048036036020811015608d57600080fd5b810190808035906020019092919050505060b3565b005b60005481565b60008054905090565b80600054016000819055507fc13aa85405f3616d514cfd2316b12181b047ed7f229bce08ce53c671f6f94f986000546040518082815260200191505060405180910390a15056fea265627a7a723158208fb1390ecdc6d669bf1855aed67a225931aee2c14ac2b8f5cd2ac5a8fb3a21af64736f6c63430005110032"
-	Contract1AddressAfterDeployment = crypto.CreateAddress(testAddress, 0)
-	Contract2AddressAfterDeployment = crypto.CreateAddress(testAddress, 1)
+	Contract1AddressAfterDeployment = crypto.CreateAddress[nist.PublicKey](testAddress, 0)
+	Contract2AddressAfterDeployment = crypto.CreateAddress[nist.PublicKey](testAddress, 1)
 	PS1PG                           = engine.PrivacyGroup{
 		Type:           "RESIDENT",
 		Name:           "PS1",

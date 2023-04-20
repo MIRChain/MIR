@@ -132,7 +132,7 @@ func newTestWorkerBackend[T crypto.PrivateKey,P crypto.PublicKey](t *testing.T, 
 		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
 		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
 		e.Authorize(testBankAddress, func(account accounts.Account, s string, data []byte) ([]byte, error) {
-			return crypto.Sign(crypto.Keccak256(data), testBankKey)
+			return crypto.Sign(crypto.Keccak256[P](data), testBankKey)
 		})
 	case *ethash.Ethash[P]:
 	default:
@@ -352,7 +352,7 @@ func TestStreamUncleBlock(t *testing.T) {
 			// and 1 uncle.
 			if taskIndex == 2 {
 				have := task.block.Header().UncleHash
-				want := types.CalcUncleHash([]*types.Header{b.uncleBlock.Header()})
+				want := types.CalcUncleHash([]*types.Header[nist.PublicKey]{b.uncleBlock.Header()})
 				if have != want {
 					t.Errorf("uncle hash mismatch: have %s, want %s", have.Hex(), want.Hex())
 				}
@@ -634,7 +634,7 @@ func TestPrivatePSMRStateCreated(t *testing.T) {
 		randomPrivateTx := b.newRandomTx(true, true)
 		mockptm.EXPECT().Receive(common.BytesToEncryptedPayloadHash(randomPrivateTx.Data())).Return("", []string{"psi1", "psi2"}, common.FromHex(testCode), nil, nil).AnyTimes()
 		mockptm.EXPECT().Receive(common.EncryptedPayloadHash{}).Return("", []string{}, common.EncryptedPayloadHash{}.Bytes(), nil, nil).AnyTimes()
-		expectedContractAddress := crypto.CreateAddress(randomPrivateTx.From(), randomPrivateTx.Nonce())
+		expectedContractAddress := crypto.CreateAddress[nist.PublicKey](randomPrivateTx.From(), randomPrivateTx.Nonce())
 		b.txPool.AddLocal(randomPrivateTx)
 		select {
 		case blk := <-newBlock:
@@ -739,7 +739,7 @@ func TestPrivateLegacyStateCreated(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		mockptm.EXPECT().Receive(gomock.Any()).Return("", []string{}, common.FromHex(testCode), nil, nil).Times(1)
 		randomPrivateTx := b.newRandomTx(true, true)
-		expectedContractAddress := crypto.CreateAddress(randomPrivateTx.From(), randomPrivateTx.Nonce())
+		expectedContractAddress := crypto.CreateAddress[nist.PublicKey](randomPrivateTx.From(), randomPrivateTx.Nonce())
 		b.txPool.AddLocal(randomPrivateTx)
 		select {
 		case blk := <-newBlock:

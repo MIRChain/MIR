@@ -58,7 +58,7 @@ func (d *DefaultPrivateStateManager[P]) NotIncludeAny(_ *mps.PrivateStateMetadat
 }
 
 func (d *DefaultPrivateStateManager[P]) CheckAt(root common.Hash) error {
-	_, err := state.New(rawdb.GetPrivateStateRoot(d.db, root), d.repoCache, nil)
+	_, err := state.New[P](rawdb.GetPrivateStateRoot(d.db, root), d.repoCache, nil)
 	return err
 }
 

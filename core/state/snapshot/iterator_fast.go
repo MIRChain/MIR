@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // weightedIterator is a iterator with an assigned weight. It is used to prioritise
@@ -62,8 +63,8 @@ func (its weightedIterators) Swap(i, j int) {
 
 // fastIterator is a more optimized multi-layer iterator which maintains a
 // direct mapping of all iterators leading down to the bottom layer.
-type fastIterator struct {
-	tree *Tree       // Snapshot tree to reinitialize stale sub-iterators with
+type fastIterator [P crypto.PublicKey] struct {
+	tree *Tree[P]       // Snapshot tree to reinitialize stale sub-iterators with
 	root common.Hash // Root hash to reinitialize stale sub-iterators through
 
 	curAccount []byte
@@ -78,17 +79,17 @@ type fastIterator struct {
 // newFastIterator creates a new hierarchical account or storage iterator with one
 // element per diff layer. The returned combo iterator can be used to walk over
 // the entire snapshot diff stack simultaneously.
-func newFastIterator(tree *Tree, root common.Hash, account common.Hash, seek common.Hash, accountIterator bool) (*fastIterator, error) {
+func newFastIterator[P crypto.PublicKey](tree *Tree[P], root common.Hash, account common.Hash, seek common.Hash, accountIterator bool) (*fastIterator[P], error) {
 	snap := tree.Snapshot(root)
 	if snap == nil {
 		return nil, fmt.Errorf("unknown snapshot: %x", root)
 	}
-	fi := &fastIterator{
+	fi := &fastIterator[P]{
 		tree:    tree,
 		root:    root,
 		account: accountIterator,
 	}
-	current := snap.(snapshot)
+	current := snap.(snapshot[P])
 	for depth := 0; current != nil; depth++ {
 		if accountIterator {
 			fi.iterators = append(fi.iterators, &weightedIterator{
@@ -117,7 +118,7 @@ func newFastIterator(tree *Tree, root common.Hash, account common.Hash, seek com
 
 // init walks over all the iterators and resolves any clashes between them, after
 // which it prepares the stack for step-by-step iteration.
-func (fi *fastIterator) init() {
+func (fi *fastIterator[P]) init() {
 	// Track which account hashes are iterators positioned on
 	var positioned = make(map[common.Hash]int)
 
@@ -172,7 +173,7 @@ func (fi *fastIterator) init() {
 }
 
 // Next steps the iterator forward one element, returning false if exhausted.
-func (fi *fastIterator) Next() bool {
+func (fi *fastIterator[P]) Next() bool {
 	if len(fi.iterators) == 0 {
 		return false
 	}
@@ -228,7 +229,7 @@ func (fi *fastIterator) Next() bool {
 // For example, if the iterated hashes become [2,3,5,5,8,9,10], then we should
 // invoke next(3), which will call Next on elem 3 (the second '5') and will
 // cascade along the list, applying the same operation if needed.
-func (fi *fastIterator) next(idx int) bool {
+func (fi *fastIterator[P]) next(idx int) bool {
 	// If this particular iterator got exhausted, remove it and return true (the
 	// next one is surely not exhausted yet, otherwise it would have been removed
 	// already).
@@ -289,7 +290,7 @@ func (fi *fastIterator) next(idx int) bool {
 }
 
 // move advances an iterator to another position in the list.
-func (fi *fastIterator) move(index, newpos int) {
+func (fi *fastIterator[P]) move(index, newpos int) {
 	elem := fi.iterators[index]
 	copy(fi.iterators[index:], fi.iterators[index+1:newpos+1])
 	fi.iterators[newpos] = elem
@@ -297,30 +298,30 @@ func (fi *fastIterator) move(index, newpos int) {
 
 // Error returns any failure that occurred during iteration, which might have
 // caused a premature iteration exit (e.g. snapshot stack becoming stale).
-func (fi *fastIterator) Error() error {
+func (fi *fastIterator[P]) Error() error {
 	return fi.fail
 }
 
 // Hash returns the current key
-func (fi *fastIterator) Hash() common.Hash {
+func (fi *fastIterator[P]) Hash() common.Hash {
 	return fi.iterators[0].it.Hash()
 }
 
 // Account returns the current account blob.
 // Note the returned account is not a copy, please don't modify it.
-func (fi *fastIterator) Account() []byte {
+func (fi *fastIterator[P]) Account() []byte {
 	return fi.curAccount
 }
 
 // Slot returns the current storage slot.
 // Note the returned slot is not a copy, please don't modify it.
-func (fi *fastIterator) Slot() []byte {
+func (fi *fastIterator[P]) Slot() []byte {
 	return fi.curSlot
 }
 
 // Release iterates over all the remaining live layer iterators and releases each
 // of thme individually.
-func (fi *fastIterator) Release() {
+func (fi *fastIterator[P]) Release() {
 	for _, it := range fi.iterators {
 		it.it.Release()
 	}
@@ -328,7 +329,7 @@ func (fi *fastIterator) Release() {
 }
 
 // Debug is a convencience helper during testing
-func (fi *fastIterator) Debug() {
+func (fi *fastIterator[P]) Debug() {
 	for _, it := range fi.iterators {
 		fmt.Printf("[p=%v v=%v] ", it.priority, it.it.Hash()[0])
 	}
@@ -338,13 +339,13 @@ func (fi *fastIterator) Debug() {
 // newFastAccountIterator creates a new hierarchical account iterator with one
 // element per diff layer. The returned combo iterator can be used to walk over
 // the entire snapshot diff stack simultaneously.
-func newFastAccountIterator(tree *Tree, root common.Hash, seek common.Hash) (AccountIterator, error) {
+func newFastAccountIterator[P crypto.PublicKey](tree *Tree[P], root common.Hash, seek common.Hash) (AccountIterator, error) {
 	return newFastIterator(tree, root, common.Hash{}, seek, true)
 }
 
 // newFastStorageIterator creates a new hierarchical storage iterator with one
 // element per diff layer. The returned combo iterator can be used to walk over
 // the entire snapshot diff stack simultaneously.
-func newFastStorageIterator(tree *Tree, root common.Hash, account common.Hash, seek common.Hash) (StorageIterator, error) {
+func newFastStorageIterator[P crypto.PublicKey](tree *Tree[P], root common.Hash, account common.Hash, seek common.Hash) (StorageIterator, error) {
 	return newFastIterator(tree, root, account, seek, false)
 }

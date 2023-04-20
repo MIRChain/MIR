@@ -8,13 +8,12 @@
     "eip158Block": 0,
     "byzantiumBlock": 0,
     "constantinopleBlock": 0,
-    "ethash": {},
-    "isQuorum": false
+    "ethash": {}
   },
   "nonce": "0x0",
   "timestamp": "0x5cd1f462",
   "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "gasLimit": "4000000000",
+  "gasLimit": "0x3B9ACA00",
   "difficulty": "0x1",
   "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "coinbase": "0x0000000000000000000000000000000000000000",

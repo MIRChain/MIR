@@ -530,7 +530,7 @@ func (w *wallet[P]) SignData(account accounts.Account, mimeType string, data []b
 
 	// Unless we are doing 712 signing, simply dispatch to signHash
 	if !(mimeType == accounts.MimetypeTypedData && len(data) == 66 && data[0] == 0x19 && data[1] == 0x01) {
-		return w.signHash(account, crypto.Keccak256(data))
+		return w.signHash(account, crypto.Keccak256[P](data))
 	}
 
 	// dispatch to 712 signing if the mimetype is TypedData and the format matches

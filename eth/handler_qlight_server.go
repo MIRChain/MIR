@@ -132,7 +132,7 @@ func (h *handler[T,P]) runQLightServerPeer(peer *qlightproto.Peer[T,P], handler 
 			return p2p.DiscTooManyPeers
 		}
 	}
-	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
+	peer.Log().Debug("Mir peer connected", "name", peer.Name())
 
 	err := h.authProvider.Authorize(peer.QLightToken(), peer.QLightPSI())
 	if err != nil {

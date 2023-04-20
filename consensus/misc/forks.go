@@ -21,13 +21,14 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 // VerifyForkHashes verifies that blocks conforming to network hard-forks do have
 // the correct hashes, to avoid clients going off on different chains. This is an
 // optional feature.
-func VerifyForkHashes(config *params.ChainConfig, header *types.Header, uncle bool) error {
+func VerifyForkHashes[P crypto.PublicKey](config *params.ChainConfig, header *types.Header[P], uncle bool) error {
 	// We don't care about uncles
 	if uncle {
 		return nil

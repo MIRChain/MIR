@@ -24,9 +24,9 @@ import (
 )
 
 var (
-	contractDeployed = &contract{
+	contractDeployed = &contract[nist.PublicKey]{
 		name:     "contractDeployed",
-		abi:      mustParse(contractDeployedDefinition),
+		abi:      mustParse[nist.PublicKey](contractDeployedDefinition),
 		bytecode: common.Hex2Bytes("608060405234801561001057600080fd5b506040516020806105a88339810180604052602081101561003057600080fd5b81019080805190602001909291905050508060008190555050610550806100586000396000f3fe608060405260043610610051576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b1146100565780636d4ce63c146100a5578063d7139463146100d0575b600080fd5b34801561006257600080fd5b5061008f6004803603602081101561007957600080fd5b810190808035906020019092919050505061010b565b6040518082815260200191505060405180910390f35b3480156100b157600080fd5b506100ba61011e565b6040518082815260200191505060405180910390f35b3480156100dc57600080fd5b50610109600480360360208110156100f357600080fd5b8101908080359060200190929190505050610127565b005b6000816000819055506000549050919050565b60008054905090565b600030610132610212565b808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001915050604051809103906000f080158015610184573d6000803e3d6000fd5b5090508073ffffffffffffffffffffffffffffffffffffffff166360fe47b1836040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050600060405180830381600087803b1580156101f657600080fd5b505af115801561020a573d6000803e3d6000fd5b505050505050565b604051610302806102238339019056fe608060405234801561001057600080fd5b506040516020806103028339810180604052602081101561003057600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050610271806100916000396000f3fe608060405260043610610046576000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b11461004b5780636d4ce63c14610086575b600080fd5b34801561005757600080fd5b506100846004803603602081101561006e57600080fd5b81019080803590602001909291905050506100b1565b005b34801561009257600080fd5b5061009b610180565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166360fe47b1826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180828152602001915050602060405180830381600087803b15801561014157600080fd5b505af1158015610155573d6000803e3d6000fd5b505050506040513d602081101561016b57600080fd5b81019080805190602001909291905050505050565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040160206040518083038186803b15801561020557600080fd5b505afa158015610219573d6000803e3d6000fd5b505050506040513d602081101561022f57600080fd5b810190808051906020019092919050505090509056fea165627a7a72305820a537f4c360ce5c6f55523298e314e6456e5c3e02c170563751dfda37d3aeddb30029a165627a7a7230582060396bfff29d2dfc5a9f4216bfba5e24d031d54fd4b26ebebde1a26c59df0c1e0029"),
 	}
 
@@ -200,7 +200,7 @@ func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 
 // Assert functions
 
-func assertPrefetchedDualState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository[nist.PublicKey]) {
+func assertPrefetchedDualState[P crypto.PublicKey](t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB[P], throwawayRepo mps.PrivateStateRepository[P]) {
 	throwawayPrivateState, _ := throwawayRepo.DefaultState()
 	for _, data := range mockTxDataArr {
 		assert.Equal(t, uint64(2), throwaway.GetNonce(data.fromAddress))
@@ -209,7 +209,7 @@ func assertPrefetchedDualState(t *testing.T, mockTxDataArr []*mockTxData, throwa
 	}
 }
 
-func assertPrefetchedMPSState(t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB, throwawayRepo mps.PrivateStateRepository[nist.PublicKey]) {
+func assertPrefetchedMPSState[P crypto.PublicKey](t *testing.T, mockTxDataArr []*mockTxData, throwaway *state.StateDB[P], throwawayRepo mps.PrivateStateRepository[P]) {
 	throwawayDefaultPrivateState, _ := throwawayRepo.DefaultState()
 	throwawayPS1PrivateState, _ := throwawayRepo.StatePSI(PSI1PSM.ID)
 	throwawayPS2PrivateState, _ := throwawayRepo.StatePSI(PSI2PSM.ID)
@@ -246,7 +246,7 @@ type mockTxData struct {
 // Utility functions
 
 // createThrowawayStates create the StateDBs to be used for the prefetcher to warm up the cached but are thrown away after
-func createThrowawayStates(minedBlock *types.Block[nist.PublicKey], chain *BlockChain[nist.PublicKey]) (*state.StateDB, mps.PrivateStateRepository[nist.PublicKey]) {
+func createThrowawayStates[P crypto.PublicKey](minedBlock *types.Block[P], chain *BlockChain[P]) (*state.StateDB[P], mps.PrivateStateRepository[P]) {
 	throwaway, _ := state.New(minedBlock.Root(), chain.stateCache, chain.snaps)
 	privateRepo, _ := chain.PrivateStateManager().StateRepository(minedBlock.Root())
 	throwawayRepo := privateRepo.Copy()

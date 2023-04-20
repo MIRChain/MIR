@@ -680,14 +680,14 @@ func TestHashimoto(t *testing.T) {
 	wantDigest := hexutil.MustDecode("0xe4073cffaef931d37117cefd9afd27ea0f1cad6a981dd2605c4a1ac97c519800")
 	wantResult := hexutil.MustDecode("0xd3539235ee2e6f8db665c0a72169f55b7f6c605712330b778ec3944f0eb5a557")
 
-	digest, result := hashimotoLight(32*1024, cache, hash, nonce)
+	digest, result := hashimotoLight[nist.PublicKey](32*1024, cache, hash, nonce)
 	if !bytes.Equal(digest, wantDigest) {
 		t.Errorf("light hashimoto digest mismatch: have %x, want %x", digest, wantDigest)
 	}
 	if !bytes.Equal(result, wantResult) {
 		t.Errorf("light hashimoto result mismatch: have %x, want %x", result, wantResult)
 	}
-	digest, result = hashimotoFull(dataset, hash, nonce)
+	digest, result = hashimotoFull[nist.PublicKey](dataset, hash, nonce)
 	if !bytes.Equal(digest, wantDigest) {
 		t.Errorf("full hashimoto digest mismatch: have %x, want %x", digest, wantDigest)
 	}
@@ -706,7 +706,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	defer os.RemoveAll(cachedir)
 
 	// Define a heavy enough block, one from mainnet should do
-	block := types.NewBlockWithHeader[nist.PublicKey](&types.Header{
+	block := types.NewBlockWithHeader[nist.PublicKey](&types.Header[nist.PublicKey]{
 		Number:      big.NewInt(3311058),
 		ParentHash:  common.HexToHash("0xd783efa4d392943503f28438ad5830b2d5964696ffc285f338585e9fe0a37a05"),
 		UncleHash:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
@@ -773,7 +773,7 @@ func BenchmarkHashimotoLight(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hashimotoLight(datasetSize(1), cache, hash, 0)
+		hashimotoLight[nist.PublicKey](datasetSize(1), cache, hash, 0)
 	}
 }
 
@@ -789,7 +789,7 @@ func BenchmarkHashimotoFullSmall(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hashimotoFull(dataset, hash, 0)
+		hashimotoFull[nist.PublicKey](dataset, hash, 0)
 	}
 }
 
@@ -807,7 +807,7 @@ func benchmarkHashimotoFullMmap(b *testing.B, name string, lock bool) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			binary.PutVarint(hash[:], int64(i))
-			hashimotoFull(d.dataset, hash[:], 0)
+			hashimotoFull[nist.PublicKey](d.dataset, hash[:], 0)
 		}
 	})
 }

@@ -20,8 +20,10 @@ import (
 	"sync"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 type sliceBuffer []byte
@@ -37,35 +39,76 @@ func (b *sliceBuffer) Reset() {
 
 // hasher is a type used for the trie Hash operation. A hasher has some
 // internal preallocated temp space
-type hasher struct {
+type hasher [P crypto.PublicKey] struct {
 	sha      crypto.KeccakState
 	tmp      sliceBuffer
 	parallel bool // Whether to use paralallel threads when hashing
 }
 
 // hasherPool holds pureHashers
-var hasherPool = sync.Pool{
+var hasherPoolNist = sync.Pool {
 	New: func() interface{} {
-		return &hasher{
+		return &hasher[nist.PublicKey]{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-			sha: sha3.NewLegacyKeccak256().(crypto.KeccakState),
+			sha: crypto.NewKeccakState[nist.PublicKey](),
+		}
+	},
+}
+var hasherPoolGost = sync.Pool {
+	New: func() interface{} {
+		return &hasher[gost3410.PublicKey]{
+			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
+			sha: crypto.NewKeccakState[gost3410.PublicKey](),
 		}
 	},
 }
 
-func newHasher(parallel bool) *hasher {
-	h := hasherPool.Get().(*hasher)
-	h.parallel = parallel
-	return h
+var hasherPoolCsp = sync.Pool {
+	New: func() interface{} {
+		return &hasher[csp.PublicKey]{
+			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
+			sha: crypto.NewKeccakState[csp.PublicKey](),
+		}
+	},
 }
 
-func returnHasherToPool(h *hasher) {
-	hasherPool.Put(h)
+func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		h := hasherPoolNist.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	case *gost3410.PublicKey:
+		h := hasherPoolGost.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	case *csp.PublicKey:
+		h := hasherPoolCsp.Get().(*hasher[P])
+		h.parallel = parallel
+		return h
+	default:
+		panic("cant infer pub key type for hasher")
+	}
+}
+
+func returnHasherToPool[P crypto.PublicKey](h *hasher[P]) {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		hasherPoolNist.Put(h)
+	case *gost3410.PublicKey:
+		hasherPoolGost.Put(h)
+	case *csp.PublicKey:
+		hasherPoolCsp.Put(h)
+	default:
+		panic("cant infer pub key type for hasher")
+	}
 }
 
 // hash collapses a node down into a hash node, also returning a copy of the
 // original node initialized with the computed hash to replace the original one.
-func (h *hasher) hash(n node, force bool) (hashed node, cached node) {
+func (h *hasher[P]) hash(n node, force bool) (hashed node, cached node) {
 	// Return the cached hash if it's available
 	if hash, _ := n.cache(); hash != nil {
 		return hash, n
@@ -101,7 +144,7 @@ func (h *hasher) hash(n node, force bool) (hashed node, cached node) {
 // hashShortNodeChildren collapses the short node. The returned collapsed node
 // holds a live reference to the Key, and must not be modified.
 // The cached
-func (h *hasher) hashShortNodeChildren(n *shortNode) (collapsed, cached *shortNode) {
+func (h *hasher[P]) hashShortNodeChildren(n *shortNode) (collapsed, cached *shortNode) {
 	// Hash the short node's child, caching the newly hashed subtree
 	collapsed, cached = n.copy(), n.copy()
 	// Previously, we did copy this one. We don't seem to need to actually
@@ -116,7 +159,7 @@ func (h *hasher) hashShortNodeChildren(n *shortNode) (collapsed, cached *shortNo
 	return collapsed, cached
 }
 
-func (h *hasher) hashFullNodeChildren(n *fullNode) (collapsed *fullNode, cached *fullNode) {
+func (h *hasher[P]) hashFullNodeChildren(n *fullNode) (collapsed *fullNode, cached *fullNode) {
 	// Hash the full node's children, caching the newly hashed subtrees
 	cached = n.copy()
 	collapsed = n.copy()
@@ -125,7 +168,7 @@ func (h *hasher) hashFullNodeChildren(n *fullNode) (collapsed *fullNode, cached 
 		wg.Add(16)
 		for i := 0; i < 16; i++ {
 			go func(i int) {
-				hasher := newHasher(false)
+				hasher := newHasher[P](false)
 				if child := n.Children[i]; child != nil {
 					collapsed.Children[i], cached.Children[i] = hasher.hash(child, false)
 				} else {
@@ -152,7 +195,7 @@ func (h *hasher) hashFullNodeChildren(n *fullNode) (collapsed *fullNode, cached 
 // should have hex-type Key, which will be converted (without modification)
 // into compact form for RLP encoding.
 // If the rlp data is smaller than 32 bytes, `nil` is returned.
-func (h *hasher) shortnodeToHash(n *shortNode, force bool) node {
+func (h *hasher[P]) shortnodeToHash(n *shortNode, force bool) node {
 	h.tmp.Reset()
 	if err := rlp.Encode(&h.tmp, n); err != nil {
 		panic("encode error: " + err.Error())
@@ -166,7 +209,7 @@ func (h *hasher) shortnodeToHash(n *shortNode, force bool) node {
 
 // shortnodeToHash is used to creates a hashNode from a set of hashNodes, (which
 // may contain nil values)
-func (h *hasher) fullnodeToHash(n *fullNode, force bool) node {
+func (h *hasher[P]) fullnodeToHash(n *fullNode, force bool) node {
 	h.tmp.Reset()
 	// Generate the RLP encoding of the node
 	if err := n.EncodeRLP(&h.tmp); err != nil {
@@ -180,7 +223,7 @@ func (h *hasher) fullnodeToHash(n *fullNode, force bool) node {
 }
 
 // hashData hashes the provided data
-func (h *hasher) hashData(data []byte) hashNode {
+func (h *hasher[P]) hashData(data []byte) hashNode {
 	n := make(hashNode, 32)
 	h.sha.Reset()
 	h.sha.Write(data)
@@ -192,7 +235,7 @@ func (h *hasher) hashData(data []byte) hashNode {
 // node (for later RLP encoding) aswell as the hashed node -- unless the
 // node is smaller than 32 bytes, in which case it will be returned as is.
 // This method does not do anything on value- or hash-nodes.
-func (h *hasher) proofHash(original node) (collapsed, hashed node) {
+func (h *hasher[P]) proofHash(original node) (collapsed, hashed node) {
 	switch n := original.(type) {
 	case *shortNode:
 		sn, _ := h.hashShortNodeChildren(n)

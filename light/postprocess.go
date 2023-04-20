@@ -138,7 +138,7 @@ type ChtIndexerBackend [P crypto.PublicKey] struct {
 	trieset              mapset.Set
 	section, sectionSize uint64
 	lastHash             common.Hash
-	trie                 *trie.Trie
+	trie                 *trie.Trie[P]
 }
 
 // NewChtIndexer creates a Cht chain indexer
@@ -160,7 +160,7 @@ func NewChtIndexer[P crypto.PublicKey](db ethdb.Database, odr OdrBackend[P], siz
 // ODR backend in order to be able to add new entries and calculate subsequent root hashes
 func (c *ChtIndexerBackend[P]) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
 	batch := c.trieTable.NewBatch()
-	r := &ChtRequest{ChtRoot: root, ChtNum: section - 1, BlockNum: section*c.sectionSize - 1, Config: c.odr.IndexerConfig()}
+	r := &ChtRequest[P]{ChtRoot: root, ChtNum: section - 1, BlockNum: section*c.sectionSize - 1, Config: c.odr.IndexerConfig()}
 	for {
 		err := c.odr.Retrieve(ctx, r)
 		switch err {
@@ -188,12 +188,12 @@ func (c *ChtIndexerBackend[P]) Reset(ctx context.Context, section uint64, lastSe
 		root = GetChtRoot(c.diskdb, section-1, lastSectionHead)
 	}
 	var err error
-	c.trie, err = trie.New(root, c.triedb)
+	c.trie, err = trie.New[P](root, c.triedb)
 
 	if err != nil && c.odr != nil {
 		err = c.fetchMissingNodes(ctx, section, root)
 		if err == nil {
-			c.trie, err = trie.New(root, c.triedb)
+			c.trie, err = trie.New[P](root, c.triedb)
 		}
 	}
 	c.section = section
@@ -201,7 +201,7 @@ func (c *ChtIndexerBackend[P]) Reset(ctx context.Context, section uint64, lastSe
 }
 
 // Process implements core.ChainIndexerBackend
-func (c *ChtIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
+func (c *ChtIndexerBackend[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	hash, num := header.Hash(), header.Number.Uint64()
 	c.lastHash = hash
 
@@ -330,7 +330,7 @@ type BloomTrieIndexerBackend [P crypto.PublicKey] struct {
 	parentSize        uint64
 	size              uint64
 	bloomTrieRatio    uint64
-	trie              *trie.Trie
+	trie              *trie.Trie[P]
 	sectionHeads      []common.Hash
 }
 
@@ -357,14 +357,14 @@ func NewBloomTrieIndexer[P crypto.PublicKey](db ethdb.Database, odr OdrBackend[P
 func (b *BloomTrieIndexerBackend[P]) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
 	indexCh := make(chan uint, types.BloomBitLength)
 	type res struct {
-		nodes *NodeSet
+		nodes *NodeSet[P]
 		err   error
 	}
 	resCh := make(chan res, types.BloomBitLength)
 	for i := 0; i < 20; i++ {
 		go func() {
 			for bitIndex := range indexCh {
-				r := &BloomRequest{BloomTrieRoot: root, BloomTrieNum: section - 1, BitIdx: bitIndex, SectionIndexList: []uint64{section - 1}, Config: b.odr.IndexerConfig()}
+				r := &BloomRequest[P]{BloomTrieRoot: root, BloomTrieNum: section - 1, BitIdx: bitIndex, SectionIndexList: []uint64{section - 1}, Config: b.odr.IndexerConfig()}
 				for {
 					if err := b.odr.Retrieve(ctx, r); err == ErrNoPeers {
 						// if there are no peers to serve, retry later
@@ -405,11 +405,11 @@ func (b *BloomTrieIndexerBackend[P]) Reset(ctx context.Context, section uint64, 
 		root = GetBloomTrieRoot(b.diskdb, section-1, lastSectionHead)
 	}
 	var err error
-	b.trie, err = trie.New(root, b.triedb)
+	b.trie, err = trie.New[P](root, b.triedb)
 	if err != nil && b.odr != nil {
 		err = b.fetchMissingNodes(ctx, section, root)
 		if err == nil {
-			b.trie, err = trie.New(root, b.triedb)
+			b.trie, err = trie.New[P](root, b.triedb)
 		}
 	}
 	b.section = section
@@ -417,7 +417,7 @@ func (b *BloomTrieIndexerBackend[P]) Reset(ctx context.Context, section uint64, 
 }
 
 // Process implements core.ChainIndexerBackend
-func (b *BloomTrieIndexerBackend[P]) Process(ctx context.Context, header *types.Header) error {
+func (b *BloomTrieIndexerBackend[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	num := header.Number.Uint64() - b.section*b.size
 	if (num+1)%b.parentSize == 0 {
 		b.sectionHeads[num/b.parentSize] = header.Hash()

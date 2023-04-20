@@ -30,7 +30,7 @@ import (
 // The ABI holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.
-type ABI struct {
+type ABI [P crypto.PublicKey] struct {
 	Constructor Method
 	Methods     map[string]Method
 	Events      map[string]Event
@@ -43,12 +43,12 @@ type ABI struct {
 }
 
 // JSON returns a parsed ABI interface and error if it failed.
-func JSON(reader io.Reader) (ABI, error) {
+func JSON[P crypto.PublicKey](reader io.Reader) (ABI[P], error) {
 	dec := json.NewDecoder(reader)
 
-	var abi ABI
+	var abi ABI[P]
 	if err := dec.Decode(&abi); err != nil {
-		return ABI{}, err
+		return ABI[P]{}, err
 	}
 	return abi, nil
 }
@@ -58,7 +58,7 @@ func JSON(reader io.Reader) (ABI, error) {
 // of 4 bytes and arguments are all 32 bytes.
 // Method ids are created from the first 4 bytes of the hash of the
 // methods string signature. (signature = baz(uint32,string32))
-func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
+func (abi ABI[P]) Pack(name string, args ...interface{}) ([]byte, error) {
 	// Fetch the ABI of the requested method
 	if name == "" {
 		// constructor
@@ -80,7 +80,7 @@ func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
 	return append(method.ID, arguments...), nil
 }
 
-func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
+func (abi ABI[P]) getArguments(name string, data []byte) (Arguments, error) {
 	// since there can't be naming collisions with contracts and events,
 	// we need to decide whether we're calling a method or an event
 	var args Arguments
@@ -100,7 +100,7 @@ func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
 }
 
 // Unpack unpacks the output according to the abi specification.
-func (abi ABI) Unpack(name string, data []byte) ([]interface{}, error) {
+func (abi ABI[P]) Unpack(name string, data []byte) ([]interface{}, error) {
 	args, err := abi.getArguments(name, data)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (abi ABI) Unpack(name string, data []byte) ([]interface{}, error) {
 // UnpackIntoInterface unpacks the output in v according to the abi specification.
 // It performs an additional copy. Please only use, if you want to unpack into a
 // structure that does not strictly conform to the abi structure (e.g. has additional arguments)
-func (abi ABI) UnpackIntoInterface(v interface{}, name string, data []byte) error {
+func (abi ABI[P]) UnpackIntoInterface(v interface{}, name string, data []byte) error {
 	args, err := abi.getArguments(name, data)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (abi ABI) UnpackIntoInterface(v interface{}, name string, data []byte) erro
 }
 
 // UnpackIntoMap unpacks a log into the provided map[string]interface{}.
-func (abi ABI) UnpackIntoMap(v map[string]interface{}, name string, data []byte) (err error) {
+func (abi ABI[P]) UnpackIntoMap(v map[string]interface{}, name string, data []byte) (err error) {
 	args, err := abi.getArguments(name, data)
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func (abi ABI) UnpackIntoMap(v map[string]interface{}, name string, data []byte)
 }
 
 // UnmarshalJSON implements json.Unmarshaler interface.
-func (abi *ABI) UnmarshalJSON(data []byte) error {
+func (abi *ABI[P]) UnmarshalJSON(data []byte) error {
 	var fields []struct {
 		Type    string
 		Name    string
@@ -160,17 +160,17 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	for _, field := range fields {
 		switch field.Type {
 		case "constructor":
-			abi.Constructor = NewMethod("", "", Constructor, field.StateMutability, field.Constant, field.Payable, field.Inputs, nil)
+			abi.Constructor = NewMethod[P]("", "", Constructor, field.StateMutability, field.Constant, field.Payable, field.Inputs, nil)
 		case "function":
 			name := abi.overloadedMethodName(field.Name)
-			abi.Methods[name] = NewMethod(name, field.Name, Function, field.StateMutability, field.Constant, field.Payable, field.Inputs, field.Outputs)
+			abi.Methods[name] = NewMethod[P](name, field.Name, Function, field.StateMutability, field.Constant, field.Payable, field.Inputs, field.Outputs)
 		case "fallback":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
 			if abi.HasFallback() {
 				return errors.New("only single fallback is allowed")
 			}
-			abi.Fallback = NewMethod("", "", Fallback, field.StateMutability, field.Constant, field.Payable, nil, nil)
+			abi.Fallback = NewMethod[P]("", "", Fallback, field.StateMutability, field.Constant, field.Payable, nil, nil)
 		case "receive":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
@@ -180,10 +180,10 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 			if field.StateMutability != "payable" {
 				return errors.New("the statemutability of receive can only be payable")
 			}
-			abi.Receive = NewMethod("", "", Receive, field.StateMutability, field.Constant, field.Payable, nil, nil)
+			abi.Receive = NewMethod[P]("", "", Receive, field.StateMutability, field.Constant, field.Payable, nil, nil)
 		case "event":
 			name := abi.overloadedEventName(field.Name)
-			abi.Events[name] = NewEvent(name, field.Name, field.Anonymous, field.Inputs)
+			abi.Events[name] = NewEvent[P](name, field.Name, field.Anonymous, field.Inputs)
 		default:
 			return fmt.Errorf("abi: could not recognize type %v of field %v", field.Type, field.Name)
 		}
@@ -196,7 +196,7 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 //
 // e.g. if the abi contains Methods send, send1
 // overloadedMethodName would return send2 for input send.
-func (abi *ABI) overloadedMethodName(rawName string) string {
+func (abi *ABI[P]) overloadedMethodName(rawName string) string {
 	name := rawName
 	_, ok := abi.Methods[name]
 	for idx := 0; ok; idx++ {
@@ -211,7 +211,7 @@ func (abi *ABI) overloadedMethodName(rawName string) string {
 //
 // e.g. if the abi contains events received, received1
 // overloadedEventName would return received2 for input received.
-func (abi *ABI) overloadedEventName(rawName string) string {
+func (abi *ABI[P]) overloadedEventName(rawName string) string {
 	name := rawName
 	_, ok := abi.Events[name]
 	for idx := 0; ok; idx++ {
@@ -223,7 +223,7 @@ func (abi *ABI) overloadedEventName(rawName string) string {
 
 // MethodById looks up a method by the 4-byte id,
 // returns nil if none found.
-func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
+func (abi *ABI[P]) MethodById(sigdata []byte) (*Method, error) {
 	if len(sigdata) < 4 {
 		return nil, fmt.Errorf("data too short (%d bytes) for abi method lookup", len(sigdata))
 	}
@@ -237,7 +237,7 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 
 // EventByID looks an event up by its topic hash in the
 // ABI and returns nil if none found.
-func (abi *ABI) EventByID(topic common.Hash) (*Event, error) {
+func (abi *ABI[P]) EventByID(topic common.Hash) (*Event, error) {
 	for _, event := range abi.Events {
 		if bytes.Equal(event.ID.Bytes(), topic.Bytes()) {
 			return &event, nil
@@ -247,27 +247,27 @@ func (abi *ABI) EventByID(topic common.Hash) (*Event, error) {
 }
 
 // HasFallback returns an indicator whether a fallback function is included.
-func (abi *ABI) HasFallback() bool {
+func (abi *ABI[P]) HasFallback() bool {
 	return abi.Fallback.Type == Fallback
 }
 
 // HasReceive returns an indicator whether a receive function is included.
-func (abi *ABI) HasReceive() bool {
+func (abi *ABI[P]) HasReceive() bool {
 	return abi.Receive.Type == Receive
 }
 
 // revertSelector is a special function selector for revert reason unpacking.
-var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
+// var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 
 // UnpackRevert resolves the abi-encoded revert reason. According to the solidity
 // spec https://solidity.readthedocs.io/en/latest/control-structures.html#revert,
 // the provided revert reason is abi-encoded as if it were a call to a function
 // `Error(string)`. So it's a special tool for it.
-func UnpackRevert(data []byte) (string, error) {
+func UnpackRevert[P crypto.PublicKey] (data []byte) (string, error) {
 	if len(data) < 4 {
 		return "", errors.New("invalid data for unpacking")
 	}
-	if !bytes.Equal(data[:4], revertSelector) {
+	if !bytes.Equal(data[:4], crypto.Keccak256[P]([]byte("Error(string)"))[:4]) {
 		return "", errors.New("invalid data for unpacking")
 	}
 	typ, _ := NewType("string", "", nil)

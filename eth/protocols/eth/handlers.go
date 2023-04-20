@@ -50,7 +50,7 @@ func HandleGetBlockHeaders66[T crypto.PrivateKey, P crypto.PublicKey](backend Ba
 	return peer.ReplyBlockHeaders(query.RequestId, response)
 }
 
-func AnswerGetBlockHeadersQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query *GetBlockHeadersPacket, peer *Peer[T,P]) []*types.Header {
+func AnswerGetBlockHeadersQuery[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], query *GetBlockHeadersPacket, peer *Peer[T,P]) []*types.Header[P] {
 	hashMode := query.Origin.Hash != (common.Hash{})
 	first := true
 	maxNonCanonical := uint64(100)
@@ -58,7 +58,7 @@ func AnswerGetBlockHeadersQuery[T crypto.PrivateKey, P crypto.PublicKey](backend
 	// Gather headers until the fetch or network limits is reached
 	var (
 		bytes   common.StorageSize
-		headers []*types.Header
+		headers []*types.Header[P]
 		unknown bool
 		lookups int
 	)
@@ -66,7 +66,7 @@ func AnswerGetBlockHeadersQuery[T crypto.PrivateKey, P crypto.PublicKey](backend
 		len(headers) < maxHeadersServe && lookups < 2*maxHeadersServe {
 		lookups++
 		// Retrieve the next header satisfying the query
-		var origin *types.Header
+		var origin *types.Header[P]
 		if hashMode {
 			if first {
 				first = false
@@ -300,7 +300,7 @@ func HandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P
 		log.Warn("Propagated block has invalid uncles", "have", hash, "exp", ann.Block.UncleHash())
 		return nil // TODO(karalabe): return error eventually, but wait a few releases
 	}
-	if hash := types.DeriveSha(ann.Block.Transactions(), trie.NewStackTrie(nil)); hash != ann.Block.TxHash() {
+	if hash := types.DeriveSha(ann.Block.Transactions(), trie.NewStackTrie[P](nil)); hash != ann.Block.TxHash() {
 		log.Warn("Propagated block has invalid body", "have", hash, "exp", ann.Block.TxHash())
 		return nil // TODO(karalabe): return error eventually, but wait a few releases
 	}
@@ -315,7 +315,7 @@ func HandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P
 
 func HandleBlockHeaders[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of headers arrived to one of our previous requests
-	res := new(BlockHeadersPacket)
+	res := new(BlockHeadersPacket[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
@@ -324,7 +324,7 @@ func HandleBlockHeaders[T crypto.PrivateKey, P crypto.PublicKey](backend Backend
 
 func HandleBlockHeaders66[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg Decoder, peer *Peer[T,P]) error {
 	// A batch of headers arrived to one of our previous requests
-	res := new(BlockHeadersPacket66)
+	res := new(BlockHeadersPacket66[P])
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}

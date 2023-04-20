@@ -28,7 +28,7 @@ import (
 
 // NodeSet stores a set of trie nodes. It implements trie.Database and can also
 // act as a cache for another trie.Database.
-type NodeSet struct {
+type NodeSet [P crypto.PublicKey] struct {
 	nodes map[string][]byte
 	order []string
 
@@ -37,14 +37,14 @@ type NodeSet struct {
 }
 
 // NewNodeSet creates an empty node set
-func NewNodeSet() *NodeSet {
-	return &NodeSet{
+func NewNodeSet[P crypto.PublicKey] () *NodeSet[P] {
+	return &NodeSet[P]{
 		nodes: make(map[string][]byte),
 	}
 }
 
 // Put stores a new node in the set
-func (db *NodeSet) Put(key []byte, value []byte) error {
+func (db *NodeSet[P]) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -61,7 +61,7 @@ func (db *NodeSet) Put(key []byte, value []byte) error {
 }
 
 // Delete removes a node from the set
-func (db *NodeSet) Delete(key []byte) error {
+func (db *NodeSet[P]) Delete(key []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -70,7 +70,7 @@ func (db *NodeSet) Delete(key []byte) error {
 }
 
 // Get returns a stored node
-func (db *NodeSet) Get(key []byte) ([]byte, error) {
+func (db *NodeSet[P]) Get(key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -81,13 +81,13 @@ func (db *NodeSet) Get(key []byte) ([]byte, error) {
 }
 
 // Has returns true if the node set contains the given key
-func (db *NodeSet) Has(key []byte) (bool, error) {
+func (db *NodeSet[P]) Has(key []byte) (bool, error) {
 	_, err := db.Get(key)
 	return err == nil, nil
 }
 
 // KeyCount returns the number of nodes in the set
-func (db *NodeSet) KeyCount() int {
+func (db *NodeSet[P]) KeyCount() int {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -95,7 +95,7 @@ func (db *NodeSet) KeyCount() int {
 }
 
 // DataSize returns the aggregated data size of nodes in the set
-func (db *NodeSet) DataSize() int {
+func (db *NodeSet[P]) DataSize() int {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -103,11 +103,11 @@ func (db *NodeSet) DataSize() int {
 }
 
 // NodeList converts the node set to a NodeList
-func (db *NodeSet) NodeList() NodeList {
+func (db *NodeSet[P]) NodeList() NodeList[P] {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	var values NodeList
+	var values NodeList[P]
 	for _, key := range db.order {
 		values = append(values, db.nodes[key])
 	}
@@ -115,7 +115,7 @@ func (db *NodeSet) NodeList() NodeList {
 }
 
 // Store writes the contents of the set to the given database
-func (db *NodeSet) Store(target ethdb.KeyValueWriter) {
+func (db *NodeSet[P]) Store(target ethdb.KeyValueWriter) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -125,35 +125,35 @@ func (db *NodeSet) Store(target ethdb.KeyValueWriter) {
 }
 
 // NodeList stores an ordered list of trie nodes. It implements ethdb.KeyValueWriter.
-type NodeList []rlp.RawValue
+type NodeList [P crypto.PublicKey] []rlp.RawValue
 
 // Store writes the contents of the list to the given database
-func (n NodeList) Store(db ethdb.KeyValueWriter) {
+func (n NodeList[P]) Store(db ethdb.KeyValueWriter) {
 	for _, node := range n {
-		db.Put(crypto.Keccak256(node), node)
+		db.Put(crypto.Keccak256[P](node), node)
 	}
 }
 
 // NodeSet converts the node list to a NodeSet
-func (n NodeList) NodeSet() *NodeSet {
-	db := NewNodeSet()
+func (n NodeList[P]) NodeSet() *NodeSet[P] {
+	db := NewNodeSet[P]()
 	n.Store(db)
 	return db
 }
 
 // Put stores a new node at the end of the list
-func (n *NodeList) Put(key []byte, value []byte) error {
+func (n *NodeList[P]) Put(key []byte, value []byte) error {
 	*n = append(*n, value)
 	return nil
 }
 
 // Delete panics as there's no reason to remove a node from the list.
-func (n *NodeList) Delete(key []byte) error {
+func (n *NodeList[P]) Delete(key []byte) error {
 	panic("not supported")
 }
 
 // DataSize returns the aggregated data size of nodes in the list
-func (n NodeList) DataSize() int {
+func (n NodeList[P]) DataSize() int {
 	var size int
 	for _, node := range n {
 		size += len(node)

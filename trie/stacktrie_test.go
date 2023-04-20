@@ -7,12 +7,13 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
 )
 
 func TestSizeBug(t *testing.T) {
-	st := NewStackTrie(nil)
-	nt, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+	st := NewStackTrie[nist.PublicKey](nil)
+	nt, _ := New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 
 	leaf := common.FromHex("290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563")
 	value := common.FromHex("94cf40d0d2b44f2b66e07cace1372ca42b73cf21a3")
@@ -26,8 +27,8 @@ func TestSizeBug(t *testing.T) {
 }
 
 func TestEmptyBug(t *testing.T) {
-	st := NewStackTrie(nil)
-	nt, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+	st := NewStackTrie[nist.PublicKey](nil)
+	nt, _ := New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 
 	//leaf := common.FromHex("290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563")
 	//value := common.FromHex("94cf40d0d2b44f2b66e07cace1372ca42b73cf21a3")
@@ -52,8 +53,8 @@ func TestEmptyBug(t *testing.T) {
 }
 
 func TestValLength56(t *testing.T) {
-	st := NewStackTrie(nil)
-	nt, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+	st := NewStackTrie[nist.PublicKey](nil)
+	nt, _ := New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 
 	//leaf := common.FromHex("290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563")
 	//value := common.FromHex("94cf40d0d2b44f2b66e07cace1372ca42b73cf21a3")
@@ -77,8 +78,8 @@ func TestValLength56(t *testing.T) {
 // TestUpdateSmallNodes tests a case where the leaves are small (both key and value),
 // which causes a lot of node-within-node. This case was found via fuzzing.
 func TestUpdateSmallNodes(t *testing.T) {
-	st := NewStackTrie(nil)
-	nt, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+	st := NewStackTrie[nist.PublicKey](nil)
+	nt, _ := New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 	kvs := []struct {
 		K string
 		V string
@@ -105,8 +106,8 @@ func TestUpdateSmallNodes(t *testing.T) {
 // This case was found via fuzzing.
 func TestUpdateVariableKeys(t *testing.T) {
 	t.SkipNow()
-	st := NewStackTrie(nil)
-	nt, _ := New(common.Hash{}, NewDatabase(memorydb.New()))
+	st := NewStackTrie[nist.PublicKey](nil)
+	nt, _ := New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 	kvs := []struct {
 		K string
 		V string
@@ -126,7 +127,7 @@ func TestUpdateVariableKeys(t *testing.T) {
 // TestStacktrieNotModifyValues checks that inserting blobs of data into the
 // stacktrie does not mutate the blobs
 func TestStacktrieNotModifyValues(t *testing.T) {
-	st := NewStackTrie(nil)
+	st := NewStackTrie[nist.PublicKey](nil)
 	{ // Test a very small trie
 		// Give it the value as a slice with large backing alloc,
 		// so if the stacktrie tries to append, it won't have to realloc
@@ -138,7 +139,7 @@ func TestStacktrieNotModifyValues(t *testing.T) {
 		if have := value; !bytes.Equal(have, want) {
 			t.Fatalf("tiny trie: have %#x want %#x", have, want)
 		}
-		st = NewStackTrie(nil)
+		st = NewStackTrie[nist.PublicKey](nil)
 	}
 	// Test with a larger trie
 	keyB := big.NewInt(1)
@@ -146,7 +147,7 @@ func TestStacktrieNotModifyValues(t *testing.T) {
 	var vals [][]byte
 	getValue := func(i int) []byte {
 		if i%2 == 0 { // large
-			return crypto.Keccak256(big.NewInt(int64(i)).Bytes())
+			return crypto.Keccak256[nist.PublicKey](big.NewInt(int64(i)).Bytes())
 		} else { //small
 			return big.NewInt(int64(i)).Bytes()
 		}
@@ -175,8 +176,8 @@ func TestStacktrieNotModifyValues(t *testing.T) {
 // serialize/unserialize it a lot
 func TestStacktrieSerialization(t *testing.T) {
 	var (
-		st       = NewStackTrie(nil)
-		nt, _    = New(common.Hash{}, NewDatabase(memorydb.New()))
+		st       = NewStackTrie[nist.PublicKey](nil)
+		nt, _    = New[nist.PublicKey](common.Hash{}, NewDatabase(memorydb.New()))
 		keyB     = big.NewInt(1)
 		keyDelta = big.NewInt(1)
 		vals     [][]byte
@@ -184,7 +185,7 @@ func TestStacktrieSerialization(t *testing.T) {
 	)
 	getValue := func(i int) []byte {
 		if i%2 == 0 { // large
-			return crypto.Keccak256(big.NewInt(int64(i)).Bytes())
+			return crypto.Keccak256[nist.PublicKey](big.NewInt(int64(i)).Bytes())
 		} else { //small
 			return big.NewInt(int64(i)).Bytes()
 		}
@@ -204,7 +205,7 @@ func TestStacktrieSerialization(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		newSt, err := NewFromBinary(blob, nil)
+		newSt, err := NewFromBinary[nist.PublicKey](blob, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

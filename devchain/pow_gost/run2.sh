@@ -7,11 +7,8 @@ echo "Starting node2 ..."
     --identity node2 \
     --syncmode full \
     --port 30312 \
-    --bootnodes 'enode://161df3a5f868dc64c0f778b2fb3c3724311b9b7f4fdec9eccac3f9a40e065ffb04932ee860d7224fc2972db93ee8a4e43d50e0dca79953ebb0c849d5083f9ab3@127.0.0.1:30310' \
+    --bootnodes 'enode://fb5f060ea4f9c3caecc9de4f7f9b1b3124373cfbb278f7c064dc68f8a5f31d16b39a3f08d549c8b0eb5399a7dce0503de4a4e83eb92d97c24f22d760e82e9304@127.0.0.1:30310' \
     --networkid 6581 \
-    --unlock 0x6B48C41ACB6B9A9ccDA279E968c2499b3e003793 \
-    --password node2/password.txt \
     --mine \
     --miner.threads=1 \
-    --verbosity 4 \
-    --allow-insecure-unlock
+    --verbosity 4

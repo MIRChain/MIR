@@ -33,7 +33,7 @@ type Validator [P crypto.PublicKey] interface {
 
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
-	ValidateState(block *types.Block[P], state *state.StateDB, receipts types.Receipts[P], usedGas uint64) error
+	ValidateState(block *types.Block[P], state *state.StateDB[P], receipts types.Receipts[P], usedGas uint64) error
 }
 
 // Prefetcher is an interface for pre-caching transaction signatures and state.
@@ -42,7 +42,7 @@ type Prefetcher [P crypto.PublicKey] interface {
 	// the transaction messages using the statedb, but any changes are discarded. The
 	// only goal is to pre-cache transaction signatures and state trie nodes.
 	// Quorum: added defaultPrivateStateDb to do prefetching in the private state
-	Prefetch(block *types.Block[P], statedb *state.StateDB, privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P], interrupt *uint32)
+	Prefetch(block *types.Block[P], statedb *state.StateDB[P], privateStateRepo mps.PrivateStateRepository[P], cfg vm.Config[P], interrupt *uint32)
 }
 
 // Processor is an interface for processing blocks using a given initial state.
@@ -50,5 +50,5 @@ type Processor [P crypto.PublicKey] interface {
 	// Process processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb and applying any rewards to both
 	// the processor (coinbase) and any included uncles.
-	Process(block *types.Block[P], statedb *state.StateDB, privateStateManager mps.PrivateStateRepository[P], cfg vm.Config[P]) (types.Receipts[P], types.Receipts[P], []*types.Log, uint64, error)
+	Process(block *types.Block[P], statedb *state.StateDB[P], privateStateManager mps.PrivateStateRepository[P], cfg vm.Config[P]) (types.Receipts[P], types.Receipts[P], []*types.Log, uint64, error)
 }

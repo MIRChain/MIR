@@ -297,10 +297,10 @@ func (mr *MockPrivateStateRepositoryMockRecorder[P]) Copy() *gomock.Call {
 }
 
 // DefaultState mocks base method.
-func (m *MockPrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
+func (m *MockPrivateStateRepository[P]) DefaultState() (*state.StateDB[P], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultState")
-	ret0, _ := ret[0].(*state.StateDB)
+	ret0, _ := ret[0].(*state.StateDB[P])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -383,10 +383,10 @@ func (mr *MockPrivateStateRepositoryMockRecorder[P]) Reset() *gomock.Call {
 }
 
 // StatePSI mocks base method.
-func (m *MockPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (m *MockPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatePSI", psi)
-	ret0, _ := ret[0].(*state.StateDB)
+	ret0, _ := ret[0].(*state.StateDB[P])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

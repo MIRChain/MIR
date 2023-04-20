@@ -19,6 +19,8 @@ package abi
 import (
 	"strings"
 	"testing"
+
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 const methoddata = `
@@ -77,7 +79,7 @@ func TestMethodString(t *testing.T) {
 		},
 	}
 
-	abi, err := JSON(strings.NewReader(methoddata))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(methoddata))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +133,7 @@ func TestMethodSig(t *testing.T) {
 			expect: "complexTuple((uint256,uint256)[5][])",
 		},
 	}
-	abi, err := JSON(strings.NewReader(methoddata))
+	abi, err := JSON[nist.PublicKey](strings.NewReader(methoddata))
 	if err != nil {
 		t.Fatal(err)
 	}

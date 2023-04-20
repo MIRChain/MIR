@@ -93,9 +93,9 @@ func copyConfig(config *istanbul.Config) *istanbul.Config {
 	return &cpy
 }
 
-func makeHeader(parent *types.Block[nist.PublicKey], config *istanbul.Config) *types.Header {
+func makeHeader[P crypto.PublicKey](parent *types.Block[P], config *istanbul.Config) *types.Header[P] {
 	blockNumber := parent.Number().Add(parent.Number(), common.Big1)
-	header := &types.Header{
+	header := &types.Header[P]{
 		ParentHash: parent.Hash(),
 		Number:     blockNumber,
 		GasLimit:   core.CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit(), parent.GasLimit()),
@@ -356,7 +356,7 @@ func TestVerifyHeaders(t *testing.T) {
 	genesis := chain.Genesis()
 
 	// success case
-	headers := []*types.Header{}
+	headers := []*types.Header[nist.PublicKey]{}
 	blocks := []*types.Block[nist.PublicKey]{}
 	size := 100
 

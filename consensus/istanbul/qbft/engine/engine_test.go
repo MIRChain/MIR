@@ -30,7 +30,7 @@ func TestPrepareExtra(t *testing.T) {
 
 	expectedResult := hexutil.MustDecode("0xf87aa00000000000000000000000000000000000000000000000000000000000000000f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b440c080c0")
 
-	h := &types.Header{}
+	h := &types.Header[nist.PublicKey]{}
 	err := ApplyHeaderQBFTExtra(
 		h,
 		WriteValidators(validators),
@@ -59,7 +59,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 		Vote:          nil,
 	}
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: istRawData,
 	}
 
@@ -109,7 +109,7 @@ func TestWriteRoundNumber(t *testing.T) {
 
 	var expectedErr error
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: istRawData,
 	}
 
@@ -146,7 +146,7 @@ func TestWriteValidatorVote(t *testing.T) {
 
 	var expectedErr error
 
-	h := &types.Header{
+	h := &types.Header[nist.PublicKey]{
 		Extra: istRawData,
 	}
 
@@ -266,11 +266,11 @@ func TestAccumulateRewards(t *testing.T) {
 	}
 	var e *Engine[nist.PublicKey]
 	chain := &core.BlockChain[nist.PublicKey]{}
-	db := state.NewDatabaseWithConfig(rawdb.NewMemoryDatabase(), nil)
-	state, err := state.New(common.Hash{}, db, nil)
+	db := state.NewDatabaseWithConfig[nist.PublicKey](rawdb.NewMemoryDatabase(), nil)
+	state, err := state.New[nist.PublicKey](common.Hash{}, db, nil)
 	require.NoError(t, err)
 
-	header := &types.Header{
+	header := &types.Header[nist.PublicKey]{
 		Number: big.NewInt(1),
 	}
 	for idx, te := range m {

@@ -39,7 +39,7 @@ func TestEmbeddedDatabase(t *testing.T) {
 			t.Errorf("Failed to convert selector to ABI: %v", err)
 			continue
 		}
-		abistruct, err := abi.JSON(strings.NewReader(string(abistring)))
+		abistruct, err := abi.JSON[nist.PublicKey](strings.NewReader(string(abistring)))
 		if err != nil {
 			t.Errorf("Failed to parse ABI: %v", err)
 			continue

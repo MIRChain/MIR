@@ -25,67 +25,67 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func opAdd[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opAdd[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Add(&x, y)
 	return nil, nil
 }
 
-func opSub[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSub[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Sub(&x, y)
 	return nil, nil
 }
 
-func opMul[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMul[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Mul(&x, y)
 	return nil, nil
 }
 
-func opDiv[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opDiv[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Div(&x, y)
 	return nil, nil
 }
 
-func opSdiv[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSdiv[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.SDiv(&x, y)
 	return nil, nil
 }
 
-func opMod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Mod(&x, y)
 	return nil, nil
 }
 
-func opSmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.SMod(&x, y)
 	return nil, nil
 }
 
-func opExp[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opExp[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	base, exponent := scope.Stack.pop(), scope.Stack.peek()
 	exponent.Exp(&base, exponent)
 	return nil, nil
 }
 
-func opSignExtend[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSignExtend[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	back, num := scope.Stack.pop(), scope.Stack.peek()
 	num.ExtendSign(num, &back)
 	return nil, nil
 }
 
-func opNot[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opNot[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x := scope.Stack.peek()
 	x.Not(x)
 	return nil, nil
 }
 
-func opLt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opLt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	if x.Lt(y) {
 		y.SetOne()
@@ -95,7 +95,7 @@ func opLt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope 
 	return nil, nil
 }
 
-func opGt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opGt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	if x.Gt(y) {
 		y.SetOne()
@@ -105,7 +105,7 @@ func opGt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope 
 	return nil, nil
 }
 
-func opSlt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSlt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	if x.Slt(y) {
 		y.SetOne()
@@ -115,7 +115,7 @@ func opSlt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope
 	return nil, nil
 }
 
-func opSgt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSgt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	if x.Sgt(y) {
 		y.SetOne()
@@ -125,7 +125,7 @@ func opSgt[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope
 	return nil, nil
 }
 
-func opEq[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opEq[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	if x.Eq(y) {
 		y.SetOne()
@@ -135,7 +135,7 @@ func opEq[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope 
 	return nil, nil
 }
 
-func opIszero[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opIszero[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x := scope.Stack.peek()
 	if x.IsZero() {
 		x.SetOne()
@@ -145,31 +145,31 @@ func opIszero[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sc
 	return nil, nil
 }
 
-func opAnd[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opAnd[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.And(&x, y)
 	return nil, nil
 }
 
-func opOr[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opOr[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Or(&x, y)
 	return nil, nil
 }
 
-func opXor[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opXor[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y := scope.Stack.pop(), scope.Stack.peek()
 	y.Xor(&x, y)
 	return nil, nil
 }
 
-func opByte[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opByte[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	th, val := scope.Stack.pop(), scope.Stack.peek()
 	val.Byte(&th)
 	return nil, nil
 }
 
-func opAddmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opAddmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y, z := scope.Stack.pop(), scope.Stack.pop(), scope.Stack.peek()
 	if z.IsZero() {
 		z.Clear()
@@ -179,7 +179,7 @@ func opAddmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sc
 	return nil, nil
 }
 
-func opMulmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMulmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x, y, z := scope.Stack.pop(), scope.Stack.pop(), scope.Stack.peek()
 	z.MulMod(&x, &y, z)
 	return nil, nil
@@ -188,7 +188,7 @@ func opMulmod[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sc
 // opSHL implements Shift Left
 // The SHL instruction (shift left) pops 2 values from the stack, first arg1 and then arg2,
 // and pushes on the stack arg2 shifted to the left by arg1 number of bits.
-func opSHL[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSHL[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	// Note, second operand is left in the stack; accumulate result into it, and no need to push it afterwards
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
 	if shift.LtUint64(256) {
@@ -202,7 +202,7 @@ func opSHL[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope
 // opSHR implements Logical Shift Right
 // The SHR instruction (logical shift right) pops 2 values from the stack, first arg1 and then arg2,
 // and pushes on the stack arg2 shifted to the right by arg1 number of bits with zero fill.
-func opSHR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSHR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	// Note, second operand is left in the stack; accumulate result into it, and no need to push it afterwards
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
 	if shift.LtUint64(256) {
@@ -216,7 +216,7 @@ func opSHR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope
 // opSAR implements Arithmetic Shift Right
 // The SAR instruction (arithmetic shift right) pops 2 values from the stack, first arg1 and then arg2,
 // and pushes on the stack arg2 shifted to the right by arg1 number of bits with sign extension.
-func opSAR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSAR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
 	if shift.GtUint64(256) {
 		if value.Sign() >= 0 {
@@ -232,7 +232,7 @@ func opSAR[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope
 	return nil, nil
 }
 
-func opSha3[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSha3[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	offset, size := scope.Stack.pop(), scope.Stack.peek()
 	data := scope.Memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
@@ -252,34 +252,34 @@ func opSha3[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scop
 	size.SetBytes(interpreter.hasherBuf[:])
 	return nil, nil
 }
-func opAddress[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opAddress[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetBytes(scope.Contract.Address().Bytes()))
 	return nil, nil
 }
 
-func opBalance[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opBalance[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	slot := scope.Stack.peek()
 	address := common.Address(slot.Bytes20())
 	slot.SetFromBig(getDualState(interpreter.evm, address).GetBalance(address)) // Quorum: get public/private state db based on addr
 	return nil, nil
 }
 
-func opOrigin[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opOrigin[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetBytes(interpreter.evm.Origin.Bytes()))
 	return nil, nil
 }
-func opCaller[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCaller[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetBytes(scope.Contract.Caller().Bytes()))
 	return nil, nil
 }
 
-func opCallValue[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCallValue[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v, _ := uint256.FromBig(scope.Contract.value)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
-func opCallDataLoad[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCallDataLoad[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	x := scope.Stack.peek()
 	if offset, overflow := x.Uint64WithOverflow(); !overflow {
 		data := getData(scope.Contract.Input, offset, 32)
@@ -290,12 +290,12 @@ func opCallDataLoad[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[
 	return nil, nil
 }
 
-func opCallDataSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCallDataSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(uint64(len(scope.Contract.Input))))
 	return nil, nil
 }
 
-func opCallDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCallDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		memOffset  = scope.Stack.pop()
 		dataOffset = scope.Stack.pop()
@@ -313,12 +313,12 @@ func opCallDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[
 	return nil, nil
 }
 
-func opReturnDataSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opReturnDataSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(uint64(len(interpreter.returnData))))
 	return nil, nil
 }
 
-func opReturnDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opReturnDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		memOffset  = scope.Stack.pop()
 		dataOffset = scope.Stack.pop()
@@ -340,7 +340,7 @@ func opReturnDataCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterprete
 	return nil, nil
 }
 
-func opExtCodeSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opExtCodeSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	slot := scope.Stack.peek()
 	addr := slot.Bytes20()
 	// Quorum: get public/private state db based on addr
@@ -348,14 +348,14 @@ func opExtCodeSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P
 	return nil, nil
 }
 
-func opCodeSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCodeSize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	l := new(uint256.Int)
 	l.SetUint64(uint64(len(scope.Contract.Code)))
 	scope.Stack.push(l)
 	return nil, nil
 }
 
-func opCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		memOffset  = scope.Stack.pop()
 		codeOffset = scope.Stack.pop()
@@ -371,7 +371,7 @@ func opCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], 
 	return nil, nil
 }
 
-func opExtCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opExtCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		stack      = scope.Stack
 		a          = stack.pop()
@@ -416,7 +416,7 @@ func opExtCodeCopy[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P
 //
 //   (6) Caller tries to get the code hash for an account which is marked as deleted,
 // this account should be regarded as a non-existent account and zero should be returned.
-func opExtCodeHash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opExtCodeHash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	slot := scope.Stack.peek()
 	address := common.Address(slot.Bytes20())
 	stateDB := getDualState(interpreter.evm, address)
@@ -428,13 +428,13 @@ func opExtCodeHash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P
 	return nil, nil
 }
 
-func opGasprice[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opGasprice[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v, _ := uint256.FromBig(interpreter.evm.GasPrice)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
-func opBlockhash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opBlockhash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	num := scope.Stack.peek()
 	num64, overflow := num.Uint64WithOverflow()
 	if overflow {
@@ -456,60 +456,60 @@ func opBlockhash[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P],
 	return nil, nil
 }
 
-func opCoinbase[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCoinbase[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetBytes(interpreter.evm.Context.Coinbase.Bytes()))
 	return nil, nil
 }
 
-func opTimestamp[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opTimestamp[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v, _ := uint256.FromBig(interpreter.evm.Context.Time)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
-func opNumber[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opNumber[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v, _ := uint256.FromBig(interpreter.evm.Context.BlockNumber)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
-func opDifficulty[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opDifficulty[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v, _ := uint256.FromBig(interpreter.evm.Context.Difficulty)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
-func opGasLimit[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opGasLimit[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(interpreter.evm.Context.GasLimit))
 	return nil, nil
 }
 
-func opPop[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opPop[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.pop()
 	return nil, nil
 }
 
-func opMload[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMload[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	v := scope.Stack.peek()
 	offset := int64(v.Uint64())
 	v.SetBytes(scope.Memory.GetPtr(offset, 32))
 	return nil, nil
 }
 
-func opMstore[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMstore[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	// pop value of the stack
 	mStart, val := scope.Stack.pop(), scope.Stack.pop()
 	scope.Memory.Set32(mStart.Uint64(), &val)
 	return nil, nil
 }
 
-func opMstore8[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMstore8[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	off, val := scope.Stack.pop(), scope.Stack.pop()
 	scope.Memory.store[off.Uint64()] = byte(val.Uint64())
 	return nil, nil
 }
 
-func opSload[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSload[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	loc := scope.Stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := getDualState(interpreter.evm, scope.Contract.Address()).GetState(scope.Contract.Address(), hash) // Quorum: get public/private state db based on addr
@@ -517,7 +517,7 @@ func opSload[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sco
 	return nil, nil
 }
 
-func opSstore[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSstore[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	loc := scope.Stack.pop()
 	val := scope.Stack.pop()
 	// Quorum: get public/private state db based on addr
@@ -526,7 +526,7 @@ func opSstore[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sc
 	return nil, nil
 }
 
-func opJump[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opJump[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	pos := scope.Stack.pop()
 	if !scope.Contract.validJumpdest(&pos) {
 		return nil, ErrInvalidJump
@@ -535,7 +535,7 @@ func opJump[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scop
 	return nil, nil
 }
 
-func opJumpi[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opJumpi[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	pos, cond := scope.Stack.pop(), scope.Stack.pop()
 	if !cond.IsZero() {
 		if !scope.Contract.validJumpdest(&pos) {
@@ -548,26 +548,26 @@ func opJumpi[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sco
 	return nil, nil
 }
 
-func opJumpdest[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opJumpdest[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	return nil, nil
 }
 
-func opPc[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opPc[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(*pc))
 	return nil, nil
 }
 
-func opMsize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opMsize[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(uint64(scope.Memory.Len())))
 	return nil, nil
 }
 
-func opGas[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opGas[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	scope.Stack.push(new(uint256.Int).SetUint64(scope.Contract.Gas))
 	return nil, nil
 }
 
-func opCreate[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCreate[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		value        = scope.Stack.pop()
 		offset, size = scope.Stack.pop(), scope.Stack.pop()
@@ -608,7 +608,7 @@ func opCreate[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sc
 	return nil, nil
 }
 
-func opCreate2[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCreate2[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		endowment    = scope.Stack.pop()
 		offset, size = scope.Stack.pop(), scope.Stack.pop()
@@ -644,7 +644,7 @@ func opCreate2[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], s
 	return nil, nil
 }
 
-func opCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	stack := scope.Stack
 	// Pop gas. The actual gas in interpreter.evm.callGasTemp.
 	// We can use this as a temporary value
@@ -681,7 +681,7 @@ func opCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scop
 	return ret, nil
 }
 
-func opCallCode[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opCallCode[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	// Pop gas. The actual gas is in interpreter.evm.callGasTemp.
 	stack := scope.Stack
 	// We use it as a temporary value
@@ -715,7 +715,7 @@ func opCallCode[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], 
 	return ret, nil
 }
 
-func opDelegateCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opDelegateCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	stack := scope.Stack
 	// Pop gas. The actual gas is in interpreter.evm.callGasTemp.
 	// We use it as a temporary value
@@ -742,7 +742,7 @@ func opDelegateCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[
 	return ret, nil
 }
 
-func opStaticCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opStaticCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	// Pop gas. The actual gas is in interpreter.evm.callGasTemp.
 	stack := scope.Stack
 	// We use it as a temporary value
@@ -769,25 +769,25 @@ func opStaticCall[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P]
 	return ret, nil
 }
 
-func opReturn[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opReturn[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	offset, size := scope.Stack.pop(), scope.Stack.pop()
 	ret := scope.Memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
 	return ret, nil
 }
 
-func opRevert[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opRevert[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	offset, size := scope.Stack.pop(), scope.Stack.pop()
 	ret := scope.Memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
 	return ret, nil
 }
 
-func opStop[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opStop[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	return nil, nil
 }
 
-func opSuicide[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opSuicide[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	beneficiary := scope.Stack.pop()
 	// Quorum: get public/private state db based on addr
 	db := getDualState(interpreter.evm, scope.Contract.Address())
@@ -801,7 +801,7 @@ func opSuicide[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], s
 
 // make log instruction function
 func makeLog[P crypto.PublicKey](size int) executionFunc[P] {
-	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 		topics := make([]common.Hash, size)
 		stack := scope.Stack
 		mStart, mSize := stack.pop(), stack.pop()
@@ -825,7 +825,7 @@ func makeLog[P crypto.PublicKey](size int) executionFunc[P] {
 }
 
 // opPush1 is a specialized version of pushN
-func opPush1[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+func opPush1[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 	var (
 		codeLen = uint64(len(scope.Contract.Code))
 		integer = new(uint256.Int)
@@ -841,7 +841,7 @@ func opPush1[P crypto.PublicKey](pc *uint64, interpreter *EVMInterpreter[P], sco
 
 // make push instruction function
 func makePush[P crypto.PublicKey](size uint64, pushByteSize int) executionFunc[P] {
-	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 		codeLen := len(scope.Contract.Code)
 
 		startMin := codeLen
@@ -865,7 +865,7 @@ func makePush[P crypto.PublicKey](size uint64, pushByteSize int) executionFunc[P
 
 // make dup instruction function
 func makeDup[P crypto.PublicKey](size int64) executionFunc[P] {
-	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 		scope.Stack.dup(int(size))
 		return nil, nil
 	}
@@ -875,7 +875,7 @@ func makeDup[P crypto.PublicKey](size int64) executionFunc[P] {
 func makeSwap[P crypto.PublicKey](size int64) executionFunc[P] {
 	// switch n + 1 otherwise n would be swapped with n
 	size++
-	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext) ([]byte, error) {
+	return func(pc *uint64, interpreter *EVMInterpreter[P], scope *ScopeContext[P]) ([]byte, error) {
 		scope.Stack.swap(int(size))
 		return nil, nil
 	}

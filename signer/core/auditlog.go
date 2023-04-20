@@ -89,7 +89,7 @@ func (l *AuditLogger[T,P]) SignGnosisSafeTx(ctx context.Context, addr common.Mix
 	return res, e
 }
 
-func (l *AuditLogger[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, data TypedData) (hexutil.Bytes, error) {
+func (l *AuditLogger[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, data TypedData[P]) (hexutil.Bytes, error) {
 	l.log.Info("SignTypedData", "type", "request", "metadata", MetadataFromContext(ctx).String(),
 		"addr", addr.String(), "data", data)
 	b, e := l.api.SignTypedData(ctx, addr, data)

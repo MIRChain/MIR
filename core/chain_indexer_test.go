@@ -28,13 +28,14 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // Runs multiple tests with randomized parameters.
 func TestChainIndexerSingle(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		testChainIndexer(t, 1)
+		testChainIndexer[nist.PublicKey](t, 1)
 	}
 }
 
@@ -42,26 +43,26 @@ func TestChainIndexerSingle(t *testing.T) {
 // chain backends.
 func TestChainIndexerWithChildren(t *testing.T) {
 	for i := 2; i < 8; i++ {
-		testChainIndexer(t, i)
+		testChainIndexer[nist.PublicKey](t, i)
 	}
 }
 
 // testChainIndexer runs a test with either a single chain indexer or a chain of
 // multiple backends. The section size and required confirmation count parameters
 // are randomized.
-func testChainIndexer(t *testing.T, count int) {
+func testChainIndexer[P crypto.PublicKey](t *testing.T, count int) {
 	db := rawdb.NewMemoryDatabase()
 	defer db.Close()
 
 	// Create a chain of indexers and ensure they all report empty
-	backends := make([]*testChainIndexBackend, count)
+	backends := make([]*testChainIndexBackend[P], count)
 	for i := 0; i < count; i++ {
 		var (
 			sectionSize = uint64(rand.Intn(100) + 1)
 			confirmsReq = uint64(rand.Intn(10))
 		)
-		backends[i] = &testChainIndexBackend{t: t, processCh: make(chan uint64)}
-		backends[i].indexer = NewChainIndexer[nist.PublicKey](db, rawdb.NewTable(db, string([]byte{byte(i)})), backends[i], sectionSize, confirmsReq, 0, fmt.Sprintf("indexer-%d", i))
+		backends[i] = &testChainIndexBackend[P]{t: t, processCh: make(chan uint64)}
+		backends[i].indexer = NewChainIndexer[P](db, rawdb.NewTable(db, string([]byte{byte(i)})), backends[i], sectionSize, confirmsReq, 0, fmt.Sprintf("indexer-%d", i))
 
 		if sections, _, _ := backends[i].indexer.Sections(); sections != 0 {
 			t.Fatalf("Canonical section count mismatch: have %v, want %v", sections, 0)
@@ -93,7 +94,7 @@ func testChainIndexer(t *testing.T, count int) {
 	}
 	// inject inserts a new random canonical header into the database directly
 	inject := func(number uint64) {
-		header := &types.Header{Number: big.NewInt(int64(number)), Extra: big.NewInt(rand.Int63()).Bytes()}
+		header := &types.Header[P]{Number: big.NewInt(int64(number)), Extra: big.NewInt(rand.Int63()).Bytes()}
 		if number > 0 {
 			header.ParentHash = rawdb.ReadCanonicalHash(db, number-1)
 		}
@@ -136,15 +137,15 @@ func testChainIndexer(t *testing.T, count int) {
 }
 
 // testChainIndexBackend implements ChainIndexerBackend
-type testChainIndexBackend struct {
+type testChainIndexBackend [P crypto.PublicKey] struct {
 	t                          *testing.T
-	indexer                    *ChainIndexer[nist.PublicKey]
+	indexer                    *ChainIndexer[P]
 	section, headerCnt, stored uint64
 	processCh                  chan uint64
 }
 
 // assertSections verifies if a chain indexer has the correct number of section.
-func (b *testChainIndexBackend) assertSections() {
+func (b *testChainIndexBackend[P]) assertSections() {
 	// Keep trying for 3 seconds if it does not match
 	var sections uint64
 	for i := 0; i < 300; i++ {
@@ -160,7 +161,7 @@ func (b *testChainIndexBackend) assertSections() {
 // assertBlocks expects processing calls after new blocks have arrived. If the
 // failNum < headNum then we are simulating a scenario where a reorg has happened
 // after the processing has started and the processing of a section fails.
-func (b *testChainIndexBackend) assertBlocks(headNum, failNum uint64) (uint64, bool) {
+func (b *testChainIndexBackend[P]) assertBlocks(headNum, failNum uint64) (uint64, bool) {
 	var sections uint64
 	if headNum >= b.indexer.confirmsReq {
 		sections = (headNum + 1 - b.indexer.confirmsReq) / b.indexer.sectionSize
@@ -204,7 +205,7 @@ func (b *testChainIndexBackend) assertBlocks(headNum, failNum uint64) (uint64, b
 	return b.stored*b.indexer.sectionSize - 1, true
 }
 
-func (b *testChainIndexBackend) reorg(headNum uint64) uint64 {
+func (b *testChainIndexBackend[P]) reorg(headNum uint64) uint64 {
 	firstChanged := (headNum + 1) / b.indexer.sectionSize
 	if firstChanged < b.stored {
 		b.stored = firstChanged
@@ -212,13 +213,13 @@ func (b *testChainIndexBackend) reorg(headNum uint64) uint64 {
 	return b.stored * b.indexer.sectionSize
 }
 
-func (b *testChainIndexBackend) Reset(ctx context.Context, section uint64, prevHead common.Hash) error {
+func (b *testChainIndexBackend[P]) Reset(ctx context.Context, section uint64, prevHead common.Hash) error {
 	b.section = section
 	b.headerCnt = 0
 	return nil
 }
 
-func (b *testChainIndexBackend) Process(ctx context.Context, header *types.Header) error {
+func (b *testChainIndexBackend[P]) Process(ctx context.Context, header *types.Header[P]) error {
 	b.headerCnt++
 	if b.headerCnt > b.indexer.sectionSize {
 		b.t.Error("Processing too many headers")
@@ -235,13 +236,13 @@ func (b *testChainIndexBackend) Process(ctx context.Context, header *types.Heade
 	return nil
 }
 
-func (b *testChainIndexBackend) Commit() error {
+func (b *testChainIndexBackend[P]) Commit() error {
 	if b.headerCnt != b.indexer.sectionSize {
 		b.t.Error("Not enough headers processed")
 	}
 	return nil
 }
 
-func (b *testChainIndexBackend) Prune(threshold uint64) error {
+func (b *testChainIndexBackend[P]) Prune(threshold uint64) error {
 	return nil
 }

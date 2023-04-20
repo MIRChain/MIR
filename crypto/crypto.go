@@ -35,6 +35,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
@@ -86,12 +87,23 @@ type KeccakState interface {
 }
 
 // NewKeccakState creates a new KeccakState
-func NewKeccakState() KeccakState {
-	return sha3.NewLegacyKeccak256().(KeccakState)
+// Mir: for code reusage we use same KeccakState interface for Streebog hash
+func NewKeccakState[P PublicKey]() KeccakState {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		return sha3.NewLegacyKeccak256().(KeccakState)
+	case *gost3410.PublicKey:
+		return gost3411.New256().(KeccakState)
+	case *csp.PublicKey:
+		return csp.New256().(KeccakState)
+	default:
+		panic("cant infer crypto type for hashing alg")
+	}
 }
 
 // HashData hashes the provided data using the KeccakState and returns a 32 byte hash
-func HashData(kh KeccakState, data []byte) (h common.Hash) {
+func HashData[P PublicKey](kh KeccakState, data []byte) (h common.Hash) {
 	kh.Reset()
 	kh.Write(data)
 	kh.Read(h[:])
@@ -99,9 +111,9 @@ func HashData(kh KeccakState, data []byte) (h common.Hash) {
 }
 
 // Keccak256 calculates and returns the Keccak256 hash of the input data.
-func Keccak256(data ...[]byte) []byte {
+func Keccak256[P PublicKey](data ...[]byte) []byte {
 	b := make([]byte, 32)
-	d := NewKeccakState()
+	d := NewKeccakState[P]()
 	for _, b := range data {
 		d.Write(b)
 	}
@@ -111,8 +123,8 @@ func Keccak256(data ...[]byte) []byte {
 
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
-func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	d := NewKeccakState()
+func Keccak256Hash[P PublicKey](data ...[]byte) (h common.Hash) {
+	d := NewKeccakState[P]()
 	for _, b := range data {
 		d.Write(b)
 	}
@@ -121,24 +133,36 @@ func Keccak256Hash(data ...[]byte) (h common.Hash) {
 }
 
 // Keccak512 calculates and returns the Keccak512 hash of the input data.
-func Keccak512(data ...[]byte) []byte {
-	d := sha3.NewLegacyKeccak512()
-	for _, b := range data {
-		d.Write(b)
+func Keccak512[P PublicKey](data ...[]byte) []byte {
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		d := sha3.NewLegacyKeccak512()
+		for _, b := range data {
+			d.Write(b)
+		}
+		return d.Sum(nil)
+	case *gost3410.PublicKey:
+		d := gost3411.New512()
+		for _, b := range data {
+			d.Write(b)
+		}
+		return d.Sum(nil)
+	default:
+		panic("cant infer crypto type for hashing alg")
 	}
-	return d.Sum(nil)
 }
 
 // CreateAddress creates an ethereum address given the bytes and the nonce
-func CreateAddress(b common.Address, nonce uint64) common.Address {
+func CreateAddress[P PublicKey](b common.Address, nonce uint64) common.Address {
 	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce})
-	return common.BytesToAddress(Keccak256(data)[12:])
+	return common.BytesToAddress(Keccak256[P](data)[12:])
 }
 
 // CreateAddress2 creates an ethereum address given the address bytes, initial
 // contract code hash and a salt.
-func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
-	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
+func CreateAddress2[P PublicKey](b common.Address, salt [32]byte, inithash []byte) common.Address {
+	return common.BytesToAddress(Keccak256[P]([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
 }
 
 // ToECDSA creates a private key with the given D value.
@@ -271,7 +295,7 @@ func FromECDSAPub[P PublicKey](pub P) []byte {
 		if pub.GetX() == nil || pub.GetY() == nil {
 			panic("nil nil")
 		}
-		return p.Raw()
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), p.X, p.Y)
 	default:
 		panic("cant infer pubkey type")
 	}
@@ -398,6 +422,11 @@ func ValidateSignatureValues[P crypto.PublicKey](v byte, r, s *big.Int, homestea
 			return false
 		}
 		return r.Cmp(gost3410.GostCurve.Q) < 0 && s.Cmp(gost3410.GostCurve.Q) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
+	case *csp.PublicKey:
+		if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+			return false
+		}
+		return true
 	default:
 		return false
 	}
@@ -405,16 +434,7 @@ func ValidateSignatureValues[P crypto.PublicKey](v byte, r, s *big.Int, homestea
 
 func PubkeyToAddress[P PublicKey](pub P) common.Address {
 	pubBytes := FromECDSAPub(pub)
-	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-}
-
-func PubkeyToAddressGost(p gost3410.PublicKey) common.Address {
-	pubBytes := p.Raw()
-	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
-}
-
-func PubkeyToAddressCsp(p []byte) common.Address {
-	return common.BytesToAddress(Keccak256(p[1:])[12:])
+	return common.BytesToAddress(Keccak256[P](pubBytes[1:])[12:])
 }
 
 func zeroBytes(bytes []byte) {

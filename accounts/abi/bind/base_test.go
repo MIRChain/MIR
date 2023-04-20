@@ -64,7 +64,7 @@ func TestPassingBlockNumber(t *testing.T) {
 
 	mc := &mockCaller{}
 
-	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), abi.ABI{
+	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), abi.ABI[nist.PublicKey]{
 		Methods: map[string]abi.Method{
 			"something": {
 				Name:    "something",
@@ -109,7 +109,7 @@ func TestPassingBlockNumber(t *testing.T) {
 const hexData = "0x000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158"
 
 func TestUnpackIndexedStringTyLogIntoMap(t *testing.T) {
-	hash := crypto.Keccak256Hash([]byte("testName"))
+	hash := crypto.Keccak256Hash[nist.PublicKey]([]byte("testName"))
 	topics := []common.Hash{
 		common.HexToHash("0x0"),
 		hash,
@@ -117,7 +117,7 @@ func TestUnpackIndexedStringTyLogIntoMap(t *testing.T) {
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"name","type":"string"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
+	parsedAbi, _ := abi.JSON[nist.PublicKey](strings.NewReader(abiString))
 	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]interface{}{
@@ -134,7 +134,7 @@ func TestUnpackIndexedSliceTyLogIntoMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hash := crypto.Keccak256Hash(sliceBytes)
+	hash := crypto.Keccak256Hash[nist.PublicKey](sliceBytes)
 	topics := []common.Hash{
 		common.HexToHash("0x0"),
 		hash,
@@ -142,7 +142,7 @@ func TestUnpackIndexedSliceTyLogIntoMap(t *testing.T) {
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"names","type":"string[]"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
+	parsedAbi, _ := abi.JSON[nist.PublicKey](strings.NewReader(abiString))
 	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]interface{}{
@@ -159,7 +159,7 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hash := crypto.Keccak256Hash(arrBytes)
+	hash := crypto.Keccak256Hash[nist.PublicKey](arrBytes)
 	topics := []common.Hash{
 		common.HexToHash("0x0"),
 		hash,
@@ -167,7 +167,7 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"addresses","type":"address[2]"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
+	parsedAbi, _ := abi.JSON[nist.PublicKey](strings.NewReader(abiString))
 	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]interface{}{
@@ -182,7 +182,7 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 	mockAddress := common.HexToAddress("0x376c47978271565f56DEB45495afa69E59c16Ab2")
 	addrBytes := mockAddress.Bytes()
-	hash := crypto.Keccak256Hash([]byte("mockFunction(address,uint)"))
+	hash := crypto.Keccak256Hash[nist.PublicKey]([]byte("mockFunction(address,uint)"))
 	functionSelector := hash[:4]
 	functionTyBytes := append(addrBytes, functionSelector...)
 	var functionTy [24]byte
@@ -193,7 +193,7 @@ func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x5c698f13940a2153440c6d19660878bc90219d9298fdcf37365aa8d88d40fc42"))
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"function","type":"function"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
+	parsedAbi, _ := abi.JSON[nist.PublicKey](strings.NewReader(abiString))
 	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]interface{}{
@@ -207,7 +207,7 @@ func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 
 func TestUnpackIndexedBytesTyLogIntoMap(t *testing.T) {
 	bytes := []byte{1, 2, 3, 4, 5}
-	hash := crypto.Keccak256Hash(bytes)
+	hash := crypto.Keccak256Hash[nist.PublicKey](bytes)
 	topics := []common.Hash{
 		common.HexToHash("0x99b5620489b6ef926d4518936cfec15d305452712b88bd59da2d9c10fb0953e8"),
 		hash,
@@ -215,7 +215,7 @@ func TestUnpackIndexedBytesTyLogIntoMap(t *testing.T) {
 	mockLog := newMockLog(topics, common.HexToHash("0x5c698f13940a2153440c6d19660878bc90219d9298fdcf37365aa8d88d40fc42"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"content","type":"bytes"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
+	parsedAbi, _ := abi.JSON[nist.PublicKey](strings.NewReader(abiString))
 	bc := bind.NewBoundContract[nist.PublicKey](common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]interface{}{

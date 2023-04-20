@@ -27,24 +27,25 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
 	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	elog "github.com/pavelkrolevets/MIR-pro/log"
 )
 
-func makeBlock(number int64) *types.Block[nist.PublicKey] {
-	header := &types.Header{
+func makeBlock[P crypto.PublicKey](number int64) *types.Block[P] {
+	header := &types.Header[P]{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),
 		GasLimit:   0,
 		GasUsed:    0,
 		Time:       0,
 	}
-	block := &types.Block[nist.PublicKey]{}
+	block := &types.Block[P]{}
 	return block.WithSeal(header)
 }
 
-func newTestProposal() istanbul.Proposal {
-	return makeBlock(1)
+func newTestProposal[P crypto.PublicKey]() istanbul.Proposal {
+	return makeBlock[P](1)
 }
 
 func TestNewRequest(t *testing.T) {
@@ -58,12 +59,12 @@ func TestNewRequest(t *testing.T) {
 	close := sys.Run(true)
 	defer close()
 
-	request1 := makeBlock(1)
+	request1 := makeBlock[nist.PublicKey](1)
 	sys.backends[0].NewRequest(request1)
 
 	<-time.After(1 * time.Second)
 
-	request2 := makeBlock(2)
+	request2 := makeBlock[nist.PublicKey](2)
 	sys.backends[0].NewRequest(request2)
 
 	<-time.After(1 * time.Second)

@@ -207,7 +207,7 @@ func (c *Client[T,P]) doResolveEntry(ctx context.Context, domain, hash string) (
 		if err == errUnknownEntry {
 			continue
 		}
-		if !bytes.HasPrefix(crypto.Keccak256([]byte(txt)), wantHash) {
+		if !bytes.HasPrefix(crypto.Keccak256[P]([]byte(txt)), wantHash) {
 			err = nameError{name, errHashMismatch}
 		} else if err != nil {
 			err = nameError{name, err}

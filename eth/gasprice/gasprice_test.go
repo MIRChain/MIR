@@ -38,7 +38,7 @@ type testBackend [P crypto.PublicKey] struct {
 	chain *core.BlockChain[P]
 }
 
-func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+func (b *testBackend[P]) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error) {
 	if number == rpc.LatestBlockNumber {
 		return b.chain.CurrentBlock().Header(), nil
 	}
@@ -90,7 +90,7 @@ func newTestBackend(t *testing.T) *testBackend[nist.PublicKey] {
 	return &testBackend[nist.PublicKey]{chain: chain}
 }
 
-func (b *testBackend[P]) CurrentHeader() *types.Header {
+func (b *testBackend[P]) CurrentHeader() *types.Header[P] {
 	return b.chain.CurrentHeader()
 }
 

@@ -72,7 +72,7 @@ func (odr *testOdr[P]) Retrieve(ctx context.Context, req OdrRequest) error {
 		return ErrOdrDisabled
 	}
 	switch req := req.(type) {
-	case *BlockRequest:
+	case *BlockRequest[P]:
 		number := rawdb.ReadHeaderNumber(odr.sdb, req.Hash)
 		if number != nil {
 			req.Rlp = rawdb.ReadBodyRLP(odr.sdb, req.Hash, *number)
@@ -82,9 +82,9 @@ func (odr *testOdr[P]) Retrieve(ctx context.Context, req OdrRequest) error {
 		if number != nil {
 			req.Receipts = rawdb.ReadRawReceipts[P](odr.sdb, req.Hash, *number)
 		}
-	case *TrieRequest:
-		t, _ := trie.New(req.Id.Root, trie.NewDatabase(odr.sdb))
-		nodes := NewNodeSet()
+	case *TrieRequest[P]:
+		t, _ := trie.New[P](req.Id.Root, trie.NewDatabase(odr.sdb))
+		nodes := NewNodeSet[P]()
 		t.Prove(req.Key, 0, nodes)
 		req.Proof = nodes
 	case *CodeRequest:
@@ -144,13 +144,13 @@ func odrAccounts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc
 	dummyAddr := common.HexToAddress("1234567812345678123456781234567812345678")
 	acc := []common.Address{testBankAddress, acc1Addr, acc2Addr, dummyAddr}
 
-	var st *state.StateDB
+	var st *state.StateDB[P]
 	if bc == nil {
 		header := lc.GetHeaderByHash(bhash)
 		st = NewState(ctx, header, lc.Odr())
 	} else {
 		header := bc.GetHeaderByHash(bhash)
-		st, _ = state.New(header.Root, state.NewDatabase(db), nil)
+		st, _ = state.New[P](header.Root, state.NewDatabase[P](db), nil)
 	}
 
 	var res []byte
@@ -179,8 +179,8 @@ func odrContractCall[P crypto.PublicKey] (ctx context.Context, db ethdb.Database
 		data[35] = byte(i)
 
 		var (
-			st     *state.StateDB
-			header *types.Header
+			st     *state.StateDB[P]
+			header *types.Header[P]
 			chain  core.ChainContext[P]
 		)
 		if bc == nil {
@@ -190,7 +190,7 @@ func odrContractCall[P crypto.PublicKey] (ctx context.Context, db ethdb.Database
 		} else {
 			chain = bc
 			header = bc.GetHeaderByHash(bhash)
-			st, _ = state.New(header.Root, state.NewDatabase(db), nil)
+			st, _ = state.New[P](header.Root, state.NewDatabase[P](db), nil)
 		}
 
 		// Perform read-only call.
@@ -225,7 +225,7 @@ func testChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 		tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 		nonce++
 		tx3, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](nonce, big.NewInt(0), 1000000, big.NewInt(0), testContractCode), signer, acc1Key)
-		testContractAddr = crypto.CreateAddress(acc1Addr, nonce)
+		testContractAddr = crypto.CreateAddress[nist.PublicKey](acc1Addr, nonce)
 		block.AddTx(tx1)
 		block.AddTx(tx2)
 		block.AddTx(tx3)
@@ -270,7 +270,7 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn[nist.PublicKey]) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	headers := make([]*types.Header, len(gchain))
+	headers := make([]*types.Header[nist.PublicKey], len(gchain))
 	for i, block := range gchain {
 		headers[i] = block.Header()
 	}

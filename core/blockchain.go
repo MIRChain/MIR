@@ -168,7 +168,7 @@ type BlockChain [P crypto.PublicKey] struct {
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
 	db     ethdb.Database // Low level persistent database to store final content in
-	snaps  *snapshot.Tree // Snapshot tree for fast trie leaf access
+	snaps  *snapshot.Tree[P] // Snapshot tree for fast trie leaf access
 	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
@@ -218,7 +218,7 @@ type BlockChain [P crypto.PublicKey] struct {
 
 	// Quorum
 	quorumConfig    *QuorumChainConfig                                               // quorum chain config holds all the possible configuration fields for GoQuorum
-	setPrivateState func([]*types.Log, *state.StateDB, types.PrivateStateIdentifier) // Function to check extension and set private state
+	setPrivateState func([]*types.Log, *state.StateDB[P], types.PrivateStateIdentifier) // Function to check extension and set private state
 
 	// privateStateManager manages private state(s) for this blockchain
 	privateStateManager           mps.PrivateStateManager[P]
@@ -248,7 +248,7 @@ func NewBlockChain[P crypto.PublicKey](db ethdb.Database, cacheConfig *CacheConf
 		cacheConfig: cacheConfig,
 		db:          db,
 		triegc:      prque.New(nil),
-		stateCache: state.NewDatabaseWithConfig(db, &trie.Config{
+		stateCache: state.NewDatabaseWithConfig[P](db, &trie.Config{
 			Cache:     cacheConfig.TrieCleanLimit,
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
@@ -271,7 +271,7 @@ func NewBlockChain[P crypto.PublicKey](db ethdb.Database, cacheConfig *CacheConf
 	bc.processor = NewStateProcessor[P](chainConfig, bc, engine)
 
 	var err error
-	privateStateCacheProvider := privatecache.NewPrivateCacheProvider(db, &trie.Config{Cache: cacheConfig.TrieCleanLimit,
+	privateStateCacheProvider := privatecache.NewPrivateCacheProvider[P](db, &trie.Config{Cache: cacheConfig.TrieCleanLimit,
 		Preimages: cacheConfig.Preimages}, bc.stateCache, quorumChainConfig.privateTrieCacheEnabled)
 	// Quorum: attempt to initialize PSM
 	if bc.privateStateManager, err = newPrivateStateManager[P](bc.db, privateStateCacheProvider, chainConfig.IsMPS); err != nil {
@@ -405,7 +405,7 @@ func NewBlockChain[P crypto.PublicKey](db ethdb.Database, cacheConfig *CacheConf
 			log.Warn("Enabling snapshot recovery", "chainhead", head.NumberU64(), "diskbase", *layer)
 			recover = true
 		}
-		bc.snaps, err = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
+		bc.snaps, err = snapshot.New[P](bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
 		if err != nil {
 			log.Error("Error trying to load snapshot", "err", err)
 		}
@@ -571,7 +571,7 @@ func (bc *BlockChain[P]) SetHeadBeyondRoot(head uint64, root common.Hash) (uint6
 	pivot := rawdb.ReadLastPivotNumber(bc.db)
 	frozen, _ := bc.db.Ancients()
 
-	updateFn := func(db ethdb.KeyValueWriter, header *types.Header) (uint64, bool) {
+	updateFn := func(db ethdb.KeyValueWriter, header *types.Header[P]) (uint64, bool) {
 		// Rewind the block chain, ensuring we don't end up with a stateless head
 		// block. Note, depth equality is permitted to allow using SetHead as a
 		// chain reparation mechanism without deleting any data!
@@ -705,7 +705,7 @@ func (bc *BlockChain[P]) FastSyncCommitHead(hash common.Hash) error {
 	if block == nil {
 		return fmt.Errorf("non existent block [%x..]", hash[:4])
 	}
-	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB()); err != nil {
+	if _, err := trie.NewSecure[P](block.Root(), bc.stateCache.TrieDB()); err != nil {
 		return err
 	}
 	// If all checks out, manually set the head block
@@ -738,7 +738,7 @@ func (bc *BlockChain[P]) CurrentBlock() *types.Block[P] {
 }
 
 // Snapshots returns the blockchain snapshot tree.
-func (bc *BlockChain[P]) Snapshots() *snapshot.Tree {
+func (bc *BlockChain[P]) Snapshots() *snapshot.Tree[P] {
 	return bc.snaps
 }
 
@@ -759,7 +759,7 @@ func (bc *BlockChain[P]) Processor() Processor[P] {
 }
 
 // State returns a new mutable state based on the current HEAD block.
-func (bc *BlockChain[P]) State() (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (bc *BlockChain[P]) State() (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
@@ -767,7 +767,7 @@ func (bc *BlockChain[P]) State() (*state.StateDB, mps.PrivateStateRepository[P],
 //
 // StatePSI returns a new mutable public state and a mutable private state for given PSI,
 // based on the current HEAD block.
-func (bc *BlockChain[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, *state.StateDB, error) {
+func (bc *BlockChain[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], *state.StateDB[P], error) {
 	return bc.StateAtPSI(bc.CurrentBlock().Root(), psi)
 }
 
@@ -780,7 +780,7 @@ func (bc *BlockChain[P]) SetPrivateStateRootHashValidator(psrhv qlight.PrivateSt
 
 // StatePSI returns a new mutable public state and a mutable private state for the given PSI,
 // based on a particular point in time.
-func (bc *BlockChain[P]) StateAtPSI(root common.Hash, psi types.PrivateStateIdentifier) (*state.StateDB, *state.StateDB, error) {
+func (bc *BlockChain[P]) StateAtPSI(root common.Hash, psi types.PrivateStateIdentifier) (*state.StateDB[P], *state.StateDB[P], error) {
 	publicStateDb, privateStateRepo, err := bc.StateAt(root)
 	if err != nil {
 		return nil, nil, err
@@ -797,7 +797,7 @@ func (bc *BlockChain[P]) StateAtPSI(root common.Hash, psi types.PrivateStateIden
 // StateAt returns a new mutable public state and a new mutable private state repo
 // based on a particular point in time. The returned private state repo can be used
 // to obtain a mutable private state for a given PSI
-func (bc *BlockChain[P]) StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (bc *BlockChain[P]) StateAt(root common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	publicStateDb, publicStateDbErr := state.New(root, bc.stateCache, bc.snaps)
 	if publicStateDbErr != nil {
 		return nil, nil, publicStateDbErr
@@ -1102,8 +1102,8 @@ func (bc *BlockChain[P]) GetBlocksFromHash(hash common.Hash, n int) (blocks []*t
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-func (bc *BlockChain[P]) GetUnclesInChain(block *types.Block[P], length int) []*types.Header {
-	uncles := []*types.Header{}
+func (bc *BlockChain[P]) GetUnclesInChain(block *types.Block[P], length int) []*types.Header[P] {
+	uncles := []*types.Header[P]{}
 	for i := 0; block != nil && i < length; i++ {
 		uncles = append(uncles, block.Uncles()...)
 		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
@@ -1585,7 +1585,7 @@ func (bc *BlockChain[P]) writeKnownBlock(block *types.Block[P]) error {
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain[P]) WriteBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain[P]) WriteBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB[P], psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
@@ -1601,7 +1601,7 @@ func (bc *BlockChain[P]) isRaft() bool {
 // function specifically added for Raft consensus. This is called from mintNewBlock
 // to commit public and private state using bc.chainmu lock
 // added to avoid concurrent map errors in high stress conditions
-func (bc *BlockChain[P]) CommitBlockWithState(deleteEmptyObjects bool, state, privateState *state.StateDB) error {
+func (bc *BlockChain[P]) CommitBlockWithState(deleteEmptyObjects bool, state, privateState *state.StateDB[P]) error {
 	// check if consensus is not Raft
 	if !bc.isRaft() {
 		return errors.New("error function can be called only for Raft consensus")
@@ -1621,7 +1621,7 @@ func (bc *BlockChain[P]) CommitBlockWithState(deleteEmptyObjects bool, state, pr
 
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
-func (bc *BlockChain[P]) writeBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB, psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain[P]) writeBlockWithState(block *types.Block[P], receipts []*types.Receipt[P], logs []*types.Log, state *state.StateDB[P], psManager mps.PrivateStateRepository[P], emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1884,7 +1884,7 @@ func (bc *BlockChain[P]) insertChain(chain types.Blocks[P], verifySeals bool) (i
 		}
 	}()
 	// Start the parallel header verifier
-	headers := make([]*types.Header, len(chain))
+	headers := make([]*types.Header[P], len(chain))
 	seals := make([]bool, len(chain))
 
 	for i, block := range chain {
@@ -1969,7 +1969,7 @@ func (bc *BlockChain[P]) insertChain(chain types.Blocks[P], verifySeals bool) (i
 		return it.index, err
 	}
 	// No validation errors for the first block (or chain prefix skipped)
-	var activeState *state.StateDB
+	var activeState *state.StateDB[P]
 	defer func() {
 		// The chain importer is starting and stopping trie prefetchers. If a bad
 		// block or other error is hit however, an early return may not properly
@@ -2070,7 +2070,7 @@ func (bc *BlockChain[P]) insertChain(chain types.Blocks[P], verifySeals bool) (i
 					throwawayPrivateStateRepo := privateStateRepo.Copy()
 
 					// Quorum: add privateStateThrowaway argument
-					go func(start time.Time, followup *types.Block[P], throwaway *state.StateDB, privateStateThrowaway mps.PrivateStateRepository[P], interrupt *uint32) {
+					go func(start time.Time, followup *types.Block[P], throwaway *state.StateDB[P], privateStateThrowaway mps.PrivateStateRepository[P], interrupt *uint32) {
 						bc.prefetcher.Prefetch(followup, throwaway, throwawayPrivateStateRepo, bc.vmConfig, &followupInterrupt)
 
 						blockPrefetchExecuteTimer.Update(time.Since(start))
@@ -2616,7 +2616,7 @@ Error: %v
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header[P], checkFreq int) (int, error) {
 	start := time.Now()
 	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
 		return i, err
@@ -2634,7 +2634,7 @@ func (bc *BlockChain[P]) InsertHeaderChain(chain []*types.Header, checkFreq int)
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (bc *BlockChain[P]) CurrentHeader() *types.Header {
+func (bc *BlockChain[P]) CurrentHeader() *types.Header[P] {
 	return bc.hc.CurrentHeader()
 }
 
@@ -2652,13 +2652,13 @@ func (bc *BlockChain[P]) GetTdByHash(hash common.Hash) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (bc *BlockChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (bc *BlockChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] {
 	return bc.hc.GetHeader(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (bc *BlockChain[P]) GetHeaderByHash(hash common.Hash) *types.Header {
+func (bc *BlockChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P] {
 	return bc.hc.GetHeaderByHash(hash)
 }
 
@@ -2690,7 +2690,7 @@ func (bc *BlockChain[P]) GetAncestor(hash common.Hash, number, ancestor uint64, 
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (bc *BlockChain[P]) GetHeaderByNumber(number uint64) *types.Header {
+func (bc *BlockChain[P]) GetHeaderByNumber(number uint64) *types.Header[P] {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
@@ -2757,13 +2757,13 @@ func (bc *BlockChain[P]) SupportsMultitenancy(context.Context) bool {
 
 // PopulateSetPrivateState function pointer for updating private state
 // Quorum
-func (bc *BlockChain[P]) PopulateSetPrivateState(ps func([]*types.Log, *state.StateDB, types.PrivateStateIdentifier)) {
+func (bc *BlockChain[P]) PopulateSetPrivateState(ps func([]*types.Log, *state.StateDB[P], types.PrivateStateIdentifier)) {
 	bc.setPrivateState = ps
 }
 
 // CheckAndSetPrivateState function to update the private state as a part contract state extension
 // Quorum
-func (bc *BlockChain[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB, psi types.PrivateStateIdentifier) {
+func (bc *BlockChain[P]) CheckAndSetPrivateState(txLogs []*types.Log, privateState *state.StateDB[P], psi types.PrivateStateIdentifier) {
 	if bc.setPrivateState != nil {
 		bc.setPrivateState(txLogs, privateState, psi)
 	}

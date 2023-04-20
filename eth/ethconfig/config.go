@@ -19,10 +19,6 @@ package ethconfig
 
 import (
 	"math/big"
-	"os"
-	"os/user"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -34,7 +30,6 @@ import (
 	istanbulBackend "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/backend"
 	"github.com/pavelkrolevets/MIR-pro/core"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
 	"github.com/pavelkrolevets/MIR-pro/eth/gasprice"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
@@ -58,7 +53,7 @@ var LightClientGPO = gasprice.Config{
 	MaxPrice:   gasprice.DefaultMaxPrice,
 }
 
-// Defaults contains default settings for use on the Ethereum main net.
+// Defaults contains default settings for use on the Mir main net.
 func Defaults[P crypto.PublicKey]() *Config[P] {
 		return &Config[P]{
 		// Quorum - make full sync the default sync mode in quorum (as opposed to upstream geth)
@@ -72,6 +67,7 @@ func Defaults[P crypto.PublicKey]() *Config[P] {
 			DatasetsInMem:    1,
 			DatasetsOnDisk:   2,
 			DatasetsLockMmap: false,
+			DatasetDir:       ".ethash",
 		},
 		NetworkId:               1337,
 		TxLookupLimit:           2350000,
@@ -101,24 +97,24 @@ func Defaults[P crypto.PublicKey]() *Config[P] {
 }
 
 func init() {
-	home := os.Getenv("HOME")
-	if home == "" {
-		if user, err := user.Current(); err == nil {
-			home = user.HomeDir
-		}
-	}
-	if runtime.GOOS == "darwin" {
-		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "Library", "Ethash")
-	} else if runtime.GOOS == "windows" {
-		localappdata := os.Getenv("LOCALAPPDATA")
-		if localappdata != "" {
-			Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(localappdata, "Ethash")
-		} else {
-			Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Ethash")
-		}
-	} else {
-		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, ".ethash")
-	}
+	// home := os.Getenv("HOME")
+	// if home == "" {
+	// 	if user, err := user.Current(); err == nil {
+	// 		home = user.HomeDir
+	// 	}
+	// }
+	// if runtime.GOOS == "darwin" {
+	// 	Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "Library", "Ethash")
+	// } else if runtime.GOOS == "windows" {
+	// 	localappdata := os.Getenv("LOCALAPPDATA")
+	// 	if localappdata != "" {
+	// 		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(localappdata, "Ethash")
+	// 	} else {
+	// 		Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Ethash")
+	// 	}
+	// } else {
+	// 	Defaults[nist.PublicKey]().Ethash.DatasetDir = filepath.Join(home, ".ethash")
+	// }
 }
 
 //go:generate gencodec -type Config -formats toml -out gen_config.go

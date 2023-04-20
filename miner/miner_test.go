@@ -66,23 +66,23 @@ func (m *mockBackend[P]) ChainDb() ethdb.Database {
 }
 
 type testBlockChain [P crypto.PublicKey] struct {
-	statedb *state.StateDB
+	statedb *state.StateDB[P]
 
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
 }
 
 func (bc *testBlockChain[P]) CurrentBlock() *types.Block[P] {
-	return types.NewBlock[P](&types.Header{
+	return types.NewBlock[P](&types.Header[P]{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, nil, nil, nil, trie.NewStackTrie[P](nil))
 }
 
 func (bc *testBlockChain[P]) GetBlock(hash common.Hash, number uint64) *types.Block[P] {
 	return bc.CurrentBlock()
 }
 
-func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB, mps.PrivateStateRepository[P], error) {
+func (bc *testBlockChain[P]) StateAt(common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	return bc.statedb, nil, nil
 }
 
@@ -98,7 +98,7 @@ func TestMiner(t *testing.T) {
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
 	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	// Subsequent downloader events after a successful DoneEvent should not cause the
@@ -135,7 +135,7 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 	waitForMiningState(t, miner, false)
 
 	// Downloader finally succeeds.
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	// Downloader starts again.
@@ -158,7 +158,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 	waitForMiningState(t, miner, false)
 
 	// Downloader finally succeeds.
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 	waitForMiningState(t, miner, true)
 
 	miner.Stop()
@@ -216,7 +216,7 @@ func TestMinerSetEtherbase(t *testing.T) {
 	// Now user tries to configure proper mining address
 	miner.Start(common.HexToAddress("0x1337"))
 	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.DoneEvent{})
+	mux.Post(downloader.DoneEvent[nist.PublicKey]{})
 
 	waitForMiningState(t, miner, true)
 	// The miner should now be using the good address
@@ -261,7 +261,7 @@ func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(chainDB), nil)
+	statedb, _ := state.New[P](common.Hash{}, state.NewDatabase[P](chainDB), nil)
 	blockchain := &testBlockChain[P]{statedb, 10000000, new(event.Feed)}
 
 	pool := core.NewTxPool[P](testTxPoolConfig, chainConfig, blockchain)

@@ -91,7 +91,7 @@ type Method struct {
 // A method should always be created using NewMethod.
 // It also precomputes the sig representation and the string representation
 // of the method.
-func NewMethod(name string, rawName string, funType FunctionType, mutability string, isConst, isPayable bool, inputs Arguments, outputs Arguments) Method {
+func NewMethod[P crypto.PublicKey](name string, rawName string, funType FunctionType, mutability string, isConst, isPayable bool, inputs Arguments, outputs Arguments) Method {
 	var (
 		types       = make([]string, len(inputs))
 		inputNames  = make([]string, len(inputs))
@@ -115,7 +115,7 @@ func NewMethod(name string, rawName string, funType FunctionType, mutability str
 	)
 	if funType == Function {
 		sig = fmt.Sprintf("%v(%v)", rawName, strings.Join(types, ","))
-		id = crypto.Keccak256([]byte(sig))[:4]
+		id = crypto.Keccak256[P]([]byte(sig))[:4]
 	}
 	// Extract meaningful state mutability of solidity method.
 	// If it's default value, never print it.

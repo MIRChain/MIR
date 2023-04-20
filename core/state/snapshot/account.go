@@ -21,6 +21,7 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
@@ -36,7 +37,7 @@ type Account struct {
 }
 
 // SlimAccount converts a state.Account content into a slim snapshot account
-func SlimAccount(nonce uint64, balance *big.Int, root common.Hash, codehash []byte) Account {
+func SlimAccount[P crypto.PublicKey](nonce uint64, balance *big.Int, root common.Hash, codehash []byte) Account {
 	slim := Account{
 		Nonce:   nonce,
 		Balance: balance,
@@ -44,6 +45,7 @@ func SlimAccount(nonce uint64, balance *big.Int, root common.Hash, codehash []by
 	if root != emptyRoot {
 		slim.Root = root[:]
 	}
+	var emptyCode = crypto.Keccak256Hash[P](nil)
 	if !bytes.Equal(codehash, emptyCode[:]) {
 		slim.CodeHash = codehash
 	}
@@ -52,8 +54,8 @@ func SlimAccount(nonce uint64, balance *big.Int, root common.Hash, codehash []by
 
 // SlimAccountRLP converts a state.Account content into a slim snapshot
 // version RLP encoded.
-func SlimAccountRLP(nonce uint64, balance *big.Int, root common.Hash, codehash []byte) []byte {
-	data, err := rlp.EncodeToBytes(SlimAccount(nonce, balance, root, codehash))
+func SlimAccountRLP[P crypto.PublicKey](nonce uint64, balance *big.Int, root common.Hash, codehash []byte) []byte {
+	data, err := rlp.EncodeToBytes(SlimAccount[P](nonce, balance, root, codehash))
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +64,7 @@ func SlimAccountRLP(nonce uint64, balance *big.Int, root common.Hash, codehash [
 
 // FullAccount decodes the data on the 'slim RLP' format and return
 // the consensus format account.
-func FullAccount(data []byte) (Account, error) {
+func FullAccount[P crypto.PublicKey](data []byte) (Account, error) {
 	var account Account
 	if err := rlp.DecodeBytes(data, &account); err != nil {
 		return Account{}, err
@@ -71,14 +73,15 @@ func FullAccount(data []byte) (Account, error) {
 		account.Root = emptyRoot[:]
 	}
 	if len(account.CodeHash) == 0 {
+		var emptyCode = crypto.Keccak256Hash[P](nil)
 		account.CodeHash = emptyCode[:]
 	}
 	return account, nil
 }
 
 // FullAccountRLP converts data on the 'slim RLP' format into the full RLP-format.
-func FullAccountRLP(data []byte) ([]byte, error) {
-	account, err := FullAccount(data)
+func FullAccountRLP[P crypto.PublicKey](data []byte) ([]byte, error) {
+	account, err := FullAccount[P](data)
 	if err != nil {
 		return nil, err
 	}

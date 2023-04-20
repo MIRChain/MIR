@@ -55,7 +55,7 @@ func TestRemoteNotify(t *testing.T) {
 	defer ethash.Close()
 
 	// Stream a work task and ensure the notification bubbles out.
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	ethash.Seal(nil, block, nil, nil)
@@ -103,7 +103,7 @@ func TestRemoteNotifyFull(t *testing.T) {
 	defer ethash.Close()
 
 	// Stream a work task and ensure the notification bubbles out.
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
+	header := &types.Header[nist.PublicKey]{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader[nist.PublicKey](header)
 
 	ethash.Seal(nil, block, nil, nil)
@@ -150,7 +150,7 @@ func TestRemoteMultiNotify(t *testing.T) {
 
 	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
-		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
+		header := &types.Header[nist.PublicKey]{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
 		block := types.NewBlockWithHeader[nist.PublicKey](header)
 		ethash.Seal(nil, block, results, nil)
 	}
@@ -199,7 +199,7 @@ func TestRemoteMultiNotifyFull(t *testing.T) {
 
 	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
-		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
+		header := &types.Header[nist.PublicKey]{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
 		block := types.NewBlockWithHeader[nist.PublicKey](header)
 		ethash.Seal(nil, block, results, nil)
 	}
@@ -223,13 +223,13 @@ func TestStaleSubmission(t *testing.T) {
 	fakeNonce, fakeDigest := types.BlockNonce{0x01, 0x02, 0x03}, common.HexToHash("deadbeef")
 
 	testcases := []struct {
-		headers     []*types.Header
+		headers     []*types.Header[nist.PublicKey]
 		submitIndex int
 		submitRes   bool
 	}{
 		// Case1: submit solution for the latest mining package
 		{
-			[]*types.Header{
+			[]*types.Header[nist.PublicKey]{
 				{ParentHash: common.BytesToHash([]byte{0xa}), Number: big.NewInt(1), Difficulty: big.NewInt(100000000)},
 			},
 			0,
@@ -237,7 +237,7 @@ func TestStaleSubmission(t *testing.T) {
 		},
 		// Case2: submit solution for the previous package but have same parent.
 		{
-			[]*types.Header{
+			[]*types.Header[nist.PublicKey]{
 				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000000)},
 				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000001)},
 			},
@@ -246,7 +246,7 @@ func TestStaleSubmission(t *testing.T) {
 		},
 		// Case3: submit stale but acceptable solution
 		{
-			[]*types.Header{
+			[]*types.Header[nist.PublicKey]{
 				{ParentHash: common.BytesToHash([]byte{0xc}), Number: big.NewInt(3), Difficulty: big.NewInt(100000000)},
 				{ParentHash: common.BytesToHash([]byte{0xd}), Number: big.NewInt(9), Difficulty: big.NewInt(100000000)},
 			},
@@ -255,7 +255,7 @@ func TestStaleSubmission(t *testing.T) {
 		},
 		// Case4: submit very old solution
 		{
-			[]*types.Header{
+			[]*types.Header[nist.PublicKey]{
 				{ParentHash: common.BytesToHash([]byte{0xe}), Number: big.NewInt(10), Difficulty: big.NewInt(100000000)},
 				{ParentHash: common.BytesToHash([]byte{0xf}), Number: big.NewInt(17), Difficulty: big.NewInt(100000000)},
 			},

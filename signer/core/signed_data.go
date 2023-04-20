@@ -69,7 +69,7 @@ type ValidatorData struct {
 	Message hexutil.Bytes
 }
 
-type TypedData struct {
+type TypedData [P crypto.PublicKey] struct {
 	Types       Types            `json:"types"`
 	PrimaryType string           `json:"primaryType"`
 	Domain      TypedDataDomain  `json:"domain"`
@@ -198,7 +198,7 @@ func (api *SignerAPI[T,P]) determineSignatureFormat(ctx context.Context, content
 		if err != nil {
 			return nil, useEthereumV, err
 		}
-		sighash, msg := SignTextValidator(validatorData)
+		sighash, msg := SignTextValidator[P](validatorData)
 		messages := []*NameValueType{
 			{
 				Name:  "This is a request to sign data intended for a particular validator (see EIP 191 version 0)",
@@ -232,7 +232,7 @@ func (api *SignerAPI[T,P]) determineSignatureFormat(ctx context.Context, content
 		if err != nil {
 			return nil, useEthereumV, err
 		}
-		header := &types.Header{}
+		header := &types.Header[P]{}
 		if err := rlp.DecodeBytes(cliqueData, header); err != nil {
 			return nil, useEthereumV, err
 		}
@@ -288,9 +288,9 @@ func (api *SignerAPI[T,P]) determineSignatureFormat(ctx context.Context, content
 // SignTextWithValidator signs the given message which can be further recovered
 // with the given validator.
 // hash = keccak256("\x19\x00"${address}${data}).
-func SignTextValidator(validatorData ValidatorData) (hexutil.Bytes, string) {
+func SignTextValidator[P crypto.PublicKey](validatorData ValidatorData) (hexutil.Bytes, string) {
 	msg := fmt.Sprintf("\x19\x00%s%s", string(validatorData.Address.Bytes()), string(validatorData.Message))
-	return crypto.Keccak256([]byte(msg)), msg
+	return crypto.Keccak256[P]([]byte(msg)), msg
 }
 
 // cliqueHeaderHashAndRlp returns the hash which is used as input for the proof-of-authority
@@ -300,7 +300,7 @@ func SignTextValidator(validatorData ValidatorData) (hexutil.Bytes, string) {
 // The method requires the extra data to be at least 65 bytes -- the original implementation
 // in clique.go panics if this is the case, thus it's been reimplemented here to avoid the panic
 // and simply return an error instead
-func cliqueHeaderHashAndRlp(header *types.Header) (hash, rlp []byte, err error) {
+func cliqueHeaderHashAndRlp[P crypto.PublicKey](header *types.Header[P]) (hash, rlp []byte, err error) {
 	if len(header.Extra) < 65 {
 		err = fmt.Errorf("clique header extradata too short, %d < 65", len(header.Extra))
 		return
@@ -315,7 +315,7 @@ func cliqueHeaderHashAndRlp(header *types.Header) (hash, rlp []byte, err error) 
 // It returns
 // - the signature,
 // - and/or any error
-func (api *SignerAPI[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, typedData TypedData) (hexutil.Bytes, error) {
+func (api *SignerAPI[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, typedData TypedData[P]) (hexutil.Bytes, error) {
 	signature, _, err := api.signTypedData(ctx, addr, typedData, nil)
 	return signature, err
 }
@@ -323,7 +323,7 @@ func (api *SignerAPI[T,P]) SignTypedData(ctx context.Context, addr common.Mixedc
 // signTypedData is identical to the capitalized version, except that it also returns the hash (preimage)
 // - the signature preimage (hash)
 func (api *SignerAPI[T,P]) signTypedData(ctx context.Context, addr common.MixedcaseAddress,
-	typedData TypedData, validationMessages *ValidationMessages) (hexutil.Bytes, hexutil.Bytes, error) {
+	typedData TypedData[P], validationMessages *ValidationMessages) (hexutil.Bytes, hexutil.Bytes, error) {
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
 		return nil, nil, err
@@ -333,7 +333,7 @@ func (api *SignerAPI[T,P]) signTypedData(ctx context.Context, addr common.Mixedc
 		return nil, nil, err
 	}
 	rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
-	sighash := crypto.Keccak256(rawData)
+	sighash := crypto.Keccak256[P](rawData)
 	messages, err := typedData.Format()
 	if err != nil {
 		return nil, nil, err
@@ -356,16 +356,16 @@ func (api *SignerAPI[T,P]) signTypedData(ctx context.Context, addr common.Mixedc
 }
 
 // HashStruct generates a keccak256 hash of the encoding of the provided data
-func (typedData *TypedData) HashStruct(primaryType string, data TypedDataMessage) (hexutil.Bytes, error) {
+func (typedData *TypedData[P]) HashStruct(primaryType string, data TypedDataMessage) (hexutil.Bytes, error) {
 	encodedData, err := typedData.EncodeData(primaryType, data, 1)
 	if err != nil {
 		return nil, err
 	}
-	return crypto.Keccak256(encodedData), nil
+	return crypto.Keccak256[P](encodedData), nil
 }
 
 // Dependencies returns an array of custom types ordered by their hierarchical reference tree
-func (typedData *TypedData) Dependencies(primaryType string, found []string) []string {
+func (typedData *TypedData[P]) Dependencies(primaryType string, found []string) []string {
 	includes := func(arr []string, str string) bool {
 		for _, obj := range arr {
 			if obj == str {
@@ -396,7 +396,7 @@ func (typedData *TypedData) Dependencies(primaryType string, found []string) []s
 // `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
 //
 // each member is written as `type ‖ " " ‖ name` encodings cascade down and are sorted by name
-func (typedData *TypedData) EncodeType(primaryType string) hexutil.Bytes {
+func (typedData *TypedData[P]) EncodeType(primaryType string) hexutil.Bytes {
 	// Get dependencies primary first, then alphabetical
 	deps := typedData.Dependencies(primaryType, []string{})
 	if len(deps) > 0 {
@@ -423,15 +423,15 @@ func (typedData *TypedData) EncodeType(primaryType string) hexutil.Bytes {
 }
 
 // TypeHash creates the keccak256 hash  of the data
-func (typedData *TypedData) TypeHash(primaryType string) hexutil.Bytes {
-	return crypto.Keccak256(typedData.EncodeType(primaryType))
+func (typedData *TypedData[P]) TypeHash(primaryType string) hexutil.Bytes {
+	return crypto.Keccak256[P](typedData.EncodeType(primaryType))
 }
 
 // EncodeData generates the following encoding:
 // `enc(value₁) ‖ enc(value₂) ‖ … ‖ enc(valueₙ)`
 //
 // each encoded member is 32-byte long
-func (typedData *TypedData) EncodeData(primaryType string, data map[string]interface{}, depth int) (hexutil.Bytes, error) {
+func (typedData *TypedData[P]) EncodeData(primaryType string, data map[string]interface{}, depth int) (hexutil.Bytes, error) {
 	if err := typedData.validate(); err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (typedData *TypedData) EncodeData(primaryType string, data map[string]inter
 				}
 			}
 
-			buffer.Write(crypto.Keccak256(arrayBuffer.Bytes()))
+			buffer.Write(crypto.Keccak256[P](arrayBuffer.Bytes()))
 		} else if typedData.Types[field.Type] != nil {
 			mapValue, ok := encValue.(map[string]interface{})
 			if !ok {
@@ -488,7 +488,7 @@ func (typedData *TypedData) EncodeData(primaryType string, data map[string]inter
 			if err != nil {
 				return nil, err
 			}
-			buffer.Write(crypto.Keccak256(encodedData))
+			buffer.Write(crypto.Keccak256[P](encodedData))
 		} else {
 			byteValue, err := typedData.EncodePrimitiveValue(encType, encValue, depth)
 			if err != nil {
@@ -571,7 +571,7 @@ func parseInteger(encType string, encValue interface{}) (*big.Int, error) {
 
 // EncodePrimitiveValue deals with the primitive values found
 // while searching through the typed data
-func (typedData *TypedData) EncodePrimitiveValue(encType string, encValue interface{}, depth int) ([]byte, error) {
+func (typedData *TypedData[P]) EncodePrimitiveValue(encType string, encValue interface{}, depth int) ([]byte, error) {
 	switch encType {
 	case "address":
 		stringValue, ok := encValue.(string)
@@ -595,13 +595,13 @@ func (typedData *TypedData) EncodePrimitiveValue(encType string, encValue interf
 		if !ok {
 			return nil, dataMismatchError(encType, encValue)
 		}
-		return crypto.Keccak256([]byte(strVal)), nil
+		return crypto.Keccak256[P]([]byte(strVal)), nil
 	case "bytes":
 		bytesValue, ok := parseBytes(encValue)
 		if !ok {
 			return nil, dataMismatchError(encType, encValue)
 		}
-		return crypto.Keccak256(bytesValue), nil
+		return crypto.Keccak256[P](bytesValue), nil
 	}
 	if strings.HasPrefix(encType, "bytes") {
 		lengthStr := strings.TrimPrefix(encType, "bytes")
@@ -704,7 +704,7 @@ func UnmarshalValidatorData(data interface{}) (ValidatorData, error) {
 }
 
 // validate makes sure the types are sound
-func (typedData *TypedData) validate() error {
+func (typedData *TypedData[P]) validate() error {
 	if err := typedData.Types.validate(); err != nil {
 		return err
 	}
@@ -715,7 +715,7 @@ func (typedData *TypedData) validate() error {
 }
 
 // Map generates a map version of the typed data
-func (typedData *TypedData) Map() map[string]interface{} {
+func (typedData *TypedData[P]) Map() map[string]interface{} {
 	dataMap := map[string]interface{}{
 		"types":       typedData.Types,
 		"domain":      typedData.Domain.Map(),
@@ -727,7 +727,7 @@ func (typedData *TypedData) Map() map[string]interface{} {
 
 // Format returns a representation of typedData, which can be easily displayed by a user-interface
 // without in-depth knowledge about 712 rules
-func (typedData *TypedData) Format() ([]*NameValueType, error) {
+func (typedData *TypedData[P]) Format() ([]*NameValueType, error) {
 	domain, err := typedData.formatData("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
 		return nil, err
@@ -750,7 +750,7 @@ func (typedData *TypedData) Format() ([]*NameValueType, error) {
 	return nvts, nil
 }
 
-func (typedData *TypedData) formatData(primaryType string, data map[string]interface{}) ([]*NameValueType, error) {
+func (typedData *TypedData[P]) formatData(primaryType string, data map[string]interface{}) ([]*NameValueType, error) {
 	var output []*NameValueType
 
 	// Add field contents. Structs and arrays have special handlers.

@@ -314,9 +314,9 @@ func (tx *Transaction[P]) Hash() common.Hash {
 
 	var h common.Hash
 	if tx.Type() == LegacyTxType {
-		h = rlpHash(tx.inner)
+		h = rlpHash[P](tx.inner)
 	} else {
-		h = prefixedRlpHash(tx.Type(), tx.inner)
+		h = prefixedRlpHash[P](tx.Type(), tx.inner)
 	}
 	tx.hash.Store(h)
 	return h

@@ -250,7 +250,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 	// Run each of the tests and verify the results against the chain
 	for i, tt := range tests {
 		// Collect the headers to expect in the response
-		var headers []*types.Header
+		var headers []*types.Header[nist.PublicKey]
 		for _, hash := range tt.expect {
 			headers = append(headers, backend.chain.GetBlockByHash(hash).Header())
 		}
@@ -265,7 +265,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 				RequestId:             123,
 				GetBlockHeadersPacket: tt.query,
 			})
-			if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66{
+			if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66[nist.PublicKey]{
 				RequestId:          123,
 				BlockHeadersPacket: headers,
 			}); err != nil {
@@ -287,7 +287,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 						RequestId:             456,
 						GetBlockHeadersPacket: tt.query,
 					})
-					if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66{
+					if err := p2p.ExpectMsg(peer.app, BlockHeadersMsg, BlockHeadersPacket66[nist.PublicKey]{
 						RequestId:          456,
 						BlockHeadersPacket: headers,
 					}); err != nil {
@@ -479,7 +479,7 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	}
 	// Verify that all hashes correspond to the requested data, and reconstruct a state tree
 	for i, want := range hashes {
-		if hash := crypto.Keccak256Hash(data[i]); hash != want {
+		if hash := crypto.Keccak256Hash[nist.PublicKey](data[i]); hash != want {
 			t.Errorf("data hash mismatch: have %x, want %x", hash, want)
 		}
 	}
@@ -489,7 +489,7 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	}
 	accounts := []common.Address{testAddr, acc1Addr, acc2Addr}
 	for i := uint64(0); i <= backend.chain.CurrentBlock().NumberU64(); i++ {
-		trie, _ := state.New(backend.chain.GetBlockByNumber(i).Root(), state.NewDatabase(statedb), nil)
+		trie, _ := state.New[nist.PublicKey](backend.chain.GetBlockByNumber(i).Root(), state.NewDatabase[nist.PublicKey](statedb), nil)
 
 		for j, acc := range accounts {
 			state, _, _ := backend.chain.State()

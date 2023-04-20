@@ -34,6 +34,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/metrics"
@@ -45,12 +46,14 @@ import (
 
 var (
 	initCommand = cli.Command{
-		Action:    utils.MigrateFlags(initGenesis[nist.PrivateKey, nist.PublicKey]),
+		Action:    utils.MigrateFlags(initGenesisType),
 		Name:      "init",
 		Usage:     "Bootstrap and initialize a new genesis block",
 		ArgsUsage: "<genesisPath>",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
+			utils.CryptoSwitchFlag,
+			utils.CryptoGostCurveFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -67,10 +70,7 @@ It expects the genesis file as argument.`,
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			utils.MainnetFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
-			utils.GoerliFlag,
-			utils.YoloV3Flag,
+			utils.SoyuzFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -205,9 +205,47 @@ func getIsQuorum(file io.Reader) bool {
 	}
 
 	// unspecified defaults to true
-	return altGenesis.Config.IsQuorum == nil || *altGenesis.Config.IsQuorum
+	// Mir defaults to false
+	return altGenesis.Config.IsQuorum != nil
 }
 
+func initGenesisType(ctx *cli.Context) error {
+	// Mir - set crypto before the start of services 
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			return initGenesis[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			crypto.CryptoAlg = crypto.GOST_CSP
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			return initGenesis[nist.PrivateKey,nist.PublicKey](ctx)
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	}
+	return nil
+}
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
 func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -230,7 +268,7 @@ func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 	// Quorum
 	file.Seek(0, 0)
 	genesis.Config.IsQuorum = getIsQuorum(file)
-
+	fmt.Printf("Is Quorum %t \n ", genesis.Config.IsQuorum)
 	// check the data given as a part of newMaxConfigData to ensure that
 	// its in expected order
 	err = genesis.Config.CheckMaxCodeConfigData()
@@ -438,7 +476,7 @@ func importPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) 
 	db := utils.MakeChainDatabase(ctx, stack, false)
 	start := time.Now()
 
-	if err := utils.ImportPreimages(db, ctx.Args().First()); err != nil {
+	if err := utils.ImportPreimages[P](db, ctx.Args().First()); err != nil {
 		utils.Fatalf("Import error: %v\n", err)
 	}
 	fmt.Printf("Import done in %v\n", time.Since(start))
@@ -470,25 +508,25 @@ func dump[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
 	for _, arg := range ctx.Args() {
-		var header *types.Header
+		var header *types.Header[P]
 		if hashish(arg) {
 			hash := common.HexToHash(arg)
 			number := rawdb.ReadHeaderNumber(db, hash)
 			if number != nil {
-				header = rawdb.ReadHeader(db, hash, *number)
+				header = rawdb.ReadHeader[P](db, hash, *number)
 			}
 		} else {
 			number, _ := strconv.Atoi(arg)
 			hash := rawdb.ReadCanonicalHash(db, uint64(number))
 			if hash != (common.Hash{}) {
-				header = rawdb.ReadHeader(db, hash, uint64(number))
+				header = rawdb.ReadHeader[P](db, hash, uint64(number))
 			}
 		}
 		if header == nil {
 			fmt.Println("{}")
 			utils.Fatalf("block not found")
 		} else {
-			state, err := state.New(header.Root, state.NewDatabase(db), nil)
+			state, err := state.New[P](header.Root, state.NewDatabase[P](db), nil)
 			if err != nil {
 				utils.Fatalf("could not create new state: %v", err)
 			}

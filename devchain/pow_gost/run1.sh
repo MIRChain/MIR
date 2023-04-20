@@ -16,11 +16,8 @@ echo "Starting node1 ..."
   --http.port 8545 \
   --http.corsdomain "*" \
   --http.api shh,personal,db,eth,net,web3,txpool,miner,admin \
-  --bootnodes 'enode://161df3a5f868dc64c0f778b2fb3c3724311b9b7f4fdec9eccac3f9a40e065ffb04932ee860d7224fc2972db93ee8a4e43d50e0dca79953ebb0c849d5083f9ab3@127.0.0.1:30310' \
+  --bootnodes 'enode://fb5f060ea4f9c3caecc9de4f7f9b1b3124373cfbb278f7c064dc68f8a5f31d16b39a3f08d549c8b0eb5399a7dce0503de4a4e83eb92d97c24f22d760e82e9304@127.0.0.1:30310' \
   --networkid 6581 \
-  --unlock 0x8ac1983A8E7656A10566c4D795f3509Ee35a41C3 \
-  --password node1/password.txt \
   --mine \
   --miner.threads=1 \
-  --verbosity 4 \
-  --allow-insecure-unlock
+  --verbosity 4 

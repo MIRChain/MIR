@@ -166,13 +166,13 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 			req.Bytes = softResponseLimit
 		}
 		// Retrieve the requested state and bail out if non existent
-		tr, err := trie.New(req.Root, backend.Chain().StateCache().TrieDB())
+		tr, err := trie.New[P](req.Root, backend.Chain().StateCache().TrieDB())
 		if err != nil {
-			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket{ID: req.ID})
+			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket[P]{ID: req.ID})
 		}
 		it, err := backend.Chain().Snapshots().AccountIterator(req.Root, req.Origin)
 		if err != nil {
-			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket{ID: req.ID})
+			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket[P]{ID: req.ID})
 		}
 		// Iterate over the requested range and pile accounts up
 		var (
@@ -200,15 +200,15 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 		it.Release()
 
 		// Generate the Merkle proofs for the first and last account
-		proof := light.NewNodeSet()
+		proof := light.NewNodeSet[P]()
 		if err := tr.Prove(req.Origin[:], 0, proof); err != nil {
 			log.Warn("Failed to prove account range", "origin", req.Origin, "err", err)
-			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket{ID: req.ID})
+			return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket[P]{ID: req.ID})
 		}
 		if last != (common.Hash{}) {
 			if err := tr.Prove(last[:], 0, proof); err != nil {
 				log.Warn("Failed to prove account range", "last", last, "err", err)
-				return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket{ID: req.ID})
+				return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket[P]{ID: req.ID})
 			}
 		}
 		var proofs [][]byte
@@ -216,7 +216,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 			proofs = append(proofs, blob)
 		}
 		// Send back anything accumulated
-		return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket{
+		return p2p.Send(peer.rw, AccountRangeMsg, &AccountRangePacket[P]{
 			ID:       req.ID,
 			Accounts: accounts,
 			Proof:    proofs,
@@ -224,7 +224,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 
 	case msg.Code == AccountRangeMsg:
 		// A range of accounts arrived to one of our previous requests
-		res := new(AccountRangePacket)
+		res := new(AccountRangePacket[P])
 		if err := msg.Decode(res); err != nil {
 			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 		}
@@ -316,7 +316,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 			if origin != (common.Hash{}) || abort {
 				// Request started at a non-zero hash or was capped prematurely, add
 				// the endpoint Merkle proofs
-				accTrie, err := trie.New(req.Root, backend.Chain().StateCache().TrieDB())
+				accTrie, err := trie.New[P](req.Root, backend.Chain().StateCache().TrieDB())
 				if err != nil {
 					return p2p.Send(peer.rw, StorageRangesMsg, &StorageRangesPacket{ID: req.ID})
 				}
@@ -324,11 +324,11 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 				if err := rlp.DecodeBytes(accTrie.Get(account[:]), &acc); err != nil {
 					return p2p.Send(peer.rw, StorageRangesMsg, &StorageRangesPacket{ID: req.ID})
 				}
-				stTrie, err := trie.New(acc.Root, backend.Chain().StateCache().TrieDB())
+				stTrie, err := trie.New[P](acc.Root, backend.Chain().StateCache().TrieDB())
 				if err != nil {
 					return p2p.Send(peer.rw, StorageRangesMsg, &StorageRangesPacket{ID: req.ID})
 				}
-				proof := light.NewNodeSet()
+				proof := light.NewNodeSet[P]()
 				if err := stTrie.Prove(origin[:], 0, proof); err != nil {
 					log.Warn("Failed to prove storage range", "origin", req.Origin, "err", err)
 					return p2p.Send(peer.rw, StorageRangesMsg, &StorageRangesPacket{ID: req.ID})
@@ -389,6 +389,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 		var (
 			codes [][]byte
 			bytes uint64
+			emptyCode = crypto.Keccak256Hash[P]()
 		)
 		for _, hash := range req.Hashes {
 			if hash == emptyCode {
@@ -431,7 +432,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 		// Make sure we have the state associated with the request
 		triedb := backend.Chain().StateCache().TrieDB()
 
-		accTrie, err := trie.NewSecure(req.Root, triedb)
+		accTrie, err := trie.NewSecure[P](req.Root, triedb)
 		if err != nil {
 			// We don't have the requested state available, bail out
 			return p2p.Send(peer.rw, TrieNodesMsg, &TrieNodesPacket{ID: req.ID})
@@ -473,7 +474,7 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 				if err != nil {
 					break
 				}
-				stTrie, err := trie.NewSecure(common.BytesToHash(account.Root), triedb)
+				stTrie, err := trie.NewSecure[P](common.BytesToHash(account.Root), triedb)
 				loads++ // always account database reads, even for failures
 				if err != nil {
 					break

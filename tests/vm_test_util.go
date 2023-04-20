@@ -79,7 +79,7 @@ type vmExecMarshaling struct {
 }
 
 func (t *VMTest[P]) Run(vmconfig vm.Config[P], snapshotter bool) error {
-	snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
+	snaps, statedb := MakePreState[P](rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
 	if snapshotter {
 		preRoot := statedb.IntermediateRoot(false)
 		defer func() {
@@ -122,13 +122,13 @@ func (t *VMTest[P]) Run(vmconfig vm.Config[P], snapshotter bool) error {
 	return nil
 }
 
-func (t *VMTest[P]) exec(statedb *state.StateDB, vmconfig vm.Config[P]) ([]byte, uint64, error) {
+func (t *VMTest[P]) exec(statedb *state.StateDB[P], vmconfig vm.Config[P]) ([]byte, uint64, error) {
 	evm := t.newEVM(statedb, vmconfig)
 	e := t.json.Exec
 	return evm.Call(vm.AccountRef(e.Caller), e.Address, e.Data, e.GasLimit, e.Value)
 }
 
-func (t *VMTest[P]) newEVM(statedb *state.StateDB, vmconfig vm.Config[P]) *vm.EVM[P] {
+func (t *VMTest[P]) newEVM(statedb *state.StateDB[P], vmconfig vm.Config[P]) *vm.EVM[P] {
 	initialCall := true
 	canTransfer := func(db vm.StateDB, address common.Address, amount *big.Int) bool {
 		if initialCall {
@@ -145,7 +145,7 @@ func (t *VMTest[P]) newEVM(statedb *state.StateDB, vmconfig vm.Config[P]) *vm.EV
 	context := vm.BlockContext{
 		CanTransfer: canTransfer,
 		Transfer:    transfer,
-		GetHash:     vmTestBlockHash,
+		GetHash:     vmTestBlockHash[P],
 		Coinbase:    t.json.Env.Coinbase,
 		BlockNumber: new(big.Int).SetUint64(t.json.Env.Number),
 		Time:        new(big.Int).SetUint64(t.json.Env.Timestamp),
@@ -156,6 +156,6 @@ func (t *VMTest[P]) newEVM(statedb *state.StateDB, vmconfig vm.Config[P]) *vm.EV
 	return vm.NewEVM(context, txContext, statedb, statedb, params.MainnetChainConfig, vmconfig)
 }
 
-func vmTestBlockHash(n uint64) common.Hash {
-	return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
+func vmTestBlockHash[P crypto.PublicKey](n uint64) common.Hash {
+	return common.BytesToHash(crypto.Keccak256[P]([]byte(big.NewInt(int64(n)).String())))
 }

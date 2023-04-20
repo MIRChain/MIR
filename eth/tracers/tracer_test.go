@@ -45,12 +45,12 @@ func (account) ReturnGas(*big.Int)                                  {}
 func (account) SetCode(common.Hash, []byte)                         {}
 func (account) ForEachStorage(cb func(key, value common.Hash) bool) {}
 
-type dummyStatedb struct {
-	state.StateDB
+type dummyStatedb [P crypto.PublicKey] struct {
+	state.StateDB[P]
 }
 
-func (*dummyStatedb) GetRefund() uint64                       { return 1337 }
-func (*dummyStatedb) GetBalance(addr common.Address) *big.Int { return new(big.Int) }
+func (*dummyStatedb[P]) GetRefund() uint64                       { return 1337 }
+func (*dummyStatedb[P]) GetBalance(addr common.Address) *big.Int { return new(big.Int) }
 
 type vmContext struct {
 	blockCtx vm.BlockContext
@@ -62,12 +62,12 @@ func testCtx() *vmContext {
 }
 
 func runTrace[P crypto.PublicKey](tracer *Tracer[P], vmctx *vmContext) (json.RawMessage, error) {
-	env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[P]{Debug: true, Tracer: tracer})
+	env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb[P]{}, &dummyStatedb[P]{}, params.TestChainConfig, vm.Config[P]{Debug: true, Tracer: tracer})
 	var (
 		startGas uint64 = 10000
 		value           = big.NewInt(0)
 	)
-	contract := vm.NewContract(account{}, account{}, value, startGas)
+	contract := vm.NewContract[P](account{}, account{}, value, startGas)
 	contract.Code = []byte{byte(vm.PUSH1), 0x1, byte(vm.PUSH1), 0x1, 0x0}
 
 	tracer.CaptureStart(env, contract.Caller(), contract.Address(), false, []byte{}, startGas, value)
@@ -152,9 +152,9 @@ func TestHaltBetweenSteps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1)}, vm.TxContext{}, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
-	scope := &vm.ScopeContext{
-		Contract: vm.NewContract(&account{}, &account{}, big.NewInt(0), 0),
+	env := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1)}, vm.TxContext{}, &dummyStatedb[nist.PublicKey]{}, &dummyStatedb[nist.PublicKey]{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
+	scope := &vm.ScopeContext[nist.PublicKey]{
+		Contract: vm.NewContract[nist.PublicKey](&account{}, &account{}, big.NewInt(0), 0),
 	}
 
 	tracer.CaptureState(env, 0, 0, 0, 0, scope, nil, 0, nil)
@@ -171,9 +171,9 @@ func TestHaltBetweenSteps(t *testing.T) {
 // in 'result'
 func TestNoStepExec(t *testing.T) {
 	runEmptyTrace := func(tracer *Tracer[nist.PublicKey], vmctx *vmContext) (json.RawMessage, error) {
-		env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb{}, &dummyStatedb{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
+		env := vm.NewEVM(vmctx.blockCtx, vmctx.txCtx, &dummyStatedb[nist.PublicKey]{}, &dummyStatedb[nist.PublicKey]{}, params.TestChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
 		startGas := uint64(10000)
-		contract := vm.NewContract(account{}, account{}, big.NewInt(0), startGas)
+		contract := vm.NewContract[nist.PublicKey](account{}, account{}, big.NewInt(0), startGas)
 		tracer.CaptureStart(env, contract.Caller(), contract.Address(), false, []byte{}, startGas, big.NewInt(0))
 		tracer.CaptureEnd(nil, startGas-contract.Gas, 1, nil)
 		return tracer.GetResult()

@@ -21,14 +21,14 @@ type DefaultPrivateStateRepository [P crypto.PublicKey] struct {
 	stateCache           state.Database
 	privateCacheProvider privatecache.Provider
 	// stateDB gives access to the underlying state
-	stateDB *state.StateDB
+	stateDB *state.StateDB[P]
 	root    common.Hash
 }
 
 func NewDefaultPrivateStateRepository[P crypto.PublicKey](db ethdb.Database, cache state.Database, privateCacheProvider privatecache.Provider, previousBlockHash common.Hash) (*DefaultPrivateStateRepository[P], error) {
 	root := rawdb.GetPrivateStateRoot(db, previousBlockHash)
 
-	statedb, err := state.New(root, cache, nil)
+	statedb, err := state.New[P](root, cache, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func NewDefaultPrivateStateRepository[P crypto.PublicKey](db ethdb.Database, cac
 	}, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository[P]) DefaultState() (*state.StateDB, error) {
+func (dpsr *DefaultPrivateStateRepository[P]) DefaultState() (*state.StateDB[P], error) {
 	if dpsr == nil {
 		return nil, fmt.Errorf("nil instance")
 	}
@@ -61,7 +61,7 @@ func (dpsr *DefaultPrivateStateRepository[P]) PrivateStateRoot(psi types.Private
 	return dpsr.root, nil
 }
 
-func (dpsr *DefaultPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB, error) {
+func (dpsr *DefaultPrivateStateRepository[P]) StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], error) {
 	if psi != types.DefaultPrivateStateIdentifier {
 		return nil, fmt.Errorf("only the 'private' psi is supported by the default private state manager")
 	}

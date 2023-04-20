@@ -56,7 +56,7 @@ func NewPublicDownloaderAPI[T crypto.PrivateKey, P crypto.PublicKey](d *Download
 // sync subscriptions and broadcasts sync status updates to the installed sync subscriptions.
 func (api *PublicDownloaderAPI[T,P]) eventLoop() {
 	var (
-		sub               = api.mux.Subscribe(StartEvent{}, DoneEvent{}, FailedEvent{})
+		sub               = api.mux.Subscribe(StartEvent{}, DoneEvent[P]{}, FailedEvent{})
 		syncSubscriptions = make(map[chan interface{}]struct{})
 	)
 
@@ -79,7 +79,7 @@ func (api *PublicDownloaderAPI[T,P]) eventLoop() {
 					Syncing: true,
 					Status:  api.d.Progress(),
 				}
-			case DoneEvent, FailedEvent:
+			case DoneEvent[P], FailedEvent:
 				notification = false
 			}
 			// broadcast

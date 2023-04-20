@@ -34,7 +34,7 @@ func TestHandleCommit(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
 
-	proposal := newTestProposal()
+	proposal := newTestProposal[nist.PublicKey]()
 	expectedSubject := &istanbul.Subject{
 		View: &istanbul.View{
 			Round:    big.NewInt(0),
@@ -55,7 +55,7 @@ func TestHandleCommit(t *testing.T) {
 				for i, backend := range sys.backends {
 					c := backend.engine
 					c.valSet = backend.peers
-					c.current = newTestRoundState(
+					c.current = newTestRoundState[nist.PublicKey](
 						&istanbul.View{
 							Round:    big.NewInt(0),
 							Sequence: big.NewInt(1),
@@ -82,13 +82,13 @@ func TestHandleCommit(t *testing.T) {
 					c.valSet = backend.peers
 					if i == 0 {
 						// replica 0 is the proposer
-						c.current = newTestRoundState(
+						c.current = newTestRoundState[nist.PublicKey](
 							expectedSubject.View,
 							c.valSet,
 						)
 						c.state = ibfttypes.StatePreprepared
 					} else {
-						c.current = newTestRoundState(
+						c.current = newTestRoundState[nist.PublicKey](
 							&istanbul.View{
 								Round:    big.NewInt(2),
 								Sequence: big.NewInt(3),
@@ -111,13 +111,13 @@ func TestHandleCommit(t *testing.T) {
 					c.valSet = backend.peers
 					if i == 0 {
 						// replica 0 is the proposer
-						c.current = newTestRoundState(
+						c.current = newTestRoundState[nist.PublicKey](
 							expectedSubject.View,
 							c.valSet,
 						)
 						c.state = ibfttypes.StatePreprepared
 					} else {
-						c.current = newTestRoundState(
+						c.current = newTestRoundState[nist.PublicKey](
 							&istanbul.View{
 								Round:    big.NewInt(0),
 								Sequence: big.NewInt(0),
@@ -138,7 +138,7 @@ func TestHandleCommit(t *testing.T) {
 				for i, backend := range sys.backends {
 					c := backend.engine
 					c.valSet = backend.peers
-					c.current = newTestRoundState(
+					c.current = newTestRoundState[nist.PublicKey](
 						&istanbul.View{
 							Round:    big.NewInt(0),
 							Sequence: proposal.Number(),
@@ -247,9 +247,9 @@ func TestVerifyCommit(t *testing.T) {
 			expected: nil,
 			commit: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposal[nist.PublicKey]().Hash(),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
 				valSet,
 			),
@@ -259,9 +259,9 @@ func TestVerifyCommit(t *testing.T) {
 			expected: istanbulcommon.ErrInconsistentSubject,
 			commit: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposal[nist.PublicKey]().Hash(),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
 				valSet,
 			),
@@ -273,7 +273,7 @@ func TestVerifyCommit(t *testing.T) {
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
 				Digest: common.StringToHash("1234567890"),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
 				valSet,
 			),
@@ -283,9 +283,9 @@ func TestVerifyCommit(t *testing.T) {
 			expected: istanbulcommon.ErrInconsistentSubject,
 			commit: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: nil},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposal[nist.PublicKey]().Hash(),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
 				valSet,
 			),
@@ -295,9 +295,9 @@ func TestVerifyCommit(t *testing.T) {
 			expected: istanbulcommon.ErrInconsistentSubject,
 			commit: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(1), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposal[nist.PublicKey]().Hash(),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
 				valSet,
 			),
@@ -307,9 +307,9 @@ func TestVerifyCommit(t *testing.T) {
 			expected: istanbulcommon.ErrInconsistentSubject,
 			commit: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(1)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposal[nist.PublicKey]().Hash(),
 			},
-			roundState: newTestRoundState(
+			roundState: newTestRoundState[nist.PublicKey](
 				&istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
 				valSet,
 			),

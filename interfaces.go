@@ -55,14 +55,14 @@ type Subscription interface {
 type ChainReader [P crypto.PublicKey] interface {
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block[P], error)
-	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header[P], error)
 	TransactionCount(ctx context.Context, blockHash common.Hash) (uint, error)
 	TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction[P], error)
 
 	// This method subscribes to notifications about changes of the head block of
 	// the canonical chain.
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (Subscription, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header[P]) (Subscription, error)
 }
 
 // TransactionReader provides access to past transactions and their receipts.

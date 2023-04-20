@@ -118,7 +118,7 @@ func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *han
 	h.downloader = downloader.New[T,P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
-	validator := func(header *types.Header) error {
+	validator := func(header *types.Header[P]) error {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {
@@ -242,7 +242,7 @@ func (h *handler[T,P]) runQLightClientPeer(peer *qlightproto.Peer[T,P], handler 
 			return p2p.DiscTooManyPeers
 		}
 	}
-	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
+	peer.Log().Debug("Mir peer connected", "name", peer.Name())
 
 	// Register the peer locally
 	if err := h.peers.registerQPeer(peer); err != nil {
@@ -356,7 +356,7 @@ func (h *handler[T,P]) BroadcastBlockQLightClient(block *types.Block[P], propaga
 func (h *qlightClientHandler[T,P]) QHandle(peer *qlightproto.Peer[T,P], packet eth.Packet) error {
 	// Consume any broadcasts and announces, forwarding the rest to the downloader
 	switch packet := packet.(type) {
-	case *eth.BlockHeadersPacket:
+	case *eth.BlockHeadersPacket[P]:
 		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
 
 	case *eth.BlockBodiesPacket[P]:

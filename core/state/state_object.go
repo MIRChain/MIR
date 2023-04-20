@@ -31,7 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
-var emptyCodeHash = crypto.Keccak256(nil)
+// var emptyCodeHash = crypto.Keccak256(nil)
 
 type Code []byte
 
@@ -64,11 +64,11 @@ func (s Storage) Copy() Storage {
 // First you need to obtain a state object.
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
-type stateObject struct {
+type stateObject [P crypto.PublicKey] struct {
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
-	db       *StateDB
+	db       *StateDB[P]
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -107,8 +107,8 @@ type stateObject struct {
 }
 
 // empty returns whether the account is considered empty.
-func (s *stateObject) empty() bool {
-	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
+func (s *stateObject[P]) empty() bool {
+	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, crypto.Keccak256[P](nil))
 }
 
 // Account is the Ethereum consensus representation of accounts.
@@ -121,20 +121,21 @@ type Account struct {
 }
 
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account) *stateObject {
+func newObject[P crypto.PublicKey] (db *StateDB[P], address common.Address, data Account) *stateObject[P] {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
 	if data.CodeHash == nil {
+		var emptyCodeHash = crypto.Keccak256[P](nil)
 		data.CodeHash = emptyCodeHash
 	}
 	if data.Root == (common.Hash{}) {
 		data.Root = emptyRoot
 	}
-	return &stateObject{
+	return &stateObject[P]{
 		db:             db,
 		address:        address,
-		addrHash:       crypto.Keccak256Hash(address[:]),
+		addrHash:       crypto.Keccak256Hash[P](address[:]),
 		data:           data,
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
@@ -143,23 +144,23 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 }
 
 // EncodeRLP implements rlp.Encoder.
-func (s *stateObject) EncodeRLP(w io.Writer) error {
+func (s *stateObject[P]) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, s.data)
 }
 
 // setError remembers the first non-nil error it is called with.
-func (s *stateObject) setError(err error) {
+func (s *stateObject[P]) setError(err error) {
 	if s.dbErr == nil {
 		s.dbErr = err
 	}
 }
 
-func (s *stateObject) markSuicided() {
+func (s *stateObject[P]) markSuicided() {
 	s.suicided = true
 }
 
-func (s *stateObject) touch() {
-	s.db.journal.append(touchChange{
+func (s *stateObject[P]) touch() {
+	s.db.journal.append(touchChange[P]{
 		account: &s.address,
 	})
 	if s.address == ripemd {
@@ -169,7 +170,7 @@ func (s *stateObject) touch() {
 	}
 }
 
-func (s *stateObject) getTrie(db Database) Trie {
+func (s *stateObject[P]) getTrie(db Database) Trie {
 	if s.trie == nil {
 		// Try fetching from prefetcher first
 		// We don't prefetch empty tries
@@ -190,12 +191,12 @@ func (s *stateObject) getTrie(db Database) Trie {
 	return s.trie
 }
 
-func (so *stateObject) storageRoot(db Database) common.Hash {
+func (so *stateObject[P]) storageRoot(db Database) common.Hash {
 	return so.getTrie(db).Hash()
 }
 
 // GetState retrieves a value from the account storage trie.
-func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
+func (s *stateObject[P]) GetState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
@@ -210,7 +211,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
-func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
+func (s *stateObject[P]) GetCommittedState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
@@ -252,7 +253,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
 			return common.Hash{}
 		}
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash[P](key.Bytes()))
 	}
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.db.snap == nil || err != nil {
@@ -287,7 +288,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 }
 
 // SetState updates a value in account storage.
-func (s *stateObject) SetState(db Database, key, value common.Hash) {
+func (s *stateObject[P]) SetState(db Database, key, value common.Hash) {
 	// If the fake storage is set, put the temporary state update here.
 	if s.fakeStorage != nil {
 		s.fakeStorage[key] = value
@@ -299,7 +300,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 		return
 	}
 	// New value is different, update and journal the change
-	s.db.journal.append(storageChange{
+	s.db.journal.append(storageChange[P]{
 		account:  &s.address,
 		key:      key,
 		prevalue: prev,
@@ -313,7 +314,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 // lookup only happens in the fake state storage.
 //
 // Note this function should only be used for debugging purpose.
-func (s *stateObject) SetStorage(storage map[common.Hash]common.Hash) {
+func (s *stateObject[P]) SetStorage(storage map[common.Hash]common.Hash) {
 	// Allocate fake storage if it's nil.
 	if s.fakeStorage == nil {
 		s.fakeStorage = make(Storage)
@@ -325,7 +326,7 @@ func (s *stateObject) SetStorage(storage map[common.Hash]common.Hash) {
 	// debugging and the `fake` storage won't be committed to database.
 }
 
-func (s *stateObject) setState(key, value common.Hash) {
+func (s *stateObject[P]) setState(key, value common.Hash) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -334,7 +335,7 @@ func (s *stateObject) setState(key, value common.Hash) {
 
 // finalise moves all dirty storage slots into the pending area to be hashed or
 // committed later. It is invoked at the end of every transaction.
-func (s *stateObject) finalise(prefetch bool) {
+func (s *stateObject[P]) finalise(prefetch bool) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -356,7 +357,7 @@ func (s *stateObject) finalise(prefetch bool) {
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
-func (s *stateObject) updateTrie(db Database) Trie {
+func (s *stateObject[P]) updateTrie(db Database) Trie {
 	// Make sure all dirty slots are finalized into the pending storage area
 	s.finalise(false) // Don't prefetch any more, pull directly if need be
 	if len(s.pendingStorage) == 0 {
@@ -399,7 +400,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 					s.db.snapStorage[s.addrHash] = storage
 				}
 			}
-			storage[crypto.HashData(hasher, key[:])] = v // v will be nil if value is 0x00
+			storage[crypto.HashData[P](hasher, key[:])] = v // v will be nil if value is 0x00
 		}
 		usedStorage = append(usedStorage, common.CopyBytes(key[:])) // Copy needed for closure
 	}
@@ -413,7 +414,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 }
 
 // UpdateRoot sets the trie root to the current root hash of
-func (s *stateObject) updateRoot(db Database) {
+func (s *stateObject[P]) updateRoot(db Database) {
 	// If nothing changed, don't bother with hashing anything
 	if s.updateTrie(db) == nil {
 		return
@@ -427,7 +428,7 @@ func (s *stateObject) updateRoot(db Database) {
 
 // CommitTrie the storage trie of the object to db.
 // This updates the trie root.
-func (s *stateObject) CommitTrie(db Database) error {
+func (s *stateObject[P]) CommitTrie(db Database) error {
 	// If nothing changed, don't bother with hashing anything
 	if s.updateTrie(db) == nil {
 		return nil
@@ -448,7 +449,7 @@ func (s *stateObject) CommitTrie(db Database) error {
 
 // AddBalance adds amount to s's balance.
 // It is used to add funds to the destination account of a transfer.
-func (s *stateObject) AddBalance(amount *big.Int) {
+func (s *stateObject[P]) AddBalance(amount *big.Int) {
 	// EIP161: We must check emptiness for the objects such that the account
 	// clearing (0,0,0 objects) can take effect.
 	if amount.Sign() == 0 {
@@ -462,33 +463,33 @@ func (s *stateObject) AddBalance(amount *big.Int) {
 
 // SubBalance removes amount from s's balance.
 // It is used to remove funds from the origin account of a transfer.
-func (s *stateObject) SubBalance(amount *big.Int) {
+func (s *stateObject[P]) SubBalance(amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
 	s.SetBalance(new(big.Int).Sub(s.Balance(), amount))
 }
 
-func (s *stateObject) SetBalance(amount *big.Int) {
-	s.db.journal.append(balanceChange{
+func (s *stateObject[P]) SetBalance(amount *big.Int) {
+	s.db.journal.append(balanceChange[P]{
 		account: &s.address,
 		prev:    new(big.Int).Set(s.data.Balance),
 	})
 	s.setBalance(amount)
 }
 
-func (s *stateObject) setBalance(amount *big.Int) {
+func (s *stateObject[P]) setBalance(amount *big.Int) {
 	s.data.Balance = amount
 }
 
 // Return the gas back to the origin. Used by the Virtual machine or Closures
-func (s *stateObject) ReturnGas(gas *big.Int) {}
+func (s *stateObject[P]) ReturnGas(gas *big.Int) {}
 
-func (s *stateObject) deepCopy(db *StateDB) *stateObject {
+func (s *stateObject[P]) deepCopy(db *StateDB[P]) *stateObject[P] {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	stateObject := newObject(db, s.address, s.data)
+	stateObject := newObject[P](db, s.address, s.data)
 	if s.trie != nil {
 		stateObject.trie = db.db.CopyTrie(s.trie)
 	}
@@ -511,15 +512,16 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 //
 
 // Returns the address of the contract/account
-func (s *stateObject) Address() common.Address {
+func (s *stateObject[P]) Address() common.Address {
 	return s.address
 }
 
 // Code returns the contract code associated with this object, if any.
-func (s *stateObject) Code(db Database) []byte {
+func (s *stateObject[P]) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code
 	}
+	var emptyCodeHash = crypto.Keccak256[P](nil)
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil
 	}
@@ -534,10 +536,11 @@ func (s *stateObject) Code(db Database) []byte {
 // CodeSize returns the size of the contract code associated with this object,
 // or zero if none. This method is an almost mirror of Code, but uses a cache
 // inside the database to avoid loading codes seen recently.
-func (s *stateObject) CodeSize(db Database) int {
+func (s *stateObject[P]) CodeSize(db Database) int {
 	if s.code != nil {
 		return len(s.code)
 	}
+	var emptyCodeHash = crypto.Keccak256[P](nil)
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return 0
 	}
@@ -548,9 +551,9 @@ func (s *stateObject) CodeSize(db Database) int {
 	return size
 }
 
-func (s *stateObject) SetCode(codeHash common.Hash, code []byte) {
+func (s *stateObject[P]) SetCode(codeHash common.Hash, code []byte) {
 	prevcode := s.Code(s.db.db)
-	s.db.journal.append(codeChange{
+	s.db.journal.append(codeChange[P]{
 		account:  &s.address,
 		prevhash: s.CodeHash(),
 		prevcode: prevcode,
@@ -558,29 +561,29 @@ func (s *stateObject) SetCode(codeHash common.Hash, code []byte) {
 	s.setCode(codeHash, code)
 }
 
-func (s *stateObject) setCode(codeHash common.Hash, code []byte) {
+func (s *stateObject[P]) setCode(codeHash common.Hash, code []byte) {
 	s.code = code
 	s.data.CodeHash = codeHash[:]
 	s.dirtyCode = true
 }
 
-func (s *stateObject) SetNonce(nonce uint64) {
-	s.db.journal.append(nonceChange{
+func (s *stateObject[P]) SetNonce(nonce uint64) {
+	s.db.journal.append(nonceChange[P]{
 		account: &s.address,
 		prev:    s.data.Nonce,
 	})
 	s.setNonce(nonce)
 }
 
-func (s *stateObject) setNonce(nonce uint64) {
+func (s *stateObject[P]) setNonce(nonce uint64) {
 	s.data.Nonce = nonce
 }
 
 // Quorum
 // SetAccountExtraData modifies the AccountExtraData reference and journals it
-func (s *stateObject) SetAccountExtraData(extraData *AccountExtraData) {
+func (s *stateObject[P]) SetAccountExtraData(extraData *AccountExtraData) {
 	current, _ := s.AccountExtraData()
-	s.db.journal.append(accountExtraDataChange{
+	s.db.journal.append(accountExtraDataChange[P]{
 		account: &s.address,
 		prev:    current,
 	})
@@ -589,9 +592,9 @@ func (s *stateObject) SetAccountExtraData(extraData *AccountExtraData) {
 
 // A new AccountExtraData will be created if not exists.
 // This must be called after successfully acquiring accountExtraDataMutex lock
-func (s *stateObject) journalAccountExtraData() *AccountExtraData {
+func (s *stateObject[P]) journalAccountExtraData() *AccountExtraData {
 	current, _ := s.AccountExtraData()
-	s.db.journal.append(accountExtraDataChange{
+	s.db.journal.append(accountExtraDataChange[P]{
 		account: &s.address,
 		prev:    current.copy(),
 	})
@@ -603,7 +606,7 @@ func (s *stateObject) journalAccountExtraData() *AccountExtraData {
 
 // Quorum
 // SetStatePrivacyMetadata updates the PrivacyMetadata in AccountExtraData and journals it.
-func (s *stateObject) SetStatePrivacyMetadata(pm *PrivacyMetadata) {
+func (s *stateObject[P]) SetStatePrivacyMetadata(pm *PrivacyMetadata) {
 	s.accountExtraDataMutex.Lock()
 	defer s.accountExtraDataMutex.Unlock()
 
@@ -614,7 +617,7 @@ func (s *stateObject) SetStatePrivacyMetadata(pm *PrivacyMetadata) {
 
 // Quorum
 // SetStatePrivacyMetadata updates the PrivacyMetadata in AccountExtraData and journals it.
-func (s *stateObject) SetManagedParties(managedParties []string) {
+func (s *stateObject[P]) SetManagedParties(managedParties []string) {
 	s.accountExtraDataMutex.Lock()
 	defer s.accountExtraDataMutex.Unlock()
 
@@ -625,20 +628,20 @@ func (s *stateObject) SetManagedParties(managedParties []string) {
 
 // Quorum
 // setAccountExtraData modifies the AccountExtraData reference in this state object
-func (s *stateObject) setAccountExtraData(extraData *AccountExtraData) {
+func (s *stateObject[P]) setAccountExtraData(extraData *AccountExtraData) {
 	s.accountExtraData = extraData
 	s.dirtyAccountExtraData = true
 }
 
-func (s *stateObject) CodeHash() []byte {
+func (s *stateObject[P]) CodeHash() []byte {
 	return s.data.CodeHash
 }
 
-func (s *stateObject) Balance() *big.Int {
+func (s *stateObject[P]) Balance() *big.Int {
 	return s.data.Balance
 }
 
-func (s *stateObject) Nonce() uint64 {
+func (s *stateObject[P]) Nonce() uint64 {
 	return s.data.Nonce
 }
 
@@ -647,7 +650,7 @@ func (s *stateObject) Nonce() uint64 {
 // It will also update the reference by searching the accountExtraDataTrie.
 //
 // This method enforces on returning error and never returns (nil, nil).
-func (s *stateObject) AccountExtraData() (*AccountExtraData, error) {
+func (s *stateObject[P]) AccountExtraData() (*AccountExtraData, error) {
 	if s.accountExtraData != nil {
 		return s.accountExtraData, nil
 	}
@@ -663,7 +666,7 @@ func (s *stateObject) AccountExtraData() (*AccountExtraData, error) {
 // getCommittedAccountExtraData looks for an entry in accountExtraDataTrie.
 //
 // This method enforces on returning error and never returns (nil, nil).
-func (s *stateObject) getCommittedAccountExtraData() (*AccountExtraData, error) {
+func (s *stateObject[P]) getCommittedAccountExtraData() (*AccountExtraData, error) {
 	val, err := s.db.accountExtraDataTrie.TryGet(s.address.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve data from the accountExtraDataTrie. Cause: %v", err)
@@ -681,7 +684,7 @@ func (s *stateObject) getCommittedAccountExtraData() (*AccountExtraData, error) 
 // Quorum - Privacy Enhancements
 // PrivacyMetadata returns the reference to PrivacyMetadata.
 // It will returrn an error if no PrivacyMetadata is in the AccountExtraData.
-func (s *stateObject) PrivacyMetadata() (*PrivacyMetadata, error) {
+func (s *stateObject[P]) PrivacyMetadata() (*PrivacyMetadata, error) {
 	extraData, err := s.AccountExtraData()
 	if err != nil {
 		return nil, err
@@ -693,7 +696,7 @@ func (s *stateObject) PrivacyMetadata() (*PrivacyMetadata, error) {
 	return extraData.PrivacyMetadata, nil
 }
 
-func (s *stateObject) GetCommittedPrivacyMetadata() (*PrivacyMetadata, error) {
+func (s *stateObject[P]) GetCommittedPrivacyMetadata() (*PrivacyMetadata, error) {
 	extraData, err := s.getCommittedAccountExtraData()
 	if err != nil {
 		return nil, err
@@ -707,7 +710,7 @@ func (s *stateObject) GetCommittedPrivacyMetadata() (*PrivacyMetadata, error) {
 // End Quorum - Privacy Enhancements
 
 // ManagedParties will return empty if no account extra data found
-func (s *stateObject) ManagedParties() ([]string, error) {
+func (s *stateObject[P]) ManagedParties() ([]string, error) {
 	extraData, err := s.AccountExtraData()
 	if errors.Is(err, common.ErrNoAccountExtraData) {
 		return []string{}, nil
@@ -722,6 +725,6 @@ func (s *stateObject) ManagedParties() ([]string, error) {
 // Never called, but must be present to allow stateObject to be used
 // as a vm.Account interface that also satisfies the vm.ContractRef
 // interface. Interfaces are awesome.
-func (s *stateObject) Value() *big.Int {
+func (s *stateObject[P]) Value() *big.Int {
 	panic("Value on stateObject should never be called")
 }

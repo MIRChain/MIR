@@ -23,6 +23,9 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
@@ -218,7 +221,7 @@ func (s eip2930Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S,
 		if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
 			return nil, nil, nil, ErrInvalidChainId
 		}
-		R, S, _ = decodeSignature(sig)
+		R, S, _ = decodeSignature[P](sig)
 		V = big.NewInt(int64(sig[64]))
 	default:
 		return nil, nil, nil, ErrTxTypeNotSupported
@@ -231,7 +234,7 @@ func (s eip2930Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S,
 func (s eip2930Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 	switch tx.Type() {
 	case LegacyTxType:
-		return rlpHash([]interface{}{
+		return rlpHash[P]([]interface{}{
 			tx.Nonce(),
 			tx.GasPrice(),
 			tx.Gas(),
@@ -241,7 +244,7 @@ func (s eip2930Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 			s.chainId, uint(0), uint(0),
 		})
 	case AccessListTxType:
-		return prefixedRlpHash(
+		return prefixedRlpHash[P](
 			tx.Type(),
 			[]interface{}{
 				s.chainId,
@@ -314,7 +317,7 @@ func (s EIP155Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S, 
 	if tx.Type() != LegacyTxType {
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
-	R, S, V = decodeSignature(sig)
+	R, S, V = decodeSignature[P](sig)
 	if s.chainId.Sign() != 0 {
 		V = big.NewInt(int64(sig[64] + 35))
 		V.Add(V, s.chainIdMul)
@@ -325,7 +328,7 @@ func (s EIP155Signer[P]) SignatureValues(tx *Transaction[P], sig []byte) (R, S, 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer[P]) Hash(tx *Transaction[P]) common.Hash {
-	return rlpHash([]interface{}{
+	return rlpHash[P]([]interface{}{
 		tx.Nonce(),
 		tx.GasPrice(),
 		tx.Gas(),
@@ -388,14 +391,14 @@ func (fs FrontierSigner[P]) SignatureValues(tx *Transaction[P], sig []byte) (r, 
 	if tx.Type() != LegacyTxType {
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
-	r, s, v = decodeSignature(sig)
+	r, s, v = decodeSignature[P](sig)
 	return r, s, v, nil
 }
 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner[P]) Hash(tx *Transaction[P]) common.Hash {
-	return rlpHash([]interface{}{
+	return rlpHash[P]([]interface{}{
 		tx.Nonce(),
 		tx.GasPrice(),
 		tx.Gas(),
@@ -405,13 +408,27 @@ func (fs FrontierSigner[P]) Hash(tx *Transaction[P]) common.Hash {
 	})
 }
 
-func decodeSignature(sig []byte) (r, s, v *big.Int) {
+func decodeSignature[P crypto.PublicKey](sig []byte) (r, s, v *big.Int) {
 	if len(sig) != crypto.SignatureLength {
 		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), crypto.SignatureLength))
 	}
-	r = new(big.Int).SetBytes(sig[:32])
-	s = new(big.Int).SetBytes(sig[32:64])
-	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	var pub P
+	switch any(&pub).(type){
+	case *nist.PublicKey:
+		r = new(big.Int).SetBytes(sig[:32])
+		s = new(big.Int).SetBytes(sig[32:64])
+		v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	case *gost3410.PublicKey:
+		r = new(big.Int).SetBytes(sig[:32])
+		s = new(big.Int).SetBytes(sig[32:64])
+		v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	case *csp.PublicKey:
+		resSig := sig[:64]
+		reverse(resSig)
+		r = new(big.Int).SetBytes(resSig[32:64])
+		s = new(big.Int).SetBytes(resSig[:32])
+		v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	}
 	return r, s, v
 }
 
@@ -431,21 +448,39 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 		return common.Address{}, ErrInvalidSig
 	}
 	// encode the signature in uncompressed format
-	r, s := R.Bytes(), S.Bytes()
 	sig := make([]byte, crypto.SignatureLength)
-	copy(sig[32-len(r):32], r)
-	copy(sig[64-len(s):64], s)
-	sig[64] = V
+	// MIR
+	var p P
+	switch any(&p).(type){
+	case *nist.PublicKey:
+		r, s := R.Bytes(), S.Bytes()
+		copy(sig[32-len(r):32], r)
+		copy(sig[64-len(s):64], s)
+		sig[64] = V
+	case *gost3410.PublicKey:
+		r, s := R.Bytes(), S.Bytes()
+		copy(sig[32-len(r):32], r)
+		copy(sig[64-len(s):64], s)
+		sig[64] = V
+	case *csp.PublicKey:
+		resSig := make([]byte, 64)
+		r, s := R.Bytes(), S.Bytes()
+		copy(resSig[32-len(s):32], s)
+		copy(resSig[64-len(r):64], r)
+		reverse(resSig)
+		copy(sig, resSig)
+		sig[64] = V
+	}
 	// recover the public key from the signature
 	pub, err := crypto.Ecrecover[P](sighash[:], sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	if len(pub) == 0 || pub[0] != 4 {
+	if len(pub) == 0 || !(pub[0] == 4 || pub[0] == 64){
 		return common.Address{}, errors.New("invalid public key")
 	}
 	var addr common.Address
-	copy(addr[:], crypto.Keccak256(pub[1:])[12:])
+	copy(addr[:], crypto.Keccak256[P](pub[1:])[12:])
 	return addr, nil
 }
 
@@ -461,4 +496,10 @@ func deriveChainId(v *big.Int) *big.Int {
 	}
 	v = new(big.Int).Sub(v, big.NewInt(35))
 	return v.Div(v, big.NewInt(2))
+}
+
+func reverse(d []byte) {
+	for i, j := 0, len(d)-1; i < j; i, j = i+1, j-1 {
+		d[i], d[j] = d[j], d[i]
+	}
 }

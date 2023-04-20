@@ -54,19 +54,19 @@ type Backend [T crypto.PrivateKey,P crypto.PublicKey] interface {
 
 	// Blockchain API
 	SetHead(number uint64)
-	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error)
-	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-	HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error)
-	CurrentHeader() *types.Header
+	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error)
+	HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header[P], error)
+	CurrentHeader() *types.Header[P]
 	CurrentBlock() *types.Block[P]
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
 	BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block[P], error)
-	StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error)
-	StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error)
+	StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.MinimalApiState, *types.Header[P], error)
+	StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header[P], error)
 	GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts[P], error)
 	GetTd(ctx context.Context, hash common.Hash) *big.Int
-	GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header, vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error)
+	GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header[P], vmConfig *vm.Config[P]) (*vm.EVM[P], func() error, error)
 	SubscribeChainEvent(ch chan<- core.ChainEvent[P]) event.Subscription
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent[P]) event.Subscription
 	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent[P]) event.Subscription

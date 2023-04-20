@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/light"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -114,26 +115,26 @@ func BenchmarkHashing(b *testing.B) {
 }
 
 type (
-	accountHandlerFunc func(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error
-	storageHandlerFunc func(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error
-	trieHandlerFunc    func(t *testPeer, requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error
-	codeHandlerFunc    func(t *testPeer, id uint64, hashes []common.Hash, max uint64) error
+	accountHandlerFunc[P crypto.PublicKey] func(t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error
+	storageHandlerFunc[P crypto.PublicKey] func(t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error
+	trieHandlerFunc[P crypto.PublicKey]    func(t *testPeer[P], requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error
+	codeHandlerFunc[P crypto.PublicKey]    func(t *testPeer[P], id uint64, hashes []common.Hash, max uint64) error
 )
 
-type testPeer struct {
+type testPeer [P crypto.PublicKey] struct {
 	id            string
 	test          *testing.T
-	remote        *Syncer
+	remote        *Syncer[P]
 	logger        log.Logger
-	accountTrie   *trie.Trie
+	accountTrie   *trie.Trie[P]
 	accountValues entrySlice
-	storageTries  map[common.Hash]*trie.Trie
+	storageTries  map[common.Hash]*trie.Trie[P]
 	storageValues map[common.Hash]entrySlice
 
-	accountRequestHandler accountHandlerFunc
-	storageRequestHandler storageHandlerFunc
-	trieRequestHandler    trieHandlerFunc
-	codeRequestHandler    codeHandlerFunc
+	accountRequestHandler accountHandlerFunc[P]
+	storageRequestHandler storageHandlerFunc[P]
+	trieRequestHandler    trieHandlerFunc[P]
+	codeRequestHandler    codeHandlerFunc[P]
 	term                  func()
 
 	// counters
@@ -143,15 +144,15 @@ type testPeer struct {
 	nTrienodeRequests int
 }
 
-func newTestPeer(id string, t *testing.T, term func()) *testPeer {
-	peer := &testPeer{
+func newTestPeer[P crypto.PublicKey](id string, t *testing.T, term func()) *testPeer[P] {
+	peer := &testPeer[P]{
 		id:                    id,
 		test:                  t,
 		logger:                log.New("id", id),
-		accountRequestHandler: defaultAccountRequestHandler,
-		trieRequestHandler:    defaultTrieRequestHandler,
-		storageRequestHandler: defaultStorageRequestHandler,
-		codeRequestHandler:    defaultCodeRequestHandler,
+		accountRequestHandler: defaultAccountRequestHandler[P],
+		trieRequestHandler:    defaultTrieRequestHandler[P],
+		storageRequestHandler: defaultStorageRequestHandler[P],
+		codeRequestHandler:    defaultCodeRequestHandler[P],
 		term:                  term,
 	}
 	//stderrHandler := log.StreamHandler(os.Stderr, log.TerminalFormat(true))
@@ -159,10 +160,10 @@ func newTestPeer(id string, t *testing.T, term func()) *testPeer {
 	return peer
 }
 
-func (t *testPeer) ID() string      { return t.id }
-func (t *testPeer) Log() log.Logger { return t.logger }
+func (t *testPeer[P]) ID() string      { return t.id }
+func (t *testPeer[P]) Log() log.Logger { return t.logger }
 
-func (t *testPeer) Stats() string {
+func (t *testPeer[P]) Stats() string {
 	return fmt.Sprintf(`Account requests: %d
 Storage requests: %d
 Bytecode requests: %d
@@ -170,21 +171,21 @@ Trienode requests: %d
 `, t.nAccountRequests, t.nStorageRequests, t.nBytecodeRequests, t.nTrienodeRequests)
 }
 
-func (t *testPeer) RequestAccountRange(id uint64, root, origin, limit common.Hash, bytes uint64) error {
+func (t *testPeer[P]) RequestAccountRange(id uint64, root, origin, limit common.Hash, bytes uint64) error {
 	t.logger.Trace("Fetching range of accounts", "reqid", id, "root", root, "origin", origin, "limit", limit, "bytes", common.StorageSize(bytes))
 	t.nAccountRequests++
 	go t.accountRequestHandler(t, id, root, origin, limit, bytes)
 	return nil
 }
 
-func (t *testPeer) RequestTrieNodes(id uint64, root common.Hash, paths []TrieNodePathSet, bytes uint64) error {
+func (t *testPeer[P]) RequestTrieNodes(id uint64, root common.Hash, paths []TrieNodePathSet, bytes uint64) error {
 	t.logger.Trace("Fetching set of trie nodes", "reqid", id, "root", root, "pathsets", len(paths), "bytes", common.StorageSize(bytes))
 	t.nTrienodeRequests++
 	go t.trieRequestHandler(t, id, root, paths, bytes)
 	return nil
 }
 
-func (t *testPeer) RequestStorageRanges(id uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, bytes uint64) error {
+func (t *testPeer[P]) RequestStorageRanges(id uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, bytes uint64) error {
 	t.nStorageRequests++
 	if len(accounts) == 1 && origin != nil {
 		t.logger.Trace("Fetching range of large storage slots", "reqid", id, "root", root, "account", accounts[0], "origin", common.BytesToHash(origin), "limit", common.BytesToHash(limit), "bytes", common.StorageSize(bytes))
@@ -195,7 +196,7 @@ func (t *testPeer) RequestStorageRanges(id uint64, root common.Hash, accounts []
 	return nil
 }
 
-func (t *testPeer) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint64) error {
+func (t *testPeer[P]) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint64) error {
 	t.nBytecodeRequests++
 	t.logger.Trace("Fetching set of byte codes", "reqid", id, "hashes", len(hashes), "bytes", common.StorageSize(bytes))
 	go t.codeRequestHandler(t, id, hashes, bytes)
@@ -203,7 +204,7 @@ func (t *testPeer) RequestByteCodes(id uint64, hashes []common.Hash, bytes uint6
 }
 
 // defaultTrieRequestHandler is a well-behaving handler for trie healing requests
-func defaultTrieRequestHandler(t *testPeer, requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
+func defaultTrieRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
 	// Pass the response
 	var nodes [][]byte
 	for _, pathset := range paths {
@@ -232,7 +233,7 @@ func defaultTrieRequestHandler(t *testPeer, requestId uint64, root common.Hash, 
 }
 
 // defaultAccountRequestHandler is a well-behaving handler for AccountRangeRequests
-func defaultAccountRequestHandler(t *testPeer, id uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+func defaultAccountRequestHandler[P crypto.PublicKey](t *testPeer[P], id uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 	keys, vals, proofs := createAccountRequestResponse(t, root, origin, limit, cap)
 	if err := t.remote.OnAccounts(t, id, keys, vals, proofs); err != nil {
 		t.test.Errorf("Remote side rejected our delivery: %v", err)
@@ -242,7 +243,7 @@ func defaultAccountRequestHandler(t *testPeer, id uint64, root common.Hash, orig
 	return nil
 }
 
-func createAccountRequestResponse(t *testPeer, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) (keys []common.Hash, vals [][]byte, proofs [][]byte) {
+func createAccountRequestResponse[P crypto.PublicKey](t *testPeer[P], root common.Hash, origin common.Hash, limit common.Hash, cap uint64) (keys []common.Hash, vals [][]byte, proofs [][]byte) {
 	var size uint64
 	if limit == (common.Hash{}) {
 		limit = common.HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
@@ -264,7 +265,7 @@ func createAccountRequestResponse(t *testPeer, root common.Hash, origin common.H
 	// Unless we send the entire trie, we need to supply proofs
 	// Actually, we need to supply proofs either way! This seems to be an implementation
 	// quirk in go-ethereum
-	proof := light.NewNodeSet()
+	proof := light.NewNodeSet[P]()
 	if err := t.accountTrie.Prove(origin[:], 0, proof); err != nil {
 		t.logger.Error("Could not prove inexistence of origin", "origin", origin, "error", err)
 	}
@@ -281,7 +282,7 @@ func createAccountRequestResponse(t *testPeer, root common.Hash, origin common.H
 }
 
 // defaultStorageRequestHandler is a well-behaving storage request handler
-func defaultStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) error {
+func defaultStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) error {
 	hashes, slots, proofs := createStorageRequestResponse(t, root, accounts, bOrigin, bLimit, max)
 	if err := t.remote.OnStorage(t, requestId, hashes, slots, proofs); err != nil {
 		t.test.Errorf("Remote side rejected our delivery: %v", err)
@@ -290,10 +291,10 @@ func defaultStorageRequestHandler(t *testPeer, requestId uint64, root common.Has
 	return nil
 }
 
-func defaultCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max uint64) error {
+func defaultCodeRequestHandler[P crypto.PublicKey](t *testPeer[P], id uint64, hashes []common.Hash, max uint64) error {
 	var bytecodes [][]byte
 	for _, h := range hashes {
-		bytecodes = append(bytecodes, getCodeByHash(h))
+		bytecodes = append(bytecodes, getCodeByHash[P](h))
 	}
 	if err := t.remote.OnByteCodes(t, id, bytecodes); err != nil {
 		t.test.Errorf("Remote side rejected our delivery: %v", err)
@@ -302,7 +303,7 @@ func defaultCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max
 	return nil
 }
 
-func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
+func createStorageRequestResponse[P crypto.PublicKey](t *testPeer[P], root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
 	var size uint64
 	for _, account := range accounts {
 		// The first account might start from a different origin and end sooner
@@ -343,7 +344,7 @@ func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []comm
 		if originHash != (common.Hash{}) || abort {
 			// If we're aborting, we need to prove the first and last item
 			// This terminates the response (and thus the loop)
-			proof := light.NewNodeSet()
+			proof := light.NewNodeSet[P]()
 			stTrie := t.storageTries[account]
 
 			// Here's a potential gotcha: when constructing the proof, we cannot
@@ -369,7 +370,7 @@ func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []comm
 
 //  the createStorageRequestResponseAlwaysProve tests a cornercase, where it always
 // supplies the proof for the last account, even if it is 'complete'.h
-func createStorageRequestResponseAlwaysProve(t *testPeer, root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
+func createStorageRequestResponseAlwaysProve[P crypto.PublicKey](t *testPeer[P], root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
 	var size uint64
 	max = max * 3 / 4
 
@@ -401,7 +402,7 @@ func createStorageRequestResponseAlwaysProve(t *testPeer, root common.Hash, acco
 		if exit {
 			// If we're aborting, we need to prove the first and last item
 			// This terminates the response (and thus the loop)
-			proof := light.NewNodeSet()
+			proof := light.NewNodeSet[P]()
 			stTrie := t.storageTries[account]
 
 			// Here's a potential gotcha: when constructing the proof, we cannot
@@ -427,34 +428,34 @@ func createStorageRequestResponseAlwaysProve(t *testPeer, root common.Hash, acco
 }
 
 // emptyRequestAccountRangeFn is a rejects AccountRangeRequests
-func emptyRequestAccountRangeFn(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+func emptyRequestAccountRangeFn[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 	t.remote.OnAccounts(t, requestId, nil, nil, nil)
 	return nil
 }
 
-func nonResponsiveRequestAccountRangeFn(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+func nonResponsiveRequestAccountRangeFn[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 	return nil
 }
 
-func emptyTrieRequestHandler(t *testPeer, requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
+func emptyTrieRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
 	t.remote.OnTrieNodes(t, requestId, nil)
 	return nil
 }
 
-func nonResponsiveTrieRequestHandler(t *testPeer, requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
+func nonResponsiveTrieRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, paths []TrieNodePathSet, cap uint64) error {
 	return nil
 }
 
-func emptyStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func emptyStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	t.remote.OnStorage(t, requestId, nil, nil, nil)
 	return nil
 }
 
-func nonResponsiveStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func nonResponsiveStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	return nil
 }
 
-func proofHappyStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func proofHappyStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	hashes, slots, proofs := createStorageRequestResponseAlwaysProve(t, root, accounts, origin, limit, max)
 	if err := t.remote.OnStorage(t, requestId, hashes, slots, proofs); err != nil {
 		t.test.Errorf("Remote side rejected our delivery: %v", err)
@@ -463,13 +464,13 @@ func proofHappyStorageRequestHandler(t *testPeer, requestId uint64, root common.
 	return nil
 }
 
-//func emptyCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max uint64) error {
+//func emptyCodeRequestHandler(t *testPeer[P], id uint64, hashes []common.Hash, max uint64) error {
 //	var bytecodes [][]byte
 //	t.remote.OnByteCodes(t, id, bytecodes)
 //	return nil
 //}
 
-func corruptCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max uint64) error {
+func corruptCodeRequestHandler[P crypto.PublicKey](t *testPeer[P], id uint64, hashes []common.Hash, max uint64) error {
 	var bytecodes [][]byte
 	for _, h := range hashes {
 		// Send back the hashes
@@ -483,10 +484,10 @@ func corruptCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max
 	return nil
 }
 
-func cappedCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max uint64) error {
+func cappedCodeRequestHandler[P crypto.PublicKey](t *testPeer[P], id uint64, hashes []common.Hash, max uint64) error {
 	var bytecodes [][]byte
 	for _, h := range hashes[:1] {
-		bytecodes = append(bytecodes, getCodeByHash(h))
+		bytecodes = append(bytecodes, getCodeByHash[P](h))
 	}
 	// Missing bytecode can be retrieved again, no error expected
 	if err := t.remote.OnByteCodes(t, id, bytecodes); err != nil {
@@ -497,19 +498,19 @@ func cappedCodeRequestHandler(t *testPeer, id uint64, hashes []common.Hash, max 
 }
 
 // starvingStorageRequestHandler is somewhat well-behaving storage handler, but it caps the returned results to be very small
-func starvingStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func starvingStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	return defaultStorageRequestHandler(t, requestId, root, accounts, origin, limit, 500)
 }
 
-func starvingAccountRequestHandler(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+func starvingAccountRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 	return defaultAccountRequestHandler(t, requestId, root, origin, limit, 500)
 }
 
-//func misdeliveringAccountRequestHandler(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, cap uint64) error {
+//func misdeliveringAccountRequestHandler(t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, cap uint64) error {
 //	return defaultAccountRequestHandler(t, requestId-1, root, origin, 500)
 //}
 
-func corruptAccountRequestHandler(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+func corruptAccountRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 	hashes, accounts, proofs := createAccountRequestResponse(t, root, origin, limit, cap)
 	if len(proofs) > 0 {
 		proofs = proofs[1:]
@@ -523,7 +524,7 @@ func corruptAccountRequestHandler(t *testPeer, requestId uint64, root common.Has
 }
 
 // corruptStorageRequestHandler doesn't provide good proofs
-func corruptStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func corruptStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	hashes, slots, proofs := createStorageRequestResponse(t, root, accounts, origin, limit, max)
 	if len(proofs) > 0 {
 		proofs = proofs[1:]
@@ -536,7 +537,7 @@ func corruptStorageRequestHandler(t *testPeer, requestId uint64, root common.Has
 	return nil
 }
 
-func noProofStorageRequestHandler(t *testPeer, requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
+func noProofStorageRequestHandler[P crypto.PublicKey](t *testPeer[P], requestId uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, max uint64) error {
 	hashes, slots, _ := createStorageRequestResponse(t, root, accounts, origin, limit, max)
 	if err := t.remote.OnStorage(t, requestId, hashes, slots, nil); err != nil {
 		t.logger.Info("remote error on delivery (as expected)", "error", err)
@@ -561,12 +562,12 @@ func TestSyncBloatedProof(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(100)
-	source := newTestPeer("source", t, term)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](100)
+	source := newTestPeer[nist.PublicKey]("source", t, term)
 	source.accountTrie = sourceAccountTrie
 	source.accountValues = elems
 
-	source.accountRequestHandler = func(t *testPeer, requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
+	source.accountRequestHandler = func(t *testPeer[nist.PublicKey], requestId uint64, root common.Hash, origin common.Hash, limit common.Hash, cap uint64) error {
 		var (
 			proofs [][]byte
 			keys   []common.Hash
@@ -584,7 +585,7 @@ func TestSyncBloatedProof(t *testing.T) {
 			vals = append(vals, entry.v)
 		}
 		// The proofs
-		proof := light.NewNodeSet()
+		proof := light.NewNodeSet[nist.PublicKey]()
 		if err := t.accountTrie.Prove(origin[:], 0, proof); err != nil {
 			t.logger.Error("Could not prove origin", "origin", origin, "error", err)
 		}
@@ -615,9 +616,9 @@ func TestSyncBloatedProof(t *testing.T) {
 	}
 }
 
-func setupSyncer(peers ...*testPeer) *Syncer {
+func setupSyncer[P crypto.PublicKey](peers ...*testPeer[P]) *Syncer[P] {
 	stateDb := rawdb.NewMemoryDatabase()
-	syncer := NewSyncer(stateDb)
+	syncer := NewSyncer[P](stateDb)
 	for _, peer := range peers {
 		syncer.Register(peer)
 		peer.remote = syncer
@@ -638,10 +639,10 @@ func TestSync(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(100)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](100)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		return source
@@ -650,7 +651,7 @@ func TestSync(t *testing.T) {
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncTinyTriePanic tests a basic sync with one peer, and a tiny trie. This caused a
@@ -667,10 +668,10 @@ func TestSyncTinyTriePanic(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(1)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](1)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		return source
@@ -681,7 +682,7 @@ func TestSyncTinyTriePanic(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestMultiSync tests a basic sync with multiple peers
@@ -697,10 +698,10 @@ func TestMultiSync(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(100)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](100)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		return source
@@ -711,7 +712,7 @@ func TestMultiSync(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncWithStorage tests  basic sync using accounts + storage + code
@@ -727,10 +728,10 @@ func TestSyncWithStorage(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(3, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](3, 3000, true, false)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
@@ -743,7 +744,7 @@ func TestSyncWithStorage(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestMultiSyncManyUseless contains one good peer, and many which doesn't return anything valuable at all
@@ -759,23 +760,23 @@ func TestMultiSyncManyUseless(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(100, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](100, 3000, true, false)
 
-	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
 		source.storageValues = storageElems
 
 		if !noAccount {
-			source.accountRequestHandler = emptyRequestAccountRangeFn
+			source.accountRequestHandler = emptyRequestAccountRangeFn[nist.PublicKey]
 		}
 		if !noStorage {
-			source.storageRequestHandler = emptyStorageRequestHandler
+			source.storageRequestHandler = emptyStorageRequestHandler[nist.PublicKey]
 		}
 		if !noTrieNode {
-			source.trieRequestHandler = emptyTrieRequestHandler
+			source.trieRequestHandler = emptyTrieRequestHandler[nist.PublicKey]
 		}
 		return source
 	}
@@ -791,7 +792,7 @@ func TestMultiSyncManyUseless(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestMultiSyncManyUseless contains one good peer, and many which doesn't return anything valuable at all
@@ -811,23 +812,23 @@ func TestMultiSyncManyUselessWithLowTimeout(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(100, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](100, 3000, true, false)
 
-	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
 		source.storageValues = storageElems
 
 		if !noAccount {
-			source.accountRequestHandler = emptyRequestAccountRangeFn
+			source.accountRequestHandler = emptyRequestAccountRangeFn[nist.PublicKey]
 		}
 		if !noStorage {
-			source.storageRequestHandler = emptyStorageRequestHandler
+			source.storageRequestHandler = emptyStorageRequestHandler[nist.PublicKey]
 		}
 		if !noTrieNode {
-			source.trieRequestHandler = emptyTrieRequestHandler
+			source.trieRequestHandler = emptyTrieRequestHandler[nist.PublicKey]
 		}
 		return source
 	}
@@ -843,7 +844,7 @@ func TestMultiSyncManyUselessWithLowTimeout(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestMultiSyncManyUnresponsive contains one good peer, and many which doesn't respond at all
@@ -861,23 +862,23 @@ func TestMultiSyncManyUnresponsive(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(100, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](100, 3000, true, false)
 
-	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, noAccount, noStorage, noTrieNode bool) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
 		source.storageValues = storageElems
 
 		if !noAccount {
-			source.accountRequestHandler = nonResponsiveRequestAccountRangeFn
+			source.accountRequestHandler = nonResponsiveRequestAccountRangeFn[nist.PublicKey]
 		}
 		if !noStorage {
-			source.storageRequestHandler = nonResponsiveStorageRequestHandler
+			source.storageRequestHandler = nonResponsiveStorageRequestHandler[nist.PublicKey]
 		}
 		if !noTrieNode {
-			source.trieRequestHandler = nonResponsiveTrieRequestHandler
+			source.trieRequestHandler = nonResponsiveTrieRequestHandler[nist.PublicKey]
 		}
 		return source
 	}
@@ -893,7 +894,7 @@ func TestMultiSyncManyUnresponsive(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 func checkStall(t *testing.T, term func()) chan struct{} {
@@ -924,10 +925,10 @@ func TestSyncBoundaryAccountTrie(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeBoundaryAccountTrie(3000)
+	sourceAccountTrie, elems := makeBoundaryAccountTrie[nist.PublicKey](3000)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		return source
@@ -941,7 +942,7 @@ func TestSyncBoundaryAccountTrie(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncNoStorageAndOneCappedPeer tests sync using accounts and no storage, where one peer is
@@ -958,15 +959,15 @@ func TestSyncNoStorageAndOneCappedPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(3000)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](3000)
 
-	mkSource := func(name string, slow bool) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, slow bool) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 
 		if slow {
-			source.accountRequestHandler = starvingAccountRequestHandler
+			source.accountRequestHandler = starvingAccountRequestHandler[nist.PublicKey]
 		}
 		return source
 	}
@@ -982,7 +983,7 @@ func TestSyncNoStorageAndOneCappedPeer(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncNoStorageAndOneCodeCorruptPeer has one peer which doesn't deliver
@@ -999,10 +1000,10 @@ func TestSyncNoStorageAndOneCodeCorruptPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(3000)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](3000)
 
-	mkSource := func(name string, codeFn codeHandlerFunc) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, codeFn codeHandlerFunc[nist.PublicKey]) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.codeRequestHandler = codeFn
@@ -1013,15 +1014,15 @@ func TestSyncNoStorageAndOneCodeCorruptPeer(t *testing.T) {
 	// non-corrupt peer, which delivers everything in one go, and makes the
 	// test moot
 	syncer := setupSyncer(
-		mkSource("capped", cappedCodeRequestHandler),
-		mkSource("corrupt", corruptCodeRequestHandler),
+		mkSource("capped", cappedCodeRequestHandler[nist.PublicKey]),
+		mkSource("corrupt", corruptCodeRequestHandler[nist.PublicKey]),
 	)
 	done := checkStall(t, term)
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 func TestSyncNoStorageAndOneAccountCorruptPeer(t *testing.T) {
@@ -1036,10 +1037,10 @@ func TestSyncNoStorageAndOneAccountCorruptPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(3000)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](3000)
 
-	mkSource := func(name string, accFn accountHandlerFunc) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, accFn accountHandlerFunc[nist.PublicKey]) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.accountRequestHandler = accFn
@@ -1050,15 +1051,15 @@ func TestSyncNoStorageAndOneAccountCorruptPeer(t *testing.T) {
 	// non-corrupt peer, which delivers everything in one go, and makes the
 	// test moot
 	syncer := setupSyncer(
-		mkSource("capped", defaultAccountRequestHandler),
-		mkSource("corrupt", corruptAccountRequestHandler),
+		mkSource("capped", defaultAccountRequestHandler[nist.PublicKey]),
+		mkSource("corrupt", corruptAccountRequestHandler[nist.PublicKey]),
 	)
 	done := checkStall(t, term)
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncNoStorageAndOneCodeCappedPeer has one peer which delivers code hashes
@@ -1075,10 +1076,10 @@ func TestSyncNoStorageAndOneCodeCappedPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(3000)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](3000)
 
-	mkSource := func(name string, codeFn codeHandlerFunc) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, codeFn codeHandlerFunc[nist.PublicKey]) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.codeRequestHandler = codeFn
@@ -1088,7 +1089,7 @@ func TestSyncNoStorageAndOneCodeCappedPeer(t *testing.T) {
 	// so it shouldn't be more than that
 	var counter int
 	syncer := setupSyncer(
-		mkSource("capped", func(t *testPeer, id uint64, hashes []common.Hash, max uint64) error {
+		mkSource("capped", func(t *testPeer[nist.PublicKey], id uint64, hashes []common.Hash, max uint64) error {
 			counter++
 			return cappedCodeRequestHandler(t, id, hashes, max)
 		}),
@@ -1106,7 +1107,7 @@ func TestSyncNoStorageAndOneCodeCappedPeer(t *testing.T) {
 	if threshold := 100; counter > threshold {
 		t.Fatalf("Error, expected < %d invocations, got %d", threshold, counter)
 	}
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncBoundaryStorageTrie tests sync against a few normal peers, but the
@@ -1123,10 +1124,10 @@ func TestSyncBoundaryStorageTrie(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(10, 1000, false, true)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](10, 1000, false, true)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
@@ -1142,7 +1143,7 @@ func TestSyncBoundaryStorageTrie(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncWithStorageAndOneCappedPeer tests sync using accounts + storage, where one peer is
@@ -1159,17 +1160,17 @@ func TestSyncWithStorageAndOneCappedPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(300, 1000, false, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](300, 1000, false, false)
 
-	mkSource := func(name string, slow bool) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, slow bool) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
 		source.storageValues = storageElems
 
 		if slow {
-			source.storageRequestHandler = starvingStorageRequestHandler
+			source.storageRequestHandler = starvingStorageRequestHandler[nist.PublicKey]
 		}
 		return source
 	}
@@ -1183,7 +1184,7 @@ func TestSyncWithStorageAndOneCappedPeer(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncWithStorageAndCorruptPeer tests sync using accounts + storage, where one peer is
@@ -1200,10 +1201,10 @@ func TestSyncWithStorageAndCorruptPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(100, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](100, 3000, true, false)
 
-	mkSource := func(name string, handler storageHandlerFunc) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, handler storageHandlerFunc[nist.PublicKey]) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
@@ -1213,17 +1214,17 @@ func TestSyncWithStorageAndCorruptPeer(t *testing.T) {
 	}
 
 	syncer := setupSyncer(
-		mkSource("nice-a", defaultStorageRequestHandler),
-		mkSource("nice-b", defaultStorageRequestHandler),
-		mkSource("nice-c", defaultStorageRequestHandler),
-		mkSource("corrupt", corruptStorageRequestHandler),
+		mkSource("nice-a", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("nice-b", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("nice-c", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("corrupt", corruptStorageRequestHandler[nist.PublicKey]),
 	)
 	done := checkStall(t, term)
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 func TestSyncWithStorageAndNonProvingPeer(t *testing.T) {
@@ -1238,10 +1239,10 @@ func TestSyncWithStorageAndNonProvingPeer(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage(100, 3000, true, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorage[nist.PublicKey](100, 3000, true, false)
 
-	mkSource := func(name string, handler storageHandlerFunc) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string, handler storageHandlerFunc[nist.PublicKey]) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
@@ -1250,17 +1251,17 @@ func TestSyncWithStorageAndNonProvingPeer(t *testing.T) {
 		return source
 	}
 	syncer := setupSyncer(
-		mkSource("nice-a", defaultStorageRequestHandler),
-		mkSource("nice-b", defaultStorageRequestHandler),
-		mkSource("nice-c", defaultStorageRequestHandler),
-		mkSource("corrupt", noProofStorageRequestHandler),
+		mkSource("nice-a", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("nice-b", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("nice-c", defaultStorageRequestHandler[nist.PublicKey]),
+		mkSource("corrupt", noProofStorageRequestHandler[nist.PublicKey]),
 	)
 	done := checkStall(t, term)
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
 	close(done)
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 // TestSyncWithStorage tests  basic sync using accounts + storage + code, against
@@ -1278,22 +1279,22 @@ func TestSyncWithStorageMisbehavingProve(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorageWithUniqueStorage(10, 30, false)
+	sourceAccountTrie, elems, storageTries, storageElems := makeAccountTrieWithStorageWithUniqueStorage[nist.PublicKey](10, 30, false)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		source.storageTries = storageTries
 		source.storageValues = storageElems
-		source.storageRequestHandler = proofHappyStorageRequestHandler
+		source.storageRequestHandler = proofHappyStorageRequestHandler[nist.PublicKey]
 		return source
 	}
 	syncer := setupSyncer(mkSource("sourceA"))
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 }
 
 type kv struct {
@@ -1315,14 +1316,14 @@ func key32(i uint64) []byte {
 
 var (
 	codehashes = []common.Hash{
-		crypto.Keccak256Hash([]byte{0}),
-		crypto.Keccak256Hash([]byte{1}),
-		crypto.Keccak256Hash([]byte{2}),
-		crypto.Keccak256Hash([]byte{3}),
-		crypto.Keccak256Hash([]byte{4}),
-		crypto.Keccak256Hash([]byte{5}),
-		crypto.Keccak256Hash([]byte{6}),
-		crypto.Keccak256Hash([]byte{7}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{0}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{1}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{2}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{3}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{4}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{5}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{6}),
+		crypto.Keccak256Hash[nist.PublicKey]([]byte{7}),
 	}
 )
 
@@ -1333,8 +1334,8 @@ func getCodeHash(i uint64) []byte {
 }
 
 // getCodeByHash convenience function to lookup the code from the code hash
-func getCodeByHash(hash common.Hash) []byte {
-	if hash == emptyCode {
+func getCodeByHash[P crypto.PublicKey](hash common.Hash) []byte {
+	if hash == crypto.Keccak256Hash[P]() {
 		return nil
 	}
 	for i, h := range codehashes {
@@ -1346,9 +1347,9 @@ func getCodeByHash(hash common.Hash) []byte {
 }
 
 // makeAccountTrieNoStorage spits out a trie, along with the leafs
-func makeAccountTrieNoStorage(n int) (*trie.Trie, entrySlice) {
+func makeAccountTrieNoStorage[P crypto.PublicKey](n int) (*trie.Trie[P], entrySlice) {
 	db := trie.NewDatabase(rawdb.NewMemoryDatabase())
-	accTrie, _ := trie.New(common.Hash{}, db)
+	accTrie, _ := trie.New[P](common.Hash{}, db)
 	var entries entrySlice
 	for i := uint64(1); i <= uint64(n); i++ {
 		value, _ := rlp.EncodeToBytes(state.Account{
@@ -1370,13 +1371,13 @@ func makeAccountTrieNoStorage(n int) (*trie.Trie, entrySlice) {
 // makeBoundaryAccountTrie constructs an account trie. Instead of filling
 // accounts normally, this function will fill a few accounts which have
 // boundary hash.
-func makeBoundaryAccountTrie(n int) (*trie.Trie, entrySlice) {
+func makeBoundaryAccountTrie[P crypto.PublicKey](n int) (*trie.Trie[P], entrySlice) {
 	var (
 		entries    entrySlice
 		boundaries []common.Hash
 
 		db      = trie.NewDatabase(rawdb.NewMemoryDatabase())
-		trie, _ = trie.New(common.Hash{}, db)
+		trie, _ = trie.New[P](common.Hash{}, db)
 	)
 	// Initialize boundaries
 	var next common.Hash
@@ -1425,23 +1426,23 @@ func makeBoundaryAccountTrie(n int) (*trie.Trie, entrySlice) {
 
 // makeAccountTrieWithStorageWithUniqueStorage creates an account trie where each accounts
 // has a unique storage set.
-func makeAccountTrieWithStorageWithUniqueStorage(accounts, slots int, code bool) (*trie.Trie, entrySlice, map[common.Hash]*trie.Trie, map[common.Hash]entrySlice) {
+func makeAccountTrieWithStorageWithUniqueStorage[P crypto.PublicKey](accounts, slots int, code bool) (*trie.Trie[P], entrySlice, map[common.Hash]*trie.Trie[P], map[common.Hash]entrySlice) {
 	var (
 		db             = trie.NewDatabase(rawdb.NewMemoryDatabase())
-		accTrie, _     = trie.New(common.Hash{}, db)
+		accTrie, _     = trie.New[P](common.Hash{}, db)
 		entries        entrySlice
-		storageTries   = make(map[common.Hash]*trie.Trie)
+		storageTries   = make(map[common.Hash]*trie.Trie[P])
 		storageEntries = make(map[common.Hash]entrySlice)
 	)
 	// Create n accounts in the trie
 	for i := uint64(1); i <= uint64(accounts); i++ {
 		key := key32(i)
-		codehash := emptyCode[:]
+		codehash := crypto.Keccak256[P]()[:]
 		if code {
 			codehash = getCodeHash(i)
 		}
 		// Create a storage trie
-		stTrie, stEntries := makeStorageTrieWithSeed(uint64(slots), i, db)
+		stTrie, stEntries := makeStorageTrieWithSeed[P](uint64(slots), i, db)
 		stRoot := stTrie.Hash()
 		stTrie.Commit(nil)
 		value, _ := rlp.EncodeToBytes(state.Account{
@@ -1464,30 +1465,30 @@ func makeAccountTrieWithStorageWithUniqueStorage(accounts, slots int, code bool)
 }
 
 // makeAccountTrieWithStorage spits out a trie, along with the leafs
-func makeAccountTrieWithStorage(accounts, slots int, code, boundary bool) (*trie.Trie, entrySlice, map[common.Hash]*trie.Trie, map[common.Hash]entrySlice) {
+func makeAccountTrieWithStorage[P crypto.PublicKey](accounts, slots int, code, boundary bool) (*trie.Trie[P], entrySlice, map[common.Hash]*trie.Trie[P], map[common.Hash]entrySlice) {
 	var (
 		db             = trie.NewDatabase(rawdb.NewMemoryDatabase())
-		accTrie, _     = trie.New(common.Hash{}, db)
+		accTrie, _     = trie.New[P](common.Hash{}, db)
 		entries        entrySlice
-		storageTries   = make(map[common.Hash]*trie.Trie)
+		storageTries   = make(map[common.Hash]*trie.Trie[P])
 		storageEntries = make(map[common.Hash]entrySlice)
 	)
 	// Make a storage trie which we reuse for the whole lot
 	var (
-		stTrie    *trie.Trie
+		stTrie    *trie.Trie[P]
 		stEntries entrySlice
 	)
 	if boundary {
-		stTrie, stEntries = makeBoundaryStorageTrie(slots, db)
+		stTrie, stEntries = makeBoundaryStorageTrie[P](slots, db)
 	} else {
-		stTrie, stEntries = makeStorageTrieWithSeed(uint64(slots), 0, db)
+		stTrie, stEntries = makeStorageTrieWithSeed[P](uint64(slots), 0, db)
 	}
 	stRoot := stTrie.Hash()
 
 	// Create n accounts in the trie
 	for i := uint64(1); i <= uint64(accounts); i++ {
 		key := key32(i)
-		codehash := emptyCode[:]
+		codehash := crypto.Keccak256[P]()[:]
 		if code {
 			codehash = getCodeHash(i)
 		}
@@ -1513,8 +1514,8 @@ func makeAccountTrieWithStorage(accounts, slots int, code, boundary bool) (*trie
 // makeStorageTrieWithSeed fills a storage trie with n items, returning the
 // not-yet-committed trie and the sorted entries. The seeds can be used to ensure
 // that tries are unique.
-func makeStorageTrieWithSeed(n, seed uint64, db *trie.Database) (*trie.Trie, entrySlice) {
-	trie, _ := trie.New(common.Hash{}, db)
+func makeStorageTrieWithSeed[P crypto.PublicKey](n, seed uint64, db *trie.Database) (*trie.Trie[P], entrySlice) {
+	trie, _ := trie.New[P](common.Hash{}, db)
 	var entries entrySlice
 	for i := uint64(1); i <= n; i++ {
 		// store 'x' at slot 'x'
@@ -1522,7 +1523,7 @@ func makeStorageTrieWithSeed(n, seed uint64, db *trie.Database) (*trie.Trie, ent
 		rlpSlotValue, _ := rlp.EncodeToBytes(common.TrimLeftZeroes(slotValue[:]))
 
 		slotKey := key32(i)
-		key := crypto.Keccak256Hash(slotKey[:])
+		key := crypto.Keccak256Hash[P](slotKey[:])
 
 		elem := &kv{key[:], rlpSlotValue}
 		trie.Update(elem.k, elem.v)
@@ -1536,11 +1537,11 @@ func makeStorageTrieWithSeed(n, seed uint64, db *trie.Database) (*trie.Trie, ent
 // makeBoundaryStorageTrie constructs a storage trie. Instead of filling
 // storage slots normally, this function will fill a few slots which have
 // boundary hash.
-func makeBoundaryStorageTrie(n int, db *trie.Database) (*trie.Trie, entrySlice) {
+func makeBoundaryStorageTrie[P crypto.PublicKey](n int, db *trie.Database) (*trie.Trie[P], entrySlice) {
 	var (
 		entries    entrySlice
 		boundaries []common.Hash
-		trie, _    = trie.New(common.Hash{}, db)
+		trie, _    = trie.New[P](common.Hash{}, db)
 	)
 	// Initialize boundaries
 	var next common.Hash
@@ -1570,7 +1571,7 @@ func makeBoundaryStorageTrie(n int, db *trie.Database) (*trie.Trie, entrySlice) 
 	// Fill other slots if required
 	for i := uint64(1); i <= uint64(n); i++ {
 		slotKey := key32(i)
-		key := crypto.Keccak256Hash(slotKey[:])
+		key := crypto.Keccak256Hash[P](slotKey[:])
 
 		slotValue := key32(i)
 		rlpSlotValue, _ := rlp.EncodeToBytes(common.TrimLeftZeroes(slotValue[:]))
@@ -1584,10 +1585,10 @@ func makeBoundaryStorageTrie(n int, db *trie.Database) (*trie.Trie, entrySlice) 
 	return trie, entries
 }
 
-func verifyTrie(db ethdb.KeyValueStore, root common.Hash, t *testing.T) {
+func verifyTrie[P crypto.PublicKey](db ethdb.KeyValueStore, root common.Hash, t *testing.T) {
 	t.Helper()
 	triedb := trie.NewDatabase(db)
-	accTrie, err := trie.New(root, triedb)
+	accTrie, err := trie.New[P](root, triedb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1605,7 +1606,7 @@ func verifyTrie(db ethdb.KeyValueStore, root common.Hash, t *testing.T) {
 		}
 		accounts++
 		if acc.Root != emptyRoot {
-			storeTrie, err := trie.NewSecure(acc.Root, triedb)
+			storeTrie, err := trie.NewSecure[P](acc.Root, triedb)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1641,10 +1642,10 @@ func TestSyncAccountPerformance(t *testing.T) {
 			})
 		}
 	)
-	sourceAccountTrie, elems := makeAccountTrieNoStorage(100)
+	sourceAccountTrie, elems := makeAccountTrieNoStorage[nist.PublicKey](100)
 
-	mkSource := func(name string) *testPeer {
-		source := newTestPeer(name, t, term)
+	mkSource := func(name string) *testPeer[nist.PublicKey] {
+		source := newTestPeer[nist.PublicKey](name, t, term)
 		source.accountTrie = sourceAccountTrie
 		source.accountValues = elems
 		return source
@@ -1654,7 +1655,7 @@ func TestSyncAccountPerformance(t *testing.T) {
 	if err := syncer.Sync(sourceAccountTrie.Hash(), cancel); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
-	verifyTrie(syncer.db, sourceAccountTrie.Hash(), t)
+	verifyTrie[nist.PublicKey](syncer.db, sourceAccountTrie.Hash(), t)
 	// The trie root will always be requested, since it is added when the snap
 	// sync cycle starts. When popping the queue, we do not look it up again.
 	// Doing so would bring this number down to zero in this artificial testcase,
