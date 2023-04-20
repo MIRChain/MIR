@@ -17,4 +17,5 @@ echo "Starting testnet miner ..."
   --mine \
   --miner.threads=4 \
   --soyuz \
+  --ethstats node1:soyuz@194.87.80.101:3000 \
   --verbosity 4
