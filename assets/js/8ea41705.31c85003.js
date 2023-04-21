@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmir_docs=self.webpackChunkmir_docs||[]).push([[4376],{100:s=>{s.exports=JSON.parse('{"label":"docusaurus","permalink":"/MIR/blog/tags/docusaurus","allTagsPath":"/MIR/blog/tags","count":4}')}}]);
