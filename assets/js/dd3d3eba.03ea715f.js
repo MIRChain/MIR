@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkmir_docs=self.webpackChunkmir_docs||[]).push([[7326],{7270:s=>{s.exports=JSON.parse('{"permalink":"/MIR/blog/tags/docusaurus","page":1,"postsPerPage":10,"totalPages":1,"totalCount":4,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

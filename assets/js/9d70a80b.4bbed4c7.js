@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkmir_docs=self.webpackChunkmir_docs||[]).push([[8895],{8978:e=>{e.exports=JSON.parse('{"permalink":"/MIR/blog","page":1,"postsPerPage":10,"totalPages":1,"totalCount":4,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);
