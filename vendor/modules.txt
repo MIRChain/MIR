@@ -218,7 +218,6 @@ github.com/jpmorganchase/quorum-security-plugin-sdk-go/mock_proto
 github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto
 # github.com/julienschmidt/httprouter v1.2.0
 ## explicit
-github.com/julienschmidt/httprouter
 # github.com/karalabe/usb v0.0.2
 ## explicit; go 1.12
 github.com/karalabe/usb

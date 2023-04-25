@@ -2,8 +2,8 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: mir android ios geth-cross evm all test clean
-.PHONY: mir-linux mir-linux-386 geth-linux-amd64 mir-linux-mips64 mir-linux-mips64le
+.PHONY: mir android ios mir-cross evm all test clean
+.PHONY: mir-linux mir-linux-386 mir-linux-amd64 mir-linux-mips64 mir-linux-mips64le
 .PHONY: mir-linux-arm mir-linux-arm-5 mir-linux-arm-6 mir-linux-arm-7 mir-linux-arm64
 .PHONY: mir-darwin mir-darwin-386 mir-darwin-amd64
 .PHONY: mir-windows mir-windows-386 mir-windows-amd64
@@ -28,8 +28,8 @@ all:
 android:
 	$(GORUN) build/ci.go aar --local
 	@echo "Done building."
-	@echo "Import \"$(GOBIN)/geth.aar\" to use the library."
-	@echo "Import \"$(GOBIN)/geth-sources.jar\" to add javadocs"
+	@echo "Import \"$(GOBIN)/mir.aar\" to use the library."
+	@echo "Import \"$(GOBIN)/mir-sources.jar\" to add javadocs"
 	@echo "For more info see https://stackoverflow.com/questions/20994336/android-studio-how-to-attach-javadoc"
 
 ios:
@@ -59,94 +59,94 @@ devtools:
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
-# Cross Compilation Targets (xgo)
+# Cross Compilation Targets (xgo) // Mir: not working anymore duew to xgo outdated, see https://github.com/ethereum/go-ethereum/issues/26170
 
-geth-cross: geth-linux geth-darwin geth-windows geth-android geth-ios
-	@echo "Full cross compilation done:"
-	@ls -ld $(GOBIN)/geth-*
+# mir-cross: mir-linux mir-darwin mir-windows mir-android mir-ios
+# 	@echo "Full cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-*
 
-geth-linux: geth-linux-386 geth-linux-amd64 geth-linux-arm geth-linux-mips64 geth-linux-mips64le
-	@echo "Linux cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-*
+# mir-linux: mir-linux-386 mir-linux-amd64 mir-linux-arm mir-linux-mips64 mir-linux-mips64le
+# 	@echo "Linux cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-*
 
-geth-linux-386:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/386 -v ./cmd/geth
-	@echo "Linux 386 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep 386
+# mir-linux-386:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/386 -v ./cmd/mir
+# 	@echo "Linux 386 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep 386
 
-geth-linux-amd64:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v ./cmd/geth
-	@echo "Linux amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep amd64
+# mir-linux-amd64:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v ./cmd/mir
+# 	@echo "Linux amd64 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep amd64
 
-geth-linux-arm: geth-linux-arm-5 geth-linux-arm-6 geth-linux-arm-7 geth-linux-arm64
-	@echo "Linux ARM cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep arm
+# mir-linux-arm: mir-linux-arm-5 mir-linux-arm-6 mir-linux-arm-7 mir-linux-arm64
+# 	@echo "Linux ARM cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep arm
 
-geth-linux-arm-5:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-5 -v ./cmd/geth
-	@echo "Linux ARMv5 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep arm-5
+# mir-linux-arm-5:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-5 -v ./cmd/mir
+# 	@echo "Linux ARMv5 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep arm-5
 
-geth-linux-arm-6:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-6 -v ./cmd/geth
-	@echo "Linux ARMv6 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep arm-6
+# mir-linux-arm-6:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-6 -v ./cmd/mir
+# 	@echo "Linux ARMv6 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep arm-6
 
-geth-linux-arm-7:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-7 -v ./cmd/geth
-	@echo "Linux ARMv7 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep arm-7
+# mir-linux-arm-7:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm-7 -v ./cmd/mir
+# 	@echo "Linux ARMv7 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep arm-7
 
-geth-linux-arm64:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm64 -v ./cmd/geth
-	@echo "Linux ARM64 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep arm64
+# mir-linux-arm64:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/arm64 -v ./cmd/mir
+# 	@echo "Linux ARM64 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep arm64
 
-geth-linux-mips:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips --ldflags '-extldflags "-static"' -v ./cmd/geth
-	@echo "Linux MIPS cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep mips
+# mir-linux-mips:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips --ldflags '-extldflags "-static"' -v ./cmd/mir
+# 	@echo "Linux MIPS cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep mips
 
-geth-linux-mipsle:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mipsle --ldflags '-extldflags "-static"' -v ./cmd/geth
-	@echo "Linux MIPSle cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep mipsle
+# mir-linux-mipsle:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mipsle --ldflags '-extldflags "-static"' -v ./cmd/mir
+# 	@echo "Linux MIPSle cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep mipsle
 
-geth-linux-mips64:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips64 --ldflags '-extldflags "-static"' -v ./cmd/geth
-	@echo "Linux MIPS64 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep mips64
+# mir-linux-mips64:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips64 --ldflags '-extldflags "-static"' -v ./cmd/mir
+# 	@echo "Linux MIPS64 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep mips64
 
-geth-linux-mips64le:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips64le --ldflags '-extldflags "-static"' -v ./cmd/geth
-	@echo "Linux MIPS64le cross compilation done:"
-	@ls -ld $(GOBIN)/geth-linux-* | grep mips64le
+# mir-linux-mips64le:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=linux/mips64le --ldflags '-extldflags "-static"' -v ./cmd/mir
+# 	@echo "Linux MIPS64le cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-linux-* | grep mips64le
 
-geth-darwin: geth-darwin-386 geth-darwin-amd64
-	@echo "Darwin cross compilation done:"
-	@ls -ld $(GOBIN)/geth-darwin-*
+# mir-darwin: mir-darwin-386 mir-darwin-amd64
+# 	@echo "Darwin cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-darwin-*
 
-geth-darwin-386:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=darwin/386 -v ./cmd/geth
-	@echo "Darwin 386 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-darwin-* | grep 386
+# mir-darwin-386:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=darwin/386 -v ./cmd/mir
+# 	@echo "Darwin 386 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-darwin-* | grep 386
 
-geth-darwin-amd64:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./cmd/geth
-	@echo "Darwin amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-darwin-* | grep amd64
+# mir-darwin-amd64:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./cmd/mir
+# 	@echo "Darwin amd64 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-darwin-* | grep amd64
 
-geth-windows: geth-windows-386 geth-windows-amd64
-	@echo "Windows cross compilation done:"
-	@ls -ld $(GOBIN)/geth-windows-*
+# mir-windows: mir-windows-386 mir-windows-amd64
+# 	@echo "Windows cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-windows-*
 
-geth-windows-386:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=windows/386 -v ./cmd/geth
-	@echo "Windows 386 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-windows-* | grep 386
+# mir-windows-386:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=windows/386 -v ./cmd/mir
+# 	@echo "Windows 386 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-windows-* | grep 386
 
-geth-windows-amd64:
-	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/geth
-	@echo "Windows amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/geth-windows-* | grep amd64
+# mir-windows-amd64:
+# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/mir
+# 	@echo "Windows amd64 cross compilation done:"
+# 	@ls -ld $(GOBIN)/mir-windows-* | grep amd64
