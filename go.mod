@@ -45,7 +45,6 @@ require (
 	github.com/jpmorganchase/quorum-account-plugin-sdk-go v0.0.0-20200714175524-662195b38a5e
 	github.com/jpmorganchase/quorum-hello-world-plugin-sdk-go v0.0.0-20200210211148-57f99f69eeb3
 	github.com/jpmorganchase/quorum-security-plugin-sdk-go v0.0.0-20200714173835-22a319bb78ce
-	github.com/julienschmidt/httprouter v1.2.0
 	github.com/karalabe/usb v0.0.2
 	github.com/mattn/go-colorable v0.1.4
 	github.com/mattn/go-isatty v0.0.14
