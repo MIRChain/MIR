@@ -25,17 +25,17 @@ bootnode:
 all:
 	$(GORUN) build/ci.go install
 
-android:
-	$(GORUN) build/ci.go aar --local
-	@echo "Done building."
-	@echo "Import \"$(GOBIN)/mir.aar\" to use the library."
-	@echo "Import \"$(GOBIN)/mir-sources.jar\" to add javadocs"
-	@echo "For more info see https://stackoverflow.com/questions/20994336/android-studio-how-to-attach-javadoc"
+# android:
+# 	$(GORUN) build/ci.go aar --local
+# 	@echo "Done building."
+# 	@echo "Import \"$(GOBIN)/mir.aar\" to use the library."
+# 	@echo "Import \"$(GOBIN)/mir-sources.jar\" to add javadocs"
+# 	@echo "For more info see https://stackoverflow.com/questions/20994336/android-studio-how-to-attach-javadoc"
 
-ios:
-	$(GORUN) build/ci.go xcode --local
-	@echo "Done building."
-	@echo "Import \"$(GOBIN)/Geth.framework\" to use the library."
+# ios:
+# 	$(GORUN) build/ci.go xcode --local
+# 	@echo "Done building."
+# 	@echo "Import \"$(GOBIN)/Geth.framework\" to use the library."
 
 test: all
 	$(GORUN) build/ci.go test
@@ -146,7 +146,7 @@ devtools:
 # 	@echo "Windows 386 cross compilation done:"
 # 	@ls -ld $(GOBIN)/mir-windows-* | grep 386
 
-# mir-windows-amd64:
-# 	$(GORUN) build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/mir
-# 	@echo "Windows amd64 cross compilation done:"
-# 	@ls -ld $(GOBIN)/mir-windows-* | grep amd64
+mir-windows-amd64:
+	$(GORUN) build/ci.go install -arch windows ./cmd/mir
+	@echo "Windows amd64 cross compilation done:"
+	@ls -ld $(GOBIN)/mir-windows-* | grep amd64
