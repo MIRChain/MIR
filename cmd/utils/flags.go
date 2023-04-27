@@ -51,7 +51,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
 	"github.com/pavelkrolevets/MIR-pro/core/vm"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/eth"
@@ -1582,10 +1581,6 @@ func SetNodeConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cf
 	if ctx.GlobalIsSet(MultitenancyFlag.Name) {
 		cfg.EnableMultitenancy = ctx.GlobalBool(MultitenancyFlag.Name)
 	}
-	// Mir 
-	if ctx.GlobalIsSet(SignerCertFlag.Name) {
-		cfg.SignerCert = getSignerCert(ctx.GlobalString(SignerCertFlag.Name))
-	}
 }
 
 func setSmartCard[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *node.Config[T,P]) {
@@ -2673,20 +2668,4 @@ func isValidTokenManagement(value string) bool {
 		return true
 	}
 	return false
-}
-
-func getSignerCert(skid string) (*csp.Cert) {
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		Fatalf("Error setting CSP store: %s", err.Error())
-	}
-	defer store.Close()
-	if skid[:2] == "0x" {
-		skid = skid[2:]
-	}
-	crt, err := store.GetBySubjectId(skid)
-	if err != nil {
-		Fatalf("Error looking for cert in CSP store: %s", err.Error())
-	}
-	return &crt
 }

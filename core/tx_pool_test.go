@@ -33,7 +33,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -440,51 +439,6 @@ func TestTransactionQueue(t *testing.T) {
 	}
 }
 
-func TestTransactionQueueCSP(t *testing.T) {
-	t.Parallel()
-
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		t.Fatalf("Store error: %s", err)
-	}
-	defer store.Close()
-	// Cert should be without set pin
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
-	if err != nil {
-		t.Fatalf("Get cert error: %s", err)
-	}
-	defer crt.Close()
-
-	params.SignerCert = &crt
-	pool, key := setupTxPool[csp.Cert,csp.PublicKey]()
-	defer pool.Stop()
-	skid, err := key.SubjectID()
-	t.Logf("Cert skid %s", skid)
-	tx := transaction[csp.Cert, csp.PublicKey](0, 100, key)
-	from, _ := deriveSender(tx)
-	t.Logf("From %s", from.Hex())
-	pool.currentState.AddBalance(from, big.NewInt(1000))
-	<-pool.requestReset(nil, nil)
-
-	pool.enqueueTx(tx.Hash(), tx, false, true)
-	<-pool.requestPromoteExecutables(newAccountSet[csp.PublicKey](pool.signer, from))
-	if len(pool.pending) != 1 {
-		t.Error("expected valid txs to be 1 is", len(pool.pending))
-	}
-	// tx = transaction[csp.Cert, csp.PublicKey](1, 100, key)
-	// from, _ = deriveSender(tx)
-	// pool.currentState.SetNonce(from, 2)
-	// pool.enqueueTx(tx.Hash(), tx, false, true)
-
-	// <-pool.requestPromoteExecutables(newAccountSet[csp.PublicKey](pool.signer, from))
-	// if _, ok := pool.pending[from].txs.items[tx.Nonce()]; ok {
-	// 	t.Error("expected transaction to be in tx pool")
-	// }
-	// if len(pool.queue) > 0 {
-	// 	t.Error("expected transaction queue to be empty. is", len(pool.queue))
-	// }
-}
-
 func TestTransactionQueue2(t *testing.T) {
 	t.Parallel()
 
@@ -542,47 +496,6 @@ func TestTransactionChainFork(t *testing.T) {
 	resetState()
 
 	tx := transaction[nist.PrivateKey, nist.PublicKey](0, 100000, key)
-	if _, err := pool.add(tx, false); err != nil {
-		t.Error("didn't expect error", err)
-	}
-	pool.removeTx(tx.Hash(), true)
-
-	// reset the pool's internal state
-	resetState()
-	if _, err := pool.add(tx, false); err != nil {
-		t.Error("didn't expect error", err)
-	}
-}
-
-func TestTransactionChainForkCSP(t *testing.T) {
-	t.Parallel()
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		t.Fatalf("Store error: %s", err)
-	}
-	defer store.Close()
-	// Cert should be without set pin
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
-	if err != nil {
-		t.Fatalf("Get cert error: %s", err)
-	}
-	defer crt.Close()
-
-	params.SignerCert = &crt
-
-	pool, key := setupTxPool[csp.Cert,csp.PublicKey]()
-	defer pool.Stop()
-	addr := crypto.PubkeyToAddress[csp.PublicKey](*key.Public())
-	resetState := func() {
-		statedb, _ := state.New[csp.PublicKey](common.Hash{}, state.NewDatabase[csp.PublicKey](rawdb.NewMemoryDatabase()), nil)
-		statedb.AddBalance(addr, big.NewInt(100000000000000))
-
-		pool.chain = &testBlockChain[csp.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
-		<-pool.requestReset(nil, nil)
-	}
-	resetState()
-
-	tx := transaction[csp.Cert, csp.PublicKey](0, 100000, key)
 	if _, err := pool.add(tx, false); err != nil {
 		t.Error("didn't expect error", err)
 	}

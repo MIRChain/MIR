@@ -28,7 +28,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -294,11 +293,6 @@ func EncodePubkey[P crypto.PublicKey](key P) Pubkey[P] {
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
 		return e
-	case *csp.PublicKey:
-		var e Pubkey[P]
-		math.ReadBits(p.X, e[:len(e)/2])
-		math.ReadBits(p.Y, e[len(e)/2:])
-		return e
 	default:
 		panic("cant encode pub key")
 	}
@@ -326,15 +320,6 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey[P]) (P, error) {
 		// if !k.C.IsOnCurve(k.X, k.Y) {
 		// 	return crypto.ZeroPublicKey[P](), ErrBadPoint
 		// }
-		*p = *k
-	case *csp.PublicKey:
-		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
-		half := len(e) / 2
-		k.X.SetBytes(e[:half])
-		k.Y.SetBytes(e[half:])
-		if !k.Curve.IsOnCurve(k.X, k.Y) {
-			return crypto.ZeroPublicKey[P](), ErrBadPoint
-		}
 		*p = *k
 	default:
 		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")

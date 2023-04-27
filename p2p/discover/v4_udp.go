@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -203,12 +202,6 @@ func (t *UDPv4[T,P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
 			return n 
 		}
 		*p = (gost3410.PublicKey)(key)
-	case *csp.PublicKey:
-		var key enode.Gost3410CSP
-		if n.Load(&key) != nil {
-			return n 
-		}
-		*p = (csp.PublicKey)(key)
 	}
 	result := t.LookupPubkey(pub)
 	for _, rn := range result {
@@ -309,11 +302,6 @@ func (t *UDPv4[T,P]) lookupSelf() []*enode.Node[P] {
 		}
 	case *gost3410.PrivateKey:
 		p, ok := any(&pub).(*gost3410.PublicKey)
-		if ok {
-			*p = *privKey.Public()
-		}
-	case *csp.Cert:
-		p, ok := any(&pub).(*csp.PublicKey)
 		if ok {
 			*p = *privKey.Public()
 		}

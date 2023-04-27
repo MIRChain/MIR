@@ -33,7 +33,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/event"
 	"github.com/pavelkrolevets/MIR-pro/light"
@@ -2281,13 +2280,7 @@ func (s *Syncer[P]) onByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) er
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
 	
-	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
-
-	// Mir - Gost hash 34.11
-	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		panic(err)
-	}
+	hasher := crypto.NewKeccakState[P]()
 	
 	hash := make([]byte, 32)
 
@@ -2523,13 +2516,7 @@ func (s *Syncer[P]) OnTrieNodes(peer SyncPeer, id uint64, trienodes [][]byte) er
 	// Cross reference the requested trienodes with the response to find gaps
 	// that the serving node is missing
 
-	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
-	
-	// Mir - Gost hash 34.11
-	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		panic(err)
-	}
+	hasher := crypto.NewKeccakState[P]()
 		
 	hash := make([]byte, 32)
 
@@ -2625,13 +2612,7 @@ func (s *Syncer[P]) onHealByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
 	
-	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
-	
-	// Mir - Gost hash 34.11
-	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		panic(err)
-	}
+	hasher := crypto.NewKeccakState[P]()
 		
 	hash := make([]byte, 32)
 
