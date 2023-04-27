@@ -147,6 +147,6 @@ devtools:
 # 	@ls -ld $(GOBIN)/mir-windows-* | grep 386
 
 mir-windows-amd64:
-	$(GORUN) build/ci.go install -arch windows ./cmd/mir
+	$(GORUN) build/ci.go install -os windows -arch amd64 ./cmd/mir
 	@echo "Windows amd64 cross compilation done:"
 	@ls -ld $(GOBIN)/mir-windows-* | grep amd64
