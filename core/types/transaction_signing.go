@@ -23,7 +23,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -422,12 +421,6 @@ func decodeSignature[P crypto.PublicKey](sig []byte) (r, s, v *big.Int) {
 		r = new(big.Int).SetBytes(sig[:32])
 		s = new(big.Int).SetBytes(sig[32:64])
 		v = new(big.Int).SetBytes([]byte{sig[64] + 27})
-	case *csp.PublicKey:
-		resSig := sig[:64]
-		reverse(resSig)
-		r = new(big.Int).SetBytes(resSig[32:64])
-		s = new(big.Int).SetBytes(resSig[:32])
-		v = new(big.Int).SetBytes([]byte{sig[64] + 27})
 	}
 	return r, s, v
 }
@@ -461,14 +454,6 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 		r, s := R.Bytes(), S.Bytes()
 		copy(sig[32-len(r):32], r)
 		copy(sig[64-len(s):64], s)
-		sig[64] = V
-	case *csp.PublicKey:
-		resSig := make([]byte, 64)
-		r, s := R.Bytes(), S.Bytes()
-		copy(resSig[32-len(s):32], s)
-		copy(resSig[64-len(r):64], r)
-		reverse(resSig)
-		copy(sig, resSig)
 		sig[64] = V
 	}
 	// recover the public key from the signature

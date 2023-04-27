@@ -26,7 +26,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -166,8 +165,6 @@ func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
 		sec[0] = 0x02 | byte(secY.Bit(0))
 		math.ReadBits(secX, sec[1:])
 		return sec
-	case *csp.Cert:
-		// TODO	
 	default:
 		panic("cant infer priv key")
 	}

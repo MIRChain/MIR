@@ -26,7 +26,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -76,18 +75,6 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 		// if !k.C.IsOnCurve(k.X, k.Y) {
 		// 	return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
 		// }
-		*p = *k
-	case *csp.PublicKey:
-		if len(e) != len(encPubkey[P]{}) {
-			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
-		}
-		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
-		half := len(e) / 2
-		k.X.SetBytes(e[:half])
-		k.Y.SetBytes(e[half:])
-		if !k.Curve.IsOnCurve(k.X, k.Y) {
-			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
-		}
 		*p = *k
 	default:
 		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")

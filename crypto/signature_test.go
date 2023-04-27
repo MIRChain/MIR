@@ -25,7 +25,6 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
@@ -121,34 +120,6 @@ func TestDecompressPubkey(t *testing.T) {
 		t.Errorf("no error for incomplete pubkey")
 	}
 	if _, err := DecompressPubkey[gost3410.PublicKey](append(common.CopyBytes(testpubkeycgost), 1, 2, 3)); err == nil {
-		t.Errorf("no error for pubkey with extra bytes at the end")
-	}
-
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		t.Errorf("Store error: %s", err)
-	}
-	defer store.Close()
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
-	if err != nil {
-		t.Errorf("Get cert error: %s", err)
-	}
-	defer crt.Close()
-	
-	keyCsp, err :=  DecompressPubkey[csp.PublicKey](crt.Public().Raw())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if uncompressed := FromECDSAPub(keyCsp); !bytes.Equal(uncompressed, crt.Public().Raw()) {
-		t.Errorf("wrong public key result: got %x, want %x", uncompressed, crt.Public().Raw())
-	}
-	if _, err := DecompressPubkey[csp.PublicKey](nil); err == nil {
-		t.Errorf("no error for nil pubkey")
-	}
-	if _, err := DecompressPubkey[csp.PublicKey](crt.Public().Raw()[:5]); err == nil {
-		t.Errorf("no error for incomplete pubkey")
-	}
-	if _, err := DecompressPubkey[csp.PublicKey](append(common.CopyBytes(crt.Public().Raw()), 1, 2, 3)); err == nil {
 		t.Errorf("no error for pubkey with extra bytes at the end")
 	}
 }
