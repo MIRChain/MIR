@@ -38,6 +38,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
+	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
 )
 
 //SignatureLength indicates the byte length required to carry a signature with recovery id.
@@ -427,4 +428,9 @@ func ZeroPrivateKey[T PrivateKey]() T {
 func ZeroPublicKey[P PublicKey]() P {
 	var res P
 	return res
+}
+
+// S256 returns an instance of the secp256k1 curve.
+func S256() elliptic.Curve {
+	return secp256k1.S256()
 }

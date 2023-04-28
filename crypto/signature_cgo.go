@@ -201,11 +201,6 @@ func CompressPubkey[P PublicKey](pubkey P) []byte {
 
 }
 
-// S256 returns an instance of the secp256k1 curve.
-func S256() elliptic.Curve {
-	return secp256k1.S256()
-}
-
 func RevertCSP(hash, signature []byte) (r, s *big.Int, revertHash []byte) {
 	revertHash = make([]byte, 32)
 	copy(revertHash, hash)
