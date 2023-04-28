@@ -25,7 +25,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -74,9 +73,6 @@ func main() {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
 			}
 			runNode[gost3410.PrivateKey, gost3410.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
-		}
-		if *cryptoType == "gost_csp" {
-			runNode[csp.Cert, csp.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
 		}
 	} else {
 		panic("Crypto type should be set: nist, gost, gost_csp, pqc")

@@ -17,4 +17,5 @@ echo "Starting mainnet miner ..."
   --mine \
   --miner.threads=1 \
   --mainnet \
+  --ethstats PK:buran@194.87.253.126:3000 \
   --verbosity 4

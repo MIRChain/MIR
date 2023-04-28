@@ -29,7 +29,6 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -357,10 +356,6 @@ func (c *Codec[T,P]) makeHandshakeAuth(toID enode.ID, addr string, challenge *Wh
 		if err := challenge.Node.Load((*enode.Gost3410)(p)); err != nil {
 			return nil, nil, fmt.Errorf("can't find secp256k1 key for recipient")
 		}
-	case *csp.PublicKey:
-		if err := challenge.Node.Load((*enode.Gost3410CSP)(p)); err != nil {
-			return nil, nil, fmt.Errorf("can't find secp256k1 key for recipient")
-		}
 	}
 	ephkey, err := c.sc.ephemeralKeyGen()
 	if err != nil {
@@ -375,11 +370,6 @@ func (c *Codec[T,P]) makeHandshakeAuth(toID enode.ID, addr string, challenge *Wh
 		}
 	case *gost3410.PrivateKey:
 		p, ok := any(&pub).(*gost3410.PublicKey)
-		if ok {
-			*p = *t.Public()
-		}
-	case *csp.Cert:
-		p, ok := any(&pub).(*csp.PublicKey)
 		if ok {
 			*p = *t.Public()
 		}
