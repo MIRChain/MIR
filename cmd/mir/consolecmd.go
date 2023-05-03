@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
 	"github.com/pavelkrolevets/MIR-pro/console"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/node"
@@ -45,7 +46,7 @@ var (
 	rpcClientFlags = []cli.Flag{utils.RPCClientToken, utils.RPCClientTLSCert, utils.RPCClientTLSCaCert, utils.RPCClientTLSCipherSuites, utils.RPCClientTLSInsecureSkipVerify}
 
 	consoleCommand = cli.Command{
-		Action:   utils.MigrateFlags(localConsole[nist.PrivateKey, nist.PublicKey]),
+		Action:   utils.MigrateFlags(_localConsole),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
 		Flags:    append(append(nodeFlags, rpcFlags...), consoleFlags...),
@@ -57,7 +58,7 @@ See https://geth.ethereum.org/docs/interface/javascript-console.`,
 	}
 
 	attachCommand = cli.Command{
-		Action:    utils.MigrateFlags(remoteConsole[nist.PrivateKey, nist.PublicKey]),
+		Action:    utils.MigrateFlags(_remoteConsole),
 		Name:      "attach",
 		Usage:     "Start an interactive JavaScript environment (connect to node)",
 		ArgsUsage: "[endpoint]",
@@ -71,7 +72,7 @@ This command allows to open a console on a running geth node.`,
 	}
 
 	javascriptCommand = cli.Command{
-		Action:    utils.MigrateFlags(ephemeralConsole[nist.PrivateKey, nist.PublicKey]),
+		Action:    utils.MigrateFlags(_ephemeralConsole),
 		Name:      "js",
 		Usage:     "Execute the specified JavaScript files",
 		ArgsUsage: "<jsfile> [jsfile...]",
@@ -153,6 +154,51 @@ func readTLSClientConfig(endpoint string, ctx *cli.Context) (*tls.Config, bool, 
 
 // localConsole starts a new geth node, attaching a JavaScript console to it at the
 // same time.
+func _localConsole(ctx *cli.Context) error {
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			err := localConsole[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			err := localConsole[nist.PrivateKey, nist.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	} 	
+	return nil		
+}
 func localConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
@@ -190,6 +236,51 @@ func localConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) err
 	return nil
 }
 
+func _remoteConsole(ctx *cli.Context) error {
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			err := remoteConsole[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			err := remoteConsole[nist.PrivateKey, nist.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	} 	
+	return nil	
+}
 // remoteConsole will connect to a remote geth instance, attaching a JavaScript
 // console to it.
 func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -304,6 +395,52 @@ func dialRPC[T crypto.PrivateKey, P crypto.PublicKey](endpoint string, ctx *cli.
 		client = client.WithHTTPCredentials(f)
 	}
 	return client, nil
+}
+
+func _ephemeralConsole(ctx *cli.Context) error {
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			err := ephemeralConsole[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			err := ephemeralConsole[nist.PrivateKey, nist.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	} 	
+	return nil	
 }
 
 // ephemeralConsole starts a new geth node, attaches an ephemeral JavaScript

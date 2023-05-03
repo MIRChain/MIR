@@ -344,7 +344,7 @@ func TestCheckTransitionsData(t *testing.T) {
 	invalidBlockOrder = append(invalidBlockOrder, tranQ8, tranQ5)
 
 	tests := []test{
-		{stored: MainnetChainConfig, wantErr: nil},
+		{stored: MainnetMirChainConfig, wantErr: nil},
 		{stored: SoyuzChainConfig, wantErr: nil},
 		{stored: AllEthashProtocolChanges, wantErr: nil},
 		{stored: AllCliqueProtocolChanges, wantErr: nil},
@@ -454,7 +454,7 @@ func TestGetMaxCodeSize(t *testing.T) {
 	}
 	maxCodeDefault := 32 * 1024
 	tests := []test{
-		{MainnetChainConfig, 0, MaxCodeSize},
+		{MainnetMirChainConfig, 0, MaxCodeSize},
 		{SoyuzChainConfig, 0, MaxCodeSize},
 		{AllEthashProtocolChanges, 0, 35 * 1024},
 		{AllCliqueProtocolChanges, 0, maxCodeDefault},
@@ -501,7 +501,7 @@ func TestIsQIP714(t *testing.T) {
 	}
 
 	tests := []test{
-		{MainnetChainConfig, 0, false},
+		{MainnetMirChainConfig, 0, false},
 		{&config1, 10, false},
 		{&config1, 11, true},
 		{&config2, 20, false},
@@ -533,7 +533,7 @@ func TestIsPrivacyEnhancementsEnabled(t *testing.T) {
 	}
 
 	tests := []test{
-		{MainnetChainConfig, 0, false},
+		{MainnetMirChainConfig, 0, false},
 		{&config1, 10, false},
 		{&config1, 11, true},
 		{&config2, 20, false},
@@ -565,7 +565,7 @@ func TestIsPrivacyPrecompileEnabled(t *testing.T) {
 	}
 
 	tests := []test{
-		{MainnetChainConfig, 0, false},
+		{MainnetMirChainConfig, 0, false},
 		{&config1, 10, false},
 		{&config1, 11, true},
 		{&config2, 20, false},
@@ -597,7 +597,7 @@ func TestIsGasPriceEnabled(t *testing.T) {
 	}
 
 	tests := []test{
-		{MainnetChainConfig, 0, false},
+		{MainnetMirChainConfig, 0, false},
 		{&config1, 10, false},
 		{&config1, 11, true},
 		{&config2, 20, false},

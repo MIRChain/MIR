@@ -167,13 +167,25 @@ var (
 		Usage: "Explicitly set network id (integer)(For testnets: use --ropsten, --rinkeby, --goerli instead)",
 		Value: ethconfig.Defaults[nist.PublicKey]().NetworkId,
 	}
-	MainnetFlag = cli.BoolFlag{
-		Name:  "mainnet",
+	MainnetMirFlag = cli.BoolFlag{
+		Name:  "mainnet.mir",
+		Usage: "MIR chain mainnet based on GOST crypto standards",
+	}
+	MainnetEthFlag = cli.BoolFlag{
+		Name:  "mainnet.eth",
 		Usage: "Ethereum mainnet",
 	}
 	SoyuzFlag = cli.BoolFlag{
 		Name:  "soyuz",
 		Usage: "Soyuz network: pre-configured proof-of-work test network",
+	}
+	RinkebyFlag = cli.BoolFlag{
+		Name:  "rinkeby",
+		Usage: "Rinkeby network: pre-configured proof-of-authority test network",
+	}
+	RopstenFlag = cli.BoolFlag{
+		Name:  "ropsten",
+		Usage: "Ropsten network: pre-configured proof-of-work test network",
 	}
 	DeveloperFlag = cli.BoolFlag{
 		Name:  "dev",
@@ -1134,13 +1146,20 @@ func setNodeUserIdent[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context,
 func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *p2p.Config[T,P]) {
 	var urls []string
 	if ctx.GlobalString(CryptoSwitchFlag.Name) == "gost" {
-		urls = params.MainnetBootnodes
+		urls = params.MainnetMirBootnodes
+	}
+	if ctx.GlobalString(CryptoSwitchFlag.Name) == "nist" {
+		urls = params.MainnetEthBootnodes
 	}
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		urls = params.SoyuzBootnodes
+	case ctx.GlobalBool(RopstenFlag.Name):
+		urls = params.RopstenBootnodes
+	case ctx.GlobalBool(RinkebyFlag.Name):
+		urls = params.RinkebyBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1992,7 +2011,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], cfg *ethconfig.Config[P]) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, SoyuzFlag)
+	CheckExclusive(ctx, MainnetMirFlag, DeveloperFlag, SoyuzFlag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
 	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
@@ -2148,7 +2167,7 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 
 	// Override any default configs for hard coded networks.
 	switch {
-	case ctx.GlobalBool(MainnetFlag.Name):
+	case ctx.GlobalBool(MainnetMirFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1
 		}
@@ -2453,7 +2472,7 @@ func MakeChainDatabase[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context
 func MakeGenesis[P crypto.PublicKey](ctx *cli.Context) *core.Genesis[P] {
 	var genesis *core.Genesis[P]
 	switch {
-	case ctx.GlobalBool(MainnetFlag.Name):
+	case ctx.GlobalBool(MainnetMirFlag.Name):
 		genesis = core.DefaultGenesisBlock[P]()
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		genesis = core.DefaultSoyuzGenesisBlock[P]()

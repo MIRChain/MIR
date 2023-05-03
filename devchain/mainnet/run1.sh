@@ -16,6 +16,6 @@ echo "Starting mainnet miner ..."
   --http.api shh,personal,db,eth,net,web3,txpool,miner,admin \
   --mine \
   --miner.threads=1 \
-  --mainnet \
+  --mainnet.mir \
   --ethstats PK:buran@194.87.253.126:3000 \
   --verbosity 4

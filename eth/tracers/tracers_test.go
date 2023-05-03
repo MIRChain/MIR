@@ -178,7 +178,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create call tracer: %v", err)
 	}
-	evm := vm.NewEVM[nist.PublicKey](context, txContext, statedb, statedb, params.MainnetChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
+	evm := vm.NewEVM[nist.PublicKey](context, txContext, statedb, statedb, params.MainnetEthChainConfig, vm.Config[nist.PublicKey]{Debug: true, Tracer: tracer})
 
 	msg, err := tx.AsMessage(signer)
 	if err != nil {

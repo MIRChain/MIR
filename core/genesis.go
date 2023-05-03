@@ -32,6 +32,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/ethdb"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/params"
@@ -233,7 +235,7 @@ func SetupGenesisBlockWithOverride[P crypto.PublicKey](db ethdb.Database, genesi
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
-	if genesis == nil && stored != params.MainnetGenesisHash {
+	if genesis == nil && stored != params.MainnetMirGenesisHash {
 		return storedcfg, stored, nil
 	}
 	// Check config compatibility and write the config. Compatibility errors
@@ -273,10 +275,16 @@ func (g *Genesis[P]) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	switch {
 	case g != nil:
 		return g.Config
-	case ghash == params.MainnetGenesisHash:
-		return params.MainnetChainConfig
+	case ghash == params.MainnetMirGenesisHash:
+		return params.MainnetMirChainConfig
 	case ghash == params.SoyuzGenesisHash:
 		return params.SoyuzChainConfig
+	case ghash == params.MainnetEthGenesisHash:
+		return params.MainnetEthChainConfig
+	case ghash == params.RopstenGenesisHash:
+		return params.RopstenChainConfig
+	case ghash == params.RinkebyGenesisHash:
+		return params.RinkebyChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -366,13 +374,28 @@ func GenesisBlockForTesting[P crypto.PublicKey](db ethdb.Database, addr common.A
 
 // DefaultGenesisBlock returns the Ethereum main net genesis block.
 func DefaultGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
-	return &Genesis[P]{
-		Config:     params.MainnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
-		GasLimit:   700000000,
-		Difficulty: big.NewInt(17179869184),
-		Alloc:      decodePrealloc(mainnetAllocData),
+	var pub P
+	switch any(&pub).(type) {
+	case *nist.PublicKey:
+		return &Genesis[P]{
+			Config:     params.MainnetEthChainConfig,
+			Nonce:      66,
+			ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
+			GasLimit:   700000000,
+			Difficulty: big.NewInt(17179869184),
+			Alloc:      decodePrealloc(mainnetEthAllocData),
+		}
+	case *gost3410.PublicKey:
+		return &Genesis[P]{
+			Config:     params.MainnetMirChainConfig,
+			Nonce:      66,
+			ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
+			GasLimit:   700000000,
+			Difficulty: big.NewInt(17179869184),
+			Alloc:      decodePrealloc(mainnetMirAllocData),
+		}
+	default:
+		panic("cant infer public key type")
 	}
 }
 
@@ -385,6 +408,30 @@ func DefaultSoyuzGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 		GasLimit:   700000000,
 		Difficulty: big.NewInt(1048576),
 		Alloc:      decodePrealloc(soyuzAllocData),
+	}
+}
+
+// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
+func DefaultRopstenGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
+	return &Genesis[P]{
+		Config:     params.RopstenChainConfig,
+		Nonce:      66,
+		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
+		GasLimit:   16777216,
+		Difficulty: big.NewInt(1048576),
+		Alloc:      decodePrealloc(ropstenAllocData),
+	}
+}
+
+// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
+func DefaultRinkebyGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
+	return &Genesis[P]{
+		Config:     params.RinkebyChainConfig,
+		Timestamp:  1492009146,
+		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
+		GasLimit:   4700000,
+		Difficulty: big.NewInt(1),
+		Alloc:      decodePrealloc(rinkebyAllocData),
 	}
 }
 

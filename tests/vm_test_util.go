@@ -153,7 +153,7 @@ func (t *VMTest[P]) newEVM(statedb *state.StateDB[P], vmconfig vm.Config[P]) *vm
 		Difficulty:  t.json.Env.Difficulty,
 	}
 	vmconfig.NoRecursion = true
-	return vm.NewEVM(context, txContext, statedb, statedb, params.MainnetChainConfig, vmconfig)
+	return vm.NewEVM(context, txContext, statedb, statedb, params.MainnetEthChainConfig, vmconfig)
 }
 
 func vmTestBlockHash[P crypto.PublicKey](n uint64) common.Hash {

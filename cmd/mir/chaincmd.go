@@ -69,7 +69,7 @@ It expects the genesis file as argument.`,
 		Usage:     "Dumps genesis block JSON configuration to stdout",
 		ArgsUsage: "",
 		Flags: []cli.Flag{
-			utils.MainnetFlag,
+			utils.MainnetMirFlag,
 			utils.SoyuzFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
