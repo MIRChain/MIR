@@ -37,8 +37,8 @@ import (
 
 func TestDefaultGenesisBlock(t *testing.T) {
 	block := DefaultGenesisBlock[gost3410.PublicKey]().ToBlock(nil)
-	if block.Hash() != params.MainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
+	if block.Hash() != params.MainnetMirGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetMirGenesisHash)
 	}
 	block = DefaultSoyuzGenesisBlock[gost3410.PublicKey]().ToBlock(nil)
 	if block.Hash() != params.SoyuzGenesisHash {
@@ -78,8 +78,8 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock[gost3410.PublicKey](db, nil)
 			},
-			wantHash:   params.MainnetGenesisHash,
-			wantConfig: params.MainnetChainConfig,
+			wantHash:   params.MainnetEthGenesisHash,
+			wantConfig: params.MainnetEthChainConfig,
 		},
 		{
 			name: "mainnet block in DB, genesis == nil",
@@ -87,8 +87,8 @@ func TestSetupGenesis(t *testing.T) {
 				DefaultGenesisBlock[gost3410.PublicKey]().MustCommit(db)
 				return SetupGenesisBlock[gost3410.PublicKey](db, nil)
 			},
-			wantHash:   params.MainnetGenesisHash,
-			wantConfig: params.MainnetChainConfig,
+			wantHash:   params.MainnetEthGenesisHash,
+			wantConfig: params.MainnetEthChainConfig,
 		},
 		{
 			name: "genesis with incorrect SizeLimit",
@@ -150,7 +150,7 @@ func TestGenesisHashes(t *testing.T) {
 	}{
 		{
 			genesis: DefaultGenesisBlock[gost3410.PublicKey](),
-			hash:    params.MainnetGenesisHash,
+			hash:    params.MainnetMirGenesisHash,
 		},
 		{
 			genesis: DefaultSoyuzGenesisBlock[gost3410.PublicKey](),

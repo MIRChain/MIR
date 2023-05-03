@@ -142,7 +142,8 @@ var (
 		utils.NodeKeyFileFlag,
 		utils.NodeKeyHexFlag,
 		utils.DNSDiscoveryFlag,
-		utils.MainnetFlag,
+		utils.MainnetMirFlag,
+		utils.MainnetEthFlag,
 		utils.DeveloperFlag,
 		utils.DeveloperPeriodFlag,
 		utils.SoyuzFlag,
@@ -339,13 +340,19 @@ func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
 	case ctx.GlobalIsSet(utils.SoyuzFlag.Name):
-		log.Info("Starting Mir on Soyuz testnet...")
+		log.Info("Starting Mir on Soyuz 3 testnet...")
 
 	case ctx.GlobalIsSet(utils.DeveloperFlag.Name):
 		log.Info("Starting Mir in ephemeral dev mode...")
 
 	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
 		log.Info("Starting Mir on mainnet...")
+		
+	case ctx.GlobalIsSet(utils.RopstenFlag.Name):
+		log.Info("Starting Mir on Ropsten testnet...")
+
+	case ctx.GlobalIsSet(utils.RinkebyFlag.Name):
+		log.Info("Starting Mir on Rinkeby testnet...")
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
 	if ctx.GlobalString(utils.SyncModeFlag.Name) != "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) && !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) {
@@ -384,8 +391,9 @@ func mir(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
-	// Mir - set crypto before the start of services 
-	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+	// Mir - set crypto before the start of services
+	switch {
+	case ctx.GlobalIsSet(utils.CryptoSwitchFlag.Name):
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
 			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
@@ -425,9 +433,11 @@ func mir(ctx *cli.Context) error {
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
 			crypto.CryptoAlg = crypto.PQC
 		} else {
-			fmt.Errorf("wrong crypto flag")
+			return fmt.Errorf("wrong crypto flag")
 		}
-	} 
+	default:
+		return fmt.Errorf("crypto flag not set")
+	}
 	return nil
 }
 

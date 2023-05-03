@@ -35,7 +35,7 @@ func TestFlagsConfig(t *testing.T) {
 		utils.USBFlag,
 		utils.SmartCardDaemonPathFlag,
 		utils.NetworkIdFlag,
-		utils.MainnetFlag,
+		utils.MainnetMirFlag,
 		utils.SoyuzFlag,
 		utils.DeveloperFlag,
 		utils.DeveloperPeriodFlag,
