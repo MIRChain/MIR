@@ -1,9 +1,9 @@
 #!/bin/bash
-echo "Starting testnet miner ..."
+echo "Starting mainnet Eth sync node ..."
 
-../../build/bin/mir --crypto gost \
+../../build/bin/mir --crypto nist \
   --datadir node1 \
-  --identity soyuz-worker1 \
+  --identity node1 \
   --port 30311  \
   --ws \
   --ws.addr 0.0.0.0 \
@@ -14,8 +14,6 @@ echo "Starting testnet miner ..."
   --http.port 8545 \
   --http.corsdomain "*" \
   --http.api shh,personal,db,eth,net,web3,txpool,miner,admin \
-  --mine \
-  --miner.threads=1 \
-  --soyuz \
-  --ethstats node1:soyuz@194.87.80.101:3000 \
+  --syncmode full \
+  --rinkeby \
   --verbosity 4

@@ -33,26 +33,26 @@ import (
 var (
 	MainnetMirGenesisHash = common.HexToHash("0x00ff17a7de0e3833ca49125f2f266e09c5ba1927e107ab34374e19e97d356ec4")
 	MainnetEthGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
-	SoyuzGenesisHash = common.HexToHash("0x8e09a1617e6d5f98f5f784e0077d4e054842c2f9ae99d4570e1e4470b1e6d190")
-	RopstenGenesisHash = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
-	RinkebyGenesisHash = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
+	SoyuzGenesisHash      = common.HexToHash("0x8e09a1617e6d5f98f5f784e0077d4e054842c2f9ae99d4570e1e4470b1e6d190")
+	RopstenGenesisHash    = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
+	RinkebyGenesisHash    = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
 var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
 	MainnetEthGenesisHash: MainnetEthTrustedCheckpoint,
-	RopstenGenesisHash: RopstenTrustedCheckpoint,
-	RinkebyGenesisHash: RinkebyTrustedCheckpoint,
+	RinkebyGenesisHash:    RinkebyTrustedCheckpoint,
 }
 
 // CheckpointOracles associates each known checkpoint oracles with the genesis hash of
 // the chain it belongs to.
 var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
 	MainnetEthGenesisHash: MainnetEthCheckpointOracle,
-	RopstenGenesisHash: RopstenCheckpointOracle,
-	RinkebyGenesisHash: RinkebyCheckpointOracle,
+	RinkebyGenesisHash:    RinkebyCheckpointOracle,
 }
+
+func newUint64(val uint64) *uint64 { return &val }
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -91,23 +91,31 @@ var (
 		Ethash:              new(EthashConfig),
 	}
 
+	MainnetTerminalTotalDifficulty, _ = new(big.Int).SetString("58_750_000_000_000_000_000_000", 0)
+
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetEthChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(1),
-		HomesteadBlock:      big.NewInt(1_150_000),
-		DAOForkBlock:        big.NewInt(1_920_000),
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(2_463_000),
-		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:         big.NewInt(2_675_000),
-		EIP158Block:         big.NewInt(2_675_000),
-		ByzantiumBlock:      big.NewInt(4_370_000),
-		ConstantinopleBlock: big.NewInt(7_280_000),
-		PetersburgBlock:     big.NewInt(7_280_000),
-		IstanbulBlock:       big.NewInt(9_069_000),
-		MuirGlacierBlock:    big.NewInt(9_200_000),
-		BerlinBlock:         big.NewInt(12_244_000),
-		Ethash:              new(EthashConfig),
+		ChainID:                       big.NewInt(1),
+		HomesteadBlock:                big.NewInt(1_150_000),
+		DAOForkBlock:                  big.NewInt(1_920_000),
+		DAOForkSupport:                true,
+		EIP150Block:                   big.NewInt(2_463_000),
+		EIP150Hash:                    common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
+		EIP155Block:                   big.NewInt(2_675_000),
+		EIP158Block:                   big.NewInt(2_675_000),
+		ByzantiumBlock:                big.NewInt(4_370_000),
+		ConstantinopleBlock:           big.NewInt(7_280_000),
+		PetersburgBlock:               big.NewInt(7_280_000),
+		IstanbulBlock:                 big.NewInt(9_069_000),
+		MuirGlacierBlock:              big.NewInt(9_200_000),
+		BerlinBlock:                   big.NewInt(12_244_000),
+		LondonBlock:                   big.NewInt(12_965_000),
+		ArrowGlacierBlock:             big.NewInt(13_773_000),
+		GrayGlacierBlock:              big.NewInt(15_050_000),
+		TerminalTotalDifficulty:       MainnetTerminalTotalDifficulty, // 58_750_000_000_000_000_000_000
+		TerminalTotalDifficultyPassed: true,
+		ShanghaiTime:                  newUint64(1681338455),
+		Ethash:                        new(EthashConfig),
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -123,46 +131,6 @@ var (
 		Address: common.HexToAddress("0x9a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a"),
 		Signers: []common.Address{
 			common.HexToAddress("0x1b2C260efc720BE89101890E4Db589b44E950527"), // Peter
-			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
-			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
-			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
-			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
-		},
-		Threshold: 2,
-	}
-
-	// RopstenChainConfig contains the chain parameters to run a node on the Ropsten test network.
-	RopstenChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(3),
-		HomesteadBlock:      big.NewInt(0),
-		DAOForkBlock:        nil,
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
-		EIP155Block:         big.NewInt(10),
-		EIP158Block:         big.NewInt(10),
-		ByzantiumBlock:      big.NewInt(1_700_000),
-		ConstantinopleBlock: big.NewInt(4_230_000),
-		PetersburgBlock:     big.NewInt(4_939_394),
-		IstanbulBlock:       big.NewInt(6_485_846),
-		MuirGlacierBlock:    big.NewInt(7_117_117),
-		BerlinBlock:         big.NewInt(9_812_189),
-		Ethash:              new(EthashConfig),
-	}
-
-	// RopstenTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
-	RopstenTrustedCheckpoint = &TrustedCheckpoint{
-		SectionIndex: 279,
-		SectionHead:  common.HexToHash("0x4a4912848d4c06090097073357c10015d11c6f4544a0f93cbdd584701c3b7d58"),
-		CHTRoot:      common.HexToHash("0x9053b7867ae921e80a4e2f5a4b15212e4af3d691ca712fb33dc150e9c6ea221c"),
-		BloomRoot:    common.HexToHash("0x3dc04cb1be7ddc271f3f83469b47b76184a79d7209ef51d85b1539ea6d25a645"),
-	}
-
-	// RopstenCheckpointOracle contains a set of configs for the Ropsten test network oracle.
-	RopstenCheckpointOracle = &CheckpointOracleConfig{
-		Address: common.HexToAddress("0xEF79475013f154E6A65b54cB2742867791bf0B84"),
-		Signers: []common.Address{
-			common.HexToAddress("0x32162F3581E88a5f62e8A61892B42C46E2c18f7b"), // Peter
 			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
 			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
 			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
@@ -218,21 +186,197 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, false, 32, 35, big.NewInt(0), big.NewInt(0), nil, nil, false, nil, nil}
+	// AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, false, 32, 35, big.NewInt(0), big.NewInt(0), nil, nil, false, nil, nil}
+
+	AllEthashProtocolChanges = &ChainConfig{
+		ChainID:                       big.NewInt(1337),
+		HomesteadBlock:                big.NewInt(0),
+		DAOForkBlock:                  nil,
+		DAOForkSupport:                false,
+		EIP150Block:                   big.NewInt(0),
+		EIP150Hash:                    common.Hash{},
+		EIP155Block:                   big.NewInt(0),
+		EIP158Block:                   big.NewInt(0),
+		ByzantiumBlock:                big.NewInt(0),
+		ConstantinopleBlock:           big.NewInt(0),
+		PetersburgBlock:               big.NewInt(0),
+		IstanbulBlock:                 big.NewInt(0),
+		MuirGlacierBlock:              big.NewInt(0),
+		BerlinBlock:                   big.NewInt(0),
+		LondonBlock:                   big.NewInt(0),
+		ArrowGlacierBlock:             big.NewInt(0),
+		GrayGlacierBlock:              big.NewInt(0),
+		MergeNetsplitBlock:            nil,
+		ShanghaiTime:                  nil,
+		CancunTime:                    nil,
+		PragueTime:                    nil,
+		TerminalTotalDifficulty:       nil,
+		TerminalTotalDifficultyPassed: false,
+		Ethash:                        new(EthashConfig),
+		Clique:                        nil,
+	}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, nil, nil, false, 32, 32, big.NewInt(0), big.NewInt(0), nil, nil, false, nil, nil}
+	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, nil, nil, false, 32, 32, big.NewInt(0), big.NewInt(0), nil, nil, false, nil, nil}
+
+	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
+	// and accepted by the Ethereum core developers into the Clique consensus.
+	AllCliqueProtocolChanges = &ChainConfig{
+		ChainID:                       big.NewInt(1337),
+		HomesteadBlock:                big.NewInt(0),
+		DAOForkBlock:                  nil,
+		DAOForkSupport:                false,
+		EIP150Block:                   big.NewInt(0),
+		EIP150Hash:                    common.Hash{},
+		EIP155Block:                   big.NewInt(0),
+		EIP158Block:                   big.NewInt(0),
+		ByzantiumBlock:                big.NewInt(0),
+		ConstantinopleBlock:           big.NewInt(0),
+		PetersburgBlock:               big.NewInt(0),
+		IstanbulBlock:                 big.NewInt(0),
+		MuirGlacierBlock:              big.NewInt(0),
+		BerlinBlock:                   big.NewInt(0),
+		LondonBlock:                   big.NewInt(0),
+		ArrowGlacierBlock:             nil,
+		GrayGlacierBlock:              nil,
+		MergeNetsplitBlock:            nil,
+		ShanghaiTime:                  nil,
+		CancunTime:                    nil,
+		PragueTime:                    nil,
+		TerminalTotalDifficulty:       nil,
+		TerminalTotalDifficultyPassed: false,
+		Ethash:                        nil,
+		Clique:                        &CliqueConfig{Period: 0, Epoch: 30000},
+		Istanbul:                      nil,
+		IBFT:                          nil,
+		QBFT:                          nil,
+		Transitions:                   nil,
+		IsQuorum:                      false,
+		TransactionSizeLimit:          32,
+		MaxCodeSize:                   32,
+		QIP714Block:                   big.NewInt(0),
+		MaxCodeSizeChangeBlock:        big.NewInt(0),
+		MaxCodeSizeConfig:             nil,
+		PrivacyEnhancementsBlock:      nil,
+		IsMPS:                         false,
+		PrivacyPrecompileBlock:        nil,
+		EnableGasPriceBlock:           nil,
+	}
 
 	// Quorum chainID should 10
-	TestChainConfig = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, false, 32, 32, big.NewInt(0), big.NewInt(0), nil, nil, false, nil, nil}
-	TestRules       = TestChainConfig.Rules(new(big.Int))
+	TestChainConfig = &ChainConfig{
+		ChainID:                  big.NewInt(10),
+		HomesteadBlock:           big.NewInt(0),
+		DAOForkBlock:             nil,
+		DAOForkSupport:           false,
+		EIP150Block:              big.NewInt(0),
+		EIP150Hash:               common.Hash{},
+		EIP155Block:              big.NewInt(0),
+		EIP158Block:              big.NewInt(0),
+		ByzantiumBlock:           big.NewInt(0),
+		ConstantinopleBlock:      big.NewInt(0),
+		PetersburgBlock:          big.NewInt(0),
+		IstanbulBlock:            big.NewInt(0),
+		MuirGlacierBlock:         big.NewInt(0),
+		BerlinBlock:              big.NewInt(0),
+		YoloV3Block:              nil,
+		EWASMBlock:               nil,
+		CatalystBlock:            nil,
+		Ethash:                   new(EthashConfig),
+		Clique:                   nil,
+		Istanbul:                 nil,
+		IBFT:                     nil,
+		QBFT:                     nil,
+		Transitions:              nil,
+		IsQuorum:                 false,
+		TransactionSizeLimit:     32,
+		MaxCodeSize:              32,
+		QIP714Block:              big.NewInt(0),
+		MaxCodeSizeChangeBlock:   big.NewInt(0),
+		MaxCodeSizeConfig:        nil,
+		PrivacyEnhancementsBlock: nil,
+		IsMPS:                    false,
+		PrivacyPrecompileBlock:   nil,
+		EnableGasPriceBlock:      nil,
+	}
+	TestRules = TestChainConfig.Rules(new(big.Int))
 
-	QuorumTestChainConfig    = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, true, 64, 32, big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), false, nil, nil}
-	QuorumMPSTestChainConfig = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, true, 64, 32, big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), true, nil, nil}
+	// QuorumTestChainConfig    = &ChainConfig{big.NewInt(10), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, nil, true, 64, 32, big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), false, nil, nil}
+	QuorumTestChainConfig = &ChainConfig{
+		ChainID:                  big.NewInt(10),
+		HomesteadBlock:           big.NewInt(0),
+		DAOForkBlock:             nil,
+		DAOForkSupport:           false,
+		EIP150Block:              big.NewInt(0),
+		EIP150Hash:               common.Hash{},
+		EIP155Block:              big.NewInt(0),
+		EIP158Block:              big.NewInt(0),
+		ByzantiumBlock:           big.NewInt(0),
+		ConstantinopleBlock:      big.NewInt(0),
+		PetersburgBlock:          big.NewInt(0),
+		IstanbulBlock:            big.NewInt(0),
+		MuirGlacierBlock:         big.NewInt(0),
+		BerlinBlock:              big.NewInt(0),
+		YoloV3Block:              nil,
+		EWASMBlock:               nil,
+		CatalystBlock:            nil,
+		Ethash:                   new(EthashConfig),
+		Clique:                   nil,
+		Istanbul:                 nil,
+		IBFT:                     nil,
+		QBFT:                     nil,
+		Transitions:              nil,
+		IsQuorum:                 false,
+		TransactionSizeLimit:     64,
+		MaxCodeSize:              32,
+		QIP714Block:              big.NewInt(0),
+		MaxCodeSizeChangeBlock:   big.NewInt(0),
+		MaxCodeSizeConfig:        nil,
+		PrivacyEnhancementsBlock: nil,
+		IsMPS:                    false,
+		PrivacyPrecompileBlock:   nil,
+		EnableGasPriceBlock:      nil,
+	}
+
+	QuorumMPSTestChainConfig = &ChainConfig{
+		ChainID:                  big.NewInt(10),
+		HomesteadBlock:           big.NewInt(0),
+		DAOForkBlock:             nil,
+		DAOForkSupport:           false,
+		EIP150Block:              big.NewInt(0),
+		EIP150Hash:               common.Hash{},
+		EIP155Block:              big.NewInt(0),
+		EIP158Block:              big.NewInt(0),
+		ByzantiumBlock:           big.NewInt(0),
+		ConstantinopleBlock:      big.NewInt(0),
+		PetersburgBlock:          big.NewInt(0),
+		IstanbulBlock:            big.NewInt(0),
+		MuirGlacierBlock:         big.NewInt(0),
+		BerlinBlock:              big.NewInt(0),
+		YoloV3Block:              nil,
+		EWASMBlock:               nil,
+		CatalystBlock:            nil,
+		Ethash:                   new(EthashConfig),
+		Clique:                   nil,
+		Istanbul:                 nil,
+		IBFT:                     nil,
+		QBFT:                     nil,
+		Transitions:              nil,
+		IsQuorum:                 false,
+		TransactionSizeLimit:     64,
+		MaxCodeSize:              32,
+		QIP714Block:              big.NewInt(0),
+		MaxCodeSizeChangeBlock:   big.NewInt(0),
+		MaxCodeSizeConfig:        nil,
+		PrivacyEnhancementsBlock: nil,
+		IsMPS:                    true,
+		PrivacyPrecompileBlock:   nil,
+		EnableGasPriceBlock:      nil,
+	}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -314,6 +458,16 @@ type ChainConfig struct {
 	IstanbulBlock       *big.Int `json:"istanbulBlock,omitempty"`       // Istanbul switch block (nil = no fork, 0 = already on istanbul)
 	MuirGlacierBlock    *big.Int `json:"muirGlacierBlock,omitempty"`    // Eip-2384 (bomb delay) switch block (nil = no fork, 0 = already activated)
 	BerlinBlock         *big.Int `json:"berlinBlock,omitempty"`         // Berlin switch block (nil = no fork, 0 = already on berlin)
+	LondonBlock         *big.Int `json:"londonBlock,omitempty"`         // London switch block (nil = no fork, 0 = already on london)
+	ArrowGlacierBlock   *big.Int `json:"arrowGlacierBlock,omitempty"`   // Eip-4345 (bomb delay) switch block (nil = no fork, 0 = already activated)
+	GrayGlacierBlock    *big.Int `json:"grayGlacierBlock,omitempty"`    // Eip-5133 (bomb delay) switch block (nil = no fork, 0 = already activated)
+	MergeNetsplitBlock  *big.Int `json:"mergeNetsplitBlock,omitempty"`  // Virtual fork after The Merge to use as a network splitter
+
+	// Fork scheduling was switched from blocks to timestamps here
+
+	ShanghaiTime *uint64 `json:"shanghaiTime,omitempty"` // Shanghai switch time (nil = no fork, 0 = already on shanghai)
+	CancunTime   *uint64 `json:"cancunTime,omitempty"`   // Cancun switch time (nil = no fork, 0 = already on cancun)
+	PragueTime   *uint64 `json:"pragueTime,omitempty"`   // Prague switch time (nil = no fork, 0 = already on prague)
 
 	YoloV3Block   *big.Int `json:"yoloV3Block,omitempty"`   // YOLO v3: Gas repricings TODO @holiman add EIP references
 	EWASMBlock    *big.Int `json:"ewasmBlock,omitempty"`    // EWASM switch block (nil = no fork, 0 = already activated)
@@ -325,6 +479,15 @@ type ChainConfig struct {
 	Istanbul *IstanbulConfig `json:"istanbul,omitempty"` // Quorum
 	IBFT     *IBFTConfig     `json:"ibft,omitempty"`     // Quorum
 	QBFT     *QBFTConfig     `json:"qbft,omitempty"`     // Quorum
+
+	// TerminalTotalDifficulty is the amount of total difficulty reached by
+	// the network that triggers the consensus upgrade.
+	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
+
+	// TerminalTotalDifficultyPassed is a flag specifying that the network already
+	// passed the terminal total difficulty. Its purpose is to disable legacy sync
+	// even without having seen the TTD locally (safer long term).
+	TerminalTotalDifficultyPassed bool `json:"terminalTotalDifficultyPassed,omitempty"`
 
 	// Start of Quorum specific configs
 

@@ -147,6 +147,7 @@ var (
 		utils.DeveloperFlag,
 		utils.DeveloperPeriodFlag,
 		utils.SoyuzFlag,
+		utils.RinkebyFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
 		utils.EthStatsURLFlag,
@@ -347,9 +348,6 @@ func prepare(ctx *cli.Context) {
 
 	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
 		log.Info("Starting Mir on mainnet...")
-		
-	case ctx.GlobalIsSet(utils.RopstenFlag.Name):
-		log.Info("Starting Mir on Ropsten testnet...")
 
 	case ctx.GlobalIsSet(utils.RinkebyFlag.Name):
 		log.Info("Starting Mir on Rinkeby testnet...")

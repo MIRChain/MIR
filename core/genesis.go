@@ -281,8 +281,6 @@ func (g *Genesis[P]) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.SoyuzChainConfig
 	case ghash == params.MainnetEthGenesisHash:
 		return params.MainnetEthChainConfig
-	case ghash == params.RopstenGenesisHash:
-		return params.RopstenChainConfig
 	case ghash == params.RinkebyGenesisHash:
 		return params.RinkebyChainConfig
 	default:
@@ -380,8 +378,8 @@ func DefaultGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 		return &Genesis[P]{
 			Config:     params.MainnetEthChainConfig,
 			Nonce:      66,
-			ExtraData:  hexutil.MustDecode("0xc2bf86c665c1965ddae783d6d723d5695ff4e9a3e5c712bc4e18d58968c5c1dc"),
-			GasLimit:   700000000,
+			ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
+			GasLimit:   5000,
 			Difficulty: big.NewInt(17179869184),
 			Alloc:      decodePrealloc(mainnetEthAllocData),
 		}
@@ -408,18 +406,6 @@ func DefaultSoyuzGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
 		GasLimit:   700000000,
 		Difficulty: big.NewInt(1048576),
 		Alloc:      decodePrealloc(soyuzAllocData),
-	}
-}
-
-// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
-func DefaultRopstenGenesisBlock[P crypto.PublicKey]() *Genesis[P] {
-	return &Genesis[P]{
-		Config:     params.RopstenChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(ropstenAllocData),
 	}
 }
 
