@@ -183,10 +183,6 @@ var (
 		Name:  "rinkeby",
 		Usage: "Rinkeby network: pre-configured proof-of-authority test network",
 	}
-	RopstenFlag = cli.BoolFlag{
-		Name:  "ropsten",
-		Usage: "Ropsten network: pre-configured proof-of-work test network",
-	}
 	DeveloperFlag = cli.BoolFlag{
 		Name:  "dev",
 		Usage: "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
@@ -276,7 +272,7 @@ var (
 		Usage: "Incoming bandwidth limit for serving light clients (kilobytes/sec, 0 = unlimited)",
 		Value: ethconfig.Defaults[nist.PublicKey]().LightIngress,
 	}
-	LightEgressFlag = cli.IntFlag{
+	LightEgressFlag = cli.IntFlag{	
 		Name:  "light.egress",
 		Usage: "Outgoing bandwidth limit for serving light clients (kilobytes/sec, 0 = unlimited)",
 		Value: ethconfig.Defaults[nist.PublicKey]().LightEgress,
@@ -1098,9 +1094,16 @@ var (
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
 		if ctx.GlobalBool(SoyuzFlag.Name) {
-			// Maintain compatibility with older Mir configurations storing the
-			// Soyuz database in `testnet` instead of `ropsten`.
 			return filepath.Join(path, "soyuz")
+		}
+		if ctx.GlobalBool(RinkebyFlag.Name) {
+			return filepath.Join(path, "rinkeby")
+		}
+		if ctx.GlobalBool(MainnetMirFlag.Name) {
+			return filepath.Join(path, "mir")
+		}
+		if ctx.GlobalBool(MainnetEthFlag.Name) {
+			return filepath.Join(path, "eth")
 		}
 		return path
 	}
@@ -1156,8 +1159,6 @@ func setBootstrapNodes[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		urls = params.SoyuzBootnodes
-	case ctx.GlobalBool(RopstenFlag.Name):
-		urls = params.RopstenBootnodes
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		urls = params.RinkebyBootnodes
 	case cfg.BootstrapNodes != nil:
@@ -2011,7 +2012,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], cfg *ethconfig.Config[P]) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, MainnetMirFlag, DeveloperFlag, SoyuzFlag)
+	CheckExclusive(ctx, MainnetMirFlag, DeveloperFlag, SoyuzFlag, MainnetEthFlag, RinkebyFlag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
 	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
@@ -2173,14 +2174,26 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 		}
 		cfg.Genesis = core.DefaultGenesisBlock[P]()
 		// TODO Mir set Default DNSDiscovery nodes
-		// SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+		SetDNSDiscoveryDefaults(cfg, params.MainnetMirGenesisHash)
+	case ctx.GlobalBool(MainnetEthFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 1
+		}
+		cfg.Genesis = core.DefaultGenesisBlock[P]()
+		SetDNSDiscoveryDefaults(cfg, params.MainnetEthGenesisHash)
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 3
 		}
 		cfg.Genesis = core.DefaultSoyuzGenesisBlock[P]()
 		// TODO Mir set Default DNSDiscovery nodes
-		// SetDNSDiscoveryDefaults(cfg, params.SoyuzGenesisHash)
+		SetDNSDiscoveryDefaults(cfg, params.SoyuzGenesisHash)
+	case ctx.GlobalBool(RinkebyFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 4
+		}
+		cfg.Genesis = core.DefaultRinkebyGenesisBlock[P]()
+		SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1337
@@ -2230,7 +2243,9 @@ func SetEthConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, sta
 	default:
 		// TODO Mir set Default DNSDiscovery nodes
 		if cfg.NetworkId == 1 {
-			// SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+			if ctx.GlobalString(CryptoSwitchFlag.Name) == "nist" {
+				SetDNSDiscoveryDefaults(cfg, params.MainnetEthGenesisHash)
+			}	
 		}
 	}
 }
@@ -2474,8 +2489,12 @@ func MakeGenesis[P crypto.PublicKey](ctx *cli.Context) *core.Genesis[P] {
 	switch {
 	case ctx.GlobalBool(MainnetMirFlag.Name):
 		genesis = core.DefaultGenesisBlock[P]()
+	case ctx.GlobalBool(MainnetEthFlag.Name):
+		genesis = core.DefaultGenesisBlock[P]()
 	case ctx.GlobalBool(SoyuzFlag.Name):
 		genesis = core.DefaultSoyuzGenesisBlock[P]()
+	case ctx.GlobalBool(RinkebyFlag.Name):
+		genesis = core.DefaultRinkebyGenesisBlock[P]()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
 	}

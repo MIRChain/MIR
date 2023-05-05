@@ -50,7 +50,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.SoyuzFlag,
 			utils.MainnetEthFlag,
 			utils.RinkebyFlag,
-			utils.RopstenFlag,
 			utils.SyncModeFlag,
 			utils.ExitWhenSyncedFlag,
 			utils.GCModeFlag,
