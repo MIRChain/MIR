@@ -1094,9 +1094,16 @@ var (
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
 		if ctx.GlobalBool(SoyuzFlag.Name) {
-			// Maintain compatibility with older Mir configurations storing the
-			// Soyuz database in `testnet` instead of `ropsten`.
 			return filepath.Join(path, "soyuz")
+		}
+		if ctx.GlobalBool(RinkebyFlag.Name) {
+			return filepath.Join(path, "rinkeby")
+		}
+		if ctx.GlobalBool(MainnetMirFlag.Name) {
+			return filepath.Join(path, "mir")
+		}
+		if ctx.GlobalBool(MainnetEthFlag.Name) {
+			return filepath.Join(path, "eth")
 		}
 		return path
 	}
