@@ -97,6 +97,8 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
 	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -104,16 +106,14 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = bind.Bind
 	_ = common.Big1
-	_ = types.BloomLookup
 	_ = event.NewSubscription
 )
 
 {{$structs := .Structs}}
 {{range $structs}}
 	// {{.Name}} is an auto generated low-level Go binding around an user-defined struct.
-	type {{.Name}} struct {
+	type {{.Name}} [P crypto.PublicKey] struct {
 	{{range $field := .Fields}}
 	{{$field.Name}} {{$field.Type}}{{end}}
 	}
@@ -123,7 +123,7 @@ var (
 	// {{.Type}}ABI is the input ABI used to generate the binding from.
 	const {{.Type}}ABI = "{{.InputABI}}"
 
-	var {{.Type}}ParsedABI, _ = abi.JSON(strings.NewReader({{.Type}}ABI))
+	var {{.Type}}ParsedABI, _ = abi.JSON[gost3410.PublicKey](strings.NewReader({{.Type}}ABI))
 
 	{{if $contract.FuncSigs}}
 		// {{.Type}}FuncSigs maps the 4-byte function signature to its string representation.
@@ -138,8 +138,8 @@ var (
 		var {{.Type}}Bin = "0x{{.InputBin}}"
 
 		// Deploy{{.Type}} deploys a new Ethereum contract, binding an instance of {{.Type}} to it.
-		func Deploy{{.Type}}(auth *bind.TransactOpts, backend bind.ContractBackend {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, *types.Transaction[P], *{{.Type}}, error) {
-		  parsed, err := abi.JSON(strings.NewReader({{.Type}}ABI))
+		func Deploy{{.Type}}[P crypto.PublicKey](auth *bind.TransactOpts[P], backend bind.ContractBackend[P] {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, *types.Transaction[P], *{{.Type}}[P], error) {
+		  parsed, err := abi.JSON[P](strings.NewReader({{.Type}}ABI))
 		  if err != nil {
 		    return common.Address{}, nil, nil, err
 		  }
@@ -151,108 +151,108 @@ var (
 		  if err != nil {
 		    return common.Address{}, nil, nil, err
 		  }
-		  return address, tx, &{{.Type}}{ {{.Type}}Caller: {{.Type}}Caller{contract: contract}, {{.Type}}Transactor: {{.Type}}Transactor{contract: contract}, {{.Type}}Filterer: {{.Type}}Filterer{contract: contract} }, nil
+		  return address, tx, &{{.Type}}[P]{ {{.Type}}Caller: {{.Type}}Caller[P]{contract: contract}, {{.Type}}Transactor: {{.Type}}Transactor[P]{contract: contract}, {{.Type}}Filterer: {{.Type}}Filterer[P]{contract: contract} }, nil
 		}
 	{{end}}
 
 	// {{.Type}} is an auto generated Go binding around an Ethereum contract.
-	type {{.Type}} struct {
-	  {{.Type}}Caller     // Read-only binding to the contract
-	  {{.Type}}Transactor // Write-only binding to the contract
-	  {{.Type}}Filterer   // Log filterer for contract events
+	type {{.Type}} [P crypto.PublicKey] struct {
+	  {{.Type}}Caller[P]     // Read-only binding to the contract
+	  {{.Type}}Transactor[P] // Write-only binding to the contract
+	  {{.Type}}Filterer[P]   // Log filterer for contract events
 	}
 
 	// {{.Type}}Caller is an auto generated read-only Go binding around an Ethereum contract.
-	type {{.Type}}Caller struct {
-	  contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	type {{.Type}}Caller [P crypto.PublicKey] struct {
+	  contract *bind.BoundContract[P] // Generic contract wrapper for the low level calls
 	}
 
 	// {{.Type}}Transactor is an auto generated write-only Go binding around an Ethereum contract.
-	type {{.Type}}Transactor struct {
-	  contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	type {{.Type}}Transactor [P crypto.PublicKey] struct {
+	  contract *bind.BoundContract[P] // Generic contract wrapper for the low level calls
 	}
 
 	// {{.Type}}Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
-	type {{.Type}}Filterer struct {
-	  contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	type {{.Type}}Filterer [P crypto.PublicKey] struct {
+	  contract *bind.BoundContract[P] // Generic contract wrapper for the low level calls
 	}
 
 	// {{.Type}}Session is an auto generated Go binding around an Ethereum contract,
 	// with pre-set call and transact options.
-	type {{.Type}}Session struct {
-	  Contract     *{{.Type}}        // Generic contract binding to set the session for
+	type {{.Type}}Session [P crypto.PublicKey] struct {
+	  Contract     *{{.Type}}[P]        // Generic contract binding to set the session for
 	  CallOpts     bind.CallOpts     // Call options to use throughout this session
-	  TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+	  TransactOpts bind.TransactOpts[P] // Transaction auth options to use throughout this session
 	}
 
 	// {{.Type}}CallerSession is an auto generated read-only Go binding around an Ethereum contract,
 	// with pre-set call options.
-	type {{.Type}}CallerSession struct {
-	  Contract *{{.Type}}Caller // Generic contract caller binding to set the session for
+	type {{.Type}}CallerSession [P crypto.PublicKey] struct {
+	  Contract *{{.Type}}Caller[P] // Generic contract caller binding to set the session for
 	  CallOpts bind.CallOpts    // Call options to use throughout this session
 	}
 
 	// {{.Type}}TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 	// with pre-set transact options.
-	type {{.Type}}TransactorSession struct {
-	  Contract     *{{.Type}}Transactor // Generic contract transactor binding to set the session for
-	  TransactOpts bind.TransactOpts    // Transaction auth options to use throughout this session
+	type {{.Type}}TransactorSession [P crypto.PublicKey] struct {
+	  Contract     *{{.Type}}Transactor[P] // Generic contract transactor binding to set the session for
+	  TransactOpts bind.TransactOpts[P]    // Transaction auth options to use throughout this session
 	}
 
 	// {{.Type}}Raw is an auto generated low-level Go binding around an Ethereum contract.
-	type {{.Type}}Raw struct {
-	  Contract *{{.Type}} // Generic contract binding to access the raw methods on
+	type {{.Type}}Raw [P crypto.PublicKey] struct {
+	  Contract *{{.Type}}[P] // Generic contract binding to access the raw methods on
 	}
 
 	// {{.Type}}CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-	type {{.Type}}CallerRaw struct {
-		Contract *{{.Type}}Caller // Generic read-only contract binding to access the raw methods on
+	type {{.Type}}CallerRaw [P crypto.PublicKey] struct {
+		Contract *{{.Type}}Caller[P] // Generic read-only contract binding to access the raw methods on
 	}
 
 	// {{.Type}}TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-	type {{.Type}}TransactorRaw struct {
-		Contract *{{.Type}}Transactor // Generic write-only contract binding to access the raw methods on
+	type {{.Type}}TransactorRaw [P crypto.PublicKey] struct {
+		Contract *{{.Type}}Transactor[P] // Generic write-only contract binding to access the raw methods on
 	}
 
 	// New{{.Type}} creates a new instance of {{.Type}}, bound to a specific deployed contract.
-	func New{{.Type}}(address common.Address, backend bind.ContractBackend) (*{{.Type}}, error) {
-	  contract, err := bind{{.Type}}(address, backend, backend, backend)
+	func New{{.Type}} [P crypto.PublicKey] (address common.Address, backend bind.ContractBackend[P]) (*{{.Type}}[P], error) {
+	  contract, err := bind{{.Type}}[P](address, backend, backend, backend)
 	  if err != nil {
 	    return nil, err
 	  }
-	  return &{{.Type}}{ {{.Type}}Caller: {{.Type}}Caller{contract: contract}, {{.Type}}Transactor: {{.Type}}Transactor{contract: contract}, {{.Type}}Filterer: {{.Type}}Filterer{contract: contract} }, nil
+	  return &{{.Type}}[P]{ {{.Type}}Caller: {{.Type}}Caller[P]{contract: contract}, {{.Type}}Transactor: {{.Type}}Transactor[P]{contract: contract}, {{.Type}}Filterer: {{.Type}}Filterer[P]{contract: contract} }, nil
 	}
 
 	// New{{.Type}}Caller creates a new read-only instance of {{.Type}}, bound to a specific deployed contract.
-	func New{{.Type}}Caller(address common.Address, caller bind.ContractCaller) (*{{.Type}}Caller, error) {
-	  contract, err := bind{{.Type}}(address, caller, nil, nil)
+	func New{{.Type}}Caller [P crypto.PublicKey] (address common.Address, caller bind.ContractCaller) (*{{.Type}}Caller[P], error) {
+	  contract, err := bind{{.Type}}[P](address, caller, nil, nil)
 	  if err != nil {
 	    return nil, err
 	  }
-	  return &{{.Type}}Caller{contract: contract}, nil
+	  return &{{.Type}}Caller[P]{contract: contract}, nil
 	}
 
 	// New{{.Type}}Transactor creates a new write-only instance of {{.Type}}, bound to a specific deployed contract.
-	func New{{.Type}}Transactor(address common.Address, transactor bind.ContractTransactor) (*{{.Type}}Transactor, error) {
-	  contract, err := bind{{.Type}}(address, nil, transactor, nil)
+	func New{{.Type}}Transactor [P crypto.PublicKey] (address common.Address, transactor bind.ContractTransactor[P]) (*{{.Type}}Transactor[P], error) {
+	  contract, err := bind{{.Type}}[P](address, nil, transactor, nil)
 	  if err != nil {
 	    return nil, err
 	  }
-	  return &{{.Type}}Transactor{contract: contract}, nil
+	  return &{{.Type}}Transactor[P]{contract: contract}, nil
 	}
 
 	// New{{.Type}}Filterer creates a new log filterer instance of {{.Type}}, bound to a specific deployed contract.
- 	func New{{.Type}}Filterer(address common.Address, filterer bind.ContractFilterer) (*{{.Type}}Filterer, error) {
- 	  contract, err := bind{{.Type}}(address, nil, nil, filterer)
+ 	func New{{.Type}}Filterer [P crypto.PublicKey] (address common.Address, filterer bind.ContractFilterer) (*{{.Type}}Filterer[P], error) {
+ 	  contract, err := bind{{.Type}}[P](address, nil, nil, filterer)
  	  if err != nil {
  	    return nil, err
  	  }
- 	  return &{{.Type}}Filterer{contract: contract}, nil
+ 	  return &{{.Type}}Filterer[P]{contract: contract}, nil
  	}
 
 	// bind{{.Type}} binds a generic wrapper to an already deployed contract.
-	func bind{{.Type}}(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	  parsed, err := abi.JSON(strings.NewReader({{.Type}}ABI))
+	func bind{{.Type}} [P crypto.PublicKey] (address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor[P], filterer bind.ContractFilterer) (*bind.BoundContract[P], error) {
+	  parsed, err := abi.JSON[P](strings.NewReader({{.Type}}ABI))
 	  if err != nil {
 	    return nil, err
 	  }
@@ -263,18 +263,18 @@ var (
 	// sets the output to result. The result type might be a single field for simple
 	// returns, a slice of interfaces for anonymous returns and a struct for named
 	// returns.
-	func (_{{$contract.Type}} *{{$contract.Type}}Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	func (_{{$contract.Type}} *{{$contract.Type}}Raw[P]) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 		return _{{$contract.Type}}.Contract.{{$contract.Type}}Caller.contract.Call(opts, result, method, params...)
 	}
 
 	// Transfer initiates a plain transaction to move funds to the contract, calling
 	// its default method if one is available.
-	func (_{{$contract.Type}} *{{$contract.Type}}Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction[P], error) {
+	func (_{{$contract.Type}} *{{$contract.Type}}Raw[P]) Transfer(opts *bind.TransactOpts[P]) (*types.Transaction[P], error) {
 		return _{{$contract.Type}}.Contract.{{$contract.Type}}Transactor.contract.Transfer(opts)
 	}
 
 	// Transact invokes the (paid) contract method with params as input values.
-	func (_{{$contract.Type}} *{{$contract.Type}}Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction[P], error) {
+	func (_{{$contract.Type}} *{{$contract.Type}}Raw[P]) Transact(opts *bind.TransactOpts[P], method string, params ...interface{}) (*types.Transaction[P], error) {
 		return _{{$contract.Type}}.Contract.{{$contract.Type}}Transactor.contract.Transact(opts, method, params...)
 	}
 
@@ -282,18 +282,18 @@ var (
 	// sets the output to result. The result type might be a single field for simple
 	// returns, a slice of interfaces for anonymous returns and a struct for named
 	// returns.
-	func (_{{$contract.Type}} *{{$contract.Type}}CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	func (_{{$contract.Type}} *{{$contract.Type}}CallerRaw[P]) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 		return _{{$contract.Type}}.Contract.contract.Call(opts, result, method, params...)
 	}
 
 	// Transfer initiates a plain transaction to move funds to the contract, calling
 	// its default method if one is available.
-	func (_{{$contract.Type}} *{{$contract.Type}}TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction[P], error) {
+	func (_{{$contract.Type}} *{{$contract.Type}}TransactorRaw[P]) Transfer(opts *bind.TransactOpts[P]) (*types.Transaction[P], error) {
 		return _{{$contract.Type}}.Contract.contract.Transfer(opts)
 	}
 
 	// Transact invokes the (paid) contract method with params as input values.
-	func (_{{$contract.Type}} *{{$contract.Type}}TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction[P], error) {
+	func (_{{$contract.Type}} *{{$contract.Type}}TransactorRaw[P]) Transact(opts *bind.TransactOpts[P], method string, params ...interface{}) (*types.Transaction[P], error) {
 		return _{{$contract.Type}}.Contract.contract.Transact(opts, method, params...)
 	}
 
@@ -301,7 +301,7 @@ var (
 		// {{.Normalized.Name}} is a free data retrieval call binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Caller) {{.Normalized.Name}}(opts *bind.CallOpts {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Caller[P]) {{.Normalized.Name}}(opts *bind.CallOpts {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} error) {
 			var out []interface{}
 			err := _{{$contract.Type}}.contract.Call(opts, &out, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 			{{if .Structured}}
@@ -327,14 +327,14 @@ var (
 		// {{.Normalized.Name}} is a free data retrieval call binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Session) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} }, {{else}} {{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}} {{end}} error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Session[P]) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} }, {{else}} {{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}} {{end}} error) {
 		  return _{{$contract.Type}}.Contract.{{.Normalized.Name}}(&_{{$contract.Type}}.CallOpts {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 		}
 
 		// {{.Normalized.Name}} is a free data retrieval call binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}CallerSession) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} }, {{else}} {{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}} {{end}} error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}CallerSession[P]) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} }, {{else}} {{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}} {{end}} error) {
 		  return _{{$contract.Type}}.Contract.{{.Normalized.Name}}(&_{{$contract.Type}}.CallOpts {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 		}
 	{{end}}
@@ -343,21 +343,21 @@ var (
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Transactor) {{.Normalized.Name}}(opts *bind.TransactOpts {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Transactor[P]) {{.Normalized.Name}}(opts *bind.TransactOpts[P] {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
 			return _{{$contract.Type}}.contract.Transact(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 		}
 
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Session) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Session[P]) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.{{.Normalized.Name}}(&_{{$contract.Type}}.TransactOpts {{range $i, $_ := .Normalized.Inputs}}, {{.Name}}{{end}})
 		}
 
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession[P]) {{.Normalized.Name}}({{range $i, $_ := .Normalized.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.{{.Normalized.Name}}(&_{{$contract.Type}}.TransactOpts {{range $i, $_ := .Normalized.Inputs}}, {{.Name}}{{end}})
 		}
 	{{end}}
@@ -366,21 +366,21 @@ var (
 		// Fallback is a paid mutator transaction binding the contract fallback function.
 		//
 		// Solidity: {{.Fallback.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Transactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Transactor[P]) Fallback(opts *bind.TransactOpts[P], calldata []byte) (*types.Transaction[P], error) {
 			return _{{$contract.Type}}.contract.RawTransact(opts, calldata)
 		}
 
 		// Fallback is a paid mutator transaction binding the contract fallback function.
 		//
 		// Solidity: {{.Fallback.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Session) Fallback(calldata []byte) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Session[P]) Fallback(calldata []byte) (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.Fallback(&_{{$contract.Type}}.TransactOpts, calldata)
 		}
 	
 		// Fallback is a paid mutator transaction binding the contract fallback function.
 		// 
 		// Solidity: {{.Fallback.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession) Fallback(calldata []byte) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession[P]) Fallback(calldata []byte) (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.Fallback(&_{{$contract.Type}}.TransactOpts, calldata)
 		}
 	{{end}}
@@ -389,31 +389,31 @@ var (
 		// Receive is a paid mutator transaction binding the contract receive function.
 		//
 		// Solidity: {{.Receive.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Transactor) Receive(opts *bind.TransactOpts) (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Transactor[P]) Receive(opts *bind.TransactOpts[P]) (*types.Transaction[P], error) {
 			return _{{$contract.Type}}.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
 		}
 
 		// Receive is a paid mutator transaction binding the contract receive function.
 		//
 		// Solidity: {{.Receive.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Session) Receive() (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Session[P]) Receive() (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.Receive(&_{{$contract.Type}}.TransactOpts)
 		}
 	
 		// Receive is a paid mutator transaction binding the contract receive function.
 		// 
 		// Solidity: {{.Receive.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession) Receive() (*types.Transaction[P], error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}TransactorSession[P]) Receive() (*types.Transaction[P], error) {
 		  return _{{$contract.Type}}.Contract.Receive(&_{{$contract.Type}}.TransactOpts)
 		}
 	{{end}}
 
 	{{range .Events}}
 		// {{$contract.Type}}{{.Normalized.Name}}Iterator is returned from Filter{{.Normalized.Name}} and is used to iterate over the raw logs and unpacked data for {{.Normalized.Name}} events raised by the {{$contract.Type}} contract.
-		type {{$contract.Type}}{{.Normalized.Name}}Iterator struct {
-			Event *{{$contract.Type}}{{.Normalized.Name}} // Event containing the contract specifics and raw log
+		type {{$contract.Type}}{{.Normalized.Name}}Iterator [P crypto.PublicKey] struct {
+			Event *{{$contract.Type}}{{.Normalized.Name}}[P] // Event containing the contract specifics and raw log
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			contract *bind.BoundContract[P] // Generic contract to use for unpacking event data
 			event    string              // Event name to use for unpacking event data
 
 			logs chan types.Log        // Log channel receiving the found contract events
@@ -424,7 +424,7 @@ var (
 		// Next advances the iterator to the subsequent event, returning whether there
 		// are any more events found. In case of a retrieval or parsing error, false is
 		// returned and Error() can be queried for the exact failure.
-		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator) Next() bool {
+		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator[P]) Next() bool {
 			// If the iterator failed, stop iterating
 			if (it.fail != nil) {
 				return false
@@ -433,7 +433,7 @@ var (
 			if (it.done) {
 				select {
 				case log := <-it.logs:
-					it.Event = new({{$contract.Type}}{{.Normalized.Name}})
+					it.Event = new({{$contract.Type}}{{.Normalized.Name}}[P])
 					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 						it.fail = err
 						return false
@@ -448,7 +448,7 @@ var (
 			// Iterator still in progress, wait for either a data or an error event
 			select {
 			case log := <-it.logs:
-				it.Event = new({{$contract.Type}}{{.Normalized.Name}})
+				it.Event = new({{$contract.Type}}{{.Normalized.Name}}[P])
 				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 					it.fail = err
 					return false
@@ -463,18 +463,18 @@ var (
 			}
 		}
 		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator) Error() error {
+		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator[P]) Error() error {
 			return it.fail
 		}
 		// Close terminates the iteration process, releasing any pending underlying
 		// resources.
-		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator) Close() error {
+		func (it *{{$contract.Type}}{{.Normalized.Name}}Iterator[P]) Close() error {
 			it.sub.Unsubscribe()
 			return nil
 		}
 
 		// {{$contract.Type}}{{.Normalized.Name}} represents a {{.Normalized.Name}} event raised by the {{$contract.Type}} contract.
-		type {{$contract.Type}}{{.Normalized.Name}} struct { {{range .Normalized.Inputs}}
+		type {{$contract.Type}}{{.Normalized.Name}} [P crypto.PublicKey] struct { {{range .Normalized.Inputs}}
 			{{capitalise .Name}} {{if .Indexed}}{{bindtopictype .Type $structs}}{{else}}{{bindtype .Type $structs}}{{end}}; {{end}}
 			Raw types.Log // Blockchain specific contextual infos
 		}
@@ -482,7 +482,7 @@ var (
 		// Filter{{.Normalized.Name}} is a free log retrieval operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
- 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (*{{$contract.Type}}{{.Normalized.Name}}Iterator, error) {
+ 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer[P]) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (*{{$contract.Type}}{{.Normalized.Name}}Iterator[P], error) {
 			{{range .Normalized.Inputs}}
 			{{if .Indexed}}var {{.Name}}Rule []interface{}
 			for _, {{.Name}}Item := range {{.Name}} {
@@ -493,14 +493,14 @@ var (
 			if err != nil {
 				return nil, err
 			}
-			return &{{$contract.Type}}{{.Normalized.Name}}Iterator{contract: _{{$contract.Type}}.contract, event: "{{.Original.Name}}", logs: logs, sub: sub}, nil
+			return &{{$contract.Type}}{{.Normalized.Name}}Iterator[P]{contract: _{{$contract.Type}}.contract, event: "{{.Original.Name}}", logs: logs, sub: sub}, nil
  		}
 
 		var {{.Normalized.Name}}TopicHash = "0x{{printf "%x" .Original.ID}}"
 		// Watch{{.Normalized.Name}} is a free log subscription operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Watch{{.Normalized.Name}}(opts *bind.WatchOpts, sink chan<- *{{$contract.Type}}{{.Normalized.Name}}{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (event.Subscription, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Filterer[P]) Watch{{.Normalized.Name}}(opts *bind.WatchOpts, sink chan<- *{{$contract.Type}}{{.Normalized.Name}}{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (event.Subscription, error) {
 			{{range .Normalized.Inputs}}
 			{{if .Indexed}}var {{.Name}}Rule []interface{}
 			for _, {{.Name}}Item := range {{.Name}} {
@@ -517,7 +517,7 @@ var (
 					select {
 					case log := <-logs:
 						// New log arrived, parse the event and forward to the user
-						event := new({{$contract.Type}}{{.Normalized.Name}})
+						event := new({{$contract.Type}}{{.Normalized.Name}}[P])
 						if err := _{{$contract.Type}}.contract.UnpackLog(event, "{{.Original.Name}}", log); err != nil {
 							return err
 						}
@@ -542,8 +542,8 @@ var (
 		// Parse{{.Normalized.Name}} is a log parse operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Parse{{.Normalized.Name}}(log types.Log) (*{{$contract.Type}}{{.Normalized.Name}}, error) {
-			event := new({{$contract.Type}}{{.Normalized.Name}})
+		func (_{{$contract.Type}} *{{$contract.Type}}Filterer[P]) Parse{{.Normalized.Name}}(log types.Log) (*{{$contract.Type}}{{.Normalized.Name}}[P], error) {
+			event := new({{$contract.Type}}{{.Normalized.Name}}[P])
 			if err := _{{$contract.Type}}.contract.UnpackLog(event, "{{.Original.Name}}", log); err != nil {
 				return nil, err
 			}
