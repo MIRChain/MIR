@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
@@ -187,6 +188,10 @@ func (n *Node[P]) Pubkey() P {
 		}
 	case *gost3410.PublicKey:
 		if n.Load((*Gost3410)(p)) != nil {
+			return crypto.ZeroPublicKey[P]()
+		}
+	case *csp.PublicKey:
+		if n.Load((*Gost3410CSP)(p)) != nil {
 			return crypto.ZeroPublicKey[P]()
 		}
 	}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
@@ -60,6 +61,14 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 		}
 	case *gost3410.PrivateKey:
 		cpy.Set(Gost3410(*privkey.Public()))
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, cpy.AppendElements(nil))
+		sig, err = crypto.Sign(h.Sum(nil), *privkey)
+		if err != nil {
+			return err
+		}
+	case *csp.Cert:
+		cpy.Set(Gost3410CSP(*privkey.Public()))
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, cpy.AppendElements(nil))
 		sig, err = crypto.Sign(h.Sum(nil), *privkey)
@@ -185,6 +194,29 @@ func (v *Gost3410) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+type Gost3410CSP csp.PublicKey
+
+func (v Gost3410CSP) ENRKey() string { return "gost3410" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v Gost3410CSP) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, (*csp.PublicKey)(&v).Raw())
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *Gost3410CSP) DecodeRLP(s *rlp.Stream) error {
+	buf, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	pk, err := csp.NewPublicKey(buf)
+	if err != nil {
+		return err
+	}
+	*v = (Gost3410CSP)(*pk)
+	return nil
+}
+
 // s256raw is an unparsed secp256k1 public key entry.
 type s256raw []byte
 
@@ -224,6 +256,11 @@ func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
 		}
 	case *gost3410.PublicKey:
 		r.Set((*Gost3410)(pubkey))
+		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
+			panic(err)
+		}
+	case *csp.PublicKey:
+		r.Set((*Gost3410CSP)(pubkey))
 		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}

@@ -55,6 +55,9 @@ type keyStore [T crypto.PrivateKey] interface {
 	StoreKey(filename string, k *Key[T], auth string) error
 	// Joins filename with the key directory unless it is already absolute.
 	JoinPath(filename string) string
+	// Keys from CSP adapter
+	GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error)
+	StoreKeyCsp(filename string, k *KeyCsp) error
 }
 
 type plainKeyJSON struct {

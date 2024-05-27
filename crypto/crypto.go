@@ -33,9 +33,11 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"golang.org/x/crypto/sha3"
 	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
@@ -69,11 +71,11 @@ const (
 var CryptoAlg CryptoType = NIST
 
 type PrivateKey interface {
-	nist.PrivateKey | gost3410.PrivateKey | *nist.PrivateKey  | *gost3410.PrivateKey 
+	nist.PrivateKey | gost3410.PrivateKey | csp.Cert | *nist.PrivateKey  | *gost3410.PrivateKey | *csp.Cert
 }
 
 type PublicKey interface {
-	nist.PublicKey | gost3410.PublicKey | *nist.PublicKey | *gost3410.PublicKey 
+	nist.PublicKey | gost3410.PublicKey | csp.PublicKey | *nist.PublicKey | *gost3410.PublicKey | *csp.PublicKey
 	GetX() *big.Int
 	GetY() *big.Int
 }
@@ -94,6 +96,8 @@ func NewKeccakState[P PublicKey]() KeccakState {
 		return sha3.NewLegacyKeccak256().(KeccakState)
 	case *gost3410.PublicKey:
 		return gost3411.New256().(KeccakState)
+	case *csp.PublicKey:
+		return csp.New256().(KeccakState)
 	default:
 		panic("cant infer crypto type for hashing alg")
 	}
@@ -242,6 +246,8 @@ func FromECDSA[T PrivateKey](priv T) []byte {
 			return nil
 		}
 		return math.PaddedBigBytes(priv.Key, priv.C.P.BitLen()/8)
+	case *csp.Cert:
+		return priv.Bytes()
 	default:
 		panic("cant infer priv key")
 	}
@@ -264,6 +270,12 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 			return ZeroPublicKey[P](), err
 		}
 		*p=*k
+	case *csp.PublicKey:
+		k, err := csp.NewPublicKey(pub)
+		if err == nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p=*k
 	}
 	return pubKey, nil
 }
@@ -280,6 +292,11 @@ func FromECDSAPub[P PublicKey](pub P) []byte {
 			panic("nil nil")
 		}
 		return gost3410.Marshal(gost3410.GostCurve, p.X, p.Y)
+	case *csp.PublicKey:
+		if pub.GetX() == nil || pub.GetY() == nil {
+			panic("nil nil")
+		}
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), p.X, p.Y)
 	default:
 		panic("cant infer pubkey type")
 	}
@@ -379,6 +396,8 @@ func  GenerateKey[T PrivateKey]() (T, error) {
 			return ZeroPrivateKey[T](), fmt.Errorf("")
 		}
 		*t = *newGost3410
+	case *csp.Cert:
+		*t = *params.SignerCert
 	}
 	return key, nil
 }
@@ -404,6 +423,11 @@ func ValidateSignatureValues[P crypto.PublicKey](v byte, r, s *big.Int, homestea
 			return false
 		}
 		return r.Cmp(gost3410.GostCurve.Q) < 0 && s.Cmp(gost3410.GostCurve.Q) < 0 && (v == 0 || v == 1 || v == 10 || v == 11)
+	case *csp.PublicKey:
+		if r.Cmp(common.Big1) < 0 || s.Cmp(common.Big1) < 0 {
+			return false
+		}
+		return true
 	default:
 		return false
 	}

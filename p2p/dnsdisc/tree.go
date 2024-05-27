@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -64,6 +65,14 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 		var pub P
 		switch pubKey := any(&pub).(type) {
 		case *gost3410.PublicKey:
+			*pubKey=*key.Public()
+		}
+		link = newLinkEntry(domain, pub)
+		return link.String(), nil
+	case *csp.Cert:
+		var pub P
+		switch pubKey := any(&pub).(type) {
+		case *csp.PublicKey:
 			*pubKey=*key.Public()
 		}
 		link = newLinkEntry(domain, pub)

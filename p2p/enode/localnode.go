@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/log"
@@ -83,6 +84,19 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 	case *gost3410.PrivateKey:
 		ln = &LocalNode[T,P]{
 			id:      PubkeyToIDV4(*key.Public()),
+			db:      db,
+			key:     prvKey,
+			entries: make(map[string]enr.Entry),
+			endpoint4: lnEndpoint{
+				track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
+			},
+			endpoint6: lnEndpoint{
+				track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
+			},
+		}
+	case *csp.Cert:
+		ln = &LocalNode[T,P]{
+			id:      PubkeyToIDV4(key.Public()),
 			db:      db,
 			key:     prvKey,
 			entries: make(map[string]enr.Entry),

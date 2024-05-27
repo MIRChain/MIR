@@ -78,6 +78,7 @@ type KeyStore [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 type unlocked [T crypto.PrivateKey] struct {
 	*Key[T]
+	*KeyCsp
 	abort chan struct{}
 }
 

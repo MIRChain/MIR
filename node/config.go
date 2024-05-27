@@ -35,6 +35,7 @@ import (
 	// "github.com/pavelkrolevets/MIR-pro/accounts/usbwallet"
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/pavelkrolevets/MIR-pro/p2p"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
@@ -211,6 +212,9 @@ type Config [T crypto.PrivateKey, P crypto.PublicKey ] struct {
 	Plugins              *plugin.Settings `toml:",omitempty"`
 	EnableNodePermission bool             `toml:",omitempty"` // comes from EnableNodePermissionFlag --permissioned.
 	EnableMultitenancy   bool             `toml:",omitempty"` // comes from MultitenancyFlag flag
+
+	// Mir
+	SignerCert 		*csp.Cert
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
@@ -599,4 +603,12 @@ func (c *Config[T,P]) warnOnce(w *bool, format string, args ...interface{}) {
 	}
 	l.Warn(fmt.Sprintf(format, args...))
 	*w = true
+}
+
+// Mir chain
+func  (c *Config[T,P]) GetSignerCert() (*csp.Cert, error) {
+	if c.SignerCert != nil {
+		return c.SignerCert, nil
+	}
+	return nil, fmt.Errorf("signer cert cert inst set")
 }

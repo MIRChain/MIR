@@ -28,6 +28,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common/math"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
@@ -305,6 +306,11 @@ func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])
 		return ID(crypto.Keccak256Hash[P](e))
+	case *csp.PublicKey:
+		e := make([]byte, 64)
+		math.ReadBits(pubkey.X, e[:len(e)/2])
+		math.ReadBits(pubkey.Y, e[len(e)/2:])
+		return ID(crypto.Keccak256Hash[P](e))
 	default:
 		panic("cant infer type of public key")
 	}
@@ -318,6 +324,11 @@ func PubkeyToEnodeID[P crypto.PublicKey ](key P) EnodeID {
 		math.ReadBits(pubkey.Y, e[len(e)/2:])
 		return EnodeID(e)
 	case *gost3410.PublicKey:
+		e := make([]byte, 64)
+		math.ReadBits(pubkey.X, e[:len(e)/2])
+		math.ReadBits(pubkey.Y, e[len(e)/2:])
+		return EnodeID(e)
+	case *csp.PublicKey:
 		e := make([]byte, 64)
 		math.ReadBits(pubkey.X, e[:len(e)/2])
 		math.ReadBits(pubkey.Y, e[len(e)/2:])

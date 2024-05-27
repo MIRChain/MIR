@@ -31,6 +31,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/common/mclock"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/pavelkrolevets/MIR-pro/event"
@@ -403,6 +404,11 @@ func (srv *Server[T, P]) Self() *enode.Node[P] {
 			p:=any(&pub).(*gost3410.PublicKey)
 			*p = *key.Public()
 			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
+		case *csp.Cert:
+			var pub P
+			p:=any(&pub).(*csp.PublicKey)
+			*p = *key.Public()
+			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		}
 	}
 	return ln.Node()
@@ -521,6 +527,11 @@ func (srv *Server[T, P]) setupLocalNode() error {
 	case *gost3410.PrivateKey:
 		var pub P
 		p:=any(&pub).(*gost3410.PublicKey)
+		*p = *key.Public()
+		pubkey = crypto.FromECDSAPub[P](pub)
+	case *csp.Cert:
+		var pub P
+		p:=any(&pub).(*csp.PublicKey)
 		*p = *key.Public()
 		pubkey = crypto.FromECDSAPub[P](pub)
 	}
@@ -988,6 +999,12 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 			}
 		case *gost3410.PublicKey:
 			if err := dialDest.Load((*enode.Gost3410)(p)); err != nil {
+				err = errors.New("dial destination doesn't have a secp256k1 public key")
+				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+				return err
+			}
+		case *csp.PublicKey:
+			if err := dialDest.Load((*enode.Gost3410CSP)(p)); err != nil {
 				err = errors.New("dial destination doesn't have a secp256k1 public key")
 				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 				return err

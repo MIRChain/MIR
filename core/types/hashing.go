@@ -22,6 +22,7 @@ import (
 
 	"github.com/pavelkrolevets/MIR-pro/common"
 	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
 	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
 	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
@@ -58,6 +59,12 @@ func rlpHash[P crypto.PublicKey](x interface{}) (h common.Hash) {
 		sha.Reset()
 		rlp.Encode(sha, x)
 		sha.Read(h[:])
+	case *csp.PublicKey:
+		sha := hasherPoolGost.Get().(crypto.KeccakState)
+		defer hasherPoolGost.Put(sha)
+		sha.Reset()
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
 	}
 	return h
 }
@@ -75,6 +82,13 @@ func prefixedRlpHash[P crypto.PublicKey](prefix byte, x interface{}) (h common.H
 		rlp.Encode(sha, x)
 		sha.Read(h[:])
 	case *gost3410.PublicKey:
+		sha := hasherPoolGost.Get().(crypto.KeccakState)
+		defer hasherPoolGost.Put(sha)
+		sha.Reset()
+		sha.Write([]byte{prefix})
+		rlp.Encode(sha, x)
+		sha.Read(h[:])
+	case *csp.PublicKey:
 		sha := hasherPoolGost.Get().(crypto.KeccakState)
 		defer hasherPoolGost.Put(sha)
 		sha.Reset()

@@ -14,6 +14,7 @@ import (
 	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
 	"github.com/pavelkrolevets/MIR-pro/core/state"
 	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 	"github.com/pavelkrolevets/MIR-pro/params"
 	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/pavelkrolevets/MIR-pro/trie"
@@ -457,7 +458,13 @@ func (e *Engine[P]) ReadVote(header *types.Header[P]) (candidate common.Address,
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
 func sigHash[P crypto.PublicKey](header *types.Header[P]) (hash common.Hash) {
-	hasher := crypto.NewKeccakState[P]()
+	// hasher := sha3.NewLegacyKeccak256()
+	
+	// Mir - Gost hash 34.11
+	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		panic(err)
+	}
 	
 	rlp.Encode(hasher, types.IstanbulFilteredHeader(header, false))
 	hasher.Sum(hash[:0])
