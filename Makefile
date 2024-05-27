@@ -25,6 +25,18 @@ bootnode:
 all:
 	$(GORUN) build/ci.go install
 
+mir-docker-build:
+	@echo "Building using Docker"
+	docker image build -t mir:latest . 
+
+mir-docker:
+	@echo "Running operator docker, make sure to update ./examples/operator1/congig/config.yaml"
+	docker run \
+	  --name mir-node \
+	  -p 3030:3030 \
+	  -v $(shell pwd)/build:/mir/build \
+	  mir:latest
+	  
 # android:
 # 	$(GORUN) build/ci.go aar --local
 # 	@echo "Done building."

@@ -4,16 +4,16 @@
 
 ### Features
 
-- Different types of crypto signature can be chosen at a new chain initialization: 
+- Different types of crypto signature can be chosen:
   - GOST 34.10 (any 256 bit curve)
-  - CyptoProGOST
+  - CyptoProGOST (https://cryptopro.ru/en)
   - NIST Secp256k1
-- Different type of hash function can be chosen at a new chain initialization:
+- Different type of hash function can be chosen:
   - SHA3
   - SteebogHash
-- Differetnt consensus algoruthms are also avaliable at a new chain initialization:
+- Different consensus algorithms are also available:
   - Proof-of-Work
-  - Proof-of-Authority 
+  - Proof-of-Authority
   - Raft
   - iBFT
   - QBFT
