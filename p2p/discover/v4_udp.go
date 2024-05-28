@@ -28,16 +28,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/discover/v4wire"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/p2p/netutil"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Errors
@@ -68,7 +68,7 @@ const (
 )
 
 // UDPv4 implements the v4 wire protocol.
-type UDPv4 [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type UDPv4[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	conn        UDPConn
 	log         log.Logger
 	netrestrict *netutil.Netlist
@@ -130,10 +130,10 @@ type reply struct {
 	matched chan<- bool
 }
 
-func ListenV4  [T crypto.PrivateKey, P crypto.PublicKey] (c UDPConn, ln *enode.LocalNode[T,P], cfg Config[T,P]) (*UDPv4[T,P], error) {
+func ListenV4[T crypto.PrivateKey, P crypto.PublicKey](c UDPConn, ln *enode.LocalNode[T, P], cfg Config[T, P]) (*UDPv4[T, P], error) {
 	cfg = cfg.withDefaults()
 	closeCtx, cancel := context.WithCancel(context.Background())
-	t := &UDPv4[T,P]{
+	t := &UDPv4[T, P]{
 		conn:            c,
 		priv:            cfg.PrivateKey,
 		netrestrict:     cfg.NetRestrict,
@@ -160,12 +160,12 @@ func ListenV4  [T crypto.PrivateKey, P crypto.PublicKey] (c UDPConn, ln *enode.L
 }
 
 // Self returns the local node.
-func (t *UDPv4[T,P]) Self() *enode.Node[P] {
+func (t *UDPv4[T, P]) Self() *enode.Node[P] {
 	return t.localNode.Node()
 }
 
 // Close shuts down the socket and aborts any running queries.
-func (t *UDPv4[T,P]) Close() {
+func (t *UDPv4[T, P]) Close() {
 	t.closeOnce.Do(func() {
 		t.cancelCloseCtx()
 		t.conn.Close()
@@ -176,7 +176,7 @@ func (t *UDPv4[T,P]) Close() {
 
 // Resolve searches for a specific node with the given ID and tries to get the most recent
 // version of the node record for it. It returns n if the node could not be resolved.
-func (t *UDPv4[T,P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
+func (t *UDPv4[T, P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
 	// Try asking directly. This works if the node is still responding on the endpoint we have.
 	if rn, err := t.RequestENR(n); err == nil {
 		return rn
@@ -200,13 +200,13 @@ func (t *UDPv4[T,P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
 	case *gost3410.PublicKey:
 		var key enode.Gost3410
 		if n.Load(&key) != nil {
-			return n 
+			return n
 		}
 		*p = (gost3410.PublicKey)(key)
 	case *csp.PublicKey:
 		var key enode.Gost3410CSP
 		if n.Load(&key) != nil {
-			return n 
+			return n
 		}
 		*p = (csp.PublicKey)(key)
 	}
@@ -221,20 +221,20 @@ func (t *UDPv4[T,P]) Resolve(n *enode.Node[P]) *enode.Node[P] {
 	return n
 }
 
-func (t *UDPv4[T,P]) ourEndpoint() v4wire.Endpoint {
+func (t *UDPv4[T, P]) ourEndpoint() v4wire.Endpoint {
 	n := t.Self()
 	a := &net.UDPAddr{IP: n.IP(), Port: n.UDP()}
 	return v4wire.NewEndpoint(a, uint16(n.TCP()))
 }
 
 // Ping sends a ping message to the given node.
-func (t *UDPv4[T,P]) Ping(n *enode.Node[P]) error {
+func (t *UDPv4[T, P]) Ping(n *enode.Node[P]) error {
 	_, err := t.ping(n)
 	return err
 }
 
 // ping sends a ping message to the given node and waits for a reply.
-func (t *UDPv4[T,P]) ping(n *enode.Node[P]) (seq uint64, err error) {
+func (t *UDPv4[T, P]) ping(n *enode.Node[P]) (seq uint64, err error) {
 	rm := t.sendPing(n.ID(), &net.UDPAddr{IP: n.IP(), Port: n.UDP()}, nil)
 	if err = <-rm.errc; err == nil {
 		seq = rm.reply.(*v4wire.Pong).ENRSeq()
@@ -244,9 +244,9 @@ func (t *UDPv4[T,P]) ping(n *enode.Node[P]) (seq uint64, err error) {
 
 // sendPing sends a ping message to the given node and invokes the callback
 // when the reply arrives.
-func (t *UDPv4[T,P]) sendPing(toid enode.ID, toaddr *net.UDPAddr, callback func()) *replyMatcher {
+func (t *UDPv4[T, P]) sendPing(toid enode.ID, toaddr *net.UDPAddr, callback func()) *replyMatcher {
 	req := t.makePing(toaddr)
-	packet, hash, err := v4wire.Encode[T,P](t.priv, req)
+	packet, hash, err := v4wire.Encode[T, P](t.priv, req)
 	if err != nil {
 		errc := make(chan error, 1)
 		errc <- err
@@ -267,7 +267,7 @@ func (t *UDPv4[T,P]) sendPing(toid enode.ID, toaddr *net.UDPAddr, callback func(
 	return rm
 }
 
-func (t *UDPv4[T,P]) makePing(toaddr *net.UDPAddr) *v4wire.Ping {
+func (t *UDPv4[T, P]) makePing(toaddr *net.UDPAddr) *v4wire.Ping {
 	seq, _ := rlp.EncodeToBytes(t.localNode.Node().Seq())
 	return &v4wire.Ping{
 		Version:    4,
@@ -279,7 +279,7 @@ func (t *UDPv4[T,P]) makePing(toaddr *net.UDPAddr) *v4wire.Ping {
 }
 
 // LookupPubkey finds the closest nodes to the given public key.
-func (t *UDPv4[T,P]) LookupPubkey(key P) []*enode.Node[P] {
+func (t *UDPv4[T, P]) LookupPubkey(key P) []*enode.Node[P] {
 	if t.tab.len() == 0 {
 		// All nodes were dropped, refresh. The very first query will hit this
 		// case and run the bootstrapping logic.
@@ -289,17 +289,17 @@ func (t *UDPv4[T,P]) LookupPubkey(key P) []*enode.Node[P] {
 }
 
 // RandomNodes is an iterator yielding nodes from a random walk of the DHT.
-func (t *UDPv4[T,P]) RandomNodes() enode.Iterator[P] {
+func (t *UDPv4[T, P]) RandomNodes() enode.Iterator[P] {
 	return newLookupIterator(t.closeCtx, t.newRandomLookup)
 }
 
 // lookupRandom implements transport.
-func (t *UDPv4[T,P]) lookupRandom() []*enode.Node[P] {
+func (t *UDPv4[T, P]) lookupRandom() []*enode.Node[P] {
 	return t.newRandomLookup(t.closeCtx).run()
 }
 
 // lookupSelf implements transport.
-func (t *UDPv4[T,P]) lookupSelf() []*enode.Node[P] {
+func (t *UDPv4[T, P]) lookupSelf() []*enode.Node[P] {
 	var pub P
 	switch privKey := any(&t.priv).(type) {
 	case *nist.PrivateKey:
@@ -321,13 +321,13 @@ func (t *UDPv4[T,P]) lookupSelf() []*enode.Node[P] {
 	return t.newLookup(t.closeCtx, encodePubkey[P](pub)).run()
 }
 
-func (t *UDPv4[T,P]) newRandomLookup(ctx context.Context) *lookup[P] {
+func (t *UDPv4[T, P]) newRandomLookup(ctx context.Context) *lookup[P] {
 	var target encPubkey[P]
 	crand.Read(target[:])
 	return t.newLookup(ctx, target)
 }
 
-func (t *UDPv4[T,P]) newLookup(ctx context.Context, targetKey encPubkey[P]) *lookup[P] {
+func (t *UDPv4[T, P]) newLookup(ctx context.Context, targetKey encPubkey[P]) *lookup[P] {
 	target := enode.ID(crypto.Keccak256Hash[P](targetKey[:]))
 	ekey := v4wire.Pubkey[P](targetKey)
 	it := newLookup(ctx, t.tab, target, func(n *node[P]) ([]*node[P], error) {
@@ -338,7 +338,7 @@ func (t *UDPv4[T,P]) newLookup(ctx context.Context, targetKey encPubkey[P]) *loo
 
 // findnode sends a findnode request to the given node and waits until
 // the node has sent up to k neighbors.
-func (t *UDPv4[T,P]) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubkey[P]) ([]*node[P], error) {
+func (t *UDPv4[T, P]) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubkey[P]) ([]*node[P], error) {
 	t.ensureBond(toid, toaddr)
 
 	// Add a matcher for 'neighbours' replies to the pending reply queue. The matcher is
@@ -375,14 +375,14 @@ func (t *UDPv4[T,P]) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.
 }
 
 // RequestENR sends enrRequest to the given node and waits for a response.
-func (t *UDPv4[T,P]) RequestENR(n *enode.Node[P]) (*enode.Node[P], error) {
+func (t *UDPv4[T, P]) RequestENR(n *enode.Node[P]) (*enode.Node[P], error) {
 	addr := &net.UDPAddr{IP: n.IP(), Port: n.UDP()}
 	t.ensureBond(n.ID(), addr)
 
 	req := &v4wire.ENRRequest{
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	packet, hash, err := v4wire.Encode[T,P](t.priv, req)
+	packet, hash, err := v4wire.Encode[T, P](t.priv, req)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +417,7 @@ func (t *UDPv4[T,P]) RequestENR(n *enode.Node[P]) (*enode.Node[P], error) {
 
 // pending adds a reply matcher to the pending reply queue.
 // see the documentation of type replyMatcher for a detailed explanation.
-func (t *UDPv4[T,P]) pending(id enode.ID, ip net.IP, ptype byte, callback replyMatchFunc) *replyMatcher {
+func (t *UDPv4[T, P]) pending(id enode.ID, ip net.IP, ptype byte, callback replyMatchFunc) *replyMatcher {
 	ch := make(chan error, 1)
 	p := &replyMatcher{from: id, ip: ip, ptype: ptype, callback: callback, errc: ch}
 	select {
@@ -431,7 +431,7 @@ func (t *UDPv4[T,P]) pending(id enode.ID, ip net.IP, ptype byte, callback replyM
 
 // handleReply dispatches a reply packet, invoking reply matchers. It returns
 // whether any matcher considered the packet acceptable.
-func (t *UDPv4[T,P]) handleReply(from enode.ID, fromIP net.IP, req v4wire.Packet) bool {
+func (t *UDPv4[T, P]) handleReply(from enode.ID, fromIP net.IP, req v4wire.Packet) bool {
 	matched := make(chan bool, 1)
 	select {
 	case t.gotreply <- reply{from, fromIP, req, matched}:
@@ -444,7 +444,7 @@ func (t *UDPv4[T,P]) handleReply(from enode.ID, fromIP net.IP, req v4wire.Packet
 
 // loop runs in its own goroutine. it keeps track of
 // the refresh timer and the pending reply queue.
-func (t *UDPv4[T,P]) loop() {
+func (t *UDPv4[T, P]) loop() {
 	defer t.wg.Done()
 
 	var (
@@ -536,22 +536,22 @@ func (t *UDPv4[T,P]) loop() {
 	}
 }
 
-func (t *UDPv4[T,P]) send(toaddr *net.UDPAddr, toid enode.ID, req v4wire.Packet) ([]byte, error) {
-	packet, hash, err := v4wire.Encode[T,P](t.priv, req)
+func (t *UDPv4[T, P]) send(toaddr *net.UDPAddr, toid enode.ID, req v4wire.Packet) ([]byte, error) {
+	packet, hash, err := v4wire.Encode[T, P](t.priv, req)
 	if err != nil {
 		return hash, err
 	}
 	return hash, t.write(toaddr, toid, req.Name(), packet)
 }
 
-func (t *UDPv4[T,P]) write(toaddr *net.UDPAddr, toid enode.ID, what string, packet []byte) error {
+func (t *UDPv4[T, P]) write(toaddr *net.UDPAddr, toid enode.ID, what string, packet []byte) error {
 	_, err := t.conn.WriteToUDP(packet, toaddr)
 	t.log.Trace(">> "+what, "id", toid, "addr", toaddr, "err", err)
 	return err
 }
 
 // readLoop runs in its own goroutine. it handles incoming UDP packets.
-func (t *UDPv4[T,P]) readLoop(unhandled chan<- ReadPacket) {
+func (t *UDPv4[T, P]) readLoop(unhandled chan<- ReadPacket) {
 	defer t.wg.Done()
 	if unhandled != nil {
 		defer close(unhandled)
@@ -580,7 +580,7 @@ func (t *UDPv4[T,P]) readLoop(unhandled chan<- ReadPacket) {
 	}
 }
 
-func (t *UDPv4[T,P]) handlePacket(from *net.UDPAddr, buf []byte) error {
+func (t *UDPv4[T, P]) handlePacket(from *net.UDPAddr, buf []byte) error {
 	rawpacket, fromKey, hash, err := v4wire.Decode[P](buf)
 	if err != nil {
 		t.log.Debug("Bad discv4 packet", "addr", from, "err", err)
@@ -599,13 +599,13 @@ func (t *UDPv4[T,P]) handlePacket(from *net.UDPAddr, buf []byte) error {
 }
 
 // checkBond checks if the given node has a recent enough endpoint proof.
-func (t *UDPv4[T,P]) checkBond(id enode.ID, ip net.IP) bool {
+func (t *UDPv4[T, P]) checkBond(id enode.ID, ip net.IP) bool {
 	return time.Since(t.db.LastPongReceived(id, ip)) < bondExpiration
 }
 
 // ensureBond solicits a ping from a node if we haven't seen a ping from it for a while.
 // This ensures there is a valid endpoint proof on the remote end.
-func (t *UDPv4[T,P]) ensureBond(toid enode.ID, toaddr *net.UDPAddr) {
+func (t *UDPv4[T, P]) ensureBond(toid enode.ID, toaddr *net.UDPAddr) {
 	tooOld := time.Since(t.db.LastPingReceived(toid, toaddr.IP)) > bondExpiration
 	if tooOld || t.db.FindFails(toid, toaddr.IP) > maxFindnodeFailures {
 		rm := t.sendPing(toid, toaddr, nil)
@@ -615,7 +615,7 @@ func (t *UDPv4[T,P]) ensureBond(toid enode.ID, toaddr *net.UDPAddr) {
 	}
 }
 
-func (t *UDPv4[T,P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node[P]) (*node[P], error) {
+func (t *UDPv4[T, P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node[P]) (*node[P], error) {
 	if rn.UDP <= 1024 {
 		return nil, errLowPort
 	}
@@ -637,7 +637,7 @@ func (t *UDPv4[T,P]) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node[P]) (*node[
 func nodeToRPC[P crypto.PublicKey](n *node[P]) v4wire.Node[P] {
 	var key P
 	var ekey v4wire.Pubkey[P]
-	switch p:=any(&key).(type){
+	switch p := any(&key).(type) {
 	case *nist.PublicKey:
 		if err := n.Load((*enode.Secp256k1)(p)); err == nil {
 			ekey = v4wire.EncodePubkey(key)
@@ -651,7 +651,7 @@ func nodeToRPC[P crypto.PublicKey](n *node[P]) v4wire.Node[P] {
 }
 
 // wrapPacket returns the handler functions applicable to a packet.
-func (t *UDPv4[T,P]) wrapPacket(p v4wire.Packet) *packetHandlerV4[P] {
+func (t *UDPv4[T, P]) wrapPacket(p v4wire.Packet) *packetHandlerV4[P] {
 	var h packetHandlerV4[P]
 	h.Packet = p
 	switch p.(type) {
@@ -675,7 +675,7 @@ func (t *UDPv4[T,P]) wrapPacket(p v4wire.Packet) *packetHandlerV4[P] {
 }
 
 // packetHandlerV4 wraps a packet with handler functions.
-type packetHandlerV4  [P crypto.PublicKey] struct {
+type packetHandlerV4[P crypto.PublicKey] struct {
 	v4wire.Packet
 	senderKey P // used for ping
 
@@ -687,7 +687,7 @@ type packetHandlerV4  [P crypto.PublicKey] struct {
 
 // PING/v4
 
-func (t *UDPv4[T,P]) verifyPing(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyPing(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	req := h.Packet.(*v4wire.Ping)
 
 	senderKey, err := v4wire.DecodePubkey[P](fromKey)
@@ -701,7 +701,7 @@ func (t *UDPv4[T,P]) verifyPing(h *packetHandlerV4[P], from *net.UDPAddr, fromID
 	return nil
 }
 
-func (t *UDPv4[T,P]) handlePing(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
+func (t *UDPv4[T, P]) handlePing(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
 	req := h.Packet.(*v4wire.Ping)
 
 	// Reply.
@@ -730,7 +730,7 @@ func (t *UDPv4[T,P]) handlePing(h *packetHandlerV4[P], from *net.UDPAddr, fromID
 
 // PONG/v4
 
-func (t *UDPv4[T,P]) verifyPong(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyPong(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	req := h.Packet.(*v4wire.Pong)
 
 	if v4wire.Expired(req.Expiration) {
@@ -746,7 +746,7 @@ func (t *UDPv4[T,P]) verifyPong(h *packetHandlerV4[P], from *net.UDPAddr, fromID
 
 // FINDNODE/v4
 
-func (t *UDPv4[T,P]) verifyFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	req := h.Packet.(*v4wire.Findnode[P])
 
 	if v4wire.Expired(req.Expiration) {
@@ -764,7 +764,7 @@ func (t *UDPv4[T,P]) verifyFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fr
 	return nil
 }
 
-func (t *UDPv4[T,P]) handleFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
+func (t *UDPv4[T, P]) handleFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
 	req := h.Packet.(*v4wire.Findnode[P])
 
 	// Determine closest nodes.
@@ -792,7 +792,7 @@ func (t *UDPv4[T,P]) handleFindnode(h *packetHandlerV4[P], from *net.UDPAddr, fr
 
 // NEIGHBORS/v4
 
-func (t *UDPv4[T,P]) verifyNeighbors(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyNeighbors(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	req := h.Packet.(*v4wire.Neighbors[P])
 
 	if v4wire.Expired(req.Expiration) {
@@ -806,7 +806,7 @@ func (t *UDPv4[T,P]) verifyNeighbors(h *packetHandlerV4[P], from *net.UDPAddr, f
 
 // ENRREQUEST/v4
 
-func (t *UDPv4[T,P]) verifyENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	req := h.Packet.(*v4wire.ENRRequest)
 
 	if v4wire.Expired(req.Expiration) {
@@ -818,7 +818,7 @@ func (t *UDPv4[T,P]) verifyENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, 
 	return nil
 }
 
-func (t *UDPv4[T,P]) handleENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
+func (t *UDPv4[T, P]) handleENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, mac []byte) {
 	t.send(from, fromID, &v4wire.ENRResponse{
 		ReplyTok: mac,
 		Record:   *t.localNode.Node().Record(),
@@ -827,7 +827,7 @@ func (t *UDPv4[T,P]) handleENRRequest(h *packetHandlerV4[P], from *net.UDPAddr, 
 
 // ENRRESPONSE/v4
 
-func (t *UDPv4[T,P]) verifyENRResponse(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
+func (t *UDPv4[T, P]) verifyENRResponse(h *packetHandlerV4[P], from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey[P]) error {
 	if !t.handleReply(fromID, from.IP, h.Packet) {
 		return errUnsolicitedReply
 	}

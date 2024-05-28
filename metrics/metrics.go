@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Enabled is checked by the constructor functions for all of the

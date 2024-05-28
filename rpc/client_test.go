@@ -32,9 +32,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/log"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -356,7 +356,7 @@ func TestClientSubscribeClose(t *testing.T) {
 	}
 }
 
-// This test reproduces https://github.com/pavelkrolevets/MIR-pro/issues/17837 where the
+// This test reproduces https://github.com/MIRChain/MIR/issues/17837 where the
 // client hangs during shutdown when Unsubscribe races with Client.Close.
 func TestClientCloseUnsubscribeRace(t *testing.T) {
 	server := newTestServer()
@@ -440,7 +440,7 @@ func TestClientSubscriptionUnsubscribeServer(t *testing.T) {
 }
 
 // This checks that the subscribed channel can be closed after Unsubscribe.
-// It is the reproducer for https://github.com/pavelkrolevets/MIR-pro/issues/22322
+// It is the reproducer for https://github.com/MIRChain/MIR/issues/22322
 func TestClientSubscriptionChannelClose(t *testing.T) {
 	t.Parallel()
 

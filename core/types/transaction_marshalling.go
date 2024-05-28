@@ -21,8 +21,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 // txJSON is the JSON representation of transactions.

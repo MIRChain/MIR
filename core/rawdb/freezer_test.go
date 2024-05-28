@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

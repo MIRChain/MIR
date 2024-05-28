@@ -22,15 +22,15 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/multitenancy"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/multitenancy"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
 )
 
 /*
@@ -44,13 +44,15 @@ The state transitioning model does all the necessary work to work out a valid ne
 3) Create a new state object if the recipient is \0*32
 4) Value transfer
 == If contract creation ==
-  4a) Attempt to run transaction data
-  4b) If valid, use result as code for the new state object
+
+	4a) Attempt to run transaction data
+	4b) If valid, use result as code for the new state object
+
 == end ==
 5) Run Script section
 6) Derive new state root
 */
-type StateTransition [P crypto.PublicKey] struct {
+type StateTransition[P crypto.PublicKey] struct {
 	gp         *GasPool
 	msg        Message
 	gas        uint64
@@ -225,27 +227,27 @@ func (st *StateTransition[P]) preCheck() error {
 // TransitionDb will transition the state by applying the current message and
 // returning the evm execution result with following fields.
 //
-// - used gas:
-//      total gas used (including gas being refunded)
-// - returndata:
-//      the returned data from evm
-// - concrete execution error:
-//      various **EVM** error which aborts the execution,
-//      e.g. ErrOutOfGas, ErrExecutionReverted
+//   - used gas:
+//     total gas used (including gas being refunded)
+//   - returndata:
+//     the returned data from evm
+//   - concrete execution error:
+//     various **EVM** error which aborts the execution,
+//     e.g. ErrOutOfGas, ErrExecutionReverted
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
 //
 // Quorum:
-// 1. Intrinsic gas is calculated based on the encrypted payload hash
-//    and NOT the actual private payload.
-// 2. For private transactions, we only deduct intrinsic gas from the gas pool
-//    regardless the current node is party to the transaction or not.
-// 3. For privacy marker transactions, we only deduct the PMT gas from the gas pool. No gas is deducted
-//    for the internal private transaction, regardless of whether the current node is a party.
-// 4. With multitenancy support, we enforce the party set in the contract index must contain all
-//    parties from the transaction. This is to detect unauthorized access from a legit proxy contract
-//    to an unauthorized contract.
+//  1. Intrinsic gas is calculated based on the encrypted payload hash
+//     and NOT the actual private payload.
+//  2. For private transactions, we only deduct intrinsic gas from the gas pool
+//     regardless the current node is party to the transaction or not.
+//  3. For privacy marker transactions, we only deduct the PMT gas from the gas pool. No gas is deducted
+//     for the internal private transaction, regardless of whether the current node is a party.
+//  4. With multitenancy support, we enforce the party set in the contract index must contain all
+//     parties from the transaction. This is to detect unauthorized access from a legit proxy contract
+//     to an unauthorized contract.
 func (st *StateTransition[P]) TransitionDb() (*ExecutionResult, error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses

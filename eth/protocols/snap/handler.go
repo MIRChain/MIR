@@ -21,18 +21,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/light"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/light"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 const (
@@ -60,11 +60,11 @@ const (
 
 // Handler is a callback to invoke from an outside runner after the boilerplate
 // exchanges have passed.
-type Handler[T crypto.PrivateKey, P crypto.PublicKey] func(peer *Peer[T,P]) error
+type Handler[T crypto.PrivateKey, P crypto.PublicKey] func(peer *Peer[T, P]) error
 
 // Backend defines the data retrieval methods to serve remote requests and the
 // callback methods to invoke on remote deliveries.
-type Backend [T crypto.PrivateKey, P crypto.PublicKey] interface {
+type Backend[T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// Chain retrieves the blockchain object to serve data.
 	Chain() *core.BlockChain[P]
 
@@ -72,7 +72,7 @@ type Backend [T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// should do any peer maintenance work, handshakes and validations. If all
 	// is passed, control should be given back to the `handler` to process the
 	// inbound messages going forward.
-	RunPeer(peer *Peer[T,P], handler Handler[T,P]) error
+	RunPeer(peer *Peer[T, P], handler Handler[T, P]) error
 
 	// PeerInfo retrieves all known `snap` information about a peer.
 	PeerInfo(id enode.ID) interface{}
@@ -80,27 +80,27 @@ type Backend [T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// Handle is a callback to be invoked when a data packet is received from
 	// the remote peer. Only packets not consumed by the protocol handler will
 	// be forwarded to the backend.
-	Handle(peer *Peer[T,P], packet Packet) error
+	Handle(peer *Peer[T, P], packet Packet) error
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `snap`.
-func MakeProtocols[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], dnsdisc enode.Iterator[P]) []p2p.Protocol[T,P] {
+func MakeProtocols[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], dnsdisc enode.Iterator[P]) []p2p.Protocol[T, P] {
 	// Filter the discovery iterator for nodes advertising snap support.
 	dnsdisc = enode.Filter(dnsdisc, func(n *enode.Node[P]) bool {
 		var snap enrEntry
 		return n.Load(&snap) == nil
 	})
 
-	protocols := make([]p2p.Protocol[T,P], len(ProtocolVersions))
+	protocols := make([]p2p.Protocol[T, P], len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
 		version := version // Closure
 
-		protocols[i] = p2p.Protocol[T,P]{
+		protocols[i] = p2p.Protocol[T, P]{
 			Name:    ProtocolName,
 			Version: version,
 			Length:  protocolLengths[version],
-			Run: func(p *p2p.Peer[T,P], rw p2p.MsgReadWriter) error {
-				return backend.RunPeer(newPeer(version, p, rw), func(peer *Peer[T,P]) error {
+			Run: func(p *p2p.Peer[T, P], rw p2p.MsgReadWriter) error {
+				return backend.RunPeer(newPeer(version, p, rw), func(peer *Peer[T, P]) error {
 					return handle(backend, peer)
 				})
 			},
@@ -119,7 +119,7 @@ func MakeProtocols[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 
 // handle is the callback invoked to manage the life cycle of a `snap` peer.
 // When this function terminates, the peer is disconnected.
-func handle[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], peer *Peer[T,P]) error {
+func handle[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], peer *Peer[T, P]) error {
 	for {
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `snap`", "err", err)
@@ -131,7 +131,7 @@ func handle[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], peer 
 // handleMessage is invoked whenever an inbound message is received from a
 // remote peer on the `snap` protocol. The remote connection is torn down upon
 // returning any error.
-func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], peer *Peer[T,P]) error {
+func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], peer *Peer[T, P]) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
@@ -387,8 +387,8 @@ func handleMessage[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P]
 		}
 		// Retrieve bytecodes until the packet size limit is reached
 		var (
-			codes [][]byte
-			bytes uint64
+			codes     [][]byte
+			bytes     uint64
 			emptyCode = crypto.Keccak256Hash[P]()
 		)
 		for _, hash := range req.Hashes {

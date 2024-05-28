@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 func TestTableDatabase(t *testing.T)            { testTableDatabase(t, "prefix") }

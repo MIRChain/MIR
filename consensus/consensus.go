@@ -20,19 +20,19 @@ package consensus
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // ChainHeaderReader defines a small collection of methods needed to access the local
 // blockchain during header verification.
-type ChainHeaderReader [P crypto.PublicKey] interface {
+type ChainHeaderReader[P crypto.PublicKey] interface {
 	// Config retrieves the blockchain's chain configuration.
 	Config() *params.ChainConfig
 
@@ -51,7 +51,7 @@ type ChainHeaderReader [P crypto.PublicKey] interface {
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
-type ChainReader [P crypto.PublicKey] interface {
+type ChainReader[P crypto.PublicKey] interface {
 	ChainHeaderReader[P]
 
 	// GetBlock retrieves a block from the database by hash and number.
@@ -59,7 +59,7 @@ type ChainReader [P crypto.PublicKey] interface {
 }
 
 // Engine is an algorithm agnostic consensus engine.
-type Engine [P crypto.PublicKey] interface {
+type Engine[P crypto.PublicKey] interface {
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -125,7 +125,7 @@ type Engine [P crypto.PublicKey] interface {
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
-type Handler [P crypto.PublicKey] interface {
+type Handler[P crypto.PublicKey] interface {
 	// NewChainHead handles a new head block comes
 	NewChainHead() error
 
@@ -137,7 +137,7 @@ type Handler [P crypto.PublicKey] interface {
 }
 
 // PoW is a consensus engine based on proof-of-work.
-type PoW [P crypto.PublicKey] interface {
+type PoW[P crypto.PublicKey] interface {
 	Engine[P]
 
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
@@ -145,7 +145,7 @@ type PoW [P crypto.PublicKey] interface {
 }
 
 // Istanbul is a consensus engine to avoid byzantine failure
-type Istanbul [P crypto.PublicKey] interface {
+type Istanbul[P crypto.PublicKey] interface {
 	Engine[P]
 
 	// Start starts the engine

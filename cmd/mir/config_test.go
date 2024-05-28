@@ -10,18 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/netutil"
 	"github.com/naoina/toml"
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/urfave/cli.v1"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 func TestFlagsConfig(t *testing.T) {
@@ -255,7 +255,7 @@ func TestFlagsConfig(t *testing.T) {
 			t.Fail()
 		}
 	}
-	action := utils.MigrateFlags(dumpConfig[nist.PrivateKey,nist.PublicKey])
+	action := utils.MigrateFlags(dumpConfig[nist.PrivateKey, nist.PublicKey])
 	app := &cli.App{
 		Name:   "dumpconfig",
 		Usage:  "dump config",
@@ -285,7 +285,7 @@ func TestFlagsConfig(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(string(val))
 
-	cfg := &gethConfig[nist.PrivateKey,nist.PublicKey]{}
+	cfg := &gethConfig[nist.PrivateKey, nist.PublicKey]{}
 	err = loadConfig(out2.Name(), cfg)
 	require.NoError(t, err)
 
@@ -400,7 +400,7 @@ func TestFlagsConfig(t *testing.T) {
 	// END QUORUM
 }
 
-type BootNodesV5Type [P crypto.PublicKey]struct {
+type BootNodesV5Type[P crypto.PublicKey] struct {
 	Nodes []*enode.Node[P]
 }
 
@@ -411,7 +411,7 @@ func bootNodesV5(t *testing.T) BootNodesV5Type[nist.PublicKey] {
 	return bootNodesV5
 }
 
-type BootNodesType [P crypto.PublicKey]struct {
+type BootNodesType[P crypto.PublicKey] struct {
 	Nodes []*enode.Node[P]
 }
 
@@ -563,7 +563,7 @@ InfluxDBTags = "host=localhost"
 	require.NoError(t, err)
 	err = out.Close()
 	require.NoError(t, err)
-	cfg := &gethConfig[nist.PrivateKey,nist.PublicKey]{}
+	cfg := &gethConfig[nist.PrivateKey, nist.PublicKey]{}
 
 	err = loadConfig(out.Name(), cfg)
 	require.NoError(t, err)
@@ -576,14 +576,14 @@ InfluxDBTags = "host=localhost"
 	err = tomlSettings.NewEncoder(out).Encode(cfg)
 	require.NoError(t, err)
 
-	cfg = &gethConfig[nist.PrivateKey,nist.PublicKey]{}
+	cfg = &gethConfig[nist.PrivateKey, nist.PublicKey]{}
 	err = loadConfig(out.Name(), cfg)
 	require.NoError(t, err)
 
 	testConfig(t, cfg)
 }
 
-func testConfig(t *testing.T, cfg *gethConfig[nist.PrivateKey,nist.PublicKey]) {
+func testConfig(t *testing.T, cfg *gethConfig[nist.PrivateKey, nist.PublicKey]) {
 	// [Eth]
 	eth := cfg.Eth
 	assert.Equal(t, uint64(1337), eth.NetworkId)

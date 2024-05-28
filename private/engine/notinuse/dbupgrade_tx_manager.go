@@ -1,7 +1,7 @@
 package notinuse
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 // DBUpgradePrivateTransactionManager returns an error for all communication functions,

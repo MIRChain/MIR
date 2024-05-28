@@ -20,16 +20,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // Iterator represents a sequence of nodes. The Next method moves to the next node in the
 // sequence. It returns false when the sequence has ended or the iterator is closed. Close
 // may be called concurrently with Next and Node, and interrupts Next if it is blocked.
-type Iterator [P crypto.PublicKey] interface {
-	Next() bool  // moves to next node
+type Iterator[P crypto.PublicKey] interface {
+	Next() bool     // moves to next node
 	Node() *Node[P] // returns current node
-	Close()      // ends the iterator
+	Close()         // ends the iterator
 }
 
 // ReadNodes reads at most n nodes from the given iterator. The return value contains no
@@ -63,7 +63,7 @@ func CycleNodes[P crypto.PublicKey](nodes []*Node[P]) Iterator[P] {
 	return &sliceIter[P]{nodes: nodes, index: -1, cycle: true}
 }
 
-type sliceIter [P crypto.PublicKey] struct {
+type sliceIter[P crypto.PublicKey] struct {
 	mu    sync.Mutex
 	nodes []*Node[P]
 	index int
@@ -111,7 +111,7 @@ func Filter[P crypto.PublicKey](it Iterator[P], check func(*Node[P]) bool) Itera
 	return &filterIter[P]{it, check}
 }
 
-type filterIter [P crypto.PublicKey]struct {
+type filterIter[P crypto.PublicKey] struct {
 	Iterator[P]
 	check func(*Node[P]) bool
 }
@@ -135,7 +135,7 @@ func (f *filterIter[P]) Next() bool {
 // will be returned.
 //
 // It's safe to call AddSource and Close concurrently with Next.
-type FairMix [P crypto.PublicKey] struct {
+type FairMix[P crypto.PublicKey] struct {
 	wg      sync.WaitGroup
 	fromAny chan *Node[P]
 	timeout time.Duration
@@ -147,7 +147,7 @@ type FairMix [P crypto.PublicKey] struct {
 	last    int
 }
 
-type mixSource [P crypto.PublicKey] struct {
+type mixSource[P crypto.PublicKey] struct {
 	it      Iterator[P]
 	next    chan *Node[P]
 	timeout time.Duration

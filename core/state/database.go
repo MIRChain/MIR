@@ -20,13 +20,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/trie"
 	"github.com/VictoriaMetrics/fastcache"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -130,7 +130,7 @@ func NewDatabaseWithConfig[P crypto.PublicKey](db ethdb.Database, config *trie.C
 	}
 }
 
-type cachingDB [P crypto.PublicKey] struct {
+type cachingDB[P crypto.PublicKey] struct {
 	db            *trie.Database
 	codeSizeCache *lru.Cache
 	codeCache     *fastcache.Cache

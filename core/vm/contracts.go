@@ -22,14 +22,14 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/blake2b"
-	"github.com/pavelkrolevets/MIR-pro/crypto/bls12381"
-	"github.com/pavelkrolevets/MIR-pro/crypto/bn256"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/blake2b"
+	"github.com/MIRChain/MIR/crypto/bls12381"
+	"github.com/MIRChain/MIR/crypto/bn256"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 
 	//lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -164,7 +164,7 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 }
 
 // ECRECOVER implemented as a native contract.
-type ecrecover [P crypto.PublicKey] struct{}
+type ecrecover[P crypto.PublicKey] struct{}
 
 func (c *ecrecover[P]) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
@@ -272,9 +272,10 @@ var (
 // modexpMultComplexity implements bigModexp multComplexity formula, as defined in EIP-198
 //
 // def mult_complexity(x):
-//    if x <= 64: return x ** 2
-//    elif x <= 1024: return x ** 2 // 4 + 96 * x - 3072
-//    else: return x ** 2 // 16 + 480 * x - 199680
+//
+//	if x <= 64: return x ** 2
+//	elif x <= 1024: return x ** 2 // 4 + 96 * x - 3072
+//	else: return x ** 2 // 16 + 480 * x - 199680
 //
 // where is x is max(length_of_MODULUS, length_of_BASE)
 func modexpMultComplexity(x *big.Int) *big.Int {

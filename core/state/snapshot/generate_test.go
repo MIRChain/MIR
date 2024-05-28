@@ -23,15 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -172,7 +172,7 @@ func checkSnapRoot[P crypto.PublicKey](t *testing.T, snap *diskLayer[P], trieRoo
 	}
 }
 
-type testHelper [P crypto.PublicKey] struct {
+type testHelper[P crypto.PublicKey] struct {
 	diskdb  *memorydb.Database
 	triedb  *trie.Database
 	accTrie *trie.SecureTrie[P]
@@ -236,10 +236,12 @@ func (t *testHelper[P]) Generate() (common.Hash, *diskLayer[P]) {
 //   - miss in the beginning
 //   - miss in the middle
 //   - miss in the end
+//
 // - the contract(non-empty storage) has wrong storage slots
 //   - wrong slots in the beginning
 //   - wrong slots in the middle
 //   - wrong slots in the end
+//
 // - the contract(non-empty storage) has extra storage slots
 //   - extra slots in the beginning
 //   - extra slots in the middle

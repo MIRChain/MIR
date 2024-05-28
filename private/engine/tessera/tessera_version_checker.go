@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 const versionLength = 3

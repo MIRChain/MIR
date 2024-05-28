@@ -6,20 +6,20 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/crypto/nist"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	privateEngine "github.com/MIRChain/MIR/private/engine"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	privateEngine "github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +46,7 @@ var (
 
 func TestPrefetch_PublicTransaction(t *testing.T) {
 	var (
-		engine =  ethash.NewFaker[nist.PublicKey]()
+		engine = ethash.NewFaker[nist.PublicKey]()
 	)
 	mockTxDataArr := createMockTxData(contractDeploymentCount, Public)
 	chain, gspec := createBlockchain(params.QuorumTestChainConfig, mockTxDataArr)
@@ -70,7 +70,7 @@ func TestPrefetch_PublicTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateDualStateTransaction(t *testing.T) {
 	var (
-		engine   =  ethash.NewFaker[nist.PublicKey]()
+		engine   = ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -100,7 +100,7 @@ func TestPrefetch_PrivateDualStateTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateMPSTransaction(t *testing.T) {
 	var (
-		engine   =  ethash.NewFaker[nist.PublicKey]()
+		engine   = ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -130,7 +130,7 @@ func TestPrefetch_PrivateMPSTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 	var (
-		engine   =  ethash.NewFaker[nist.PublicKey]()
+		engine   = ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -165,7 +165,7 @@ func TestPrefetch_PrivateDualState_PMTTransaction(t *testing.T) {
 
 func TestPrefetch_PrivateMPS_PMTTransaction(t *testing.T) {
 	var (
-		engine   =  ethash.NewFaker[nist.PublicKey]()
+		engine   = ethash.NewFaker[nist.PublicKey]()
 		mockCtrl = gomock.NewController(t)
 	)
 	defer mockCtrl.Finish()
@@ -320,7 +320,7 @@ func createMockTxData(n int, txType txType) []*mockTxData {
 
 func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxData) (*BlockChain[nist.PublicKey], *Genesis[nist.PublicKey]) {
 	var (
-		engine      =  ethash.NewFaker[nist.PublicKey]()
+		engine      = ethash.NewFaker[nist.PublicKey]()
 		cacheConfig = *defaultCacheConfig
 	)
 	// Disable prefetching. We are going to manually run prefetch
@@ -350,7 +350,7 @@ func createBlockchain(chainConfig *params.ChainConfig, mockTxDataArr []*mockTxDa
 
 func createBlocks(chain *BlockChain[nist.PublicKey], gspec *Genesis[nist.PublicKey], mockTxDataArr []*mockTxData, decorateSetTransaction func(*types.Transaction[nist.PublicKey], *mockTxData)) (*types.Block[nist.PublicKey], *types.Block[nist.PublicKey]) {
 	var (
-		engine      =  ethash.NewFaker[nist.PublicKey]()
+		engine      = ethash.NewFaker[nist.PublicKey]()
 		temporaryDb = rawdb.NewMemoryDatabase()
 	)
 	genesisBlock := gspec.MustCommit(temporaryDb)

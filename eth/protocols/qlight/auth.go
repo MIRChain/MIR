@@ -3,10 +3,10 @@ package qlight
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/MIRChain/MIR/p2p"
 )
 
-func (p *Peer[T,P]) PeriodicAuthCheck() {
+func (p *Peer[T, P]) PeriodicAuthCheck() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 

@@ -24,27 +24,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
 // StateTest checks transaction processing without block context.
 // See https://github.com/ethereum/EIPs/issues/176 for the test format specification.
-type StateTest [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	json stJSON[T,P]
+type StateTest[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	json stJSON[T, P]
 }
 
 // StateSubtest selects a specific configuration of a General State Test.
@@ -53,14 +53,14 @@ type StateSubtest struct {
 	Index int
 }
 
-func (t *StateTest[T,P]) UnmarshalJSON(in []byte) error {
+func (t *StateTest[T, P]) UnmarshalJSON(in []byte) error {
 	return json.Unmarshal(in, &t.json)
 }
 
-type stJSON [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type stJSON[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	Env  stEnv                    `json:"env"`
 	Pre  core.GenesisAlloc        `json:"pre"`
-	Tx   stTransaction[T,P]            `json:"transaction"`
+	Tx   stTransaction[T, P]      `json:"transaction"`
 	Out  hexutil.Bytes            `json:"out"`
 	Post map[string][]stPostState `json:"post"`
 }
@@ -95,7 +95,7 @@ type stEnvMarshaling struct {
 
 //go:generate gencodec -type stTransaction -field-override stTransactionMarshaling -out gen_sttransaction.go
 
-type stTransaction [T crypto.PrivateKey, P crypto.PublicKey]struct {
+type stTransaction[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	GasPrice    *big.Int            `json:"gasPrice"`
 	Nonce       uint64              `json:"nonce"`
 	To          string              `json:"to"`
@@ -140,7 +140,7 @@ func GetChainConfig[P crypto.PublicKey](forkString string) (baseConfig *params.C
 }
 
 // Subtests returns all valid subtests of the test.
-func (t *StateTest[T,P]) Subtests() []StateSubtest {
+func (t *StateTest[T, P]) Subtests() []StateSubtest {
 	var sub []StateSubtest
 	for fork, pss := range t.json.Post {
 		for i := range pss {
@@ -151,7 +151,7 @@ func (t *StateTest[T,P]) Subtests() []StateSubtest {
 }
 
 // Run executes a specific subtest and verifies the post-state and logs
-func (t *StateTest[T,P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], error) {
+func (t *StateTest[T, P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], error) {
 	snaps, statedb, root, err := t.RunNoVerify(subtest, vmconfig, snapshotter)
 	if err != nil {
 		return snaps, statedb, err
@@ -169,7 +169,7 @@ func (t *StateTest[T,P]) Run(subtest StateSubtest, vmconfig vm.Config[P], snapsh
 }
 
 // RunNoVerify runs a specific subtest and returns the statedb and post-state root
-func (t *StateTest[T,P]) RunNoVerify(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], common.Hash, error) {
+func (t *StateTest[T, P]) RunNoVerify(subtest StateSubtest, vmconfig vm.Config[P], snapshotter bool) (*snapshot.Tree[P], *state.StateDB[P], common.Hash, error) {
 	config, eips, err := GetChainConfig[P](subtest.Fork)
 	if err != nil {
 		return nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
@@ -211,7 +211,7 @@ func (t *StateTest[T,P]) RunNoVerify(subtest StateSubtest, vmconfig vm.Config[P]
 	return snaps, statedb, root, nil
 }
 
-func (t *StateTest[T,P]) gasLimit(subtest StateSubtest) uint64 {
+func (t *StateTest[T, P]) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
@@ -237,7 +237,7 @@ func MakePreState[P crypto.PublicKey](db ethdb.Database, accounts core.GenesisAl
 	return snaps, statedb
 }
 
-func (t *StateTest[T,P]) genesis(config *params.ChainConfig) *core.Genesis[P] {
+func (t *StateTest[T, P]) genesis(config *params.ChainConfig) *core.Genesis[P] {
 	return &core.Genesis[P]{
 		Config:     config,
 		Coinbase:   t.json.Env.Coinbase,
@@ -249,7 +249,7 @@ func (t *StateTest[T,P]) genesis(config *params.ChainConfig) *core.Genesis[P] {
 	}
 }
 
-func (tx *stTransaction[T,P]) toMessage(ps stPostState) (core.Message, error) {
+func (tx *stTransaction[T, P]) toMessage(ps stPostState) (core.Message, error) {
 	// Derive sender from private key if present.
 	var from common.Address
 	if len(tx.PrivateKey) > 0 {
@@ -258,9 +258,9 @@ func (tx *stTransaction[T,P]) toMessage(ps stPostState) (core.Message, error) {
 			return nil, fmt.Errorf("invalid private key: %v", err)
 		}
 		var pub P
-		switch t:=any(&key).(type){
+		switch t := any(&key).(type) {
 		case *nist.PrivateKey:
-			p:=any(&pub).(*nist.PublicKey)
+			p := any(&pub).(*nist.PublicKey)
 			*p = *t.Public()
 		}
 		from = crypto.PubkeyToAddress[P](pub)

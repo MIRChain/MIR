@@ -25,9 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Msg defines the structure of a p2p message.
@@ -114,12 +114,11 @@ func SendWithNoEncoding(w MsgWriter, msgcode uint64, payload []byte) error {
 // SendItems writes an RLP with the given code and data elements.
 // For a call such as:
 //
-//    SendItems(w, code, e1, e2, e3)
+//	SendItems(w, code, e1, e2, e3)
 //
 // the message payload will be an RLP list containing the items:
 //
-//    [e1, e2, e3]
-//
+//	[e1, e2, e3]
 func SendItems(w MsgWriter, msgcode uint64, elems ...interface{}) error {
 	return Send(w, msgcode, elems)
 }

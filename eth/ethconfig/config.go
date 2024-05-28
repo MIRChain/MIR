@@ -22,21 +22,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/clique"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulBackend "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/backend"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/eth/gasprice"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/miner"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/clique"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulBackend "github.com/MIRChain/MIR/consensus/istanbul/backend"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/eth/gasprice"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/miner"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/params"
 )
 
 // FullNodeGPO contains default gasprice oracle settings for full node.
@@ -55,7 +55,7 @@ var LightClientGPO = gasprice.Config{
 
 // Defaults contains default settings for use on the Mir main net.
 func Defaults[P crypto.PublicKey]() *Config[P] {
-		return &Config[P]{
+	return &Config[P]{
 		// Quorum - make full sync the default sync mode in quorum (as opposed to upstream geth)
 		SyncMode: downloader.FullSync,
 		// End Quorum
@@ -120,7 +120,7 @@ func init() {
 //go:generate gencodec -type Config -formats toml -out gen_config.go
 
 // Config contains configuration options for of the ETH and LES protocols.
-type Config [P crypto.PublicKey] struct {
+type Config[P crypto.PublicKey] struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Ethereum main net block is used.
 	Genesis *core.Genesis[P] `toml:",omitempty"`
@@ -229,7 +229,7 @@ type Config [P crypto.PublicKey] struct {
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
-func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], chainConfig *params.ChainConfig, config *Config[P], notify []string, noverify bool, db ethdb.Database) consensus.Engine[P] {
+func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T, P], chainConfig *params.ChainConfig, config *Config[P], notify []string, noverify bool, db ethdb.Database) consensus.Engine[P] {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
@@ -248,7 +248,7 @@ func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.
 		config.Istanbul.Ceil2Nby3Block = chainConfig.Istanbul.Ceil2Nby3Block
 		config.Istanbul.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
 		config.Istanbul.TestQBFTBlock = chainConfig.Istanbul.TestQBFTBlock
-		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T, P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	if chainConfig.IBFT == nil && len(chainConfig.Transitions) > 0 {
 		chainConfig.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
@@ -272,7 +272,7 @@ func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.
 		if chainConfig.IBFT.ValidatorContractAddress != (common.Address{}) {
 			config.Istanbul.ValidatorContract = chainConfig.IBFT.ValidatorContractAddress
 		}
-		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T, P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	if chainConfig.QBFT == nil && len(chainConfig.Transitions) > 0 {
 		chainConfig.GetTransitionValue(big.NewInt(0), func(t params.Transition) {
@@ -299,10 +299,10 @@ func CreateConsensusEngine[T crypto.PrivateKey, P crypto.PublicKey](stack *node.
 		config.Istanbul.Validators = chainConfig.QBFT.Validators
 		config.Istanbul.ValidatorSelectionMode = chainConfig.QBFT.ValidatorSelectionMode
 
-		return istanbulBackend.New[T,P](&config.Istanbul, stack.GetNodeKey(), db)
+		return istanbulBackend.New[T, P](&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	if chainConfig.Ethash != nil {
-		// Mir 
+		// Mir
 		ethashConf := Defaults[P]().Ethash
 		switch ethashConf.PowMode {
 		case ethash.ModeFake:

@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 )
 
 // Validate the ECDH component.
@@ -16,7 +16,7 @@ func TestSharedKeyGost(t *testing.T) {
 	}
 	skLen := MaxSharedKeyLength(&prv1.PublicKey) / 2
 
-	prv2, err := GenerateKey[gost3410.PrivateKey,gost3410.PublicKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[gost3410.PrivateKey, gost3410.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

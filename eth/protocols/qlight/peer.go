@@ -4,14 +4,14 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/qlight"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/qlight"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -26,18 +26,18 @@ const (
 )
 
 // Peer is a collection of relevant information we have about a `snap` peer.
-type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Peer[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	id string // Unique ID for the peer, cached
 
-	*p2p.Peer[T,P] // The embedded P2P package peer
-	rw        p2p.MsgReadWriter
-	version   uint // Protocol version negotiated
+	*p2p.Peer[T, P] // The embedded P2P package peer
+	rw              p2p.MsgReadWriter
+	version         uint // Protocol version negotiated
 
 	logger log.Logger // Contextual logger with the peer id injected
 
-	EthPeer *eth.Peer[T,P]
+	EthPeer *eth.Peer[T, P]
 
-	knownBlocks     mapset.Set             // Set of block hashes known to be known by this peer
+	knownBlocks     mapset.Set                // Set of block hashes known to be known by this peer
 	queuedBlocks    chan *blockPropagation[P] // Queue of blocks to broadcast to the peer
 	queuedBlockAnns chan *types.Block[P]      // Queue of blocks to announce to the peer
 
@@ -53,9 +53,9 @@ type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 // newPeer create a wrapper for a network connection and negotiated  protocol
 // version.
-func NewPeer [T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, ethPeer *eth.Peer[T,P]) *Peer[T,P] {
+func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T, P], rw p2p.MsgReadWriter, ethPeer *eth.Peer[T, P]) *Peer[T, P] {
 	id := p.ID().String()
-	return &Peer[T,P]{
+	return &Peer[T, P]{
 		id:           id,
 		Peer:         p,
 		rw:           rw,
@@ -68,46 +68,46 @@ func NewPeer [T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer
 	}
 }
 
-func NewPeerWithBlockBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, ethPeer *eth.Peer[T,P]) *Peer[T,P] {
+func NewPeerWithBlockBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T, P], rw p2p.MsgReadWriter, ethPeer *eth.Peer[T, P]) *Peer[T, P] {
 	peer := NewPeer(version, p, rw, ethPeer)
 	go peer.broadcastBlocksQLightServer()
 	return peer
 }
 
 // ID retrieves the peer's unique identifier.
-func (p *Peer[T,P]) ID() string {
+func (p *Peer[T, P]) ID() string {
 	return p.id
 }
 
 // Version retrieves the peer's negoatiated `snap` protocol version.
-func (p *Peer[T,P]) Version() uint {
+func (p *Peer[T, P]) Version() uint {
 	return p.version
 }
 
 // Log overrides the P2P logget with the higher level one containing only the id.
-func (p *Peer[T,P]) Log() log.Logger {
+func (p *Peer[T, P]) Log() log.Logger {
 	return p.logger
 }
 
-func (p *Peer[T,P]) QLightServer() bool {
+func (p *Peer[T, P]) QLightServer() bool {
 	return p.qlightServer
 }
 
-func (p *Peer[T,P]) QLightPSI() string {
+func (p *Peer[T, P]) QLightPSI() string {
 	return p.qlightPSI
 }
 
-func (p *Peer[T,P]) QLightToken() string {
+func (p *Peer[T, P]) QLightToken() string {
 	return p.qlightToken
 }
 
-func (p *Peer[T,P]) SendNewAuthToken(token string) error {
+func (p *Peer[T, P]) SendNewAuthToken(token string) error {
 	return p2p.Send(p.rw, QLightTokenUpdateMsg, &qLightTokenUpdateData{
 		Token: token,
 	})
 }
 
-func (p *Peer[T,P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
+func (p *Peer[T, P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()
@@ -119,14 +119,14 @@ func (p *Peer[T,P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
 	})
 }
 
-func (p *Peer[T,P]) SendBlockPrivateData(data []qlight.BlockPrivateData) error {
+func (p *Peer[T, P]) SendBlockPrivateData(data []qlight.BlockPrivateData) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
 	return p2p.Send(p.rw, QLightNewBlockPrivateDataMsg, data)
 }
 
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
-func (p *Peer[T,P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int, blockPrivateData *qlight.BlockPrivateData) {
+func (p *Peer[T, P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int, blockPrivateData *qlight.BlockPrivateData) {
 	select {
 	case p.queuedBlocks <- &blockPropagation[P]{block: block, td: td, blockPrivateData: blockPrivateData}:
 		// Mark all the block hash as known, but ensure we don't overflow our limits
@@ -140,10 +140,10 @@ func (p *Peer[T,P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int, blockP
 }
 
 // KnownBlock returns whether peer is known to already have a block.
-func (p *Peer[T,P]) KnownBlock(hash common.Hash) bool {
+func (p *Peer[T, P]) KnownBlock(hash common.Hash) bool {
 	return p.knownBlocks.Contains(hash)
 }
 
-func (p *Peer[T,P]) Close() {
+func (p *Peer[T, P]) Close() {
 	close(p.term)
 }

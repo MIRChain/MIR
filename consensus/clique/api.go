@@ -20,16 +20,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
 // mechanisms of the proof-of-authority scheme.
-type API [P crypto.PublicKey] struct {
+type API[P crypto.PublicKey] struct {
 	chain  consensus.ChainHeaderReader[P]
 	clique *Clique[P]
 }

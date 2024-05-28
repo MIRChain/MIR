@@ -27,19 +27,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/light"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/light"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	// "golang.org/x/crypto/sha3"
 )
 
@@ -105,15 +105,15 @@ var ErrCancelled = errors.New("sync cancelled")
 // construct the response without accessing runloop internals (i.e. task). That
 // is only included to allow the runloop to match a response to the task being
 // synced without having yet another set of maps.
-type accountRequest [P crypto.PublicKey] struct {
+type accountRequest[P crypto.PublicKey] struct {
 	peer string // Peer to which this request is assigned
 	id   uint64 // Request ID of this request
 
 	deliver chan *accountResponse[P] // Channel to deliver successful response on
 	revert  chan *accountRequest[P]  // Channel to deliver request failure on
-	cancel  chan struct{}         // Channel to track sync cancellation
-	timeout *time.Timer           // Timer to track delivery timeout
-	stale   chan struct{}         // Channel to signal the request was dropped
+	cancel  chan struct{}            // Channel to track sync cancellation
+	timeout *time.Timer              // Timer to track delivery timeout
+	stale   chan struct{}            // Channel to signal the request was dropped
 
 	origin common.Hash // First account requested to allow continuation checks
 	limit  common.Hash // Last account requested to allow non-overlapping chunking
@@ -124,7 +124,7 @@ type accountRequest [P crypto.PublicKey] struct {
 // accountResponse is an already Merkle-verified remote response to an account
 // range request. It contains the subtrie for the requested account range and
 // the database that's going to be filled with the internal nodes on commit.
-type accountResponse [P crypto.PublicKey] struct {
+type accountResponse[P crypto.PublicKey] struct {
 	task *accountTask[P] // Task which this request is filling
 
 	hashes   []common.Hash    // Account hashes in the returned range
@@ -142,22 +142,22 @@ type accountResponse [P crypto.PublicKey] struct {
 // construct the response without accessing runloop internals (i.e. task). That
 // is only included to allow the runloop to match a response to the task being
 // synced without having yet another set of maps.
-type bytecodeRequest [P crypto.PublicKey] struct {
+type bytecodeRequest[P crypto.PublicKey] struct {
 	peer string // Peer to which this request is assigned
 	id   uint64 // Request ID of this request
 
 	deliver chan *bytecodeResponse[P] // Channel to deliver successful response on
 	revert  chan *bytecodeRequest[P]  // Channel to deliver request failure on
-	cancel  chan struct{}          // Channel to track sync cancellation
-	timeout *time.Timer            // Timer to track delivery timeout
-	stale   chan struct{}          // Channel to signal the request was dropped
+	cancel  chan struct{}             // Channel to track sync cancellation
+	timeout *time.Timer               // Timer to track delivery timeout
+	stale   chan struct{}             // Channel to signal the request was dropped
 
-	hashes []common.Hash // Bytecode hashes to validate responses
-	task   *accountTask[P]  // Task which this request is filling (only access fields through the runloop!!)
+	hashes []common.Hash   // Bytecode hashes to validate responses
+	task   *accountTask[P] // Task which this request is filling (only access fields through the runloop!!)
 }
 
 // bytecodeResponse is an already verified remote response to a bytecode request.
-type bytecodeResponse [P crypto.PublicKey] struct {
+type bytecodeResponse[P crypto.PublicKey] struct {
 	task *accountTask[P] // Task which this request is filling
 
 	hashes []common.Hash // Hashes of the bytecode to avoid double hashing
@@ -173,15 +173,15 @@ type bytecodeResponse [P crypto.PublicKey] struct {
 // construct the response without accessing runloop internals (i.e. tasks). That
 // is only included to allow the runloop to match a response to the task being
 // synced without having yet another set of maps.
-type storageRequest [P crypto.PublicKey] struct {
+type storageRequest[P crypto.PublicKey] struct {
 	peer string // Peer to which this request is assigned
 	id   uint64 // Request ID of this request
 
 	deliver chan *storageResponse[P] // Channel to deliver successful response on
 	revert  chan *storageRequest[P]  // Channel to deliver request failure on
-	cancel  chan struct{}         // Channel to track sync cancellation
-	timeout *time.Timer           // Timer to track delivery timeout
-	stale   chan struct{}         // Channel to signal the request was dropped
+	cancel  chan struct{}            // Channel to track sync cancellation
+	timeout *time.Timer              // Timer to track delivery timeout
+	stale   chan struct{}            // Channel to signal the request was dropped
 
 	accounts []common.Hash // Account hashes to validate responses
 	roots    []common.Hash // Storage roots to validate responses
@@ -196,7 +196,7 @@ type storageRequest [P crypto.PublicKey] struct {
 // storageResponse is an already Merkle-verified remote response to a storage
 // range request. It contains the subtries for the requested storage ranges and
 // the databases that's going to be filled with the internal nodes on commit.
-type storageResponse [P crypto.PublicKey] struct {
+type storageResponse[P crypto.PublicKey] struct {
 	mainTask *accountTask[P] // Task which this response belongs to
 	subTask  *storageTask[P] // Task which this response is filling
 
@@ -218,15 +218,15 @@ type storageResponse [P crypto.PublicKey] struct {
 // construct the response without accessing runloop internals (i.e. task). That
 // is only included to allow the runloop to match a response to the task being
 // synced without having yet another set of maps.
-type trienodeHealRequest [P crypto.PublicKey] struct {
+type trienodeHealRequest[P crypto.PublicKey] struct {
 	peer string // Peer to which this request is assigned
 	id   uint64 // Request ID of this request
 
 	deliver chan *trienodeHealResponse[P] // Channel to deliver successful response on
 	revert  chan *trienodeHealRequest[P]  // Channel to deliver request failure on
-	cancel  chan struct{}              // Channel to track sync cancellation
-	timeout *time.Timer                // Timer to track delivery timeout
-	stale   chan struct{}              // Channel to signal the request was dropped
+	cancel  chan struct{}                 // Channel to track sync cancellation
+	timeout *time.Timer                   // Timer to track delivery timeout
+	stale   chan struct{}                 // Channel to signal the request was dropped
 
 	hashes []common.Hash   // Trie node hashes to validate responses
 	paths  []trie.SyncPath // Trie node paths requested for rescheduling
@@ -235,7 +235,7 @@ type trienodeHealRequest [P crypto.PublicKey] struct {
 }
 
 // trienodeHealResponse is an already verified remote response to a trie node request.
-type trienodeHealResponse [P crypto.PublicKey] struct {
+type trienodeHealResponse[P crypto.PublicKey] struct {
 	task *healTask[P] // Task which this request is filling
 
 	hashes []common.Hash   // Hashes of the trie nodes to avoid double hashing
@@ -252,22 +252,22 @@ type trienodeHealResponse [P crypto.PublicKey] struct {
 // construct the response without accessing runloop internals (i.e. task). That
 // is only included to allow the runloop to match a response to the task being
 // synced without having yet another set of maps.
-type bytecodeHealRequest [P crypto.PublicKey] struct {
+type bytecodeHealRequest[P crypto.PublicKey] struct {
 	peer string // Peer to which this request is assigned
 	id   uint64 // Request ID of this request
 
 	deliver chan *bytecodeHealResponse[P] // Channel to deliver successful response on
 	revert  chan *bytecodeHealRequest[P]  // Channel to deliver request failure on
-	cancel  chan struct{}              // Channel to track sync cancellation
-	timeout *time.Timer                // Timer to track delivery timeout
-	stale   chan struct{}              // Channel to signal the request was dropped
+	cancel  chan struct{}                 // Channel to track sync cancellation
+	timeout *time.Timer                   // Timer to track delivery timeout
+	stale   chan struct{}                 // Channel to signal the request was dropped
 
 	hashes []common.Hash // Bytecode hashes to validate responses
-	task   *healTask[P]     // Task which this request is filling (only access fields through the runloop!!)
+	task   *healTask[P]  // Task which this request is filling (only access fields through the runloop!!)
 }
 
 // bytecodeHealResponse is an already verified remote response to a bytecode request.
-type bytecodeHealResponse [P crypto.PublicKey] struct {
+type bytecodeHealResponse[P crypto.PublicKey] struct {
 	task *healTask[P] // Task which this request is filling
 
 	hashes []common.Hash // Hashes of the bytecode to avoid double hashing
@@ -275,16 +275,16 @@ type bytecodeHealResponse [P crypto.PublicKey] struct {
 }
 
 // accountTask represents the sync task for a chunk of the account snapshot.
-type accountTask [P crypto.PublicKey] struct {
+type accountTask[P crypto.PublicKey] struct {
 	// These fields get serialized to leveldb on shutdown
-	Next     common.Hash                    // Next account to sync in this interval
-	Last     common.Hash                    // Last account to sync in this interval
+	Next     common.Hash                       // Next account to sync in this interval
+	Last     common.Hash                       // Last account to sync in this interval
 	SubTasks map[common.Hash][]*storageTask[P] // Storage intervals needing fetching for large contracts
 
 	// These fields are internals used during runtime
 	req  *accountRequest[P]  // Pending request to fill this task
 	res  *accountResponse[P] // Validate response filling this task
-	pend int              // Number of pending subtasks for this round
+	pend int                 // Number of pending subtasks for this round
 
 	needCode  []bool // Flags whether the filling accounts need code retrieval
 	needState []bool // Flags whether the filling accounts need storage retrieval
@@ -293,29 +293,29 @@ type accountTask [P crypto.PublicKey] struct {
 	codeTasks  map[common.Hash]struct{}    // Code hashes that need retrieval
 	stateTasks map[common.Hash]common.Hash // Account hashes->roots that need full state retrieval
 
-	genBatch ethdb.Batch     // Batch used by the node generator
+	genBatch ethdb.Batch        // Batch used by the node generator
 	genTrie  *trie.StackTrie[P] // Node generator from storage slots
 
 	done bool // Flag whether the task can be removed
 }
 
 // storageTask represents the sync task for a chunk of the storage snapshot.
-type storageTask [P crypto.PublicKey] struct {
+type storageTask[P crypto.PublicKey] struct {
 	Next common.Hash // Next account to sync in this interval
 	Last common.Hash // Last account to sync in this interval
 
 	// These fields are internals used during runtime
-	root common.Hash     // Storage root hash for this instance
+	root common.Hash        // Storage root hash for this instance
 	req  *storageRequest[P] // Pending request to fill this task
 
-	genBatch ethdb.Batch     // Batch used by the node generator
+	genBatch ethdb.Batch        // Batch used by the node generator
 	genTrie  *trie.StackTrie[P] // Node generator from storage slots
 
 	done bool // Flag whether the task can be removed
 }
 
 // healTask represents the sync task for healing the snap-synced chunk boundaries.
-type healTask [P crypto.PublicKey] struct {
+type healTask[P crypto.PublicKey] struct {
 	scheduler *trie.Sync[P] // State trie sync scheduler defining the tasks
 
 	trieTasks map[common.Hash]trie.SyncPath // Set of trie node tasks currently queued for retrieval
@@ -325,7 +325,7 @@ type healTask [P crypto.PublicKey] struct {
 // syncProgress is a database entry to allow suspending and resuming a snapshot state
 // sync. Opposed to full and fast sync, there is no way to restart a suspended
 // snap sync without prior knowledge of the suspension point.
-type syncProgress [P crypto.PublicKey] struct {
+type syncProgress[P crypto.PublicKey] struct {
 	Tasks []*accountTask[P] // The suspended account tasks (contract tasks within)
 
 	// Status report during syncing phase
@@ -385,14 +385,14 @@ type SyncPeer interface {
 //   - The peer remains connected, but does not deliver a response in time
 //   - The peer delivers a stale response after a previous timeout
 //   - The peer delivers a refusal to serve the requested state
-type Syncer [P crypto.PublicKey] struct {
+type Syncer[P crypto.PublicKey] struct {
 	db ethdb.KeyValueStore // Database to store the trie nodes into (and dedup)
 
-	root    common.Hash    // Current state trie root being synced
+	root    common.Hash       // Current state trie root being synced
 	tasks   []*accountTask[P] // Current account task set being synced
-	snapped bool           // Flag to signal that snap phase is done
+	snapped bool              // Flag to signal that snap phase is done
 	healer  *healTask[P]      // Current state healing task being executed
-	update  chan struct{}  // Notification channel for possible sync progression
+	update  chan struct{}     // Notification channel for possible sync progression
 
 	peers    map[string]SyncPeer // Currently active peers to download from
 	peerJoin *event.Feed         // Event feed to react to peers joining
@@ -1667,7 +1667,7 @@ func (s *Syncer[P]) processAccountResponse(res *accountResponse[P]) {
 	res.task.pend = 0
 	for i, account := range res.accounts {
 		// Check if the account is a contract with an unknown code
-		var emptyCode =  crypto.Keccak256Hash[P](nil)
+		var emptyCode = crypto.Keccak256Hash[P](nil)
 		if !bytes.Equal(account.CodeHash, emptyCode[:]) {
 			if code := rawdb.ReadCodeWithPrefix(s.db, common.BytesToHash(account.CodeHash)); code == nil {
 				res.task.codeTasks[common.BytesToHash(account.CodeHash)] = struct{}{}
@@ -2280,7 +2280,7 @@ func (s *Syncer[P]) onByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) er
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	
+
 	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
 
 	// Mir - Gost hash 34.11
@@ -2288,7 +2288,7 @@ func (s *Syncer[P]) onByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) er
 	if err != nil {
 		panic(err)
 	}
-	
+
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))
@@ -2524,13 +2524,13 @@ func (s *Syncer[P]) OnTrieNodes(peer SyncPeer, id uint64, trienodes [][]byte) er
 	// that the serving node is missing
 
 	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
-	
+
 	// Mir - Gost hash 34.11
 	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	if err != nil {
 		panic(err)
 	}
-		
+
 	hash := make([]byte, 32)
 
 	nodes := make([][]byte, len(req.hashes))
@@ -2624,15 +2624,15 @@ func (s *Syncer[P]) onHealByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	
+
 	// hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
-	
+
 	// Mir - Gost hash 34.11
 	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	if err != nil {
 		panic(err)
 	}
-		
+
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))

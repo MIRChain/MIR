@@ -17,8 +17,8 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

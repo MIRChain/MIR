@@ -21,14 +21,14 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // testAccount is the data associated with an account used by the state tests.
@@ -289,8 +289,12 @@ func TestIterativeDelayedStateSync(t *testing.T) {
 // Tests that given a root hash, a trie can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go, however in a
 // random order.
-func TestIterativeRandomStateSyncIndividual(t *testing.T) { testIterativeRandomStateSync[nist.PublicKey](t, 1) }
-func TestIterativeRandomStateSyncBatched(t *testing.T)    { testIterativeRandomStateSync[nist.PublicKey](t, 100) }
+func TestIterativeRandomStateSyncIndividual(t *testing.T) {
+	testIterativeRandomStateSync[nist.PublicKey](t, 1)
+}
+func TestIterativeRandomStateSyncBatched(t *testing.T) {
+	testIterativeRandomStateSync[nist.PublicKey](t, 100)
+}
 
 func testIterativeRandomStateSync[P crypto.PublicKey](t *testing.T, count int) {
 	// Create a random state to copy

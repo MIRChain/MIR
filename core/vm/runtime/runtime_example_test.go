@@ -19,9 +19,9 @@ package runtime_test
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/vm/runtime"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/vm/runtime"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func ExampleExecute() {

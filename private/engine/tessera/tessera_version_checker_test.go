@@ -3,7 +3,7 @@ package tessera
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/private/engine"
 	"github.com/stretchr/testify/assert"
 )
 

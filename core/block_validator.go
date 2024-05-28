@@ -19,22 +19,22 @@ package core
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
 // processed state.
 //
 // BlockValidator implements Validator.
-type BlockValidator [P crypto.PublicKey] struct {
+type BlockValidator[P crypto.PublicKey] struct {
 	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain[P]         // Canonical block chain
-	engine consensus.Engine[P]    // Consensus engine used for validating
+	bc     *BlockChain[P]      // Canonical block chain
+	engine consensus.Engine[P] // Consensus engine used for validating
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use

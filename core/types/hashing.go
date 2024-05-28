@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3411"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -46,7 +46,7 @@ var encodeBufferPool = sync.Pool{
 // rlpHash encodes x and hashes the encoded bytes.
 func rlpHash[P crypto.PublicKey](x interface{}) (h common.Hash) {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		sha := hasherPoolNist.Get().(crypto.KeccakState)
 		defer hasherPoolNist.Put(sha)
@@ -73,7 +73,7 @@ func rlpHash[P crypto.PublicKey](x interface{}) (h common.Hash) {
 // It's used for typed transactions.
 func prefixedRlpHash[P crypto.PublicKey](prefix byte, x interface{}) (h common.Hash) {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		sha := hasherPoolNist.Get().(crypto.KeccakState)
 		defer hasherPoolNist.Put(sha)

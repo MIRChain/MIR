@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // FunctionType represents different types of functions a contract might have.

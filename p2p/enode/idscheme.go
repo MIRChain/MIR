@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -41,10 +41,10 @@ import (
 // }
 
 // v4ID is the "v4" identity scheme.
-type V4ID [P crypto.PublicKey] struct{}
+type V4ID[P crypto.PublicKey] struct{}
 
 // SignV4 signs a record using the v4 scheme.
-func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) error {
+func SignV4[T crypto.PrivateKey, P crypto.PublicKey](r *enr.Record, key T) error {
 	// Copy r to avoid modifying it if signing fails.
 	cpy := *r
 	cpy.Set(enr.ID("v4"))
@@ -85,7 +85,7 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 
 func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var entry s256raw
 		if err := r.Load(&entry); err != nil {
@@ -93,7 +93,7 @@ func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 		} else if len(entry) != 33 {
 			return fmt.Errorf("invalid public key")
 		}
-	
+
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, r.AppendElements(nil))
 		if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
@@ -117,7 +117,7 @@ func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 
 func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var pubkey Secp256k1
 		err := r.Load(&pubkey)
@@ -224,18 +224,18 @@ func (s256raw) ENRKey() string { return "secp256k1" }
 
 // gost3410raw is an unparsed gost3410 public key entry.
 type gost3410raw []byte
-func (gost3410raw) ENRKey() string { return "gost3410" }
 
+func (gost3410raw) ENRKey() string { return "gost3410" }
 
 // v4CompatID is a weaker and insecure version of the "v4" scheme which only checks for the
 // presence of a secp256k1 public key, but doesn't verify the signature.
-type v4CompatID [P crypto.PublicKey] struct {
+type v4CompatID[P crypto.PublicKey] struct {
 	V4ID[P]
 }
 
 func (v4CompatID[P]) Verify(r *enr.Record, sig []byte) error {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var pubkey Secp256k1
 		return r.Load(&pubkey)

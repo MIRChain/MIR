@@ -20,15 +20,15 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,
 // including all of the contract code and contract state tries.
-type NodeIterator [P crypto.PublicKey] struct {
+type NodeIterator[P crypto.PublicKey] struct {
 	state *StateDB[P] // State being iterated
 
 	stateIt trie.NodeIterator // Primary iterator for the global state trie

@@ -22,13 +22,13 @@ import (
 	"sort"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the
@@ -48,7 +48,7 @@ type Tally struct {
 }
 
 // Snapshot is the state of the authorization voting at a given point in time.
-type Snapshot [P crypto.PublicKey]  struct {
+type Snapshot[P crypto.PublicKey] struct {
 	config   *params.CliqueConfig // Consensus engine parameters to fine tune behavior
 	sigcache *lru.ARCCache        // Cache of recent block signatures to speed up ecrecover
 

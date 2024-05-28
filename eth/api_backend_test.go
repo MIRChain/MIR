@@ -3,10 +3,10 @@ package eth
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/node"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/node"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,7 @@ func TestEthAPIBackend_SubscribePendingLogsEvent(t *testing.T) {
 	conf := &ethconfig.Config[nist.PublicKey]{
 		RaftMode: false,
 	}
-	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
+	stack, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("failed to create node, err = %v", err)
 	}
@@ -23,7 +23,7 @@ func TestEthAPIBackend_SubscribePendingLogsEvent(t *testing.T) {
 		t.Fatalf("failed to create eth service, err = %v", err)
 	}
 
-	b := &EthAPIBackend[nist.PrivateKey,nist.PublicKey]{
+	b := &EthAPIBackend[nist.PrivateKey, nist.PublicKey]{
 		eth: eth,
 	}
 
@@ -41,7 +41,7 @@ func TestEthAPIBackend_SubscribePendingLogsEvent_SubscribesToConsensusServiceFee
 	conf := &ethconfig.Config[nist.PublicKey]{
 		RaftMode: true,
 	}
-	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
+	stack, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("failed to create node, err = %v", err)
 	}
@@ -50,7 +50,7 @@ func TestEthAPIBackend_SubscribePendingLogsEvent_SubscribesToConsensusServiceFee
 		t.Fatalf("failed to create eth service, err = %v ", err)
 	}
 
-	b := &EthAPIBackend[nist.PrivateKey,nist.PublicKey]{
+	b := &EthAPIBackend[nist.PrivateKey, nist.PublicKey]{
 		eth: eth,
 	}
 

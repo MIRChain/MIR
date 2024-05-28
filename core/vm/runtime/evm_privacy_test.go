@@ -7,18 +7,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private/engine"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
@@ -71,7 +71,7 @@ contract C2  {
 }
 */
 
-type contract [P crypto.PublicKey] struct {
+type contract[P crypto.PublicKey] struct {
 	abi      abi.ABI[P]
 	bytecode []byte
 	name     string
@@ -255,7 +255,7 @@ func newConfig[P crypto.PublicKey]() *extendedConfig[P] {
 	}
 }
 
-type extendedConfig [P crypto.PublicKey] struct {
+type extendedConfig[P crypto.PublicKey] struct {
 	*Config[P]
 	privateState *state.StateDB[P]
 	onAfterEVM   func(evm *vm.EVM[P])

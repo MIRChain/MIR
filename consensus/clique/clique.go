@@ -26,21 +26,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/misc"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/rpc"
+	"github.com/MIRChain/MIR/trie"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/misc"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 const (
@@ -153,7 +153,7 @@ func ecrecover[P crypto.PublicKey](header *types.Header[P], sigcache *lru.ARCCac
 	}
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 	// Recover the public key and the Ethereum address
-	var pubkey []byte 
+	var pubkey []byte
 	var err error
 	pubkey, err = crypto.Ecrecover[P](SealHash(header).Bytes(), signature)
 	if err != nil {
@@ -168,7 +168,7 @@ func ecrecover[P crypto.PublicKey](header *types.Header[P], sigcache *lru.ARCCac
 
 // Clique is the proof-of-authority consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
-type Clique [P crypto.PublicKey] struct {
+type Clique[P crypto.PublicKey] struct {
 	config *params.CliqueConfig // Consensus engine configuration parameters
 	db     ethdb.Database       // Database to store and retrieve snapshot checkpoints
 
@@ -187,7 +187,7 @@ type Clique [P crypto.PublicKey] struct {
 
 // New creates a Clique proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
-func New[P crypto.PublicKey] (config *params.CliqueConfig, db ethdb.Database) *Clique[P] {
+func New[P crypto.PublicKey](config *params.CliqueConfig, db ethdb.Database) *Clique[P] {
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {
@@ -688,7 +688,7 @@ func (c *Clique[P]) APIs(chain consensus.ChainHeaderReader[P]) []rpc.API {
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash[P crypto.PublicKey](header *types.Header[P]) (hash common.Hash) {
 	hasher := crypto.NewKeccakState[P]()
-	
+
 	// Mir - Gost hash 34.11
 	// hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	// if err != nil {

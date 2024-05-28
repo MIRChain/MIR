@@ -25,15 +25,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 type revision struct {
@@ -62,7 +62,7 @@ func (n *proofList) Delete(key []byte) error {
 // nested states. It's the general query interface to retrieve:
 // * Contracts
 // * Accounts
-type StateDB [P crypto.PublicKey] struct {
+type StateDB[P crypto.PublicKey] struct {
 	db           Database
 	prefetcher   *triePrefetcher
 	originalRoot common.Hash // The pre-state root, before any changes were made
@@ -763,8 +763,8 @@ func (s *StateDB[P]) createObject(addr common.Address) (newobj, prev *stateObjec
 // CreateAccount is called during the EVM CREATE operation. The situation might arise that
 // a contract does the following:
 //
-//   1. sends funds to sha(account ++ (nonce + 1))
-//   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
+//  1. sends funds to sha(account ++ (nonce + 1))
+//  2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (s *StateDB[P]) CreateAccount(addr common.Address) {
@@ -838,7 +838,7 @@ func (s *StateDB[P]) Copy() *StateDB[P] {
 	s.mutex.Lock()
 	// Copy the dirty states, logs, and preimages
 	for _, addr := range dirties {
-		// As documented [here](https://github.com/pavelkrolevets/MIR-pro/pull/16485#issuecomment-380438527),
+		// As documented [here](https://github.com/MIRChain/MIR/pull/16485#issuecomment-380438527),
 		// and in the Finalise-method, there is a case where an object is in the journal but not
 		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
 		// nil

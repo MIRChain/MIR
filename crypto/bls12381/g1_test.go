@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 func (g *G1) one() *PointG1 {

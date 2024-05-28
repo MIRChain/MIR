@@ -24,17 +24,17 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/misc"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/misc"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -611,7 +611,7 @@ func (ethash *Ethash[P]) FinalizeAndAssemble(chain consensus.ChainHeaderReader[P
 // SealHash returns the hash of a block prior to it being sealed.
 func (ethash *Ethash[P]) SealHash(header *types.Header[P]) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
-	
+
 	// Mir - Gost hash 34.11
 	// hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	// if err != nil {

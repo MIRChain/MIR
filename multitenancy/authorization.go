@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/log"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 

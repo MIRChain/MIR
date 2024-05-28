@@ -1,6 +1,6 @@
 package istanbul
 
-import "github.com/pavelkrolevets/MIR-pro/common"
+import "github.com/MIRChain/MIR/common"
 
 type Core interface {
 	Start() error

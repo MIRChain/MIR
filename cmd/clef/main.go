@@ -36,29 +36,29 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/debug"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/internal/flags"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/plugin"
-	"github.com/pavelkrolevets/MIR-pro/plugin/account"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
-	"github.com/pavelkrolevets/MIR-pro/signer/fourbyte"
-	"github.com/pavelkrolevets/MIR-pro/signer/rules"
-	"github.com/pavelkrolevets/MIR-pro/signer/storage"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/debug"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/internal/flags"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/plugin"
+	"github.com/MIRChain/MIR/plugin/account"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/rpc"
+	"github.com/MIRChain/MIR/signer/core"
+	"github.com/MIRChain/MIR/signer/fourbyte"
+	"github.com/MIRChain/MIR/signer/rules"
+	"github.com/MIRChain/MIR/signer/storage"
 
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -215,7 +215,7 @@ which can be used in lieu of an external UI.`,
 	}
 
 	gendocCommand = cli.Command{
-		Action: GenDoc[nist.PrivateKey,nist.PublicKey],
+		Action: GenDoc[nist.PrivateKey, nist.PublicKey],
 		Name:   "gendoc",
 		Usage:  "Generate documentation about json-rpc format",
 		Description: `
@@ -232,7 +232,6 @@ The gendoc generates example structures of the json-rpc communication types.
 		Usage: "GOST ECDSA curve parameters",
 		Value: "id-GostR3410-2001-CryptoPro-A-ParamSet",
 	}
-
 )
 
 // <Quorum>
@@ -365,7 +364,7 @@ func main() {
 }
 
 func _initializeSecrets(ctx *cli.Context) error {
-	// Mir - set crypto before the start of services 
+	// Mir - set crypto before the start of services
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
@@ -407,8 +406,8 @@ func _initializeSecrets(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil		
+	}
+	return nil
 }
 
 func initializeSecrets[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
@@ -480,7 +479,7 @@ You should treat 'masterseed.json' with utmost secrecy and make a backup of it!
 }
 
 func _attestFile(ctx *cli.Context) error {
-	// Mir - set crypto before the start of services 
+	// Mir - set crypto before the start of services
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
@@ -522,8 +521,8 @@ func _attestFile(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil		
+	}
+	return nil
 }
 
 func attestFile[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -534,7 +533,7 @@ func attestFile[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 		return err
 	}
 
-	stretchedKey, err := readMasterKey[T,P](ctx, nil)
+	stretchedKey, err := readMasterKey[T, P](ctx, nil)
 	if err != nil {
 		utils.Fatalf(err.Error())
 	}
@@ -551,7 +550,7 @@ func attestFile[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 }
 
 func _setCredential(ctx *cli.Context) error {
-	// Mir - set crypto before the start of services 
+	// Mir - set crypto before the start of services
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
@@ -593,8 +592,8 @@ func _setCredential(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil		
+	}
+	return nil
 }
 
 func setCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -612,7 +611,7 @@ func setCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 	password := utils.GetPassPhrase("Please enter a password to store for this address:", true)
 	fmt.Println()
 
-	stretchedKey, err := readMasterKey[T,P](ctx, nil)
+	stretchedKey, err := readMasterKey[T, P](ctx, nil)
 	if err != nil {
 		utils.Fatalf(err.Error())
 	}
@@ -628,7 +627,7 @@ func setCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 }
 
 func _removeCredential(ctx *cli.Context) error {
-	// Mir - set crypto before the start of services 
+	// Mir - set crypto before the start of services
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
@@ -670,8 +669,8 @@ func _removeCredential(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil		
+	}
+	return nil
 }
 
 func removeCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -687,7 +686,7 @@ func removeCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context)
 	}
 	address := common.HexToAddress(addr)
 
-	stretchedKey, err := readMasterKey[T,P](ctx, nil)
+	stretchedKey, err := readMasterKey[T, P](ctx, nil)
 	if err != nil {
 		utils.Fatalf(err.Error())
 	}
@@ -703,50 +702,50 @@ func removeCredential[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context)
 }
 
 func _newAccount(ctx *cli.Context) error {
-		// Mir - set crypto before the start of services 
-		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
-			if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
-				fmt.Println(`
+	// Mir - set crypto before the start of services
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
 				╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
 				║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
 				╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
-					gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
-				}
-				err := newAccount[gost3410.PrivateKey, gost3410.PublicKey](ctx)
-				if err != nil {
-					return err
-				}
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
-				// Mir - check if signer cert is loaded
-				// if stack.Config().SignerCert.Bytes() == nil {
-				// 	return fmt.Errorf("signer cert cant be nil")
-				// }
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
-				fmt.Println(`
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			err := newAccount[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
 				╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
 				║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
 				╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
-				err := newAccount[nist.PrivateKey, nist.PublicKey](ctx)
-				if err != nil {
-					return err
-				}
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
-				crypto.CryptoAlg = crypto.PQC
-			} else {
-				fmt.Errorf("wrong crypto flag")
+			err := newAccount[nist.PrivateKey, nist.PublicKey](ctx)
+			if err != nil {
+				return err
 			}
-		} 	
-		return nil		
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	}
+	return nil
 }
 
 func newAccount[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
@@ -756,18 +755,18 @@ func newAccount[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	// The newaccount is meant for users using the CLI, since 'real' external
 	// UIs can use the UI-api instead. So we'll just use the native CLI UI here.
 	var (
-		ui                        = core.NewCommandlineUI[T,P]()
+		ui                        = core.NewCommandlineUI[T, P]()
 		pwStorage storage.Storage = &storage.NoStorage{}
 		ksLoc                     = c.GlobalString(keystoreFlag.Name)
 		lightKdf                  = c.GlobalBool(utils.LightKDFFlag.Name)
 	)
 	log.Info("Starting clef", "keystore", ksLoc, "light-kdf", lightKdf)
-	am, _, err := startClefAccountManagerWithPlugins[T,P](c, ksLoc, true, lightKdf, "")
+	am, _, err := startClefAccountManagerWithPlugins[T, P](c, ksLoc, true, lightKdf, "")
 	if err != nil {
 		return err
 	}
 	// This gives is us access to the external API
-	apiImpl := core.NewSignerAPI[T,P](am, 0, true, ui, nil, false, pwStorage)
+	apiImpl := core.NewSignerAPI[T, P](am, 0, true, ui, nil, false, pwStorage)
 	// This gives us access to the internal API
 	internalApi := core.NewUIServerAPI(apiImpl)
 	addr, err := internalApi.New(context.Background())
@@ -832,50 +831,50 @@ func clef(ctx *cli.Context) error {
 	██║ ╚═╝ ██║██║██║  ██║    ╚██████╗██║  ██║██║  ██║██║██║ ╚████║
 	╚═╝     ╚═╝╚═╝╚═╝  ╚═╝     ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 																   `)
-		// Mir - set crypto before the start of services 
-		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
-			if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
-				fmt.Println(`
+	// Mir - set crypto before the start of services
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
 				╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
 				║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
 				╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
-					gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
-				}
-				err := signer[gost3410.PrivateKey, gost3410.PublicKey](ctx)
-				if err != nil {
-					return err
-				}
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
-				// Mir - check if signer cert is loaded
-				// if stack.Config().SignerCert.Bytes() == nil {
-				// 	return fmt.Errorf("signer cert cant be nil")
-				// }
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
-				fmt.Println(`
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			err := signer[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			if err != nil {
+				return err
+			}
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+			// Mir - check if signer cert is loaded
+			// if stack.Config().SignerCert.Bytes() == nil {
+			// 	return fmt.Errorf("signer cert cant be nil")
+			// }
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
 				╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
 				║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
 				╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
-				err := signer[nist.PrivateKey, nist.PublicKey](ctx)
-				if err != nil {
-					return err
-				}
-			} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
-				crypto.CryptoAlg = crypto.PQC
-			} else {
-				fmt.Errorf("wrong crypto flag")
+			err := signer[nist.PrivateKey, nist.PublicKey](ctx)
+			if err != nil {
+				return err
 			}
-		} 	
-		return nil											   
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+		} else {
+			fmt.Errorf("wrong crypto flag")
+		}
+	}
+	return nil
 }
 
 func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
@@ -888,14 +887,14 @@ func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 		return err
 	}
 	var (
-		ui core.UIClientAPI[T,P]
+		ui core.UIClientAPI[T, P]
 	)
 	if c.GlobalBool(stdiouiFlag.Name) {
 		log.Info("Using stdin/stdout as UI-channel")
-		ui = core.NewStdIOUI[T,P]()
+		ui = core.NewStdIOUI[T, P]()
 	} else {
 		log.Info("Using CLI as UI-channel")
-		ui = core.NewCommandlineUI[T,P]()
+		ui = core.NewCommandlineUI[T, P]()
 	}
 	// 4bytedb data
 	fourByteLocal := c.GlobalString(customDBFlag.Name)
@@ -907,7 +906,7 @@ func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	log.Info("Loaded 4byte database", "embeds", embeds, "locals", locals, "local", fourByteLocal)
 
 	var (
-		api       core.ExternalAPI[T,P]
+		api       core.ExternalAPI[T, P]
 		pwStorage storage.Storage = &storage.NoStorage{}
 	)
 	configDir := c.GlobalString(configdirFlag.Name)
@@ -961,12 +960,12 @@ func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	log.Info("Starting signer", "chainid", chainId, "keystore", ksLoc,
 		"light-kdf", lightKdf, "advanced", advanced)
 
-	am, pm, err := startClefAccountManagerWithPlugins[T,P](c, ksLoc, nousb, lightKdf, scpath)
+	am, pm, err := startClefAccountManagerWithPlugins[T, P](c, ksLoc, nousb, lightKdf, scpath)
 	if err != nil {
 		return err
 	}
 
-	apiImpl := core.NewSignerAPI[T,P](am, chainId, nousb, ui, db, advanced, pwStorage)
+	apiImpl := core.NewSignerAPI[T, P](am, chainId, nousb, ui, db, advanced, pwStorage)
 
 	// Establish the bidirectional communication, by creating a new UI backend and registering
 	// it with the UI.
@@ -1066,8 +1065,8 @@ func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 
 // <Quorum/>
 // startPluginManager gets plugin config and starts a new PluginManager
-func startPluginManager[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) (*plugin.PluginManager[T,P], *plugin.Settings, error) {
-	nodeConf := new(node.Config[T,P])
+func startPluginManager[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) (*plugin.PluginManager[T, P], *plugin.Settings, error) {
+	nodeConf := new(node.Config[T, P])
 	if err := utils.SetPlugins(c, nodeConf); err != nil {
 		return nil, nil, err
 	}
@@ -1077,7 +1076,7 @@ func startPluginManager[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context)
 		return nil, nil, err
 	}
 
-	pm, err := plugin.NewPluginManager[T,P]("clef", pluginConf, c.Bool(utils.PluginSkipVerifyFlag.Name), c.Bool(utils.PluginLocalVerifyFlag.Name), c.String(utils.PluginPublicKeyFlag.Name))
+	pm, err := plugin.NewPluginManager[T, P]("clef", pluginConf, c.Bool(utils.PluginSkipVerifyFlag.Name), c.Bool(utils.PluginLocalVerifyFlag.Name), c.String(utils.PluginPublicKeyFlag.Name))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1089,7 +1088,7 @@ func startPluginManager[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context)
 
 // addPluginAPIs adds the exposed plugin APIs to Clef's API.
 // It alters some of the plugin APIs so that calls to them will require UI approval.
-func addPluginAPIs[T crypto.PrivateKey, P crypto.PublicKey](pm *plugin.PluginManager[T,P], rpcAPI []rpc.API, ui core.UIClientAPI[T,P]) []rpc.API {
+func addPluginAPIs[T crypto.PrivateKey, P crypto.PublicKey](pm *plugin.PluginManager[T, P], rpcAPI []rpc.API, ui core.UIClientAPI[T, P]) []rpc.API {
 	// pm.APIs() returns a slice of values hence the following approach that may look clumsy
 	var (
 		stdPluginAPIs      = pm.APIs()
@@ -1127,7 +1126,7 @@ func DefaultConfigDir() string {
 	return ""
 }
 
-func readMasterKey[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, ui core.UIClientAPI[T,P]) ([]byte, error) {
+func readMasterKey[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, ui core.UIClientAPI[T, P]) ([]byte, error) {
 	var (
 		file      string
 		configDir = ctx.GlobalString(configdirFlag.Name)
@@ -1184,7 +1183,7 @@ func checkFile(filename string) error {
 	}
 	// Check the unix permission bits
 	// However, on windows, we cannot use the unix perm-bits, see
-	// https://github.com/pavelkrolevets/MIR-pro/issues/20123
+	// https://github.com/MIRChain/MIR/issues/20123
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0377 != 0 {
 		return fmt.Errorf("file (%v) has insecure file permissions (%v)", filename, info.Mode().String())
 	}
@@ -1206,7 +1205,7 @@ func confirm(text string) bool {
 	return false
 }
 
-func testExternalUI[T crypto.PrivateKey, P crypto.PublicKey](api *core.SignerAPI[T,P]) {
+func testExternalUI[T crypto.PrivateKey, P crypto.PublicKey](api *core.SignerAPI[T, P]) {
 
 	ctx := context.WithValue(context.Background(), "remote", "clef binary")
 	ctx = context.WithValue(ctx, "scheme", "in-proc")
@@ -1540,16 +1539,16 @@ These data types are defined in the channel between clef and the UI`)
 
 // Quorum
 // startClefAccountManagerWithPlugins - wrapped function to create a CLEF account manager with Plugin Support
-func startClefAccountManagerWithPlugins[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context, ksLocation string, nousb, lightKDF bool, scpath string) (*accounts.Manager[P], *plugin.PluginManager[T,P], error) {
+func startClefAccountManagerWithPlugins[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context, ksLocation string, nousb, lightKDF bool, scpath string) (*accounts.Manager[P], *plugin.PluginManager[T, P], error) {
 	var err error
 	// <Quorum> start the plugin manager
 	var (
-		pm         *plugin.PluginManager[T,P]
+		pm         *plugin.PluginManager[T, P]
 		pluginConf *plugin.Settings
 	)
 	if c.IsSet(utils.PluginSettingsFlag.Name) {
 		log.Info("Using plugins")
-		pm, pluginConf, err = startPluginManager[T,P](c)
+		pm, pluginConf, err = startPluginManager[T, P](c)
 		if err != nil {
 			utils.Fatalf(err.Error())
 		}
@@ -1574,7 +1573,7 @@ func startClefAccountManagerWithPlugins[T crypto.PrivateKey, P crypto.PublicKey]
 	}
 	// </Quorum>
 
-	am := core.StartClefAccountManager[T,P](ksLocation, nousb, lightKDF, pluginConf, scpath)
+	am := core.StartClefAccountManager[T, P](ksLocation, nousb, lightKDF, pluginConf, scpath)
 
 	// <Quorum> setup the pluggable accounts backend with the plugin
 	// if pm != nil && pm.IsEnabled(plugin.AccountPluginInterfaceName) {

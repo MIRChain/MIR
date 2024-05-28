@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 var (

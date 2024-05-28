@@ -26,11 +26,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/ecies"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/ecies"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,8 +86,8 @@ func checkMsgReadWrite(t *testing.T, p1, p2 *Conn[nist.PrivateKey, nist.PublicKe
 func createPeers(t *testing.T) (peer1, peer2 *Conn[nist.PrivateKey, nist.PublicKey]) {
 	conn1, conn2 := net.Pipe()
 	key1, key2 := newkey(), newkey()
-	peer1 = NewConn[nist.PrivateKey, nist.PublicKey](conn1, *key2.Public()) // dialer
-	peer2 = NewConn[nist.PrivateKey, nist.PublicKey](conn2, crypto.ZeroPublicKey[nist.PublicKey]())             // listener
+	peer1 = NewConn[nist.PrivateKey, nist.PublicKey](conn1, *key2.Public())                         // dialer
+	peer2 = NewConn[nist.PrivateKey, nist.PublicKey](conn2, crypto.ZeroPublicKey[nist.PublicKey]()) // listener
 	doHandshake(t, peer1, peer2, key1, key2)
 	return peer1, peer2
 }

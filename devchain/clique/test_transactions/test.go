@@ -6,20 +6,19 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/devchain/clique/test_transactions/simple"
+	"github.com/MIRChain/MIR/ethclient"
 	"github.com/google/uuid"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/devchain/clique/test_transactions/simple"
-	"github.com/pavelkrolevets/MIR-pro/ethclient"
 )
 
 func main() {
 	DeploySipmleContract()
 }
 
-
-func DeploySipmleContract(){
+func DeploySipmleContract() {
 	back, err := ethclient.Dial[nist.PublicKey]("http://127.0.0.1:8545")
 	if err != nil {
 		panic(err)
@@ -33,14 +32,14 @@ func DeploySipmleContract(){
 	}
 	log.Println("Block hash ", blockInfo.Hash().Hex())
 	jsonBytes, err := ioutil.ReadFile("../node1/keystore/UTC--2018-06-24T06-41-08.065147879Z--b47f736b9b15dcc888ab790c38a6ad930217cbee")
-    if err != nil {
-        log.Fatal(err)
-    }
-	key, err := keystore.DecryptKey[nist.PrivateKey,nist.PublicKey](jsonBytes, "extreme8811")
+	if err != nil {
+		log.Fatal(err)
+	}
+	key, err := keystore.DecryptKey[nist.PrivateKey, nist.PublicKey](jsonBytes, "extreme8811")
 	if err != nil {
 		panic(err)
 	}
-	auth, err := bind.NewKeyedTransactorWithChainID[nist.PrivateKey,nist.PublicKey](key.PrivateKey, big.NewInt(1515))
+	auth, err := bind.NewKeyedTransactorWithChainID[nist.PrivateKey, nist.PublicKey](key.PrivateKey, big.NewInt(1515))
 	if err != nil {
 		panic(err)
 	}
@@ -85,6 +84,6 @@ func DeploySipmleContract(){
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Value get: ",  uuid.UUID(_value))
+	log.Println("Value get: ", uuid.UUID(_value))
 
 }

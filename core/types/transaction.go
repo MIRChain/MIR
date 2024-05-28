@@ -26,11 +26,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var (
@@ -48,7 +48,7 @@ const (
 )
 
 // Transaction is an Ethereum transaction.
-type Transaction [P crypto.PublicKey] struct {
+type Transaction[P crypto.PublicKey] struct {
 	inner TxData    // Consensus contents of a transaction
 	time  time.Time // Time first seen locally (spam avoidance)
 
@@ -422,10 +422,10 @@ func (s *TxByPriceAndTime[P]) Pop() interface{} {
 // TransactionsByPriceAndNonce represents a set of transactions that can return
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
-type TransactionsByPriceAndNonce [P crypto.PublicKey] struct {
+type TransactionsByPriceAndNonce[P crypto.PublicKey] struct {
 	txs    map[common.Address]Transactions[P] // Per account nonce-sorted list of transactions
-	heads  TxByPriceAndTime[P]               // Next transaction for each unique account (price heap)
-	signer Signer[P]                      // Signer for the set of transactions
+	heads  TxByPriceAndTime[P]                // Next transaction for each unique account (price heap)
+	signer Signer[P]                          // Signer for the set of transactions
 }
 
 // NewTransactionsByPriceAndNonce creates a transaction set that can retrieve

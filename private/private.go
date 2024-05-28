@@ -7,23 +7,23 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	http2 "github.com/pavelkrolevets/MIR-pro/common/http"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/constellation"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/notinuse"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/tessera"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	http2 "github.com/MIRChain/MIR/common/http"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/private/engine/constellation"
+	"github.com/MIRChain/MIR/private/engine/notinuse"
+	"github.com/MIRChain/MIR/private/engine/qlightptm"
+	"github.com/MIRChain/MIR/private/engine/tessera"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 var (
 	// global variable to be accessed by other packages
 	// singleton gateway to interact with private transaction manager
-	Ptm                PrivateTransactionManager
+	Ptm              PrivateTransactionManager
 	isPrivacyEnabled = false
 )
 

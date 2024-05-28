@@ -17,11 +17,11 @@
 package downloader
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
-type DoneEvent [P crypto.PublicKey] struct {
+type DoneEvent[P crypto.PublicKey] struct {
 	Latest *types.Header[P]
 }
 type StartEvent struct{}

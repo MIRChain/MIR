@@ -21,17 +21,17 @@ import (
 	"errors"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/state/pruner"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/state/pruner"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -54,7 +54,7 @@ var (
 				Name:      "prune-state",
 				Usage:     "Prune stale ethereum state data based on the snapshot",
 				ArgsUsage: "<root>",
-				Action:    utils.MigrateFlags(pruneState[nist.PrivateKey,nist.PublicKey]),
+				Action:    utils.MigrateFlags(pruneState[nist.PrivateKey, nist.PublicKey]),
 				Category:  "MISCELLANEOUS COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -82,7 +82,7 @@ the trie clean cache with default directory will be deleted.
 				Name:      "verify-state",
 				Usage:     "Recalculate state hash based on the snapshot for verification",
 				ArgsUsage: "<root>",
-				Action:    utils.MigrateFlags(verifyState[nist.PrivateKey,nist.PublicKey]),
+				Action:    utils.MigrateFlags(verifyState[nist.PrivateKey, nist.PublicKey]),
 				Category:  "MISCELLANEOUS COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -100,7 +100,7 @@ In other words, this command does the snapshot to trie conversion.
 				Name:      "traverse-state",
 				Usage:     "Traverse the state with given root hash for verification",
 				ArgsUsage: "<root>",
-				Action:    utils.MigrateFlags(traverseState[nist.PrivateKey,nist.PublicKey]),
+				Action:    utils.MigrateFlags(traverseState[nist.PrivateKey, nist.PublicKey]),
 				Category:  "MISCELLANEOUS COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -120,7 +120,7 @@ It's also usable without snapshot enabled.
 				Name:      "traverse-rawstate",
 				Usage:     "Traverse the state with given root hash for verification",
 				ArgsUsage: "<root>",
-				Action:    utils.MigrateFlags(traverseRawState[nist.PrivateKey,nist.PublicKey]),
+				Action:    utils.MigrateFlags(traverseRawState[nist.PrivateKey, nist.PublicKey]),
 				Category:  "MISCELLANEOUS COMMANDS",
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
@@ -142,7 +142,7 @@ It's also usable without snapshot enabled.
 )
 
 func pruneState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, config := makeConfigNode[T,P](ctx)
+	stack, config := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chaindb := utils.MakeChainDatabase(ctx, stack, false)
@@ -178,7 +178,7 @@ func pruneState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 }
 
 func verifyState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chaindb := utils.MakeChainDatabase(ctx, stack, true)
@@ -216,7 +216,7 @@ func verifyState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 // Basically it just iterates the trie, ensure all nodes and associated
 // contract codes are present.
 func traverseState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chaindb := utils.MakeChainDatabase(ctx, stack, true)
@@ -307,7 +307,7 @@ func traverseState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 // contract codes are present. It's basically identical to traverseState
 // but it will check each trie node.
 func traverseRawState[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chaindb := utils.MakeChainDatabase(ctx, stack, true)

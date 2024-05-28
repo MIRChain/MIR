@@ -23,18 +23,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
-type testTxRelay [P crypto.PublicKey] struct {
+type testTxRelay[P crypto.PublicKey] struct {
 	send, discard, mined chan int
 }
 
@@ -79,7 +79,7 @@ func txPoolTestChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 
 func TestTxPool(t *testing.T) {
 	for i := range testTx {
-		testTx[i], _ = types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), types.HomesteadSigner[nist.PublicKey]{}, testBankKey)
+		testTx[i], _ = types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](uint64(i), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), types.HomesteadSigner[nist.PublicKey]{}, testBankKey)
 	}
 
 	var (
@@ -91,7 +91,7 @@ func TestTxPool(t *testing.T) {
 	gspec.MustCommit(ldb)
 	// Assemble the test environment
 	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
-	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), sdb, poolTestBlocks, txPoolTestChainGen)
+	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), sdb, poolTestBlocks, txPoolTestChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		panic(err)
 	}

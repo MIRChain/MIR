@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/MIRChain/MIR/common/mclock"
 )
 
 // Subscription represents a stream of events. The carrier of the events is typically a

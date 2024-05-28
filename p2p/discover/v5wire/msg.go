@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Packet is implemented by all message types.
@@ -61,7 +61,7 @@ type (
 	}
 
 	// WHOAREYOU contains the handshake challenge.
-	Whoareyou [P crypto.PublicKey] struct {
+	Whoareyou[P crypto.PublicKey] struct {
 		ChallengeData []byte   // Encoded challenge
 		Nonce         Nonce    // Nonce of request packet
 		IDNonce       [16]byte // Identity proof data

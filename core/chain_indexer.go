@@ -24,19 +24,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
 )
 
 // ChainIndexerBackend defines the methods needed to process chain segments in
 // the background and write the segment results into the database. These can be
 // used to create filter blooms or CHTs.
-type ChainIndexerBackend [P crypto.PublicKey] interface {
+type ChainIndexerBackend[P crypto.PublicKey] interface {
 	// Reset initiates the processing of a new chain segment, potentially terminating
 	// any partially completed operations (in case of a reorg).
 	Reset(ctx context.Context, section uint64, prevHead common.Hash) error
@@ -53,7 +53,7 @@ type ChainIndexerBackend [P crypto.PublicKey] interface {
 }
 
 // ChainIndexerChain interface is used for connecting the indexer to a blockchain
-type ChainIndexerChain [P crypto.PublicKey] interface {
+type ChainIndexerChain[P crypto.PublicKey] interface {
 	// CurrentHeader retrieves the latest locally known header.
 	CurrentHeader() *types.Header[P]
 
@@ -70,9 +70,9 @@ type ChainIndexerChain [P crypto.PublicKey] interface {
 // section indexer. These child indexers receive new head notifications only
 // after an entire section has been finished or in case of rollbacks that might
 // affect already finished sections.
-type ChainIndexer [P crypto.PublicKey] struct {
-	chainDb  ethdb.Database      // Chain database to index the data from
-	indexDb  ethdb.Database      // Prefixed table-view of the db to write index metadata into
+type ChainIndexer[P crypto.PublicKey] struct {
+	chainDb  ethdb.Database         // Chain database to index the data from
+	indexDb  ethdb.Database         // Prefixed table-view of the db to write index metadata into
 	backend  ChainIndexerBackend[P] // Background processor generating the index data content
 	children []*ChainIndexer[P]     // Child indexers to cascade chain updates to
 

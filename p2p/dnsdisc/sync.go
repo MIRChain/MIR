@@ -21,9 +21,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // This is the number of consecutive leaf requests that may fail before
@@ -31,8 +31,8 @@ import (
 const rootRecheckFailCount = 5
 
 // clientTree is a full tree being synced.
-type clientTree [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	c   *Client[T,P]
+type clientTree[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	c   *Client[T, P]
 	loc *linkEntry[P] // link to this tree
 
 	lastRootCheck mclock.AbsTime // last revalidation of root
@@ -40,20 +40,20 @@ type clientTree [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	rootFailCount int
 
 	root  *rootEntry[P]
-	enrs  *subtreeSync[T,P]
-	links *subtreeSync[T,P]
+	enrs  *subtreeSync[T, P]
+	links *subtreeSync[T, P]
 
 	lc         *linkCache          // tracks all links between all trees
 	curLinks   map[string]struct{} // links contained in this tree
 	linkGCRoot string              // root on which last link GC has run
 }
 
-func newClientTree[T crypto.PrivateKey, P crypto.PublicKey](c *Client[T,P], lc *linkCache, loc *linkEntry[P]) *clientTree[T,P] {
-	return &clientTree[T,P]{c: c, lc: lc, loc: loc}
+func newClientTree[T crypto.PrivateKey, P crypto.PublicKey](c *Client[T, P], lc *linkCache, loc *linkEntry[P]) *clientTree[T, P] {
+	return &clientTree[T, P]{c: c, lc: lc, loc: loc}
 }
 
 // syncAll retrieves all entries of the tree.
-func (ct *clientTree[T,P]) syncAll(dest map[string]entry) error {
+func (ct *clientTree[T, P]) syncAll(dest map[string]entry) error {
 	if err := ct.updateRoot(context.Background()); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (ct *clientTree[T,P]) syncAll(dest map[string]entry) error {
 
 // syncRandom retrieves a single entry of the tree. The Node return value
 // is non-nil if the entry was a node.
-func (ct *clientTree[T,P]) syncRandom(ctx context.Context) (n *enode.Node[P], err error) {
+func (ct *clientTree[T, P]) syncRandom(ctx context.Context) (n *enode.Node[P], err error) {
 	if ct.rootUpdateDue() {
 		if err := ct.updateRoot(ctx); err != nil {
 			return nil, err
@@ -99,7 +99,7 @@ func (ct *clientTree[T,P]) syncRandom(ctx context.Context) (n *enode.Node[P], er
 }
 
 // canSyncRandom checks if any meaningful action can be performed by syncRandom.
-func (ct *clientTree[T,P]) canSyncRandom() bool {
+func (ct *clientTree[T, P]) canSyncRandom() bool {
 	// Note: the check for non-zero leaf count is very important here.
 	// If we're done syncing all nodes, and no leaves were found, the tree
 	// is empty and we can't use it for sync.
@@ -108,7 +108,7 @@ func (ct *clientTree[T,P]) canSyncRandom() bool {
 
 // gcLinks removes outdated links from the global link cache. GC runs once
 // when the link sync finishes.
-func (ct *clientTree[T,P]) gcLinks() {
+func (ct *clientTree[T, P]) gcLinks() {
 	if !ct.links.done() || ct.root.lroot == ct.linkGCRoot {
 		return
 	}
@@ -116,7 +116,7 @@ func (ct *clientTree[T,P]) gcLinks() {
 	ct.linkGCRoot = ct.root.lroot
 }
 
-func (ct *clientTree[T,P]) syncNextLink(ctx context.Context) error {
+func (ct *clientTree[T, P]) syncNextLink(ctx context.Context) error {
 	hash := ct.links.missing[0]
 	e, err := ct.links.resolveNext(ctx, hash)
 	if err != nil {
@@ -131,7 +131,7 @@ func (ct *clientTree[T,P]) syncNextLink(ctx context.Context) error {
 	return nil
 }
 
-func (ct *clientTree[T,P]) syncNextRandomENR(ctx context.Context) (*enode.Node[P], error) {
+func (ct *clientTree[T, P]) syncNextRandomENR(ctx context.Context) (*enode.Node[P], error) {
 	index := rand.Intn(len(ct.enrs.missing))
 	hash := ct.enrs.missing[index]
 	e, err := ct.enrs.resolveNext(ctx, hash)
@@ -145,7 +145,7 @@ func (ct *clientTree[T,P]) syncNextRandomENR(ctx context.Context) (*enode.Node[P
 	return nil, nil
 }
 
-func (ct *clientTree[T,P]) String() string {
+func (ct *clientTree[T, P]) String() string {
 	return ct.loc.String()
 }
 
@@ -163,7 +163,7 @@ func removeHash(h []string, index int) []string {
 }
 
 // updateRoot ensures that the given tree has an up-to-date root.
-func (ct *clientTree[T,P]) updateRoot(ctx context.Context) error {
+func (ct *clientTree[T, P]) updateRoot(ctx context.Context) error {
 	if !ct.slowdownRootUpdate(ctx) {
 		return ctx.Err()
 	}
@@ -192,20 +192,20 @@ func (ct *clientTree[T,P]) updateRoot(ctx context.Context) error {
 }
 
 // rootUpdateDue returns true when a root update is needed.
-func (ct *clientTree[T,P]) rootUpdateDue() bool {
+func (ct *clientTree[T, P]) rootUpdateDue() bool {
 	tooManyFailures := ct.leafFailCount > rootRecheckFailCount
 	scheduledCheck := ct.c.clock.Now() >= ct.nextScheduledRootCheck()
 	return ct.root == nil || tooManyFailures || scheduledCheck
 }
 
-func (ct *clientTree[T,P]) nextScheduledRootCheck() mclock.AbsTime {
+func (ct *clientTree[T, P]) nextScheduledRootCheck() mclock.AbsTime {
 	return ct.lastRootCheck.Add(ct.c.cfg.RecheckInterval)
 }
 
 // slowdownRootUpdate applies a delay to root resolution if is tried
 // too frequently. This avoids busy polling when the client is offline.
 // Returns true if the timeout passed, false if sync was canceled.
-func (ct *clientTree[T,P]) slowdownRootUpdate(ctx context.Context) bool {
+func (ct *clientTree[T, P]) slowdownRootUpdate(ctx context.Context) bool {
 	var delay time.Duration
 	switch {
 	case ct.rootFailCount > 20:
@@ -226,8 +226,8 @@ func (ct *clientTree[T,P]) slowdownRootUpdate(ctx context.Context) bool {
 }
 
 // subtreeSync is the sync of an ENR or link subtree.
-type subtreeSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	c       *Client[T,P]
+type subtreeSync[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	c       *Client[T, P]
 	loc     *linkEntry[P]
 	root    string
 	missing []string // missing tree node hashes
@@ -235,15 +235,15 @@ type subtreeSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	leaves  int      // counter of synced leaves
 }
 
-func newSubtreeSync[T crypto.PrivateKey, P crypto.PublicKey](c *Client[T,P], loc *linkEntry[P], root string, link bool) *subtreeSync[T,P] {
-	return &subtreeSync[T,P]{c, loc, root, []string{root}, link, 0}
+func newSubtreeSync[T crypto.PrivateKey, P crypto.PublicKey](c *Client[T, P], loc *linkEntry[P], root string, link bool) *subtreeSync[T, P] {
+	return &subtreeSync[T, P]{c, loc, root, []string{root}, link, 0}
 }
 
-func (ts *subtreeSync[T,P]) done() bool {
+func (ts *subtreeSync[T, P]) done() bool {
 	return len(ts.missing) == 0
 }
 
-func (ts *subtreeSync[T,P]) resolveAll(dest map[string]entry) error {
+func (ts *subtreeSync[T, P]) resolveAll(dest map[string]entry) error {
 	for !ts.done() {
 		hash := ts.missing[0]
 		ctx, cancel := context.WithTimeout(context.Background(), ts.c.cfg.Timeout)
@@ -258,7 +258,7 @@ func (ts *subtreeSync[T,P]) resolveAll(dest map[string]entry) error {
 	return nil
 }
 
-func (ts *subtreeSync[T,P]) resolveNext(ctx context.Context, hash string) (entry, error) {
+func (ts *subtreeSync[T, P]) resolveNext(ctx context.Context, hash string) (entry, error) {
 	e, err := ts.c.resolveEntry(ctx, ts.loc.domain, hash)
 	if err != nil {
 		return nil, err

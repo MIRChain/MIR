@@ -30,14 +30,14 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/consensus/clique"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/consensus/clique"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 type SigFormat struct {
@@ -69,7 +69,7 @@ type ValidatorData struct {
 	Message hexutil.Bytes
 }
 
-type TypedData [P crypto.PublicKey] struct {
+type TypedData[P crypto.PublicKey] struct {
 	Types       Types            `json:"types"`
 	PrimaryType string           `json:"primaryType"`
 	Domain      TypedDataDomain  `json:"domain"`
@@ -125,7 +125,7 @@ var typedDataReferenceTypeRegexp = regexp.MustCompile(`^[A-Z](\w*)(\[\])?$`)
 //
 // Note, the produced signature conforms to the secp256k1 curve R, S and V values,
 // where the V value will be 27 or 28 for legacy reasons, if legacyV==true.
-func (api *SignerAPI[T,P]) sign(req *SignDataRequest, legacyV bool) (hexutil.Bytes, error) {
+func (api *SignerAPI[T, P]) sign(req *SignDataRequest, legacyV bool) (hexutil.Bytes, error) {
 	// We make the request prior to looking up if we actually have the account, to prevent
 	// account-enumeration via the API
 	res, err := api.UI.ApproveSignData(req)
@@ -162,7 +162,7 @@ func (api *SignerAPI[T,P]) sign(req *SignDataRequest, legacyV bool) (hexutil.Byt
 // depending on the content-type specified.
 //
 // Different types of validation occur.
-func (api *SignerAPI[T,P]) SignData(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (hexutil.Bytes, error) {
+func (api *SignerAPI[T, P]) SignData(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (hexutil.Bytes, error) {
 	var req, transformV, err = api.determineSignatureFormat(ctx, contentType, addr, data)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func (api *SignerAPI[T,P]) SignData(ctx context.Context, contentType string, add
 // charset, ok := params["charset"]
 // As it is now, we accept any charset and just treat it as 'raw'.
 // This method returns the mimetype for signing along with the request
-func (api *SignerAPI[T,P]) determineSignatureFormat(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (*SignDataRequest, bool, error) {
+func (api *SignerAPI[T, P]) determineSignatureFormat(ctx context.Context, contentType string, addr common.MixedcaseAddress, data interface{}) (*SignDataRequest, bool, error) {
 	var (
 		req          *SignDataRequest
 		useEthereumV = true // Default to use V = 27 or 28, the legacy Ethereum format
@@ -315,14 +315,14 @@ func cliqueHeaderHashAndRlp[P crypto.PublicKey](header *types.Header[P]) (hash, 
 // It returns
 // - the signature,
 // - and/or any error
-func (api *SignerAPI[T,P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, typedData TypedData[P]) (hexutil.Bytes, error) {
+func (api *SignerAPI[T, P]) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, typedData TypedData[P]) (hexutil.Bytes, error) {
 	signature, _, err := api.signTypedData(ctx, addr, typedData, nil)
 	return signature, err
 }
 
 // signTypedData is identical to the capitalized version, except that it also returns the hash (preimage)
 // - the signature preimage (hash)
-func (api *SignerAPI[T,P]) signTypedData(ctx context.Context, addr common.MixedcaseAddress,
+func (api *SignerAPI[T, P]) signTypedData(ctx context.Context, addr common.MixedcaseAddress,
 	typedData TypedData[P], validationMessages *ValidationMessages) (hexutil.Bytes, hexutil.Bytes, error) {
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
@@ -640,7 +640,7 @@ func dataMismatchError(encType string, encValue interface{}) error {
 
 // EcRecover recovers the address associated with the given sig.
 // Only compatible with `text/plain`
-func (api *SignerAPI[T,P]) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
+func (api *SignerAPI[T, P]) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
 	// Returns the address for the Account that was used to create the signature.
 	//
 	// Note, this function is compatible with eth_sign and personal_sign. As such it recovers
@@ -651,7 +651,7 @@ func (api *SignerAPI[T,P]) EcRecover(ctx context.Context, data hexutil.Bytes, si
 	// Note, the signature must conform to the secp256k1 curve R, S and V values, where
 	// the V value must be be 27 or 28 for legacy reasons.
 	//
-	// https://github.com/pavelkrolevets/MIR-pro/wiki/Management-APIs#personal_ecRecover
+	// https://github.com/MIRChain/MIR/wiki/Management-APIs#personal_ecRecover
 	if len(sig) != 65 {
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
 	}

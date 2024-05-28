@@ -20,12 +20,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 type dummyContractRef struct {
@@ -45,7 +45,7 @@ func (d *dummyContractRef) SetBalance(*big.Int)        {}
 func (d *dummyContractRef) SetNonce(uint64)            {}
 func (d *dummyContractRef) Balance() *big.Int          { return new(big.Int) }
 
-type dummyStatedb [P crypto.PublicKey] struct {
+type dummyStatedb[P crypto.PublicKey] struct {
 	state.StateDB[P]
 }
 
@@ -53,7 +53,7 @@ func (*dummyStatedb[P]) GetRefund() uint64 { return 1337 }
 
 func TestStoreCapture(t *testing.T) {
 	var (
-		env      = NewEVM[nist.PublicKey](BlockContext{}, TxContext{}, &dummyStatedb[nist.PublicKey]{}, &dummyStatedb[nist.PublicKey]{}, params.TestChainConfig,Config[nist.PublicKey]{})
+		env      = NewEVM[nist.PublicKey](BlockContext{}, TxContext{}, &dummyStatedb[nist.PublicKey]{}, &dummyStatedb[nist.PublicKey]{}, params.TestChainConfig, Config[nist.PublicKey]{})
 		logger   = NewStructLogger[nist.PublicKey](nil)
 		contract = NewContract[nist.PublicKey](&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
 		scope    = &ScopeContext[nist.PublicKey]{

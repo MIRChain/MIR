@@ -1,12 +1,12 @@
 package eth
 
 import (
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
 )
 
 func CurrentENREntry[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChain[P]) *enrEntry {
@@ -14,7 +14,7 @@ func CurrentENREntry[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockC
 }
 
 func NodeInfoFunc[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChain[P], network uint64) *NodeInfo {
-	return nodeInfo[T,P](chain, network)
+	return nodeInfo[T, P](chain, network)
 }
 
 // var ETH_65_FULL_SYNC = map[uint64]MsgHandler{
@@ -32,7 +32,7 @@ func NodeInfoFunc[T crypto.PrivateKey, P crypto.PublicKey](chain *core.BlockChai
 // 	PooledTransactionsMsg:         handlePooledTransactions,
 // }
 
-func NewPeerWithTxBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T,P] {
+func NewPeerWithTxBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T, P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T, P] {
 	peer := NewPeerNoBroadcast(version, p, rw, txpool)
 	// Start up all the broadcasters
 	go peer.broadcastTransactions()
@@ -42,8 +42,8 @@ func NewPeerWithTxBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uin
 	return peer
 }
 
-func NewPeerNoBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T,P] {
-	peer := &Peer[T,P]{
+func NewPeerNoBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T, P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T, P] {
+	peer := &Peer[T, P]{
 		id:              p.ID().String(),
 		Peer:            p,
 		rw:              rw,
@@ -60,10 +60,10 @@ func NewPeerNoBroadcast[T crypto.PrivateKey, P crypto.PublicKey](version uint, p
 	return peer
 }
 
-func (p *Peer[T,P]) MarkBlock(hash common.Hash) {
+func (p *Peer[T, P]) MarkBlock(hash common.Hash) {
 	p.markBlock(hash)
 }
 
-func (p *Peer[T,P]) MarkTransaction(hash common.Hash) {
+func (p *Peer[T, P]) MarkTransaction(hash common.Hash) {
 	p.markTransaction(hash)
 }

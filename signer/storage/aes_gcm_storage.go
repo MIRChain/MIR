@@ -25,7 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 type storedCredential struct {

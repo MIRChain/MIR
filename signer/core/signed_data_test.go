@@ -26,13 +26,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/signer/core"
 )
 
 var typesStandard = core.Types{
@@ -188,10 +188,10 @@ func TestSignData(t *testing.T) {
 		Domain:      domainStandard,
 		Message:     messageStandard,
 	}
-	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
+	api, control := setup[nist.PrivateKey, nist.PublicKey](t)
 	//Create two accounts
-	createAccount[nist.PrivateKey,nist.PublicKey](control, api, t)
-	createAccount[nist.PrivateKey,nist.PublicKey](control, api, t)
+	createAccount[nist.PrivateKey, nist.PublicKey](control, api, t)
+	createAccount[nist.PrivateKey, nist.PublicKey](control, api, t)
 	control.approveCh <- "1"
 	list, err := api.List(context.Background())
 	if err != nil {

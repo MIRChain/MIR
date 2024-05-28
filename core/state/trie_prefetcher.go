@@ -19,9 +19,9 @@ package state
 import (
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 var (

@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 // wipeSnapshot starts a goroutine to iterate over the entire key-value database

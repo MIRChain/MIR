@@ -28,23 +28,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 const (
@@ -60,7 +60,7 @@ const (
 
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
-type Backend [P crypto.PublicKey] interface {
+type Backend[P crypto.PublicKey] interface {
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header[P], error)
 	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block[P], error)
@@ -78,7 +78,7 @@ type Backend [P crypto.PublicKey] interface {
 }
 
 // API is the collection of tracing APIs exposed over the private debugging endpoint.
-type API [P crypto.PublicKey] struct {
+type API[P crypto.PublicKey] struct {
 	backend Backend[P]
 }
 
@@ -87,7 +87,7 @@ func NewAPI[P crypto.PublicKey](backend Backend[P]) *API[P] {
 	return &API[P]{backend: backend}
 }
 
-type chainContext [P crypto.PublicKey] struct {
+type chainContext[P crypto.PublicKey] struct {
 	api *API[P]
 	ctx context.Context
 }
@@ -190,7 +190,7 @@ type TraceConfig struct {
 
 // TraceCallConfig is the config for traceCall API. It holds one more
 // field to override the state for tracing.
-type TraceCallConfig [P crypto.PublicKey] struct {
+type TraceCallConfig[P crypto.PublicKey] struct {
 	*vm.LogConfig
 	Tracer         *string
 	Timeout        *string
@@ -206,7 +206,7 @@ type StdTraceConfig struct {
 }
 
 // txTraceContext is the contextual infos about a transaction before it gets run.
-type txTraceContext [P crypto.PublicKey] struct {
+type txTraceContext[P crypto.PublicKey] struct {
 	index int         // Index of the transaction within the block
 	hash  common.Hash // Hash of the transaction
 	block common.Hash // Hash of the block containing the transaction
@@ -222,11 +222,11 @@ type txTraceResult struct {
 
 // blockTraceTask represents a single block trace task when an entire chain is
 // being traced.
-type blockTraceTask [P crypto.PublicKey] struct {
-	statedb *state.StateDB[P]   // Intermediate state prepped for tracing
-	block   *types.Block[P]     // Block to trace the transactions from
-	rootref common.Hash      // Trie root reference held for this task
-	results []*txTraceResult // Trace results procudes by the task
+type blockTraceTask[P crypto.PublicKey] struct {
+	statedb *state.StateDB[P] // Intermediate state prepped for tracing
+	block   *types.Block[P]   // Block to trace the transactions from
+	rootref common.Hash       // Trie root reference held for this task
+	results []*txTraceResult  // Trace results procudes by the task
 	// Quorum
 	privateStateDb   *state.StateDB[P]
 	privateStateRepo mps.PrivateStateRepository[P]
@@ -242,9 +242,9 @@ type blockTraceResult struct {
 
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
-type txTraceTask [P crypto.PublicKey] struct {
+type txTraceTask[P crypto.PublicKey] struct {
 	statedb *state.StateDB[P] // Intermediate state prepped for tracing
-	index   int            // Transaction offset in the block
+	index   int               // Transaction offset in the block
 	// Quorum
 	privateStateDb   *state.StateDB[P]
 	privateStateRepo mps.PrivateStateRepository[P]
@@ -912,7 +912,7 @@ func (api *API[P]) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrO
 		}
 	}
 	res, err := api.traceTx(ctx, msg, new(txTraceContext[P]), vmctx, statedb, privateStateDb, privateStateRepo, noTracerConfig) // test private with no config
-	if exeRes, ok := res.(*ethapi.ExecutionResult); ok && err == nil && len(exeRes.StructLogs) > 0 {                         // check there is a result
+	if exeRes, ok := res.(*ethapi.ExecutionResult); ok && err == nil && len(exeRes.StructLogs) > 0 {                            // check there is a result
 		if config != nil && config.Tracer != nil { // re-run the private call with the custom JS tracer
 			return api.traceTx(ctx, msg, new(txTraceContext[P]), vmctx, statedb, privateStateDb, privateStateRepo, traceConfig) // re-run with trace
 		}

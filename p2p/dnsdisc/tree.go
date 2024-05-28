@@ -25,24 +25,24 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
 // Tree is a merkle tree of node records.
-type Tree [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Tree[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	root    rootEntry[P]
 	entries map[string]entry
 }
 
 // Sign signs the tree with the given private key and sets the sequence number.
-func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
+func (t *Tree[T, P]) Sign(key T, domain string) (url string, err error) {
 	root := t.root
 	sig, err := crypto.Sign(root.sigHash(), key)
 	if err != nil {
@@ -57,7 +57,7 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 		var pub P
 		switch pubKey := any(&pub).(type) {
 		case *nist.PublicKey:
-			*pubKey=*key.Public()
+			*pubKey = *key.Public()
 		}
 		link = newLinkEntry(domain, pub)
 		return link.String(), nil
@@ -65,7 +65,7 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 		var pub P
 		switch pubKey := any(&pub).(type) {
 		case *gost3410.PublicKey:
-			*pubKey=*key.Public()
+			*pubKey = *key.Public()
 		}
 		link = newLinkEntry(domain, pub)
 		return link.String(), nil
@@ -73,7 +73,7 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 		var pub P
 		switch pubKey := any(&pub).(type) {
 		case *csp.PublicKey:
-			*pubKey=*key.Public()
+			*pubKey = *key.Public()
 		}
 		link = newLinkEntry(domain, pub)
 		return link.String(), nil
@@ -85,7 +85,7 @@ func (t *Tree[T,P]) Sign(key T, domain string) (url string, err error) {
 
 // SetSignature verifies the given signature and assigns it as the tree's current
 // signature if valid.
-func (t *Tree[T,P]) SetSignature(pubkey P, signature string) error {
+func (t *Tree[T, P]) SetSignature(pubkey P, signature string) error {
 	sig, err := b64format.DecodeString(signature)
 	if err != nil || len(sig) != crypto.SignatureLength {
 		return errInvalidSig
@@ -100,17 +100,17 @@ func (t *Tree[T,P]) SetSignature(pubkey P, signature string) error {
 }
 
 // Seq returns the sequence number of the tree.
-func (t *Tree[T,P]) Seq() uint {
+func (t *Tree[T, P]) Seq() uint {
 	return t.root.seq
 }
 
 // Signature returns the signature of the tree.
-func (t *Tree[T,P]) Signature() string {
+func (t *Tree[T, P]) Signature() string {
 	return b64format.EncodeToString(t.root.sig)
 }
 
 // ToTXT returns all DNS TXT records required for the tree.
-func (t *Tree[T,P]) ToTXT(domain string) map[string]string {
+func (t *Tree[T, P]) ToTXT(domain string) map[string]string {
 	records := map[string]string{domain: t.root.String()}
 	for _, e := range t.entries {
 		sd := subdomain(e)
@@ -123,7 +123,7 @@ func (t *Tree[T,P]) ToTXT(domain string) map[string]string {
 }
 
 // Links returns all links contained in the tree.
-func (t *Tree[T,P]) Links() []string {
+func (t *Tree[T, P]) Links() []string {
 	var links []string
 	for _, e := range t.entries {
 		if le, ok := e.(*linkEntry[P]); ok {
@@ -134,7 +134,7 @@ func (t *Tree[T,P]) Links() []string {
 }
 
 // Nodes returns all nodes contained in the tree.
-func (t *Tree[T,P]) Nodes() []*enode.Node[P] {
+func (t *Tree[T, P]) Nodes() []*enode.Node[P] {
 	var nodes []*enode.Node[P]
 	for _, e := range t.entries {
 		if ee, ok := e.(*enrEntry[P]); ok {
@@ -148,21 +148,21 @@ func (t *Tree[T,P]) Nodes() []*enode.Node[P] {
 We want to keep the UDP size below 512 bytes. The UDP size is roughly:
 UDP length = 8 + UDP payload length ( 229 )
 UPD Payload length:
- - dns.id 2
- - dns.flags 2
- - dns.count.queries 2
- - dns.count.answers 2
- - dns.count.auth_rr 2
- - dns.count.add_rr 2
- - queries (query-size + 6)
- - answers :
- 	- dns.resp.name 2
- 	- dns.resp.type 2
- 	- dns.resp.class 2
- 	- dns.resp.ttl 4
- 	- dns.resp.len 2
- 	- dns.txt.length 1
- 	- dns.txt resp_data_size
+  - dns.id 2
+  - dns.flags 2
+  - dns.count.queries 2
+  - dns.count.answers 2
+  - dns.count.auth_rr 2
+  - dns.count.add_rr 2
+  - queries (query-size + 6)
+  - answers :
+  - dns.resp.name 2
+  - dns.resp.type 2
+  - dns.resp.class 2
+  - dns.resp.ttl 4
+  - dns.resp.len 2
+  - dns.txt.length 1
+  - dns.txt resp_data_size
 
 So the total size is roughly a fixed overhead of `39`, and the size of the
 query (domain name) and response.
@@ -182,7 +182,7 @@ const (
 )
 
 // MakeTree creates a tree containing the given nodes and links.
-func MakeTree[T crypto.PrivateKey, P crypto.PublicKey](seq uint, nodes []*enode.Node[P], links []string) (*Tree[T,P], error) {
+func MakeTree[T crypto.PrivateKey, P crypto.PublicKey](seq uint, nodes []*enode.Node[P], links []string) (*Tree[T, P], error) {
 	// Sort records by ID and ensure all nodes have a valid record.
 	records := make([]*enode.Node[P], len(nodes))
 
@@ -209,7 +209,7 @@ func MakeTree[T crypto.PrivateKey, P crypto.PublicKey](seq uint, nodes []*enode.
 	}
 
 	// Create intermediate nodes.
-	t := &Tree[T,P]{entries: make(map[string]entry)}
+	t := &Tree[T, P]{entries: make(map[string]entry)}
 	eroot := t.build(enrEntries)
 	t.entries[subdomain(eroot)] = eroot
 	lroot := t.build(linkEntries)
@@ -218,7 +218,7 @@ func MakeTree[T crypto.PrivateKey, P crypto.PublicKey](seq uint, nodes []*enode.
 	return t, nil
 }
 
-func (t *Tree[T,P]) build(entries []entry) entry {
+func (t *Tree[T, P]) build(entries []entry) entry {
 	if len(entries) == 1 {
 		return entries[0]
 	}
@@ -258,7 +258,7 @@ type entry interface {
 }
 
 type (
-	rootEntry [P crypto.PublicKey] struct {
+	rootEntry[P crypto.PublicKey] struct {
 		eroot string
 		lroot string
 		seq   uint
@@ -267,10 +267,10 @@ type (
 	branchEntry struct {
 		children []string
 	}
-	enrEntry [P crypto.PublicKey] struct {
+	enrEntry[P crypto.PublicKey] struct {
 		node *enode.Node[P]
 	}
-	linkEntry [P crypto.PublicKey] struct {
+	linkEntry[P crypto.PublicKey] struct {
 		str    string
 		domain string
 		pubkey P

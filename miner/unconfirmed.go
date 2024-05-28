@@ -20,15 +20,15 @@ import (
 	"container/ring"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // chainRetriever is used by the unconfirmed block set to verify whether a previously
 // mined block is part of the canonical chain or not.
-type chainRetriever [P crypto.PublicKey] interface {
+type chainRetriever[P crypto.PublicKey] interface {
 	// GetHeaderByNumber retrieves the canonical header associated with a block number.
 	GetHeaderByNumber(number uint64) *types.Header[P]
 
@@ -47,11 +47,11 @@ type unconfirmedBlock struct {
 // have not yet reached enough maturity to guarantee chain inclusion. It is
 // used by the miner to provide logs to the user when a previously mined block
 // has a high enough guarantee to not be reorged out of the canonical chain.
-type unconfirmedBlocks [P crypto.PublicKey] struct {
+type unconfirmedBlocks[P crypto.PublicKey] struct {
 	chain  chainRetriever[P] // Blockchain to verify canonical status through
-	depth  uint           // Depth after which to discard previous blocks
-	blocks *ring.Ring     // Block infos to allow canonical chain cross checks
-	lock   sync.Mutex     // Protects the fields from concurrent access
+	depth  uint              // Depth after which to discard previous blocks
+	blocks *ring.Ring        // Block infos to allow canonical chain cross checks
+	lock   sync.Mutex        // Protects the fields from concurrent access
 }
 
 // newUnconfirmedBlocks returns new data structure to track currently unconfirmed blocks.

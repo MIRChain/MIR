@@ -21,16 +21,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
 func signTxWithSigner(signer Signer[nist.PublicKey], key nist.PrivateKey) (*Transaction[nist.PublicKey], common.Address, error) {
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	tx := NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
-	signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](tx, signer, key)
+	signedTx, err := SignTx[nist.PrivateKey, nist.PublicKey](tx, signer, key)
 	return signedTx, addr, err
 }
 

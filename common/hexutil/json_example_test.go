@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 type MyType [5]byte

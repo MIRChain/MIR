@@ -19,9 +19,9 @@ package trie
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // SecureTrie wraps a trie with key hashing. In a secure trie, all
@@ -34,7 +34,7 @@ import (
 // the preimage of each key.
 //
 // SecureTrie is not safe for concurrent use.
-type SecureTrie [P crypto.PublicKey] struct {
+type SecureTrie[P crypto.PublicKey] struct {
 	trie             Trie[P]
 	hashKeyBuf       [common.HashLength]byte
 	secKeyCache      map[string][]byte

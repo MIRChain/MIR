@@ -21,10 +21,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func newTestRoundState[P crypto.PublicKey](view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState[P] {

@@ -3,11 +3,11 @@ package core
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 type pmcStateTransitionAPI interface {
@@ -64,9 +64,9 @@ func (pmh *privateMessageHandler) prepare() (vmError, consensusErr error) {
 	return nil, nil
 }
 
-//If the list of affected CA Transactions by the time evm executes is different from the list of affected contract transactions returned from Tessera
-//an Error should be thrown and the state should not be updated
-//This validation is to prevent cases where the list of affected contract will have changed by the time the evm actually executes transaction
+// If the list of affected CA Transactions by the time evm executes is different from the list of affected contract transactions returned from Tessera
+// an Error should be thrown and the state should not be updated
+// This validation is to prevent cases where the list of affected contract will have changed by the time the evm actually executes transaction
 // failed = true will make sure receipt is marked as "failure"
 // return error will crash the node and only use when that's the case
 func (pmh *privateMessageHandler) verify(vmerr error) (bool, error) {

@@ -22,9 +22,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 // Tests that all the selectors contained in the 4byte database are valid.

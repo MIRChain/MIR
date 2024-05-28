@@ -7,8 +7,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 var _ = (*receiptMarshaling)(nil)

@@ -20,10 +20,10 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	ibfttypes "github.com/MIRChain/MIR/consensus/istanbul/ibft/types"
 )
 
 // sendNextRoundChange sends the ROUND CHANGE message with current round + 1

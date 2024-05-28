@@ -24,10 +24,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 func TestVector_ECDH(t *testing.T) {

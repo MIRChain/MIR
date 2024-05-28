@@ -22,14 +22,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 // note: Quorum, States, and Value Transfer
@@ -158,7 +158,7 @@ type PrivateState StateDB
 // sure that any errors generated are to be considered faulty code.
 //
 // The EVM should never be reused and is not thread safe.
-type EVM [P crypto.PublicKey] struct {
+type EVM[P crypto.PublicKey] struct {
 	// Context provides auxiliary blockchain related information
 	Context BlockContext
 	TxContext
@@ -199,7 +199,7 @@ type EVM [P crypto.PublicKey] struct {
 
 	// Quorum: these are for privacy enhancements and multitenancy
 	affectedContracts map[common.Address]AffectedReason // affected contract account address -> type
-	currentTx         *types.Transaction[P]                // transaction currently being applied on this EVM
+	currentTx         *types.Transaction[P]             // transaction currently being applied on this EVM
 
 	// Quorum: these are for privacy marker transactions
 	InnerApply          func(innerTx *types.Transaction[P]) error //Quorum
@@ -529,7 +529,7 @@ func (evm *EVM[P]) StaticCall(caller ContractRef, addr common.Address, input []b
 	return ret, gas, err
 }
 
-type codeAndHash [P crypto.PublicKey] struct {
+type codeAndHash[P crypto.PublicKey] struct {
 	code []byte
 	hash common.Hash
 }
@@ -719,8 +719,8 @@ func getDualState[P crypto.PublicKey](evm *EVM[P], addr common.Address) StateDB 
 	return state
 }
 
-func (evm *EVM[P]) PublicState() PublicState           { return evm.publicState }
-func (evm *EVM[P]) PrivateState() PrivateState         { return evm.privateState }
+func (evm *EVM[P]) PublicState() PublicState              { return evm.publicState }
+func (evm *EVM[P]) PrivateState() PrivateState            { return evm.privateState }
 func (evm *EVM[P]) SetCurrentTX(tx *types.Transaction[P]) { evm.currentTx = tx }
 func (evm *EVM[P]) SetTxPrivacyMetadata(pm *types.PrivacyMetadata) {
 	evm.currentTx.SetTxPrivacyMetadata(pm)

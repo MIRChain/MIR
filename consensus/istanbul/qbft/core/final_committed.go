@@ -16,7 +16,7 @@
 
 package core
 
-import "github.com/pavelkrolevets/MIR-pro/common"
+import "github.com/MIRChain/MIR/common"
 
 func (c *core[P]) handleFinalCommitted() error {
 	c.currentLogger(true, nil).Info("QBFT: handle final committed")

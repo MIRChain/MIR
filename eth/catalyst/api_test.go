@@ -20,16 +20,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/params"
 )
 
 var (
@@ -56,7 +56,7 @@ func generateTestChain() (*core.Genesis[nist.PublicKey], []*types.Block[nist.Pub
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
-	engine :=  ethash.NewFaker[nist.PublicKey]()
+	engine := ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, 10, generate)
 	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	return genesis, blocks
@@ -97,7 +97,7 @@ func generateTestChainWithFork(n int, fork int) (*core.Genesis[nist.PublicKey], 
 		g.SetExtra([]byte("testF"))
 	}
 	gblock := genesis.ToBlock(db)
-	engine :=  ethash.NewFaker[nist.PublicKey]()
+	engine := ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, n, generate)
 	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	forkedBlocks, _ := core.GenerateChain[nist.PublicKey](config, blocks[fork], engine, db, n-fork, generateFork)
@@ -111,7 +111,7 @@ func TestEth2AssembleBlock(t *testing.T) {
 
 	api := newConsensusAPI(ethservice)
 	signer := types.NewEIP155Signer[nist.PublicKey](ethservice.BlockChain().Config().ChainID)
-	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](0, blocks[8].Coinbase(), big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+	tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, blocks[8].Coinbase(), big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 	if err != nil {
 		t.Fatalf("error signing transaction, err=%v", err)
 	}
@@ -216,10 +216,10 @@ func TestEth2NewBlock(t *testing.T) {
 }
 
 // startEthService creates a full node instance for testing.
-func startEthService(t *testing.T, genesis *core.Genesis[nist.PublicKey], blocks []*types.Block[nist.PublicKey]) (*node.Node[nist.PrivateKey,nist.PublicKey], *eth.Ethereum[nist.PrivateKey,nist.PublicKey]) {
+func startEthService(t *testing.T, genesis *core.Genesis[nist.PublicKey], blocks []*types.Block[nist.PublicKey]) (*node.Node[nist.PrivateKey, nist.PublicKey], *eth.Ethereum[nist.PrivateKey, nist.PublicKey]) {
 	t.Helper()
 
-	n, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
+	n, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		t.Fatal("can't create node:", err)
 	}

@@ -25,18 +25,18 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/bitutil"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/bitutil"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 // IndexerConfig includes a set of configs for chain indexers.
@@ -130,7 +130,7 @@ func StoreChtRoot(db ethdb.Database, sectionIdx uint64, sectionHead, root common
 }
 
 // ChtIndexerBackend implements core.ChainIndexerBackend.
-type ChtIndexerBackend [P crypto.PublicKey] struct {
+type ChtIndexerBackend[P crypto.PublicKey] struct {
 	disablePruning       bool
 	diskdb, trieTable    ethdb.Database
 	odr                  OdrBackend[P]
@@ -320,7 +320,7 @@ func StoreBloomTrieRoot(db ethdb.Database, sectionIdx uint64, sectionHead, root 
 }
 
 // BloomTrieIndexerBackend implements core.ChainIndexerBackend
-type BloomTrieIndexerBackend [P crypto.PublicKey] struct {
+type BloomTrieIndexerBackend[P crypto.PublicKey] struct {
 	disablePruning    bool
 	diskdb, trieTable ethdb.Database
 	triedb            *trie.Database

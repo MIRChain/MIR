@@ -31,19 +31,19 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3411"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/crypto/secp256k1"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
-	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
 )
 
-//SignatureLength indicates the byte length required to carry a signature with recovery id.
+// SignatureLength indicates the byte length required to carry a signature with recovery id.
 const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
 
 // RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
@@ -59,7 +59,7 @@ var (
 
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
 
-type CryptoType int 
+type CryptoType int
 
 const (
 	NIST CryptoType = iota
@@ -71,7 +71,7 @@ const (
 var CryptoAlg CryptoType = NIST
 
 type PrivateKey interface {
-	nist.PrivateKey | gost3410.PrivateKey | csp.Cert | *nist.PrivateKey  | *gost3410.PrivateKey | *csp.Cert
+	nist.PrivateKey | gost3410.PrivateKey | csp.Cert | *nist.PrivateKey | *gost3410.PrivateKey | *csp.Cert
 }
 
 type PublicKey interface {
@@ -79,6 +79,7 @@ type PublicKey interface {
 	GetX() *big.Int
 	GetY() *big.Int
 }
+
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum
 // because it doesn't copy the internal state, but also modifies the internal state.
@@ -91,7 +92,7 @@ type KeccakState interface {
 // Mir: for code reusage we use same KeccakState interface for Streebog hash
 func NewKeccakState[P PublicKey]() KeccakState {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		return sha3.NewLegacyKeccak256().(KeccakState)
 	case *gost3410.PublicKey:
@@ -136,7 +137,7 @@ func Keccak256Hash[P PublicKey](data ...[]byte) (h common.Hash) {
 // Keccak512 calculates and returns the Keccak512 hash of the input data.
 func Keccak512[P PublicKey](data ...[]byte) []byte {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		d := sha3.NewLegacyKeccak512()
 		for _, b := range data {
@@ -184,7 +185,7 @@ func ToECDSAUnsafe[T PrivateKey](d []byte) T {
 // it can also accept legacy encodings (0 prefixes).
 func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 	var prv T
-	switch p:=any(&prv).(type) {
+	switch p := any(&prv).(type) {
 	case *nist.PrivateKey:
 		priv := new(ecdsa.PrivateKey)
 		priv.PublicKey.Curve = S256()
@@ -192,7 +193,7 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
 		}
 		priv.D = new(big.Int).SetBytes(d)
-	
+
 		// The priv.D must < N
 		if priv.D.Cmp(secp256k1N) >= 0 {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, >=N")
@@ -201,7 +202,7 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 		if priv.D.Sign() <= 0 {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, zero or negative")
 		}
-	
+
 		priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(d)
 		if priv.PublicKey.X == nil {
 			return ZeroPrivateKey[T](), errors.New("invalid private key")
@@ -215,7 +216,7 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid length, need %d bits", priv.C.Params().BitSize)
 		}
 		priv.Key = new(big.Int).SetBytes(d)
-	
+
 		// The priv.D must < N
 		if priv.Key.Cmp(gost3410.GostCurve.Q) >= 0 {
 			return ZeroPrivateKey[T](), fmt.Errorf("invalid private key, >=N")
@@ -235,7 +236,7 @@ func toECDSA[T PrivateKey](d []byte, strict bool) (T, error) {
 
 // FromECDSA exports a private key into a binary dump.
 func FromECDSA[T PrivateKey](priv T) []byte {
-	switch priv:=any(&priv).(type) {
+	switch priv := any(&priv).(type) {
 	case *nist.PrivateKey:
 		if priv == nil {
 			return nil
@@ -263,19 +264,19 @@ func UnmarshalPubkey[P PublicKey](pub []byte) (P, error) {
 		if x == nil {
 			return ZeroPublicKey[P](), errInvalidPubkey
 		}
-		*p=nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
+		*p = nist.PublicKey{&ecdsa.PublicKey{Curve: S256(), X: x, Y: y}}
 	case *gost3410.PublicKey:
 		k, err := gost3410.NewPublicKey(gost3410.GostCurve, pub[1:])
 		if err != nil {
 			return ZeroPublicKey[P](), err
 		}
-		*p=*k
+		*p = *k
 	case *csp.PublicKey:
 		k, err := csp.NewPublicKey(pub)
 		if err == nil {
 			return ZeroPublicKey[P](), err
 		}
-		*p=*k
+		*p = *k
 	}
 	return pubKey, nil
 }
@@ -381,7 +382,7 @@ func SaveECDSAGost(file string, key *gost3410.PrivateKey) error {
 }
 
 // GenerateKey generates a new private key.
-func  GenerateKey[T PrivateKey]() (T, error) {
+func GenerateKey[T PrivateKey]() (T, error) {
 	var key T
 	switch t := any(&key).(type) {
 	case *nist.PrivateKey:

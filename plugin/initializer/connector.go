@@ -3,8 +3,8 @@ package initializer
 import (
 	"context"
 
-	iplugin "github.com/pavelkrolevets/MIR-pro/internal/plugin"
-	"github.com/pavelkrolevets/MIR-pro/plugin/gen/proto_common"
+	iplugin "github.com/MIRChain/MIR/internal/plugin"
+	"github.com/MIRChain/MIR/plugin/gen/proto_common"
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )

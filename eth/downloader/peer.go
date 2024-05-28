@@ -28,12 +28,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
 )
 
 const (
@@ -48,7 +48,7 @@ var (
 )
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
-type peerConnection [P crypto.PublicKey] struct {
+type peerConnection[P crypto.PublicKey] struct {
 	id string // Unique identifier of the peer
 
 	headerIdle  int32 // Current header activity state of the peer (idle = 0, active = 1)
@@ -331,7 +331,7 @@ func (p *peerConnection[P]) Lacks(hash common.Hash) bool {
 
 // peerSet represents the collection of active peer participating in the chain
 // download procedure.
-type peerSet [P crypto.PublicKey] struct {
+type peerSet[P crypto.PublicKey] struct {
 	peers        map[string]*peerConnection[P]
 	newPeerFeed  event.Feed
 	peerDropFeed event.Feed
@@ -563,7 +563,7 @@ func (ps *peerSet[P]) medianRTT() time.Duration {
 // peerThroughputSort implements the Sort interface, and allows for
 // sorting a set of peers by their throughput
 // The sorted data is with the _highest_ throughput first
-type peerThroughputSort [P crypto.PublicKey] struct {
+type peerThroughputSort[P crypto.PublicKey] struct {
 	p  []*peerConnection[P]
 	tp []float64
 }

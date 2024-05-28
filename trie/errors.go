@@ -19,7 +19,7 @@ package trie
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 // MissingNodeError is returned by the trie functions (TryGet, TryUpdate, TryDelete)

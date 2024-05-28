@@ -21,9 +21,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/log"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 

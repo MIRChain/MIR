@@ -31,7 +31,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Command line flags to configure the interpreters.

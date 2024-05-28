@@ -26,12 +26,12 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
 var (
@@ -57,8 +57,8 @@ func MustParseV4[P crypto.PublicKey](rawurl string) *Node[P] {
 //
 // For incomplete nodes, the designator must look like one of these
 //
-//    enode://<hex node id>
-//    <hex node id>
+//	enode://<hex node id>
+//	<hex node id>
 //
 // For complete nodes, the node ID is encoded in the username portion
 // of the URL, separated from the host by an @ sign. The hostname can
@@ -71,7 +71,7 @@ func MustParseV4[P crypto.PublicKey](rawurl string) *Node[P] {
 // a node with IP address 10.3.58.6, TCP listening port 30303
 // and UDP discovery port 30301.
 //
-//    enode://<hex node id>@10.3.58.6:30303?discport=30301
+//	enode://<hex node id>@10.3.58.6:30303?discport=30301
 func ParseV4[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey[P](m[1])
@@ -85,7 +85,7 @@ func ParseV4[P crypto.PublicKey](rawurl string) (*Node[P], error) {
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4[P crypto.PublicKey] (pubkey P, ip net.IP, tcp, udp int) *Node[P] {
+func NewV4[P crypto.PublicKey](pubkey P, ip net.IP, tcp, udp int) *Node[P] {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
@@ -121,7 +121,7 @@ func isNewV4[P crypto.PublicKey](n *Node[P]) bool {
 // NewV4Hostname creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature. It sets the hostname or ip
 // of the node depends on hostname context
-func NewV4Hostname[P crypto.PublicKey] (pubkey P, hostname string, tcp, udp, raftPort int) *Node[P] {
+func NewV4Hostname[P crypto.PublicKey](pubkey P, hostname string, tcp, udp, raftPort int) *Node[P] {
 	var r enr.Record
 
 	if ip := net.ParseIP(hostname); ip == nil {
@@ -231,7 +231,7 @@ func (n *Node[P]) EnodeID() string {
 		key    P
 	)
 	n.Load(&scheme)
-	switch p:=any(&key).(type){
+	switch p := any(&key).(type) {
 	case *nist.PublicKey:
 		n.Load((*Secp256k1)(p))
 	case *gost3410.PublicKey:
@@ -253,14 +253,14 @@ func (n *Node[P]) URLv4() string {
 		key    P
 	)
 	n.Load(&scheme)
-	switch p:=any(&key).(type){
+	switch p := any(&key).(type) {
 	case *nist.PublicKey:
 		n.Load((*Secp256k1)(p))
 	case *gost3410.PublicKey:
 		n.Load((*Gost3410)(p))
 	}
 	switch {
-	case scheme == "v4" ||!reflect.ValueOf(&key).IsZero():
+	case scheme == "v4" || !reflect.ValueOf(&key).IsZero():
 		nodeid = fmt.Sprintf("%x", crypto.FromECDSAPub(key)[1:])
 	default:
 		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
@@ -294,7 +294,7 @@ func (n *Node[P]) URLv4() string {
 }
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
-func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
+func PubkeyToIDV4[P crypto.PublicKey](key P) ID {
 	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		e := make([]byte, 64)
@@ -316,7 +316,7 @@ func PubkeyToIDV4[P crypto.PublicKey ] (key P) ID {
 	}
 }
 
-func PubkeyToEnodeID[P crypto.PublicKey ](key P) EnodeID {
+func PubkeyToEnodeID[P crypto.PublicKey](key P) EnodeID {
 	switch pubkey := any(&key).(type) {
 	case *nist.PublicKey:
 		e := make([]byte, 64)

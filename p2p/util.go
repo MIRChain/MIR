@@ -19,7 +19,7 @@ package p2p
 import (
 	"container/heap"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/MIRChain/MIR/common/mclock"
 )
 
 // expHeap tracks strings and their expiry time.

@@ -26,15 +26,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/log"
 )
 
-func (ks *KeyStore[T,P]) SignHashCsp(a accounts.Account, hash []byte) ([]byte, error) {
+func (ks *KeyStore[T, P]) SignHashCsp(a accounts.Account, hash []byte) ([]byte, error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -57,7 +57,7 @@ func (ks *KeyStore[T,P]) SignHashCsp(a accounts.Account, hash []byte) ([]byte, e
 	return crypto.Sign(hash, crt)
 }
 
-func (ks *KeyStore[T,P]) DeleteCsp(a accounts.Account, passphrase string) error {
+func (ks *KeyStore[T, P]) DeleteCsp(a accounts.Account, passphrase string) error {
 	// Decrypting the key isn't really necessary, but we do
 	// it anyway to check the password and zero out the key
 	// immediately afterwards.
@@ -79,7 +79,7 @@ func (ks *KeyStore[T,P]) DeleteCsp(a accounts.Account, passphrase string) error 
 	return err
 }
 
-func (ks *KeyStore[T,P]) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
+func (ks *KeyStore[T, P]) SignTxCsp(a accounts.Account, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -105,15 +105,15 @@ func (ks *KeyStore[T,P]) SignTxCsp(a accounts.Account, tx *types.Transaction[P],
 	// start quorum specific
 	if tx.IsPrivate() {
 		log.Info("Private transaction signing with QuorumPrivateTxSigner")
-		return types.SignTx[T,P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
+		return types.SignTx[T, P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
 	} // End quorum specific
 
 	// Depending on the presence of the chain ID, sign with 2718 or homestead
 	signer := types.LatestSignerForChainID[P](chainID)
-	return types.SignTx[T,P](tx, signer, priv)
+	return types.SignTx[T, P](tx, signer, priv)
 }
 
-func (ks *KeyStore[T,P]) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, hash []byte) (signature []byte, err error) {
+func (ks *KeyStore[T, P]) SignHashWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, hash []byte) (signature []byte, err error) {
 	_, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (ks *KeyStore[T,P]) SignHashWithPassphraseCsp(a accounts.Account, subjectKe
 	return crypto.Sign(hash, &crt)
 }
 
-func (ks *KeyStore[T,P]) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
+func (ks *KeyStore[T, P]) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyId string, pin string, tx *types.Transaction[P], chainID *big.Int) (*types.Transaction[P], error) {
 	_, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return nil, err
@@ -150,14 +150,14 @@ func (ks *KeyStore[T,P]) SignTxWithPassphraseCsp(a accounts.Account, subjectKeyI
 	t := any(&priv).(*csp.Cert)
 	*t = crt
 	if tx.IsPrivate() {
-		return types.SignTx[T,P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
+		return types.SignTx[T, P](tx, types.QuorumPrivateTxSigner[P]{}, priv)
 	}
 	// Depending on the presence of the chain ID, sign with or without replay protection.
 	signer := types.LatestSignerForChainID[P](chainID)
-	return types.SignTx[T,P](tx, signer, priv)
+	return types.SignTx[T, P](tx, signer, priv)
 }
 
-func (ks *KeyStore[T,P]) getDecryptedKeyCsp(a accounts.Account) (accounts.Account, *KeyCsp, error) {
+func (ks *KeyStore[T, P]) getDecryptedKeyCsp(a accounts.Account) (accounts.Account, *KeyCsp, error) {
 	a, err := ks.Find(a)
 	if err != nil {
 		return a, nil, err
@@ -166,8 +166,8 @@ func (ks *KeyStore[T,P]) getDecryptedKeyCsp(a accounts.Account) (accounts.Accoun
 	return a, key, err
 }
 
-func (ks *KeyStore[T,P]) NewAccountCsp(subjectKeyId string) (accounts.Account, error) {
-	_, account, err := storeNewKeyCsp[T,P](ks.storage, crand.Reader, subjectKeyId)
+func (ks *KeyStore[T, P]) NewAccountCsp(subjectKeyId string) (accounts.Account, error) {
+	_, account, err := storeNewKeyCsp[T, P](ks.storage, crand.Reader, subjectKeyId)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -179,12 +179,12 @@ func (ks *KeyStore[T,P]) NewAccountCsp(subjectKeyId string) (accounts.Account, e
 }
 
 // Unlock unlocks the given account indefinitely.
-func (ks *KeyStore[T,P]) UnlockCsp(a accounts.Account, pin string) error {
+func (ks *KeyStore[T, P]) UnlockCsp(a accounts.Account, pin string) error {
 	return ks.TimedUnlockCsp(a, pin, 0)
 }
 
 // Lock removes the private key with the given address from memory.
-func (ks *KeyStore[T,P]) LockCsp(addr common.Address) error {
+func (ks *KeyStore[T, P]) LockCsp(addr common.Address) error {
 	ks.mu.Lock()
 	if unl, found := ks.unlocked[addr]; found {
 		ks.mu.Unlock()
@@ -195,7 +195,7 @@ func (ks *KeyStore[T,P]) LockCsp(addr common.Address) error {
 	return nil
 }
 
-func (ks *KeyStore[T,P]) TimedUnlockCsp(a accounts.Account, pin string, timeout time.Duration) error {
+func (ks *KeyStore[T, P]) TimedUnlockCsp(a accounts.Account, pin string, timeout time.Duration) error {
 	a, key, err := ks.getDecryptedKeyCsp(a)
 	if err != nil {
 		return err

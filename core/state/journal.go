@@ -20,13 +20,13 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // journalEntry is a modification entry in the state change journal that can be
 // reverted on demand.
-type journalEntry [P crypto.PublicKey] interface {
+type journalEntry[P crypto.PublicKey] interface {
 	// revert undoes the changes introduced by this journal entry.
 	revert(*StateDB[P])
 
@@ -37,8 +37,8 @@ type journalEntry [P crypto.PublicKey] interface {
 // journal contains the list of state modifications applied since the last state
 // commit. These are tracked to be able to be reverted in case of an execution
 // exception or revertal request.
-type journal [P crypto.PublicKey] struct {
-	entries []journalEntry[P]         // Current changes tracked by the journal
+type journal[P crypto.PublicKey] struct {
+	entries []journalEntry[P]      // Current changes tracked by the journal
 	dirties map[common.Address]int // Dirty accounts and the number of changes
 	mutex   sync.Mutex
 }
@@ -95,59 +95,59 @@ func (j *journal[P]) length() int {
 
 type (
 	// Changes to the account trie.
-	createObjectChange [P crypto.PublicKey] struct {
+	createObjectChange[P crypto.PublicKey] struct {
 		account *common.Address
 	}
-	resetObjectChange [P crypto.PublicKey] struct {
+	resetObjectChange[P crypto.PublicKey] struct {
 		prev         *stateObject[P]
 		prevdestruct bool
 	}
-	suicideChange [P crypto.PublicKey] struct {
+	suicideChange[P crypto.PublicKey] struct {
 		account     *common.Address
 		prev        bool // whether account had already suicided
 		prevbalance *big.Int
 	}
 
 	// Changes to individual accounts.
-	balanceChange [P crypto.PublicKey] struct {
+	balanceChange[P crypto.PublicKey] struct {
 		account *common.Address
 		prev    *big.Int
 	}
-	nonceChange [P crypto.PublicKey] struct {
+	nonceChange[P crypto.PublicKey] struct {
 		account *common.Address
 		prev    uint64
 	}
-	storageChange [P crypto.PublicKey] struct {
+	storageChange[P crypto.PublicKey] struct {
 		account       *common.Address
 		key, prevalue common.Hash
 	}
-	codeChange [P crypto.PublicKey] struct {
+	codeChange[P crypto.PublicKey] struct {
 		account            *common.Address
 		prevcode, prevhash []byte
 	}
 	// Quorum - changes to AccountExtraData
-	accountExtraDataChange [P crypto.PublicKey] struct {
+	accountExtraDataChange[P crypto.PublicKey] struct {
 		account *common.Address
 		prev    *AccountExtraData
 	}
 	// Changes to other state values.
-	refundChange [P crypto.PublicKey] struct {
+	refundChange[P crypto.PublicKey] struct {
 		prev uint64
 	}
-	addLogChange [P crypto.PublicKey] struct {
+	addLogChange[P crypto.PublicKey] struct {
 		txhash common.Hash
 	}
-	addPreimageChange [P crypto.PublicKey] struct {
+	addPreimageChange[P crypto.PublicKey] struct {
 		hash common.Hash
 	}
-	touchChange [P crypto.PublicKey] struct {
+	touchChange[P crypto.PublicKey] struct {
 		account *common.Address
 	}
 	// Changes to the access list
-	accessListAddAccountChange [P crypto.PublicKey] struct {
+	accessListAddAccountChange[P crypto.PublicKey] struct {
 		address *common.Address
 	}
-	accessListAddSlotChange [P crypto.PublicKey] struct {
+	accessListAddSlotChange[P crypto.PublicKey] struct {
 		address *common.Address
 		slot    *common.Hash
 	}

@@ -19,8 +19,8 @@ package console
 import (
 	"testing"
 
+	"github.com/MIRChain/MIR/internal/jsre"
 	"github.com/dop251/goja"
-	"github.com/pavelkrolevets/MIR-pro/internal/jsre"
 )
 
 // TestUndefinedAsParam ensures that personal functions can receive

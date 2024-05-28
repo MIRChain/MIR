@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/MIRChain/MIR/p2p"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 	handshakeTimeout = 5 * time.Second
 )
 
-func (p *Peer[T,P]) QLightHandshake(server bool, psi string, token string) error {
+func (p *Peer[T, P]) QLightHandshake(server bool, psi string, token string) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 
@@ -47,7 +47,7 @@ func (p *Peer[T,P]) QLightHandshake(server bool, psi string, token string) error
 	return nil
 }
 
-func (p *Peer[T,P]) readQLightStatus(qligtStatus *qLightStatusData) error {
+func (p *Peer[T, P]) readQLightStatus(qligtStatus *qLightStatusData) error {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err

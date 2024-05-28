@@ -23,15 +23,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	metrics "github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	ibfttypes "github.com/MIRChain/MIR/consensus/istanbul/ibft/types"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	metrics "github.com/MIRChain/MIR/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -62,7 +62,7 @@ func New[P crypto.PublicKey](backend istanbul.Backend, config *istanbul.Config) 
 
 // ----------------------------------------------------------------------------
 
-type core [P crypto.PublicKey] struct {
+type core[P crypto.PublicKey] struct {
 	config  *istanbul.Config
 	address common.Address
 	state   ibfttypes.State

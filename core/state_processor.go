@@ -20,28 +20,29 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/misc"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	// "github.com/pavelkrolevets/MIR-pro/permission/core"
-	"github.com/pavelkrolevets/MIR-pro/private"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/misc"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+
+	// "github.com/MIRChain/MIR/permission/core"
+	"github.com/MIRChain/MIR/private"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
 //
 // StateProcessor implements Processor.
-type StateProcessor [P crypto.PublicKey] struct {
+type StateProcessor[P crypto.PublicKey] struct {
 	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain[P]         // Canonical block chain
-	engine consensus.Engine[P]    // Consensus engine used for block rewards
+	bc     *BlockChain[P]      // Canonical block chain
+	engine consensus.Engine[P] // Consensus engine used for block rewards
 }
 
 // NewStateProcessor initialises a new StateProcessor.

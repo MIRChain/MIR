@@ -17,10 +17,10 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/hexutil"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // broadcastCommit is called when receiving quorum of PREPARE message

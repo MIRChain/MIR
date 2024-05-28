@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 // Handler returns an HTTP handler which dump metrics in Prometheus format.

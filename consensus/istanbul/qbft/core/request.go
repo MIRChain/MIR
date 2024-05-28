@@ -19,9 +19,9 @@ package core
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/log"
 )
 
 // handleRequest is called by proposer in reaction to `miner.Seal()`

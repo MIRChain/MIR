@@ -21,19 +21,19 @@ import (
 	"hash"
 	"sync/atomic"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Config are the configuration options for the Interpreter
-type Config [P crypto.PublicKey] struct {
-	Debug                   bool   // Enables debugging
+type Config[P crypto.PublicKey] struct {
+	Debug                   bool      // Enables debugging
 	Tracer                  Tracer[P] // Opcode logger
-	NoRecursion             bool   // Disables call, callcode, delegate call and create
-	EnablePreimageRecording bool   // Enables recording of SHA3/keccak preimages
+	NoRecursion             bool      // Disables call, callcode, delegate call and create
+	EnablePreimageRecording bool      // Enables recording of SHA3/keccak preimages
 
 	JumpTable [256]*operation[P] // EVM instruction table, automatically populated if unset
 
@@ -49,7 +49,7 @@ type Config [P crypto.PublicKey] struct {
 // passed environment to query external sources for state information.
 // The Interpreter will run the byte code VM based on the passed
 // configuration.
-type Interpreter [P crypto.PublicKey] interface {
+type Interpreter[P crypto.PublicKey] interface {
 	// Run loops and evaluates the contract's code with the given input data and returns
 	// the return byte-slice and an error if one occurred.
 	Run(contract *Contract[P], input []byte, static bool) ([]byte, error)
@@ -69,7 +69,7 @@ type Interpreter [P crypto.PublicKey] interface {
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
 // but not transients like pc and gas
-type ScopeContext [P crypto.PublicKey] struct {
+type ScopeContext[P crypto.PublicKey] struct {
 	Memory   *Memory
 	Stack    *Stack
 	Contract *Contract[P]
@@ -84,7 +84,7 @@ type keccakState interface {
 }
 
 // EVMInterpreter represents an EVM interpreter
-type EVMInterpreter [P crypto.PublicKey] struct {
+type EVMInterpreter[P crypto.PublicKey] struct {
 	evm *EVM[P]
 	cfg Config[P]
 

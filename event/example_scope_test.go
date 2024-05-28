@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/MIRChain/MIR/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

@@ -42,8 +42,8 @@ import (
 	"fmt"
 	"hash"
 
-	ethcrypto "github.com/pavelkrolevets/MIR-pro/crypto"
-	mir_crypto "github.com/pavelkrolevets/MIR-pro/crypto"
+	ethcrypto "github.com/MIRChain/MIR/crypto"
+	mir_crypto "github.com/MIRChain/MIR/crypto"
 )
 
 var (
@@ -122,7 +122,6 @@ func AddParamsForCurve(curve elliptic.Curve, params *ECIESParams) {
 func ParamsFromCurve(curve elliptic.Curve) (params *ECIESParams) {
 	return paramsFromCurve[curve]
 }
-
 
 func pubkeyParams[P mir_crypto.PublicKey](key *PublicKey[P]) (*ECIESParams, error) {
 	params := key.Params

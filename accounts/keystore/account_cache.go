@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/log"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/log"
 )
 
 // Minimum amount of time between cache reloads. This limit applies if the platform does

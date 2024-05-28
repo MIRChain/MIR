@@ -22,9 +22,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
 )
 
 var unmarshalLogTests = map[string]struct {

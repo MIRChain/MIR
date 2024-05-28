@@ -20,13 +20,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
 	"github.com/google/uuid"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
 )
-
 
 type KeyCsp struct {
 	Id uuid.UUID // Version 4 "random" for unique id not derived from key data
@@ -35,13 +34,13 @@ type KeyCsp struct {
 	// Cert ID
 	SubjectKeyId string
 	// Pin to unlock the cert
-	Pin 		string
+	Pin string
 }
 
 type plainKeyJSONCsp struct {
-	Address    string `json:"address"`
-	Id         string `json:"id"`
-	Version    int    `json:"version"`
+	Address string `json:"address"`
+	Id      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 type cipherparamsJSONCsp struct {
@@ -63,8 +62,8 @@ func newKeyCsp[P crypto.PublicKey](subjectKeyId string) (*KeyCsp, error) {
 		return nil, err
 	}
 	key := &KeyCsp{
-		Id:         id,
-		Address:    common.BytesToAddress(crypto.Keccak256[P](crt.Info().PublicKeyBytes()[2:66])[12:]),
+		Id:           id,
+		Address:      common.BytesToAddress(crypto.Keccak256[P](crt.Info().PublicKeyBytes()[2:66])[12:]),
 		SubjectKeyId: subjectKeyId,
 	}
 	return key, nil

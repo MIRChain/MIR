@@ -1,6 +1,6 @@
 package tessera
 
-import "github.com/pavelkrolevets/MIR-pro/private/engine"
+import "github.com/MIRChain/MIR/private/engine"
 
 // request object for /send API
 type sendRequest struct {

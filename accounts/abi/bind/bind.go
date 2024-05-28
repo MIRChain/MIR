@@ -17,7 +17,7 @@
 // Package bind generates Ethereum contract Go bindings.
 //
 // Detailed usage document and tutorial available on the go-ethereum Wiki page:
-// https://github.com/pavelkrolevets/MIR-pro/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
+// https://github.com/MIRChain/MIR/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
 package bind
 
 import (
@@ -30,9 +30,9 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Lang is a target programming language selector to generate bindings for.

@@ -3,9 +3,9 @@ package vm
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 	"github.com/stretchr/testify/require"
 )
 

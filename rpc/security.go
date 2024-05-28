@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/multitenancy"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/multitenancy"
+	"github.com/MIRChain/MIR/plugin/security"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )

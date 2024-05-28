@@ -21,12 +21,12 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/rlp"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (
@@ -66,21 +66,21 @@ func max(a, b int) int {
 }
 
 // Peer is a collection of relevant information we have about a `eth` peer.
-type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Peer[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	id string // Unique ID for the peer, cached
 
-	*p2p.Peer[T,P]              // The embedded P2P package peer
-	rw        p2p.MsgReadWriter // Input/output streams for snap
-	version   uint              // Protocol version negotiated
+	*p2p.Peer[T, P]                   // The embedded P2P package peer
+	rw              p2p.MsgReadWriter // Input/output streams for snap
+	version         uint              // Protocol version negotiated
 
 	head common.Hash // Latest advertised head block hash
 	td   *big.Int    // Latest advertised head block total difficulty
 
-	knownBlocks     mapset.Set             // Set of block hashes known to be known by this peer
+	knownBlocks     mapset.Set                // Set of block hashes known to be known by this peer
 	queuedBlocks    chan *blockPropagation[P] // Queue of blocks to broadcast to the peer
-	queuedBlockAnns chan *types.Block[P]   // Queue of blocks to announce to the peer
+	queuedBlockAnns chan *types.Block[P]      // Queue of blocks to announce to the peer
 
-	txpool      TxPool[P]             // Transaction pool used by the broadcasters for liveness checks
+	txpool      TxPool[P]          // Transaction pool used by the broadcasters for liveness checks
 	knownTxs    mapset.Set         // Set of transaction hashes known to be known by this peer
 	txBroadcast chan []common.Hash // Channel used to queue transaction propagation requests
 	txAnnounce  chan []common.Hash // Channel used to queue transaction announcement requests
@@ -93,8 +93,8 @@ type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 // NewPeer create a wrapper for a network connection and negotiated  protocol
 // version.
-func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T,P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T,P] {
-	peer := &Peer[T,P]{
+func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[T, P], rw p2p.MsgReadWriter, txpool TxPool[P]) *Peer[T, P] {
+	peer := &Peer[T, P]{
 		id:              p.ID().String(),
 		Peer:            p,
 		rw:              rw,
@@ -120,22 +120,22 @@ func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](version uint, p *p2p.Peer[
 // Close signals the broadcast goroutine to terminate. Only ever call this if
 // you created the peer yourself via NewPeer. Otherwise let whoever created it
 // clean it up!
-func (p *Peer[T,P]) Close() {
+func (p *Peer[T, P]) Close() {
 	close(p.term)
 }
 
 // ID retrieves the peer's unique identifier.
-func (p *Peer[T,P]) ID() string {
+func (p *Peer[T, P]) ID() string {
 	return p.id
 }
 
 // Version retrieves the peer's negoatiated `eth` protocol version.
-func (p *Peer[T,P]) Version() uint {
+func (p *Peer[T, P]) Version() uint {
 	return p.version
 }
 
 // Head retrieves the current head hash and total difficulty of the peer.
-func (p *Peer[T,P]) Head() (hash common.Hash, td *big.Int) {
+func (p *Peer[T, P]) Head() (hash common.Hash, td *big.Int) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
@@ -144,7 +144,7 @@ func (p *Peer[T,P]) Head() (hash common.Hash, td *big.Int) {
 }
 
 // SetHead updates the head hash and total difficulty of the peer.
-func (p *Peer[T,P]) SetHead(hash common.Hash, td *big.Int) {
+func (p *Peer[T, P]) SetHead(hash common.Hash, td *big.Int) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -153,18 +153,18 @@ func (p *Peer[T,P]) SetHead(hash common.Hash, td *big.Int) {
 }
 
 // KnownBlock returns whether peer is known to already have a block.
-func (p *Peer[T,P]) KnownBlock(hash common.Hash) bool {
+func (p *Peer[T, P]) KnownBlock(hash common.Hash) bool {
 	return p.knownBlocks.Contains(hash)
 }
 
 // KnownTransaction returns whether peer is known to already have a transaction.
-func (p *Peer[T,P]) KnownTransaction(hash common.Hash) bool {
+func (p *Peer[T, P]) KnownTransaction(hash common.Hash) bool {
 	return p.knownTxs.Contains(hash)
 }
 
 // markBlock marks a block as known for the peer, ensuring that the block will
 // never be propagated to this particular peer.
-func (p *Peer[T,P]) markBlock(hash common.Hash) {
+func (p *Peer[T, P]) markBlock(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known block hash
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()
@@ -174,7 +174,7 @@ func (p *Peer[T,P]) markBlock(hash common.Hash) {
 
 // markTransaction marks a transaction as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
-func (p *Peer[T,P]) markTransaction(hash common.Hash) {
+func (p *Peer[T, P]) markTransaction(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
 	for p.knownTxs.Cardinality() >= maxKnownTxs {
 		p.knownTxs.Pop()
@@ -191,7 +191,7 @@ func (p *Peer[T,P]) markTransaction(hash common.Hash) {
 //
 // The reasons this is public is to allow packages using this protocol to write
 // tests that directly send messages without having to do the asyn queueing.
-func (p *Peer[T,P]) SendTransactions(txs types.Transactions[P]) error {
+func (p *Peer[T, P]) SendTransactions(txs types.Transactions[P]) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
 	for p.knownTxs.Cardinality() > max(0, maxKnownTxs-len(txs)) {
 		p.knownTxs.Pop()
@@ -205,7 +205,7 @@ func (p *Peer[T,P]) SendTransactions(txs types.Transactions[P]) error {
 // AsyncSendTransactions queues a list of transactions (by hash) to eventually
 // propagate to a remote peer. The number of pending sends are capped (new ones
 // will force old sends to be dropped)
-func (p *Peer[T,P]) AsyncSendTransactions(hashes []common.Hash) {
+func (p *Peer[T, P]) AsyncSendTransactions(hashes []common.Hash) {
 	select {
 	case p.txBroadcast <- hashes:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -226,7 +226,7 @@ func (p *Peer[T,P]) AsyncSendTransactions(hashes []common.Hash) {
 // This method is a helper used by the async transaction announcer. Don't call it
 // directly as the queueing (memory) and transmission (bandwidth) costs should
 // not be managed directly.
-func (p *Peer[T,P]) sendPooledTransactionHashes(hashes []common.Hash) error {
+func (p *Peer[T, P]) sendPooledTransactionHashes(hashes []common.Hash) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
 	for p.knownTxs.Cardinality() > max(0, maxKnownTxs-len(hashes)) {
 		p.knownTxs.Pop()
@@ -240,7 +240,7 @@ func (p *Peer[T,P]) sendPooledTransactionHashes(hashes []common.Hash) error {
 // AsyncSendPooledTransactionHashes queues a list of transactions hashes to eventually
 // announce to a remote peer.  The number of pending sends are capped (new ones
 // will force old sends to be dropped)
-func (p *Peer[T,P]) AsyncSendPooledTransactionHashes(hashes []common.Hash) {
+func (p *Peer[T, P]) AsyncSendPooledTransactionHashes(hashes []common.Hash) {
 	select {
 	case p.txAnnounce <- hashes:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -260,7 +260,7 @@ func (p *Peer[T,P]) AsyncSendPooledTransactionHashes(hashes []common.Hash) {
 //
 // Note, the method assumes the hashes are correct and correspond to the list of
 // transactions being sent.
-func (p *Peer[T,P]) SendPooledTransactionsRLP(hashes []common.Hash, txs []rlp.RawValue) error {
+func (p *Peer[T, P]) SendPooledTransactionsRLP(hashes []common.Hash, txs []rlp.RawValue) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
 	for p.knownTxs.Cardinality() > max(0, maxKnownTxs-len(hashes)) {
 		p.knownTxs.Pop()
@@ -272,7 +272,7 @@ func (p *Peer[T,P]) SendPooledTransactionsRLP(hashes []common.Hash, txs []rlp.Ra
 }
 
 // ReplyPooledTransactionsRLP is the eth/66 version of SendPooledTransactionsRLP.
-func (p *Peer[T,P]) ReplyPooledTransactionsRLP(id uint64, hashes []common.Hash, txs []rlp.RawValue) error {
+func (p *Peer[T, P]) ReplyPooledTransactionsRLP(id uint64, hashes []common.Hash, txs []rlp.RawValue) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
 	for p.knownTxs.Cardinality() > max(0, maxKnownTxs-len(hashes)) {
 		p.knownTxs.Pop()
@@ -289,7 +289,7 @@ func (p *Peer[T,P]) ReplyPooledTransactionsRLP(id uint64, hashes []common.Hash, 
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
-func (p *Peer[T,P]) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
+func (p *Peer[T, P]) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
 	// Mark all the block hashes as known, but ensure we don't overflow our limits
 	for p.knownBlocks.Cardinality() > max(0, maxKnownBlocks-len(hashes)) {
 		p.knownBlocks.Pop()
@@ -308,7 +308,7 @@ func (p *Peer[T,P]) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) e
 // AsyncSendNewBlockHash queues the availability of a block for propagation to a
 // remote peer. If the peer's broadcast queue is full, the event is silently
 // dropped.
-func (p *Peer[T,P]) AsyncSendNewBlockHash(block *types.Block[P]) {
+func (p *Peer[T, P]) AsyncSendNewBlockHash(block *types.Block[P]) {
 	select {
 	case p.queuedBlockAnns <- block:
 		// Mark all the block hash as known, but ensure we don't overflow our limits
@@ -322,7 +322,7 @@ func (p *Peer[T,P]) AsyncSendNewBlockHash(block *types.Block[P]) {
 }
 
 // SendNewBlock propagates an entire block to a remote peer.
-func (p *Peer[T,P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
+func (p *Peer[T, P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()
@@ -336,7 +336,7 @@ func (p *Peer[T,P]) SendNewBlock(block *types.Block[P], td *big.Int) error {
 
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
-func (p *Peer[T,P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int) {
+func (p *Peer[T, P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int) {
 	select {
 	case p.queuedBlocks <- &blockPropagation[P]{block: block, td: td}:
 		// Mark all the block hash as known, but ensure we don't overflow our limits
@@ -350,12 +350,12 @@ func (p *Peer[T,P]) AsyncSendNewBlock(block *types.Block[P], td *big.Int) {
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
-func (p *Peer[T,P]) SendBlockHeaders(headers []*types.Header[P]) error {
+func (p *Peer[T, P]) SendBlockHeaders(headers []*types.Header[P]) error {
 	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket[P](headers))
 }
 
 // ReplyBlockHeaders is the eth/66 version of SendBlockHeaders.
-func (p *Peer[T,P]) ReplyBlockHeaders(id uint64, headers []*types.Header[P]) error {
+func (p *Peer[T, P]) ReplyBlockHeaders(id uint64, headers []*types.Header[P]) error {
 	return p2p.Send(p.rw, BlockHeadersMsg, BlockHeadersPacket66[P]{
 		RequestId:          id,
 		BlockHeadersPacket: headers,
@@ -364,12 +364,12 @@ func (p *Peer[T,P]) ReplyBlockHeaders(id uint64, headers []*types.Header[P]) err
 
 // SendBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
-func (p *Peer[T,P]) SendBlockBodiesRLP(bodies []rlp.RawValue) error {
+func (p *Peer[T, P]) SendBlockBodiesRLP(bodies []rlp.RawValue) error {
 	return p2p.Send(p.rw, BlockBodiesMsg, bodies) // Not packed into BlockBodiesPacket to avoid RLP decoding
 }
 
 // ReplyBlockBodiesRLP is the eth/66 version of SendBlockBodiesRLP.
-func (p *Peer[T,P]) ReplyBlockBodiesRLP(id uint64, bodies []rlp.RawValue) error {
+func (p *Peer[T, P]) ReplyBlockBodiesRLP(id uint64, bodies []rlp.RawValue) error {
 	// Not packed into BlockBodiesPacket to avoid RLP decoding
 	return p2p.Send(p.rw, BlockBodiesMsg, BlockBodiesRLPPacket66{
 		RequestId:            id,
@@ -379,12 +379,12 @@ func (p *Peer[T,P]) ReplyBlockBodiesRLP(id uint64, bodies []rlp.RawValue) error 
 
 // SendNodeDataRLP sends a batch of arbitrary internal data, corresponding to the
 // hashes requested.
-func (p *Peer[T,P]) SendNodeData(data [][]byte) error {
+func (p *Peer[T, P]) SendNodeData(data [][]byte) error {
 	return p2p.Send(p.rw, NodeDataMsg, NodeDataPacket(data))
 }
 
 // ReplyNodeData is the eth/66 response to GetNodeData.
-func (p *Peer[T,P]) ReplyNodeData(id uint64, data [][]byte) error {
+func (p *Peer[T, P]) ReplyNodeData(id uint64, data [][]byte) error {
 	return p2p.Send(p.rw, NodeDataMsg, NodeDataPacket66{
 		RequestId:      id,
 		NodeDataPacket: data,
@@ -393,12 +393,12 @@ func (p *Peer[T,P]) ReplyNodeData(id uint64, data [][]byte) error {
 
 // SendReceiptsRLP sends a batch of transaction receipts, corresponding to the
 // ones requested from an already RLP encoded format.
-func (p *Peer[T,P]) SendReceiptsRLP(receipts []rlp.RawValue) error {
+func (p *Peer[T, P]) SendReceiptsRLP(receipts []rlp.RawValue) error {
 	return p2p.Send(p.rw, ReceiptsMsg, receipts) // Not packed into ReceiptsPacket to avoid RLP decoding
 }
 
 // ReplyReceiptsRLP is the eth/66 response to GetReceipts.
-func (p *Peer[T,P]) ReplyReceiptsRLP(id uint64, receipts []rlp.RawValue) error {
+func (p *Peer[T, P]) ReplyReceiptsRLP(id uint64, receipts []rlp.RawValue) error {
 	return p2p.Send(p.rw, ReceiptsMsg, ReceiptsRLPPacket66{
 		RequestId:         id,
 		ReceiptsRLPPacket: receipts,
@@ -407,7 +407,7 @@ func (p *Peer[T,P]) ReplyReceiptsRLP(id uint64, receipts []rlp.RawValue) error {
 
 // RequestOneHeader is a wrapper around the header query functions to fetch a
 // single header. It is used solely by the fetcher.
-func (p *Peer[T,P]) RequestOneHeader(hash common.Hash) error {
+func (p *Peer[T, P]) RequestOneHeader(hash common.Hash) error {
 	p.Log().Debug("Fetching single header", "hash", hash)
 	query := GetBlockHeadersPacket{
 		Origin:  HashOrNumber{Hash: hash},
@@ -429,7 +429,7 @@ func (p *Peer[T,P]) RequestOneHeader(hash common.Hash) error {
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the hash of an origin block.
-func (p *Peer[T,P]) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
+func (p *Peer[T, P]) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	query := GetBlockHeadersPacket{
 		Origin:  HashOrNumber{Hash: origin},
@@ -451,7 +451,7 @@ func (p *Peer[T,P]) RequestHeadersByHash(origin common.Hash, amount int, skip in
 
 // RequestHeadersByNumber fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the number of an origin block.
-func (p *Peer[T,P]) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+func (p *Peer[T, P]) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
 	query := GetBlockHeadersPacket{
 		Origin:  HashOrNumber{Number: origin},
@@ -471,13 +471,13 @@ func (p *Peer[T,P]) RequestHeadersByNumber(origin uint64, amount int, skip int, 
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &query)
 }
 
-func (p *Peer[T,P]) ExpectPeerMessage(code uint64, content types.Transactions[P]) error {
+func (p *Peer[T, P]) ExpectPeerMessage(code uint64, content types.Transactions[P]) error {
 	return p2p.ExpectMsg(p.rw, code, content)
 }
 
 // ExpectRequestHeadersByNumber is a testing method to mirror the recipient side
 // of the RequestHeadersByNumber operation.
-func (p *Peer[T,P]) ExpectRequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+func (p *Peer[T, P]) ExpectRequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
 	req := &GetBlockHeadersPacket{
 		Origin:  HashOrNumber{Number: origin},
 		Amount:  uint64(amount),
@@ -489,7 +489,7 @@ func (p *Peer[T,P]) ExpectRequestHeadersByNumber(origin uint64, amount int, skip
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *Peer[T,P]) RequestBodies(hashes []common.Hash) error {
+func (p *Peer[T, P]) RequestBodies(hashes []common.Hash) error {
 	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
@@ -505,7 +505,7 @@ func (p *Peer[T,P]) RequestBodies(hashes []common.Hash) error {
 
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
 // data, corresponding to the specified hashes.
-func (p *Peer[T,P]) RequestNodeData(hashes []common.Hash) error {
+func (p *Peer[T, P]) RequestNodeData(hashes []common.Hash) error {
 	p.Log().Debug("Fetching batch of state data", "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
@@ -520,7 +520,7 @@ func (p *Peer[T,P]) RequestNodeData(hashes []common.Hash) error {
 }
 
 // RequestReceipts fetches a batch of transaction receipts from a remote node.
-func (p *Peer[T,P]) RequestReceipts(hashes []common.Hash) error {
+func (p *Peer[T, P]) RequestReceipts(hashes []common.Hash) error {
 	p.Log().Debug("Fetching batch of receipts", "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
@@ -535,7 +535,7 @@ func (p *Peer[T,P]) RequestReceipts(hashes []common.Hash) error {
 }
 
 // RequestTxs fetches a batch of transactions from a remote node.
-func (p *Peer[T,P]) RequestTxs(hashes []common.Hash) error {
+func (p *Peer[T, P]) RequestTxs(hashes []common.Hash) error {
 	p.Log().Debug("Fetching batch of transactions", "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
@@ -552,7 +552,7 @@ func (p *Peer[T,P]) RequestTxs(hashes []common.Hash) error {
 // Quorum
 
 // SendConsensus Used to send consensus subprotocol messages from an "eth" peer, e.g.  "istanbul/100" subprotocol messages.
-func (p *Peer[T,P]) SendConsensus(msgcode uint64, data interface{}) error {
+func (p *Peer[T, P]) SendConsensus(msgcode uint64, data interface{}) error {
 	if p.consensusRw == nil {
 		return nil
 	}
@@ -560,18 +560,18 @@ func (p *Peer[T,P]) SendConsensus(msgcode uint64, data interface{}) error {
 }
 
 // SendQBFTConsensus is used to send consensus subprotocol messages from an "eth" peer without encoding the payload
-func (p *Peer[T,P]) SendQBFTConsensus(msgcode uint64, payload []byte) error {
+func (p *Peer[T, P]) SendQBFTConsensus(msgcode uint64, payload []byte) error {
 	if p.consensusRw == nil {
 		return nil
 	}
 	return p2p.SendWithNoEncoding(p.consensusRw, msgcode, payload)
 }
 
-func (p *Peer[T,P]) AddConsensusProtoRW(rw p2p.MsgReadWriter) *Peer[T,P] {
+func (p *Peer[T, P]) AddConsensusProtoRW(rw p2p.MsgReadWriter) *Peer[T, P] {
 	p.consensusRw = rw
 	return p
 }
 
-func (p *Peer[T,P]) Send(msgcode uint64, data interface{}) error {
+func (p *Peer[T, P]) Send(msgcode uint64, data interface{}) error {
 	panic("implement me")
 }

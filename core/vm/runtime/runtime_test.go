@@ -27,19 +27,19 @@ import (
 
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/asm"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/asm"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 func TestDefaults(t *testing.T) {
@@ -231,7 +231,7 @@ func fakeHeader[P crypto.PublicKey](n uint64, parentHash common.Hash) *types.Hea
 	return &header
 }
 
-type dummyChain [P crypto.PublicKey] struct {
+type dummyChain[P crypto.PublicKey] struct {
 	counter int
 }
 
@@ -344,7 +344,7 @@ func TestBlockhash(t *testing.T) {
 	}
 }
 
-type stepCounter [P crypto.PublicKey] struct {
+type stepCounter[P crypto.PublicKey] struct {
 	inner *vm.JSONLogger[P]
 	steps int
 }
@@ -634,7 +634,7 @@ func TestEip2929Cases(t *testing.T) {
 
 // TestColdAccountAccessCost test that the cold account access cost is reported
 // correctly
-// see: https://github.com/pavelkrolevets/MIR-pro/issues/22649
+// see: https://github.com/MIRChain/MIR/issues/22649
 func TestColdAccountAccessCost(t *testing.T) {
 	for i, tc := range []struct {
 		code []byte

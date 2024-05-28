@@ -24,14 +24,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 var (
@@ -117,7 +117,7 @@ type Snapshot interface {
 
 // snapshot is the internal version of the snapshot data layer that supports some
 // additional methods compared to the public API.
-type snapshot [P crypto.PublicKey] interface {
+type snapshot[P crypto.PublicKey] interface {
 	Snapshot
 
 	// Parent returns the subsequent layer of a snapshot, or nil if the base was
@@ -158,10 +158,10 @@ type snapshot [P crypto.PublicKey] interface {
 // The goal of a state snapshot is twofold: to allow direct access to account and
 // storage data to avoid expensive multi-level trie lookups; and to allow sorted,
 // cheap iteration of the account/storage tries for sync aid.
-type Tree [P crypto.PublicKey] struct {
-	diskdb ethdb.KeyValueStore      // Persistent database to store the snapshot
-	triedb *trie.Database           // In-memory cache to access the trie through
-	cache  int                      // Megabytes permitted to use for read caches
+type Tree[P crypto.PublicKey] struct {
+	diskdb ethdb.KeyValueStore         // Persistent database to store the snapshot
+	triedb *trie.Database              // In-memory cache to access the trie through
+	cache  int                         // Megabytes permitted to use for read caches
 	layers map[common.Hash]snapshot[P] // Collection of all known layers
 	lock   sync.RWMutex
 }
@@ -496,7 +496,7 @@ func (t *Tree[P]) cap(diff *diffLayer[P], layers int) *diskLayer[P] {
 //
 // The disk layer persistence should be operated in an atomic way. All updates should
 // be discarded if the whole transition if not finished.
-func diffToDisk[P crypto.PublicKey] (bottom *diffLayer[P]) *diskLayer[P] {
+func diffToDisk[P crypto.PublicKey](bottom *diffLayer[P]) *diskLayer[P] {
 	var (
 		base  = bottom.parent.(*diskLayer[P])
 		batch = base.diskdb.NewBatch()

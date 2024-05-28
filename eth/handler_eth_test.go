@@ -25,40 +25,42 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/forkid"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/forkid"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // testEthHandler is a mock event handler to listen for inbound network requests
 // on the `eth` protocol and convert them into a more easily testable form.
-type testEthHandler [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type testEthHandler[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	blockBroadcasts event.Feed
 	txAnnounces     event.Feed
 	txBroadcasts    event.Feed
 }
 
-func (h *testEthHandler[T,P]) Chain() *core.BlockChain[P]              { panic("no backing chain") }
-func (h *testEthHandler[T,P]) StateBloom() *trie.SyncBloom          { panic("no backing state bloom") }
-func (h *testEthHandler[T,P]) TxPool() eth.TxPool[P]                   { panic("no backing tx pool") }
-func (h *testEthHandler[T,P]) AcceptTxs() bool                      { return true }
-func (h *testEthHandler[T,P]) RunPeer(*eth.Peer[T,P], eth.Handler[T,P]) error { panic("not used in tests") }
-func (h *testEthHandler[T,P]) PeerInfo(enode.ID) interface{}        { panic("not used in tests") }
+func (h *testEthHandler[T, P]) Chain() *core.BlockChain[P]  { panic("no backing chain") }
+func (h *testEthHandler[T, P]) StateBloom() *trie.SyncBloom { panic("no backing state bloom") }
+func (h *testEthHandler[T, P]) TxPool() eth.TxPool[P]       { panic("no backing tx pool") }
+func (h *testEthHandler[T, P]) AcceptTxs() bool             { return true }
+func (h *testEthHandler[T, P]) RunPeer(*eth.Peer[T, P], eth.Handler[T, P]) error {
+	panic("not used in tests")
+}
+func (h *testEthHandler[T, P]) PeerInfo(enode.ID) interface{} { panic("not used in tests") }
 
-func (h *testEthHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
+func (h *testEthHandler[T, P]) Handle(peer *eth.Peer[T, P], packet eth.Packet) error {
 	switch packet := packet.(type) {
 	case *eth.NewBlockPacket[P]:
 		h.blockBroadcasts.Send(packet.Block)
@@ -90,7 +92,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	var (
-		engine =  ethash.NewFaker[nist.PublicKey]()
+		engine = ethash.NewFaker[nist.PublicKey]()
 
 		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
 		configProFork = &params.ChainConfig{
@@ -115,7 +117,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 		blocksNoFork, _  = core.GenerateChain[nist.PublicKey](configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
 		blocksProFork, _ = core.GenerateChain[nist.PublicKey](configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
-		ethNoFork, _ = newHandler(&handlerConfig[nist.PrivateKey,nist.PublicKey]{
+		ethNoFork, _ = newHandler(&handlerConfig[nist.PrivateKey, nist.PublicKey]{
 			Database:   dbNoFork,
 			Chain:      chainNoFork,
 			TxPool:     newTestTxPool[nist.PublicKey](),
@@ -124,7 +126,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 			BloomCache: 1,
 			Engine:     engine,
 		})
-		ethProFork, _ = newHandler(&handlerConfig[nist.PrivateKey,nist.PublicKey]{
+		ethProFork, _ = newHandler(&handlerConfig[nist.PrivateKey, nist.PublicKey]{
 			Database:   dbProFork,
 			Chain:      chainProFork,
 			TxPool:     newTestTxPool[nist.PublicKey](),
@@ -149,17 +151,17 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 	defer p2pNoFork.Close()
 	defer p2pProFork.Close()
 
-	peerNoFork := eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
-	peerProFork := eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
+	peerNoFork := eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
+	peerProFork := eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
 	defer peerNoFork.Close()
 	defer peerProFork.Close()
 
 	errc := make(chan error, 2)
 	go func(errc chan error) {
-		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 	go func(errc chan error) {
-		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 
 	for i := 0; i < 2; i++ {
@@ -180,17 +182,17 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 	defer p2pNoFork.Close()
 	defer p2pProFork.Close()
 
-	peerNoFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
-	peerProFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
+	peerNoFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
+	peerProFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
 	defer peerNoFork.Close()
 	defer peerProFork.Close()
 
 	errc = make(chan error, 2)
 	go func(errc chan error) {
-		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 	go func(errc chan error) {
-		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 
 	for i := 0; i < 2; i++ {
@@ -211,17 +213,17 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 	defer p2pNoFork.Close()
 	defer p2pProFork.Close()
 
-	peerNoFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
-	peerProFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
+	peerNoFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pNoFork, nil)
+	peerProFork = eth.NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pProFork, nil)
 	defer peerNoFork.Close()
 	defer peerProFork.Close()
 
 	errc = make(chan error, 2)
 	go func(errc chan error) {
-		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethNoFork.runEthPeer(peerProFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 	go func(errc chan error) {
-		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error { return nil })
+		errc <- ethProFork.runEthPeer(peerNoFork, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error { return nil })
 	}(errc)
 
 	var successes int
@@ -248,7 +250,7 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Create a message handler, configure it to accept transactions and watch them
-	handler := newTestHandler[nist.PrivateKey,nist.PublicKey]()
+	handler := newTestHandler[nist.PrivateKey, nist.PublicKey]()
 	defer handler.close()
 
 	handler.handler.acceptTxs = 1 // mark synced to accept transactions
@@ -262,13 +264,13 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
 
-	src := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, handler.txpool)
-	sink := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pSink, handler.txpool)
+	src := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, handler.txpool)
+	sink := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pSink, handler.txpool)
 	defer src.Close()
 	defer sink.Close()
 
-	go handler.handler.runEthPeer(sink, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(handler.handler), peer)
+	go handler.handler.runEthPeer(sink, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(handler.handler), peer)
 	})
 	// Run the handshake locally to avoid spinning up a source handler
 	var (
@@ -281,7 +283,7 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	}
 	// Send the transaction to the sink and verify that it's added to the tx pool
 	tx := types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-	tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
+	tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 	if err := src.SendTransactions([]*types.Transaction[nist.PublicKey]{tx}); err != nil {
 		t.Fatalf("failed to send transaction: %v", err)
@@ -306,13 +308,13 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Create a message handler and fill the pool with big transactions
-	handler := newTestHandler[nist.PrivateKey,nist.PublicKey]()
+	handler := newTestHandler[nist.PrivateKey, nist.PublicKey]()
 	defer handler.close()
 
 	insert := make([]*types.Transaction[nist.PublicKey], 100)
 	for nonce := range insert {
 		tx := types.NewTransaction[nist.PublicKey](uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), make([]byte, txsyncPackSize/10))
-		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 		insert[nonce] = tx
 	}
@@ -324,13 +326,13 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
 
-	src := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, handler.txpool)
-	sink := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pSink, handler.txpool)
+	src := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, handler.txpool)
+	sink := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pSink, handler.txpool)
 	defer src.Close()
 	defer sink.Close()
 
-	go handler.handler.runEthPeer(src, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(handler.handler), peer)
+	go handler.handler.runEthPeer(src, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(handler.handler), peer)
 	})
 	// Run the handshake locally to avoid spinning up a source handler
 	var (
@@ -343,7 +345,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	}
 	// After the handshake completes, the source handler should stream the sink
 	// the transactions, subscribe to all inbound network events
-	backend := new(testEthHandler[nist.PrivateKey,nist.PublicKey])
+	backend := new(testEthHandler[nist.PrivateKey, nist.PublicKey])
 
 	anns := make(chan []common.Hash)
 	annSub := backend.txAnnounces.Subscribe(anns)
@@ -353,7 +355,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	bcastSub := backend.txBroadcasts.Subscribe(bcasts)
 	defer bcastSub.Unsubscribe()
 
-	go eth.Handle[nist.PrivateKey,nist.PublicKey](backend, sink)
+	go eth.Handle[nist.PrivateKey, nist.PublicKey](backend, sink)
 
 	// Make sure we get all the transactions on the correct channels
 	seen := make(map[common.Hash]struct{})
@@ -394,12 +396,12 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 	// Create a source handler to send transactions from and a number of sinks
 	// to receive them. We need multiple sinks since a one-to-one peering would
 	// broadcast all transactions without announcement.
-	source := newTestHandler[nist.PrivateKey,nist.PublicKey]()
+	source := newTestHandler[nist.PrivateKey, nist.PublicKey]()
 	defer source.close()
 
-	sinks := make([]*testHandler[nist.PrivateKey,nist.PublicKey], 10)
+	sinks := make([]*testHandler[nist.PrivateKey, nist.PublicKey], 10)
 	for i := 0; i < len(sinks); i++ {
-		sinks[i] = newTestHandler[nist.PrivateKey,nist.PublicKey]()
+		sinks[i] = newTestHandler[nist.PrivateKey, nist.PublicKey]()
 		defer sinks[i].close()
 
 		sinks[i].handler.acceptTxs = 1 // mark synced to accept transactions
@@ -412,16 +414,16 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 		defer sourcePipe.Close()
 		defer sinkPipe.Close()
 
-		sourcePeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, source.txpool)
-		sinkPeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, sink.txpool)
+		sourcePeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, source.txpool)
+		sinkPeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, sink.txpool)
 		defer sourcePeer.Close()
 		defer sinkPeer.Close()
 
-		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-			return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(source.handler), peer)
+		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+			return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(source.handler), peer)
 		})
-		go sink.handler.runEthPeer(sinkPeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-			return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(sink.handler), peer)
+		go sink.handler.runEthPeer(sinkPeer, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+			return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(sink.handler), peer)
 		})
 	}
 	// Subscribe to all the transaction pools
@@ -436,7 +438,7 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 	txs := make([]*types.Transaction[nist.PublicKey], 1024)
 	for nonce := range txs {
 		tx := types.NewTransaction[nist.PublicKey](uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 		txs[nonce] = tx
 	}
@@ -468,12 +470,12 @@ func testQuorumTransactionPropagation(t *testing.T, protocol uint) {
 	// Create a source handler to send transactions from and a number of sinks
 	// to receive them. We need multiple sinks since a one-to-one peering would
 	// broadcast all transactions without announcement.
-	source := newTestHandler[nist.PrivateKey,nist.PublicKey]()
+	source := newTestHandler[nist.PrivateKey, nist.PublicKey]()
 	defer source.close()
 
-	sinks := make([]*testHandler[nist.PrivateKey,nist.PublicKey], numberOfPeers)
+	sinks := make([]*testHandler[nist.PrivateKey, nist.PublicKey], numberOfPeers)
 	for i := 0; i < len(sinks); i++ {
-		sinks[i] = newTestHandler[nist.PrivateKey,nist.PublicKey]()
+		sinks[i] = newTestHandler[nist.PrivateKey, nist.PublicKey]()
 		defer sinks[i].close()
 
 		sinks[i].handler.acceptTxs = 1 // mark synced to accept transactions
@@ -484,7 +486,7 @@ func testQuorumTransactionPropagation(t *testing.T, protocol uint) {
 	txs := make([]*types.Transaction[nist.PublicKey], 1024)
 	for nonce := range txs {
 		tx := types.NewTransaction[nist.PublicKey](uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-		tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
+		tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, testKey)
 
 		txs[nonce] = tx
 	}
@@ -504,17 +506,17 @@ func testQuorumTransactionPropagation(t *testing.T, protocol uint) {
 		defer sourcePipe.Close()
 		defer sinkPipe.Close()
 
-		sourcePeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, source.txpool)
-		sinkPeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, sink.txpool)
+		sourcePeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, source.txpool)
+		sinkPeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, sink.txpool)
 		defer sourcePeer.Close()
 		defer sinkPeer.Close()
 
-		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
+		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
 			wgPeersRegistered.Done()
 			// handle using the normal way
-			return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(source.handler), peer)
+			return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(source.handler), peer)
 		})
-		go sink.handler.runEthPeer(sinkPeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
+		go sink.handler.runEthPeer(sinkPeer, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
 			wgPeersRegistered.Done()
 			// intercept the received messages to make sure is the p2p type we are looking for
 			for e := peer.ExpectPeerMessage(uint64(eth.TransactionsMsg), txs); e != nil; {
@@ -583,7 +585,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	// Create a test handler and inject a CHT into it. The injection is a bit
 	// ugly, but it beats creating everything manually just to avoid reaching
 	// into the internals a bit.
-	handler := newTestHandler[nist.PrivateKey,nist.PublicKey]()
+	handler := newTestHandler[nist.PrivateKey, nist.PublicKey]()
 	defer handler.close()
 
 	if syncmode == downloader.FastSync {
@@ -604,13 +606,13 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	defer p2pLocal.Close()
 	defer p2pRemote.Close()
 
-	local := eth.NewPeer[nist.PrivateKey,nist.PublicKey](eth.ETH65, p2p.NewPeerPipe[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil, p2pLocal), p2pLocal, handler.txpool)
-	remote := eth.NewPeer[nist.PrivateKey,nist.PublicKey](eth.ETH65, p2p.NewPeerPipe[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil, p2pRemote), p2pRemote, handler.txpool)
+	local := eth.NewPeer[nist.PrivateKey, nist.PublicKey](eth.ETH65, p2p.NewPeerPipe[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil, p2pLocal), p2pLocal, handler.txpool)
+	remote := eth.NewPeer[nist.PrivateKey, nist.PublicKey](eth.ETH65, p2p.NewPeerPipe[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil, p2pRemote), p2pRemote, handler.txpool)
 	defer local.Close()
 	defer remote.Close()
 
-	go handler.handler.runEthPeer(local, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(handler.handler), peer)
+	go handler.handler.runEthPeer(local, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(handler.handler), peer)
 	})
 	// Run the handshake locally to avoid spinning up a remote handler
 	var (
@@ -675,12 +677,12 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 
 	// Create a source handler to broadcast blocks from and a number of sinks
 	// to receive them.
-	source := newTestHandlerWithBlocks[nist.PrivateKey,nist.PublicKey](1)
+	source := newTestHandlerWithBlocks[nist.PrivateKey, nist.PublicKey](1)
 	defer source.close()
 
-	sinks := make([]*testEthHandler[nist.PrivateKey,nist.PublicKey], peers)
+	sinks := make([]*testEthHandler[nist.PrivateKey, nist.PublicKey], peers)
 	for i := 0; i < len(sinks); i++ {
-		sinks[i] = new(testEthHandler[nist.PrivateKey,nist.PublicKey])
+		sinks[i] = new(testEthHandler[nist.PrivateKey, nist.PublicKey])
 	}
 	// Interconnect all the sink handlers with the source handler
 	var (
@@ -694,18 +696,18 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 		defer sourcePipe.Close()
 		defer sinkPipe.Close()
 
-		sourcePeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](eth.ETH65, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, nil)
-		sinkPeer := eth.NewPeer[nist.PrivateKey,nist.PublicKey](eth.ETH65, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, nil)
+		sourcePeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](eth.ETH65, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{byte(i)}, "", nil), sourcePipe, nil)
+		sinkPeer := eth.NewPeer[nist.PrivateKey, nist.PublicKey](eth.ETH65, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{0}, "", nil), sinkPipe, nil)
 		defer sourcePeer.Close()
 		defer sinkPeer.Close()
 
-		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-			return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(source.handler), peer)
+		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+			return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(source.handler), peer)
 		})
 		if err := sinkPeer.Handshake(1, td, genesis.Hash(), genesis.Hash(), forkid.NewIDWithChain[nist.PublicKey](source.chain), forkid.NewFilter[nist.PublicKey](source.chain)); err != nil {
 			t.Fatalf("failed to run protocol handshake")
 		}
-		go eth.Handle[nist.PrivateKey,nist.PublicKey](sink, sinkPeer)
+		go eth.Handle[nist.PrivateKey, nist.PublicKey](sink, sinkPeer)
 	}
 	// Subscribe to all the transaction pools
 	blockChs := make([]chan *types.Block[nist.PublicKey], len(sinks))
@@ -754,7 +756,7 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 
 	// Create a source handler to broadcast blocks from and a number of sinks
 	// to receive them.
-	source := newTestHandlerWithBlocks[nist.PrivateKey,nist.PublicKey](1)
+	source := newTestHandlerWithBlocks[nist.PrivateKey, nist.PublicKey](1)
 	defer source.close()
 
 	// Create a source handler to send messages through and a sink peer to receive them
@@ -762,13 +764,13 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
 
-	src := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, source.txpool)
-	sink := eth.NewPeer[nist.PrivateKey,nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{2}, "", nil), p2pSink, source.txpool)
+	src := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{1}, "", nil), p2pSrc, source.txpool)
+	sink := eth.NewPeer[nist.PrivateKey, nist.PublicKey](protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{2}, "", nil), p2pSink, source.txpool)
 	defer src.Close()
 	defer sink.Close()
 
-	go source.handler.runEthPeer(src, func(peer *eth.Peer[nist.PrivateKey,nist.PublicKey]) error {
-		return eth.Handle[nist.PrivateKey,nist.PublicKey]((*ethHandler[nist.PrivateKey,nist.PublicKey])(source.handler), peer)
+	go source.handler.runEthPeer(src, func(peer *eth.Peer[nist.PrivateKey, nist.PublicKey]) error {
+		return eth.Handle[nist.PrivateKey, nist.PublicKey]((*ethHandler[nist.PrivateKey, nist.PublicKey])(source.handler), peer)
 	})
 	// Run the handshake locally to avoid spinning up a sink handler
 	var (
@@ -780,13 +782,13 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	}
 	// After the handshake completes, the source handler should stream the sink
 	// the blocks, subscribe to inbound network events
-	backend := new(testEthHandler[nist.PrivateKey,nist.PublicKey])
+	backend := new(testEthHandler[nist.PrivateKey, nist.PublicKey])
 
 	blocks := make(chan *types.Block[nist.PublicKey], 1)
 	sub := backend.blockBroadcasts.Subscribe(blocks)
 	defer sub.Unsubscribe()
 
-	go eth.Handle[nist.PrivateKey,nist.PublicKey](backend, sink)
+	go eth.Handle[nist.PrivateKey, nist.PublicKey](backend, sink)
 
 	// Create various combinations of malformed blocks
 	head := source.chain.CurrentBlock()

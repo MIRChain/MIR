@@ -19,15 +19,15 @@ package core
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // insertStats tracks and reports on block insertion.
-type insertStats [P crypto.PublicKey] struct {
+type insertStats[P crypto.PublicKey] struct {
 	queued, processed, ignored int
 	usedGas                    uint64
 	lastIndex                  int
@@ -80,13 +80,13 @@ func (st *insertStats[P]) report(chain []*types.Block[P], index int, dirty commo
 }
 
 // insertIterator is a helper to assist during chain import.
-type insertIterator [P crypto.PublicKey] struct {
+type insertIterator[P crypto.PublicKey] struct {
 	chain types.Blocks[P] // Chain of blocks being iterated over
 
 	results <-chan error // Verification result sink from the consensus engine
 	errors  []error      // Header verification errors for the blocks
 
-	index     int       // Current offset of the iterator
+	index     int          // Current offset of the iterator
 	validator Validator[P] // Validator to run if verification succeeds
 }
 

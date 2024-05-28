@@ -22,16 +22,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
 )
 
 func BenchmarkInsertChain_empty_memdb(b *testing.B) {
@@ -128,7 +128,7 @@ func genTxRing(naccounts int) func(int, *BlockGen[nist.PublicKey]) {
 				nil,
 				nil,
 			)
-			tx, _ = types.SignTx[nist.PrivateKey,nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, ringKeys[from])
+			tx, _ = types.SignTx[nist.PrivateKey, nist.PublicKey](tx, types.HomesteadSigner[nist.PublicKey]{}, ringKeys[from])
 			gen.AddTx(tx)
 			from = to
 		}

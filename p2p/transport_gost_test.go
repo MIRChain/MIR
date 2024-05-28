@@ -22,10 +22,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/p2p/simulations/pipes"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/p2p/simulations/pipes"
 )
 
 func TestProtocolHandshakeGost(t *testing.T) {
@@ -50,7 +50,7 @@ func TestProtocolHandshakeGost(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd0.Close()
-		frame := newRLPX[gost3410.PrivateKey,gost3410.PublicKey](fd0, *prv1.Public())
+		frame := newRLPX[gost3410.PrivateKey, gost3410.PublicKey](fd0, *prv1.Public())
 		rpubkey, err := frame.doEncHandshake(prv0)
 		if err != nil {
 			t.Errorf("dial side enc handshake failed: %v", err)
@@ -76,7 +76,7 @@ func TestProtocolHandshakeGost(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd1.Close()
-		rlpx := newRLPX[gost3410.PrivateKey,gost3410.PublicKey](fd1, gost3410.PublicKey{})
+		rlpx := newRLPX[gost3410.PrivateKey, gost3410.PublicKey](fd1, gost3410.PublicKey{})
 		rpubkey, err := rlpx.doEncHandshake(prv1)
 		if err != nil {
 			t.Errorf("listen side enc handshake failed: %v", err)

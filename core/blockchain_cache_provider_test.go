@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +26,7 @@ func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainC
 	genesis := GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
 
 	// The generated chain deploys one Accumulator contracts which is incremented every block
-	blocks, _ := GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
+	blocks, _ := GenerateChain[nist.PublicKey](config, genesis, ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
@@ -66,7 +66,7 @@ func buildCacheProviderTestChain(n int, config *params.ChainConfig, quorumChainC
 		SnapshotWait:  true,
 	}
 
-	blockchain, err := NewBlockChain[nist.PublicKey](testdb, testingCacheConfig, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, quorumChainConfig)
+	blockchain, err := NewBlockChain[nist.PublicKey](testdb, testingCacheConfig, config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, quorumChainConfig)
 	if err != nil {
 		return nil, nil, nil
 	}

@@ -29,12 +29,12 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 // Tests that updating a state trie does not leak any database writes prior to
@@ -149,7 +149,7 @@ func TestIntermediateLeaks(t *testing.T) {
 
 // TestCopy tests that copying a StateDB object indeed makes the original and
 // the copy independent of each other. This test is a regression test against
-// https://github.com/pavelkrolevets/MIR-pro/pull/15549.
+// https://github.com/MIRChain/MIR/pull/15549.
 func TestCopy(t *testing.T) {
 	// Create a random state test to copy and modify "independently"
 	orig, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
@@ -235,14 +235,14 @@ func TestSnapshotRandom(t *testing.T) {
 // leading up to it are replayed on a fresh, empty state. The behaviour of all public
 // accessor methods on the reverted state must match the return value of the equivalent
 // methods on the replayed state.
-type snapshotTest [P crypto.PublicKey] struct {
+type snapshotTest[P crypto.PublicKey] struct {
 	addrs     []common.Address // all account addresses
-	actions   []testAction[P]     // modifications to the state
+	actions   []testAction[P]  // modifications to the state
 	snapshots []int            // actions indexes at which snapshot is taken
 	err       error            // failure details are reported through this field
 }
 
-type testAction [P crypto.PublicKey] struct {
+type testAction[P crypto.PublicKey] struct {
 	name   string
 	fn     func(testAction[P], *StateDB[P])
 	args   []int64
@@ -511,7 +511,7 @@ func TestTouchDelete(t *testing.T) {
 }
 
 // TestCopyOfCopy tests that modified objects are carried over to the copy, and the copy of the copy.
-// See https://github.com/pavelkrolevets/MIR-pro/pull/15225#issuecomment-380191512
+// See https://github.com/MIRChain/MIR/pull/15225#issuecomment-380191512
 func TestCopyOfCopy(t *testing.T) {
 	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 	addr := common.HexToAddress("aaaa")
@@ -528,7 +528,7 @@ func TestCopyOfCopy(t *testing.T) {
 // Tests a regression where committing a copy lost some internal meta information,
 // leading to corrupted subsequent copies.
 //
-// See https://github.com/pavelkrolevets/MIR-pro/issues/20106.
+// See https://github.com/MIRChain/MIR/issues/20106.
 func TestCopyCommitCopy(t *testing.T) {
 	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 
@@ -600,7 +600,7 @@ func TestCopyCommitCopy(t *testing.T) {
 // Tests a regression where committing a copy lost some internal meta information,
 // leading to corrupted subsequent copies.
 //
-// See https://github.com/pavelkrolevets/MIR-pro/issues/20106.
+// See https://github.com/MIRChain/MIR/issues/20106.
 func TestCopyCopyCommitCopy(t *testing.T) {
 	state, _ := New[nist.PublicKey](common.Hash{}, NewDatabase[nist.PublicKey](rawdb.NewMemoryDatabase()), nil)
 

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 // a regexp for extracting the unit from time.Duration.String

@@ -24,11 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/bitutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/p2p/rlpx"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/bitutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/p2p/rlpx"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 const (
@@ -44,17 +44,17 @@ const (
 
 // rlpxTransport is the transport used by actual (non-test) connections.
 // It wraps an RLPx connection with locks and read/write deadlines.
-type rlpxTransport [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type rlpxTransport[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	rmu, wmu sync.Mutex
 	wbuf     bytes.Buffer
-	conn     *rlpx.Conn[T,P]
+	conn     *rlpx.Conn[T, P]
 }
 
-func newRLPX[T crypto.PrivateKey, P crypto.PublicKey](conn net.Conn, dialDest P) transport[T,P] {
-	return &rlpxTransport[T,P]{conn: rlpx.NewConn[T,P](conn, dialDest)}
+func newRLPX[T crypto.PrivateKey, P crypto.PublicKey](conn net.Conn, dialDest P) transport[T, P] {
+	return &rlpxTransport[T, P]{conn: rlpx.NewConn[T, P](conn, dialDest)}
 }
 
-func (t *rlpxTransport[T,P]) ReadMsg() (Msg, error) {
+func (t *rlpxTransport[T, P]) ReadMsg() (Msg, error) {
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 
@@ -73,7 +73,7 @@ func (t *rlpxTransport[T,P]) ReadMsg() (Msg, error) {
 	return msg, err
 }
 
-func (t *rlpxTransport[T,P]) WriteMsg(msg Msg) error {
+func (t *rlpxTransport[T, P]) WriteMsg(msg Msg) error {
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 
@@ -100,7 +100,7 @@ func (t *rlpxTransport[T,P]) WriteMsg(msg Msg) error {
 	return nil
 }
 
-func (t *rlpxTransport[T,P]) close(err error) {
+func (t *rlpxTransport[T, P]) close(err error) {
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 
@@ -121,12 +121,12 @@ func (t *rlpxTransport[T,P]) close(err error) {
 	t.conn.Close()
 }
 
-func (t *rlpxTransport[T,P]) doEncHandshake(prv T) (P, error) {
+func (t *rlpxTransport[T, P]) doEncHandshake(prv T) (P, error) {
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
 	return t.conn.Handshake(prv)
 }
 
-func (t *rlpxTransport[T,P]) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err error) {
+func (t *rlpxTransport[T, P]) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err error) {
 	// Writing our handshake happens concurrently, we prefer
 	// returning the handshake read error. If the remote side
 	// disconnects us early with a valid reason, we should return it

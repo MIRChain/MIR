@@ -28,17 +28,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/internal/debug"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/internal/debug"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/rlp"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -66,7 +66,7 @@ func Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func StartNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P]) {
+func StartNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T, P]) {
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}

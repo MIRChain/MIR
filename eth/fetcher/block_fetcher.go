@@ -22,16 +22,15 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/prque"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/prque"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/trie"
 )
-
 
 const (
 	lightTimeout  = time.Millisecond       // Time allowance before an announced header is explicitly requested
@@ -101,11 +100,11 @@ type peerDropFn func(id string)
 
 // blockAnnounce is the hash notification of the availability of a new block in the
 // network.
-type blockAnnounce [P crypto.PublicKey] struct {
-	hash   common.Hash   // Hash of the block being announced
-	number uint64        // Number of the block being announced (0 = unknown | old protocol)
+type blockAnnounce[P crypto.PublicKey] struct {
+	hash   common.Hash      // Hash of the block being announced
+	number uint64           // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header[P] // Header of the block partially reassembled (new protocol)
-	time   time.Time     // Timestamp of the announcement
+	time   time.Time        // Timestamp of the announcement
 
 	origin string // Identifier of the peer originating the notification
 
@@ -114,23 +113,23 @@ type blockAnnounce [P crypto.PublicKey] struct {
 }
 
 // headerFilterTask represents a batch of headers needing fetcher filtering.
-type headerFilterTask [P crypto.PublicKey] struct {
-	peer    string          // The source peer of block headers
+type headerFilterTask[P crypto.PublicKey] struct {
+	peer    string             // The source peer of block headers
 	headers []*types.Header[P] // Collection of headers to filter
-	time    time.Time       // Arrival time of the headers
+	time    time.Time          // Arrival time of the headers
 }
 
 // bodyFilterTask represents a batch of block bodies (transactions and uncles)
 // needing fetcher filtering.
-type bodyFilterTask [P crypto.PublicKey]struct {
-	peer         string                 // The source peer of block bodies
+type bodyFilterTask[P crypto.PublicKey] struct {
+	peer         string                    // The source peer of block bodies
 	transactions [][]*types.Transaction[P] // Collection of transactions per block bodies
 	uncles       [][]*types.Header[P]      // Collection of uncles per block bodies
-	time         time.Time              // Arrival time of the blocks' contents
+	time         time.Time                 // Arrival time of the blocks' contents
 }
 
 // blockOrHeaderInject represents a schedules import operation.
-type blockOrHeaderInject [P crypto.PublicKey] struct {
+type blockOrHeaderInject[P crypto.PublicKey] struct {
 	origin string
 
 	header *types.Header[P] // Used for light mode fetcher which only cares about header.
@@ -155,7 +154,7 @@ func (inject *blockOrHeaderInject[P]) hash() common.Hash {
 
 // BlockFetcher is responsible for accumulating block announcements from various peers
 // and scheduling them for retrieval.
-type BlockFetcher [P crypto.PublicKey] struct {
+type BlockFetcher[P crypto.PublicKey] struct {
 	light bool // The indicator whether it's a light fetcher or normal one.
 
 	// Various event channels
@@ -169,15 +168,15 @@ type BlockFetcher [P crypto.PublicKey] struct {
 	quit chan struct{}
 
 	// Announce states
-	announces  map[string]int                   // Per peer blockAnnounce counts to prevent memory exhaustion
+	announces  map[string]int                      // Per peer blockAnnounce counts to prevent memory exhaustion
 	announced  map[common.Hash][]*blockAnnounce[P] // Announced blocks, scheduled for fetching
 	fetching   map[common.Hash]*blockAnnounce[P]   // Announced blocks, currently fetching
 	fetched    map[common.Hash][]*blockAnnounce[P] // Blocks with headers fetched, scheduled for body retrieval
 	completing map[common.Hash]*blockAnnounce[P]   // Blocks with headers, currently body-completing
 
 	// Block cache
-	queue  *prque.Prque                         // Queue containing the import operations (block number sorted)
-	queues map[string]int                       // Per peer block counts to prevent memory exhaustion
+	queue  *prque.Prque                            // Queue containing the import operations (block number sorted)
+	queues map[string]int                          // Per peer block counts to prevent memory exhaustion
 	queued map[common.Hash]*blockOrHeaderInject[P] // Set of already queued blocks (to dedup imports)
 
 	// Callbacks
@@ -185,16 +184,16 @@ type BlockFetcher [P crypto.PublicKey] struct {
 	getBlock       blockRetrievalFn[P]   // Retrieves a block from the local chain
 	verifyHeader   headerVerifierFn[P]   // Checks if a block's headers have a valid proof of work
 	broadcastBlock blockBroadcasterFn[P] // Broadcasts a block to connected peers
-	chainHeight    chainHeightFn      // Retrieves the current chain's height
+	chainHeight    chainHeightFn         // Retrieves the current chain's height
 	insertHeaders  headersInsertFn[P]    // Injects a batch of headers into the chain
 	insertChain    chainInsertFn[P]      // Injects a batch of blocks into the chain
-	dropPeer       peerDropFn         // Drops a peer for misbehaving
+	dropPeer       peerDropFn            // Drops a peer for misbehaving
 
 	// Testing hooks
-	announceChangeHook func(common.Hash, bool)           // Method to call upon adding or deleting a hash from the blockAnnounce list
-	queueChangeHook    func(common.Hash, bool)           // Method to call upon adding or deleting a block from the import queue
-	fetchingHook       func([]common.Hash)               // Method to call upon starting a block (eth/61) or header (eth/62) fetch
-	completingHook     func([]common.Hash)               // Method to call upon starting a block body fetch (eth/62)
+	announceChangeHook func(common.Hash, bool)                 // Method to call upon adding or deleting a hash from the blockAnnounce list
+	queueChangeHook    func(common.Hash, bool)                 // Method to call upon adding or deleting a block from the import queue
+	fetchingHook       func([]common.Hash)                     // Method to call upon starting a block (eth/61) or header (eth/62) fetch
+	completingHook     func([]common.Hash)                     // Method to call upon starting a block body fetch (eth/62)
 	importedHook       func(*types.Header[P], *types.Block[P]) // Method to call upon successful header or block import (both eth/61 and eth/62)
 }
 

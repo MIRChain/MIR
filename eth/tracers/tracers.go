@@ -21,7 +21,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/pavelkrolevets/MIR-pro/eth/tracers/internal/tracers"
+	"github.com/MIRChain/MIR/eth/tracers/internal/tracers"
 )
 
 // all contains all the built in JavaScript tracers by name.

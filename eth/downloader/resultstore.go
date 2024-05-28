@@ -21,15 +21,15 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // resultStore implements a structure for maintaining fetchResults, tracking their
 // download-progress and delivering (finished) results.
-type resultStore [P crypto.PublicKey] struct {
+type resultStore[P crypto.PublicKey] struct {
 	items        []*fetchResult[P] // Downloaded but not yet delivered fetch results
-	resultOffset uint64         // Offset of the first cached fetch result in the block chain
+	resultOffset uint64            // Offset of the first cached fetch result in the block chain
 
 	// Internal index of first non-completed entry, updated atomically when needed.
 	// If all items are complete, this will equal length(items), so
@@ -72,10 +72,11 @@ func (r *resultStore[P]) SetThrottleThreshold(threshold uint64) uint64 {
 // wants to reserve headers for fetching.
 //
 // It returns the following:
-//   stale     - if true, this item is already passed, and should not be requested again
-//   throttled - if true, the store is at capacity, this particular header is not prio now
-//   item      - the result to store data into
-//   err       - any error that occurred
+//
+//	stale     - if true, this item is already passed, and should not be requested again
+//	throttled - if true, the store is at capacity, this particular header is not prio now
+//	item      - the result to store data into
+//	err       - any error that occurred
 func (r *resultStore[P]) AddFetch(header *types.Header[P], fastSync bool) (stale, throttled bool, item *fetchResult[P], err error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()

@@ -22,20 +22,20 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 func TestEIP155Signing(t *testing.T) {
 	key, _ := crypto.GenerateKey[nist.PrivateKey]()
-	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
 	signer := NewEIP155Signer[nist.PublicKey](big.NewInt(18))
-	tx, err := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	tx, err := SignTx[nist.PrivateKey, nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,10 +50,10 @@ func TestEIP155Signing(t *testing.T) {
 }
 func TestEIP155SigningGost(t *testing.T) {
 	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
-	addr :=crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
+	addr := crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
 
 	signer := NewEIP155Signer[gost3410.PublicKey](big.NewInt(18))
-	tx, err := SignTx[gost3410.PrivateKey,gost3410.PublicKey](NewTransaction[gost3410.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	tx, err := SignTx[gost3410.PrivateKey, gost3410.PublicKey](NewTransaction[gost3410.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,10 +80,10 @@ func TestEIP155SigningCSP(t *testing.T) {
 	}
 	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[2:66])
 	defer crt.Close()
-	addr :=crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	addr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 	t.Logf("Cert address: %s", addr.Hex())
 	signer := NewEIP155Signer[csp.PublicKey](big.NewInt(18))
-	tx, err := SignTx[csp.Cert,csp.PublicKey](NewTransaction[csp.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, crt)
+	tx, err := SignTx[csp.Cert, csp.PublicKey](NewTransaction[csp.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, crt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,10 +100,10 @@ func TestEIP155SigningCSP(t *testing.T) {
 
 func TestEIP155ChainId(t *testing.T) {
 	key, _ := crypto.GenerateKey[nist.PrivateKey]()
-	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
 	signer := NewEIP155Signer[nist.PublicKey](big.NewInt(18))
-	tx, err := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
+	tx, err := SignTx[nist.PrivateKey, nist.PublicKey](NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestEIP155ChainId(t *testing.T) {
 	}
 
 	tx = NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
-	tx, err = SignTx[nist.PrivateKey,nist.PublicKey](tx, HomesteadSigner[nist.PublicKey]{}, key)
+	tx, err = SignTx[nist.PrivateKey, nist.PublicKey](tx, HomesteadSigner[nist.PublicKey]{}, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestChainId(t *testing.T) {
 	tx := NewTransaction[nist.PublicKey](0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
 
 	var err error
-	tx, err = SignTx[nist.PrivateKey,nist.PublicKey](tx, NewEIP155Signer[nist.PublicKey](big.NewInt(10)), key)
+	tx, err = SignTx[nist.PrivateKey, nist.PublicKey](tx, NewEIP155Signer[nist.PublicKey](big.NewInt(10)), key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,16 +211,16 @@ func TestSignTxCsp(t *testing.T) {
 	reverse(crtPub)
 	// Get address which will be used at pure GO GOST network
 	value := big.NewInt(10000000)
-    gasLimit := uint64(21000) 
-    toAddress := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
-    var data []byte
-    tx := NewTransaction[gost3410.PublicKey](uint64(0), toAddress, value, gasLimit, big.NewInt(0), data)
+	gasLimit := uint64(21000)
+	toAddress := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
+	var data []byte
+	tx := NewTransaction[gost3410.PublicKey](uint64(0), toAddress, value, gasLimit, big.NewInt(0), data)
 	signerCSP := NewEIP155Signer[gost3410.PublicKey](big.NewInt(1515))
 	txHash := signerCSP.Hash(tx)
 	sig, err := crypto.Sign(txHash[:], crt)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	r, s, _ := crypto.RevertCSP(txHash[:], sig)
 	resSig := make([]byte, 65)
 	copy(resSig[:32], r.Bytes())
@@ -229,8 +229,8 @@ func TestSignTxCsp(t *testing.T) {
 	// Get address which will be used at pure GO GOST network - recover to get the right value
 	recoveredGostPub, err := crypto.Ecrecover[gost3410.PublicKey](txHash[:], resSig)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	var addrFrom common.Address
 	copy(addrFrom[:], crypto.Keccak256[gost3410.PublicKey](recoveredGostPub[1:])[12:])
 	pub := make([]byte, 64)
@@ -242,17 +242,17 @@ func TestSignTxCsp(t *testing.T) {
 		t.Fatal("Wrong recovered pub key")
 	}
 	signerGost := NewEIP155Signer[gost3410.PublicKey](big.NewInt(1515))
-	signedTx, err :=  tx.WithSignature(signerGost, resSig)
+	signedTx, err := tx.WithSignature(signerGost, resSig)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	V, R, S := signedTx.RawSignatureValues()
 	V = new(big.Int).Sub(V, signerGost.chainIdMul)
 	V.Sub(V, big8)
 	recoveredAddress, err := recoverPlain[gost3410.PublicKey](txHash, R, S, V, true)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	if !reflect.DeepEqual(addrFrom, recoveredAddress) {
 		t.Fatal("Wrong recovered pub key")
 	}

@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,8 +52,8 @@ func TestEcrecover(t *testing.T) {
 	pubKey := make([]byte, 64)
 	copy(pubKey[:], crt.Info().PublicKeyBytes()[2:66])
 	reverse(pubKey)
-	pubKeyX := new(big.Int).SetBytes(pubKey[32 : 64])
-	pubKeyY := new(big.Int).SetBytes(pubKey[ : 32])
+	pubKeyX := new(big.Int).SetBytes(pubKey[32:64])
+	pubKeyY := new(big.Int).SetBytes(pubKey[:32])
 	t.Logf("pubKeyX : %s", pubKeyX.String())
 	t.Logf("pubKeyY : %s", pubKeyY.String())
 	gostKey := gost3410.PublicKey{

@@ -22,15 +22,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
-	"github.com/pavelkrolevets/MIR-pro/signer/storage"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/signer/core"
+	"github.com/MIRChain/MIR/signer/storage"
 )
 
 const JS = `
@@ -74,47 +74,47 @@ func mixAddr(a string) (*common.MixedcaseAddress, error) {
 	return common.NewMixedcaseAddressFromString(a)
 }
 
-type alwaysDenyUI [T crypto.PrivateKey, P crypto.PublicKey] struct{}
+type alwaysDenyUI[T crypto.PrivateKey, P crypto.PublicKey] struct{}
 
-func (alwaysDenyUI[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (alwaysDenyUI[T, P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	return core.UserInputResponse{}, nil
 }
-func (alwaysDenyUI[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
+func (alwaysDenyUI[T, P]) RegisterUIServer(api *core.UIServerAPI[T, P]) {
 }
 
-func (alwaysDenyUI[T,P]) OnSignerStartup(info core.StartupInfo) {
+func (alwaysDenyUI[T, P]) OnSignerStartup(info core.StartupInfo) {
 }
 
-func (alwaysDenyUI[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
+func (alwaysDenyUI[T, P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	return core.SignTxResponse[P]{Transaction: request.Transaction, Approved: false}, nil
 }
 
-func (alwaysDenyUI[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (alwaysDenyUI[T, P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	return core.SignDataResponse{Approved: false}, nil
 }
 
-func (alwaysDenyUI[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (alwaysDenyUI[T, P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	return core.ListResponse{Accounts: nil}, nil
 }
 
-func (alwaysDenyUI[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (alwaysDenyUI[T, P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	return core.NewAccountResponse{Approved: false}, nil
 }
 
-func (alwaysDenyUI[T,P]) ShowError(message string) {
+func (alwaysDenyUI[T, P]) ShowError(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI[T,P]) ShowInfo(message string) {
+func (alwaysDenyUI[T, P]) ShowInfo(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
+func (alwaysDenyUI[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	panic("implement me")
 }
 
-func initRuleEngine[T crypto.PrivateKey, P crypto.PublicKey](js string) (*rulesetUI[T,P], error) {
-	r, err := NewRuleEvaluator[T,P](&alwaysDenyUI[T,P]{}, storage.NewEphemeralStorage())
+func initRuleEngine[T crypto.PrivateKey, P crypto.PublicKey](js string) (*rulesetUI[T, P], error) {
+	r, err := NewRuleEvaluator[T, P](&alwaysDenyUI[T, P]{}, storage.NewEphemeralStorage())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create js engine: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestListRequest(t *testing.T) {
 
 	js := `function ApproveListing(){ return "Approve" }`
 
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -164,7 +164,7 @@ func TestSignTxRequest(t *testing.T) {
 		if(r.transaction.from.toLowerCase()=="0x000000000000000000000000000000000000dead"){ return "Reject"}
 	}`
 
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -196,61 +196,61 @@ func TestSignTxRequest(t *testing.T) {
 	}
 }
 
-type dummyUI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type dummyUI[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	calls []string
 }
 
-func (d *dummyUI[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
+func (d *dummyUI[T, P]) RegisterUIServer(api *core.UIServerAPI[T, P]) {
 	panic("implement me")
 }
 
-func (d *dummyUI[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (d *dummyUI[T, P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	d.calls = append(d.calls, "OnInputRequired")
 	return core.UserInputResponse{}, nil
 }
 
-func (d *dummyUI[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
+func (d *dummyUI[T, P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	d.calls = append(d.calls, "ApproveTx")
 	return core.SignTxResponse[P]{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (d *dummyUI[T, P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	d.calls = append(d.calls, "ApproveSignData")
 	return core.SignDataResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (d *dummyUI[T, P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	d.calls = append(d.calls, "ApproveListing")
 	return core.ListResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (d *dummyUI[T, P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	d.calls = append(d.calls, "ApproveNewAccount")
 	return core.NewAccountResponse{}, core.ErrRequestDenied
 }
 
-func (d *dummyUI[T,P]) ShowError(message string) {
+func (d *dummyUI[T, P]) ShowError(message string) {
 	d.calls = append(d.calls, "ShowError")
 }
 
-func (d *dummyUI[T,P]) ShowInfo(message string) {
+func (d *dummyUI[T, P]) ShowInfo(message string) {
 	d.calls = append(d.calls, "ShowInfo")
 }
 
-func (d *dummyUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
+func (d *dummyUI[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	d.calls = append(d.calls, "OnApprovedTx")
 }
 
-func (d *dummyUI[T,P]) OnSignerStartup(info core.StartupInfo) {
+func (d *dummyUI[T, P]) OnSignerStartup(info core.StartupInfo) {
 }
 
-//TestForwarding tests that the rule-engine correctly dispatches requests to the next caller
+// TestForwarding tests that the rule-engine correctly dispatches requests to the next caller
 func TestForwarding(t *testing.T) {
 
 	js := ""
-	ui := &dummyUI[nist.PrivateKey,nist.PublicKey]{make([]string, 0)}
+	ui := &dummyUI[nist.PrivateKey, nist.PublicKey]{make([]string, 0)}
 	jsBackend := storage.NewEphemeralStorage()
-	r, err := NewRuleEvaluator[nist.PrivateKey,nist.PublicKey](ui, jsBackend)
+	r, err := NewRuleEvaluator[nist.PrivateKey, nist.PublicKey](ui, jsBackend)
 	if err != nil {
 		t.Fatalf("Failed to create js engine: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestForwarding(t *testing.T) {
 }
 
 func TestMissingFunc(t *testing.T) {
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](JS)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](JS)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -328,7 +328,7 @@ func TestStorage(t *testing.T) {
 		return a
 	}
 `
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -464,7 +464,7 @@ func dummySigned[P crypto.PublicKey](value *big.Int) *types.Transaction[P] {
 }
 
 func TestLimitWindow(t *testing.T) {
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](ExampleTxWindow)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](ExampleTxWindow)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
@@ -498,54 +498,54 @@ func TestLimitWindow(t *testing.T) {
 }
 
 // dontCallMe is used as a next-handler that does not want to be called - it invokes test failure
-type dontCallMe [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type dontCallMe[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	t *testing.T
 }
 
-func (d *dontCallMe[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (d *dontCallMe[T, P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.UserInputResponse{}, nil
 }
 
-func (d *dontCallMe[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P]) {
+func (d *dontCallMe[T, P]) RegisterUIServer(api *core.UIServerAPI[T, P]) {
 }
 
-func (d *dontCallMe[T,P]) OnSignerStartup(info core.StartupInfo) {
+func (d *dontCallMe[T, P]) OnSignerStartup(info core.StartupInfo) {
 }
 
-func (d *dontCallMe[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
+func (d *dontCallMe[T, P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.SignTxResponse[P]{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (d *dontCallMe[T, P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.SignDataResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (d *dontCallMe[T, P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.ListResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (d *dontCallMe[T, P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 	return core.NewAccountResponse{}, core.ErrRequestDenied
 }
 
-func (d *dontCallMe[T,P]) ShowError(message string) {
+func (d *dontCallMe[T, P]) ShowError(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe[T,P]) ShowInfo(message string) {
+func (d *dontCallMe[T, P]) ShowInfo(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
+func (d *dontCallMe[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-//TestContextIsCleared tests that the rule-engine does not retain variables over several requests.
+// TestContextIsCleared tests that the rule-engine does not retain variables over several requests.
 // if it does, that would be bad since developers may rely on that to store data,
 // instead of using the disk-based data storage
 func TestContextIsCleared(t *testing.T) {
@@ -564,8 +564,8 @@ func TestContextIsCleared(t *testing.T) {
 		return foobar
 	}
 	`
-	ui := &dontCallMe[nist.PrivateKey,nist.PublicKey]{t}
-	r, err := NewRuleEvaluator[nist.PrivateKey,nist.PublicKey](ui, storage.NewEphemeralStorage())
+	ui := &dontCallMe[nist.PrivateKey, nist.PublicKey]{t}
+	r, err := NewRuleEvaluator[nist.PrivateKey, nist.PublicKey](ui, storage.NewEphemeralStorage())
 	if err != nil {
 		t.Fatalf("Failed to create js engine: %v", err)
 	}
@@ -595,7 +595,7 @@ function ApproveSignData(r){
     }
     // Otherwise goes to manual processing
 }`
-	r, err := initRuleEngine[nist.PrivateKey,nist.PublicKey](js)
+	r, err := initRuleEngine[nist.PrivateKey, nist.PublicKey](js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return

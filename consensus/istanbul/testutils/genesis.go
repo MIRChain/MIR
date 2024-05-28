@@ -3,15 +3,15 @@ package testutils
 import (
 	"bytes"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 func Genesis[P crypto.PublicKey](validators []common.Address, isQBFT bool) *core.Genesis[P] {
@@ -41,12 +41,12 @@ func GenesisAndKeys[T crypto.PrivateKey, P crypto.PublicKey](n int, isQBFT bool)
 	for i := 0; i < n; i++ {
 		nodeKeys[i], _ = crypto.GenerateKey[T]()
 		var pub P
-		switch t:=any(&nodeKeys[i]).(type) {
+		switch t := any(&nodeKeys[i]).(type) {
 		case *nist.PrivateKey:
-			p:=any(&pub).(*nist.PublicKey)
+			p := any(&pub).(*nist.PublicKey)
 			*p = *t.Public()
 		case *gost3410.PrivateKey:
-			p:=any(&pub).(*gost3410.PublicKey)
+			p := any(&pub).(*gost3410.PublicKey)
 			*p = *t.Public()
 		}
 		addrs[i] = crypto.PubkeyToAddress(pub)

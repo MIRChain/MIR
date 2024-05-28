@@ -23,10 +23,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
 	"github.com/karalabe/usb"
 )
 
@@ -45,12 +45,12 @@ const refreshCycle = time.Second
 const refreshThrottling = 500 * time.Millisecond
 
 // Hub is a accounts.Backend that can find and handle generic USB hardware wallets.
-type Hub [P crypto.PublicKey] struct {
-	scheme     string                  // Protocol scheme prefixing account and wallet URLs.
-	vendorID   uint16                  // USB vendor identifier used for device discovery
-	productIDs []uint16                // USB product identifiers used for device discovery
-	usageID    uint16                  // USB usage page identifier used for macOS device discovery
-	endpointID int                     // USB endpoint identifier used for non-macOS device discovery
+type Hub[P crypto.PublicKey] struct {
+	scheme     string                     // Protocol scheme prefixing account and wallet URLs.
+	vendorID   uint16                     // USB vendor identifier used for device discovery
+	productIDs []uint16                   // USB product identifiers used for device discovery
+	usageID    uint16                     // USB usage page identifier used for macOS device discovery
+	endpointID int                        // USB endpoint identifier used for non-macOS device discovery
 	makeDriver func(log.Logger) driver[P] // Factory method to construct a vendor specific driver
 
 	refreshed   time.Time               // Time instance when the list of wallets was last refreshed

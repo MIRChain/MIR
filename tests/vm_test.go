@@ -19,8 +19,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func TestVM(t *testing.T) {

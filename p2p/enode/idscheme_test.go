@@ -23,18 +23,18 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	privkey, _ = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	pubkey     = &privkey.PublicKey
+	privkey, _      = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	pubkey          = &privkey.PublicKey
 	privkey_gost, _ = crypto.HexToECDSA[gost3410.PrivateKey]("f4c50f96a2e64a2c7aba6c86dc0f2e731b13cd495855ed35ca2b1c215457a784")
 	pubkey_gost     = &privkey_gost.PublicKey
 )
@@ -57,7 +57,7 @@ func TestSignError(t *testing.T) {
 
 	var r enr.Record
 	emptyEnc, _ := rlp.EncodeToBytes(&r)
-	if err := SignV4[nist.PrivateKey ,nist.PublicKey](&r, invalidKey); err == nil {
+	if err := SignV4[nist.PrivateKey, nist.PublicKey](&r, invalidKey); err == nil {
 		t.Fatal("expected error from SignV4")
 	}
 	newEnc, _ := rlp.EncodeToBytes(&r)
@@ -69,7 +69,7 @@ func TestSignError(t *testing.T) {
 // TestGetSetSecp256k1 tests encoding/decoding and setting/getting of the Secp256k1 key.
 func TestGetSetSecp256k1(t *testing.T) {
 	var r enr.Record
-	if err := SignV4[nist.PrivateKey ,nist.PublicKey](&r, privkey); err != nil {
+	if err := SignV4[nist.PrivateKey, nist.PublicKey](&r, privkey); err != nil {
 		t.Fatal(err)
 	}
 
@@ -82,7 +82,7 @@ func TestGetSetSecp256k1(t *testing.T) {
 func TestGetSetGost3410(t *testing.T) {
 	var r enr.Record
 	t.Log("Gost key", hex.EncodeToString(privkey_gost.Raw()))
-	if err := SignV4[gost3410.PrivateKey,gost3410.PublicKey](&r, privkey_gost); err != nil {
+	if err := SignV4[gost3410.PrivateKey, gost3410.PublicKey](&r, privkey_gost); err != nil {
 		t.Fatal(err)
 	}
 

@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/mock_private"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/mock_private"
 	"github.com/stretchr/testify/require"
 )
 

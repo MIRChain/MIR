@@ -27,9 +27,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore[nist.PrivateKey]) {
@@ -38,7 +38,7 @@ func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore[nis
 		t.Fatal(err)
 	}
 	if encrypted {
-		ks = &keyStorePassphrase[nist.PrivateKey,nist.PublicKey]{d, veryLightScryptN, veryLightScryptP, true}
+		ks = &keyStorePassphrase[nist.PrivateKey, nist.PublicKey]{d, veryLightScryptN, veryLightScryptP, true}
 	} else {
 		ks = &keyStorePlain[nist.PrivateKey]{d}
 	}
@@ -50,7 +50,7 @@ func TestKeyStorePlain(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	pass := "" // not used but required by API
-	k1, account, err := storeNewKey[nist.PrivateKey,nist.PublicKey](ks, rand.Reader, pass)
+	k1, account, err := storeNewKey[nist.PrivateKey, nist.PublicKey](ks, rand.Reader, pass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestKeyStorePassphrase(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	pass := "foo"
-	k1, account, err := storeNewKey[nist.PrivateKey,nist.PublicKey](ks, rand.Reader, pass)
+	k1, account, err := storeNewKey[nist.PrivateKey, nist.PublicKey](ks, rand.Reader, pass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestKeyStorePassphraseDecryptionFail(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	pass := "foo"
-	k1, account, err := storeNewKey[nist.PrivateKey,nist.PublicKey](ks, rand.Reader, pass)
+	k1, account, err := storeNewKey[nist.PrivateKey, nist.PublicKey](ks, rand.Reader, pass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestImportPreSaleKey(t *testing.T) {
 	// with password "foo"
 	fileContent := "{\"encseed\": \"26d87f5f2bf9835f9a47eefae571bc09f9107bb13d54ff12a4ec095d01f83897494cf34f7bed2ed34126ecba9db7b62de56c9d7cd136520a0427bfb11b8954ba7ac39b90d4650d3448e31185affcd74226a68f1e94b1108e6e0a4a91cdd83eba\", \"ethaddr\": \"d4584b5f6229b7be90727b0fc8c6b91bb427821f\", \"email\": \"gustav.simonsson@gmail.com\", \"btcaddr\": \"1EVknXyFC68kKNLkh6YnKzW41svSRoaAcx\"}"
 	pass := "foo"
-	account, _, err := importPreSaleKey[nist.PrivateKey,nist.PublicKey](ks, []byte(fileContent), pass)
+	account, _, err := importPreSaleKey[nist.PrivateKey, nist.PublicKey](ks, []byte(fileContent), pass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestV1_1(t *testing.T) {
 
 func TestV1_2(t *testing.T) {
 	t.Parallel()
-	ks := &keyStorePassphrase[nist.PrivateKey,nist.PublicKey]{"testdata/v1", LightScryptN, LightScryptP, true}
+	ks := &keyStorePassphrase[nist.PrivateKey, nist.PublicKey]{"testdata/v1", LightScryptN, LightScryptP, true}
 	addr := common.HexToAddress("cb61d5a9c4896fb9658090b597ef0e7be6f7b67e")
 	file := "testdata/v1/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e"
 	k, err := ks.GetKey(addr, file, "g")
@@ -248,7 +248,7 @@ func loadKeyStoreTestV1(file string, t *testing.T) map[string]KeyStoreTestV1 {
 
 func TestKeyForDirectICAP(t *testing.T) {
 	t.Parallel()
-	key := NewKeyForDirectICAP[nist.PrivateKey,nist.PublicKey](rand.Reader)
+	key := NewKeyForDirectICAP[nist.PrivateKey, nist.PublicKey](rand.Reader)
 	if !strings.HasPrefix(key.Address.Hex(), "0x00") {
 		t.Errorf("Expected first address byte to be zero, have: %s", key.Address.Hex())
 	}

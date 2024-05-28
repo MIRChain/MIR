@@ -4,14 +4,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
-type Engine [P crypto.PublicKey] interface {
+type Engine[P crypto.PublicKey] interface {
 	Address() common.Address
 	Author(header *types.Header[P]) (common.Address, error)
 	ExtractGenesisValidators(header *types.Header[P]) ([]common.Address, error)

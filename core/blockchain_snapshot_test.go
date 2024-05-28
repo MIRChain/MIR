@@ -28,19 +28,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
 )
 
 // snapshotTestBasic wraps the common testing fields in the snapshot tests.
-type snapshotTestBasic [P crypto.PublicKey] struct {
+type snapshotTestBasic[P crypto.PublicKey] struct {
 	chainBlocks   int    // Number of blocks to generate for the canonical chain
 	snapshotBlock uint64 // Block number of the relevant snapshot disk layer
 	commitBlock   uint64 // Block number for which to commit the state to disk
@@ -212,7 +212,7 @@ func (basic *snapshotTestBasic[P]) teardown() {
 
 // snapshotTest is a test case type for normal snapshot recovery.
 // It can be used for testing that restart Geth normally.
-type snapshotTest [P crypto.PublicKey] struct {
+type snapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 }
 
@@ -235,7 +235,7 @@ func (snaptest *snapshotTest[P]) test(t *testing.T) {
 
 // crashSnapshotTest is a test case type for innormal snapshot recovery.
 // It can be used for testing that restart Geth after the crash.
-type crashSnapshotTest [P crypto.PublicKey] struct {
+type crashSnapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 }
 
@@ -280,7 +280,7 @@ func (snaptest *crashSnapshotTest[P]) test(t *testing.T) {
 // - restart without enabling the snapshot
 // - insert a few blocks
 // - restart with enabling the snapshot again
-type gappedSnapshotTest [P crypto.PublicKey] struct {
+type gappedSnapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 	gapped int // Number of blocks to insert without enabling snapshot
 }
@@ -323,7 +323,7 @@ func (snaptest *gappedSnapshotTest[P]) test(t *testing.T) {
 // - have a complete snapshot
 // - set the head to a lower point
 // - restart
-type setHeadSnapshotTest [P crypto.PublicKey] struct {
+type setHeadSnapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 	setHead uint64 // Block number to set head back to
 }
@@ -354,7 +354,7 @@ func (snaptest *setHeadSnapshotTest[P]) test(t *testing.T) {
 // - commit the snapshot
 // - crash
 // - restart again
-type restartCrashSnapshotTest[P crypto.PublicKey]  struct {
+type restartCrashSnapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 	newBlocks int
 }
@@ -400,7 +400,7 @@ func (snaptest *restartCrashSnapshotTest[P]) test(t *testing.T) {
 // - restart, insert more blocks without enabling the snapshot
 // - restart again with enabling the snapshot
 // - crash
-type wipeCrashSnapshotTest [P crypto.PublicKey] struct {
+type wipeCrashSnapshotTest[P crypto.PublicKey] struct {
 	snapshotTestBasic[P]
 	newBlocks int
 }

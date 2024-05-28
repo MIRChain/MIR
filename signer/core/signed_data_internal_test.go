@@ -21,8 +21,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func TestBytesPadding(t *testing.T) {

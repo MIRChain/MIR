@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint.

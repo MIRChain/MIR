@@ -3,8 +3,8 @@ package eth
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 )
 

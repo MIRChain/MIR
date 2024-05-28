@@ -24,17 +24,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/leveldb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/log"
 	"github.com/olekukonko/tablewriter"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/leveldb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.
-type freezerdb [P crypto.PublicKey] struct {
+type freezerdb[P crypto.PublicKey] struct {
 	ethdb.KeyValueStore
 	ethdb.AncientStore
 }

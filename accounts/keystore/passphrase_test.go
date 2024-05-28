@@ -20,8 +20,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 const (
@@ -41,11 +41,11 @@ func TestKeyEncryptDecrypt(t *testing.T) {
 	// Do a few rounds of decryption and encryption
 	for i := 0; i < 3; i++ {
 		// Try a bad password first
-		if _, err := DecryptKey[nist.PrivateKey,nist.PublicKey](keyjson, password+"bad"); err == nil {
+		if _, err := DecryptKey[nist.PrivateKey, nist.PublicKey](keyjson, password+"bad"); err == nil {
 			t.Errorf("test %d: json key decrypted with bad password", i)
 		}
 		// Decrypt with the correct password
-		key, err := DecryptKey[nist.PrivateKey,nist.PublicKey](keyjson, password)
+		key, err := DecryptKey[nist.PrivateKey, nist.PublicKey](keyjson, password)
 		if err != nil {
 			t.Fatalf("test %d: json key failed to decrypt: %v", i, err)
 		}
@@ -54,7 +54,7 @@ func TestKeyEncryptDecrypt(t *testing.T) {
 		}
 		// Recrypt with a new password and start over
 		password += "new data appended"
-		if keyjson, err = EncryptKey[nist.PrivateKey,nist.PublicKey](key, password, veryLightScryptN, veryLightScryptP); err != nil {
+		if keyjson, err = EncryptKey[nist.PrivateKey, nist.PublicKey](key, password, veryLightScryptN, veryLightScryptP); err != nil {
 			t.Errorf("test %d: failed to recrypt key %v", i, err)
 		}
 	}

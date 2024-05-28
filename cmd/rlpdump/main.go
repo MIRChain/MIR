@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var (

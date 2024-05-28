@@ -22,11 +22,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
-type keyStorePlain [T crypto.PrivateKey] struct {
+type keyStorePlain[T crypto.PrivateKey] struct {
 	keysDirPath string
 }
 

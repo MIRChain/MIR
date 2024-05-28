@@ -21,8 +21,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common"
 )
 
 // typeWithoutStringer is a alias for the Type type which simply doesn't implement

@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 // Tests that data bitset encoding and decoding works and is bijective.

@@ -29,11 +29,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"github.com/pavelkrolevets/MIR-pro/common"
+
+	"github.com/MIRChain/MIR/common"
 )
 
-
-func (ks keyStorePassphrase[T,P]) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
+func (ks keyStorePassphrase[T, P]) GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error) {
 	fd, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (ks keyStorePassphrase[T,P]) GetKeyCsp(addr common.Address, filename string
 	return key, nil
 }
 
-func (ks keyStorePassphrase[T,P]) StoreKeyCsp(filename string, key *KeyCsp) error {
+func (ks keyStorePassphrase[T, P]) StoreKeyCsp(filename string, key *KeyCsp) error {
 	keyjson, err := json.Marshal(key)
 	if err != nil {
 		return err

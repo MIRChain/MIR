@@ -21,15 +21,15 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Test chain parameters.
@@ -41,10 +41,10 @@ var (
 )
 
 // The common prefix of all test chains:
-var testChainBase = newTestChain[nist.PrivateKey,nist.PublicKey](blockCacheMaxItems+200, testGenesis)
+var testChainBase = newTestChain[nist.PrivateKey, nist.PublicKey](blockCacheMaxItems+200, testGenesis)
 
 // Different forks on top of the base chain:
-var testChainForkLightA, testChainForkLightB, testChainForkHeavy *testChain[nist.PrivateKey,nist.PublicKey]
+var testChainForkLightA, testChainForkLightB, testChainForkHeavy *testChain[nist.PrivateKey, nist.PublicKey]
 
 func init() {
 	var forkLen = int(fullMaxForkAncestry + 50)
@@ -56,7 +56,7 @@ func init() {
 	wg.Wait()
 }
 
-type testChain [T crypto.PrivateKey,P crypto.PublicKey] struct {
+type testChain[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	genesis  *types.Block[P]
 	chain    []common.Hash
 	headerm  map[common.Hash]*types.Header[P]
@@ -66,8 +66,8 @@ type testChain [T crypto.PrivateKey,P crypto.PublicKey] struct {
 }
 
 // newTestChain creates a blockchain of the given length.
-func newTestChain[T crypto.PrivateKey,P crypto.PublicKey](length int, genesis *types.Block[P]) *testChain[T,P] {
-	tc := new(testChain[T,P]).copy(length)
+func newTestChain[T crypto.PrivateKey, P crypto.PublicKey](length int, genesis *types.Block[P]) *testChain[T, P] {
+	tc := new(testChain[T, P]).copy(length)
 	tc.genesis = genesis
 	tc.chain = append(tc.chain, genesis.Hash())
 	tc.headerm[tc.genesis.Hash()] = tc.genesis.Header()
@@ -78,7 +78,7 @@ func newTestChain[T crypto.PrivateKey,P crypto.PublicKey](length int, genesis *t
 }
 
 // makeFork creates a fork on top of the test chain.
-func (tc *testChain[T,P]) makeFork(length int, heavy bool, seed byte) *testChain[T,P] {
+func (tc *testChain[T, P]) makeFork(length int, heavy bool, seed byte) *testChain[T, P] {
 	fork := tc.copy(tc.len() + length)
 	fork.generate(length, seed, tc.headBlock(), heavy)
 	return fork
@@ -86,15 +86,15 @@ func (tc *testChain[T,P]) makeFork(length int, heavy bool, seed byte) *testChain
 
 // shorten creates a copy of the chain with the given length. It panics if the
 // length is longer than the number of available blocks.
-func (tc *testChain[T,P]) shorten(length int) *testChain[T,P] {
+func (tc *testChain[T, P]) shorten(length int) *testChain[T, P] {
 	if length > tc.len() {
 		panic(fmt.Errorf("can't shorten test chain to %d blocks, it's only %d blocks long", length, tc.len()))
 	}
 	return tc.copy(length)
 }
 
-func (tc *testChain[T,P]) copy(newlen int) *testChain[T,P] {
-	cpy := &testChain[T,P]{
+func (tc *testChain[T, P]) copy(newlen int) *testChain[T, P] {
+	cpy := &testChain[T, P]{
 		genesis:  tc.genesis,
 		headerm:  make(map[common.Hash]*types.Header[P], newlen),
 		blockm:   make(map[common.Hash]*types.Block[P], newlen),
@@ -116,11 +116,11 @@ func (tc *testChain[T,P]) copy(newlen int) *testChain[T,P] {
 // the returned hash chain is ordered head->parent. In addition, every 22th block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func (tc *testChain[T,P]) generate(n int, seed byte, parent *types.Block[P], heavy bool) {
+func (tc *testChain[T, P]) generate(n int, seed byte, parent *types.Block[P], heavy bool) {
 	// start := time.Now()
 	// defer func() { fmt.Printf("test chain generated in %v\n", time.Since(start)) }()
 
-	blocks, receipts := core.GenerateChain[P](params.TestChainConfig, parent,  ethash.NewFaker[P](), testDB, n, func(i int, block *core.BlockGen[P]) {
+	blocks, receipts := core.GenerateChain[P](params.TestChainConfig, parent, ethash.NewFaker[P](), testDB, n, func(i int, block *core.BlockGen[P]) {
 		block.SetCoinbase(common.Address{seed})
 		// If a heavy chain is requested, delay blocks to raise difficulty
 		if heavy {
@@ -130,15 +130,15 @@ func (tc *testChain[T,P]) generate(n int, seed byte, parent *types.Block[P], hea
 		if parent == tc.genesis && i%22 == 0 {
 			signer := types.MakeSigner[P](params.TestChainConfig, block.Number())
 			var key T
-			switch t:= any(&testKey).(type){
+			switch t := any(&testKey).(type) {
 			case *nist.PrivateKey:
-				tt:=any(&key).(*nist.PrivateKey)
+				tt := any(&key).(*nist.PrivateKey)
 				*tt = *t
 			case *gost3410.PrivateKey:
-				tt:=any(&key).(*gost3410.PrivateKey)
+				tt := any(&key).(*gost3410.PrivateKey)
 				*tt = *t
 			}
-			tx, err := types.SignTx[T,P](types.NewTransaction[P](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+			tx, err := types.SignTx[T, P](types.NewTransaction[P](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -167,28 +167,28 @@ func (tc *testChain[T,P]) generate(n int, seed byte, parent *types.Block[P], hea
 }
 
 // len returns the total number of blocks in the chain.
-func (tc *testChain[T,P]) len() int {
+func (tc *testChain[T, P]) len() int {
 	return len(tc.chain)
 }
 
 // headBlock returns the head of the chain.
-func (tc *testChain[T,P]) headBlock() *types.Block[P] {
+func (tc *testChain[T, P]) headBlock() *types.Block[P] {
 	return tc.blockm[tc.chain[len(tc.chain)-1]]
 }
 
 // td returns the total difficulty of the given block.
-func (tc *testChain[T,P]) td(hash common.Hash) *big.Int {
+func (tc *testChain[T, P]) td(hash common.Hash) *big.Int {
 	return tc.tdm[hash]
 }
 
 // headersByHash returns headers in order from the given hash.
-func (tc *testChain[T,P]) headersByHash(origin common.Hash, amount int, skip int, reverse bool) []*types.Header[P] {
+func (tc *testChain[T, P]) headersByHash(origin common.Hash, amount int, skip int, reverse bool) []*types.Header[P] {
 	num, _ := tc.hashToNumber(origin)
 	return tc.headersByNumber(num, amount, skip, reverse)
 }
 
 // headersByNumber returns headers from the given number.
-func (tc *testChain[T,P]) headersByNumber(origin uint64, amount int, skip int, reverse bool) []*types.Header[P] {
+func (tc *testChain[T, P]) headersByNumber(origin uint64, amount int, skip int, reverse bool) []*types.Header[P] {
 	result := make([]*types.Header[P], 0, amount)
 
 	if !reverse {
@@ -208,7 +208,7 @@ func (tc *testChain[T,P]) headersByNumber(origin uint64, amount int, skip int, r
 }
 
 // receipts returns the receipts of the given block hashes.
-func (tc *testChain[T,P]) receipts(hashes []common.Hash) [][]*types.Receipt[P] {
+func (tc *testChain[T, P]) receipts(hashes []common.Hash) [][]*types.Receipt[P] {
 	results := make([][]*types.Receipt[P], 0, len(hashes))
 	for _, hash := range hashes {
 		if receipt, ok := tc.receiptm[hash]; ok {
@@ -219,7 +219,7 @@ func (tc *testChain[T,P]) receipts(hashes []common.Hash) [][]*types.Receipt[P] {
 }
 
 // bodies returns the block bodies of the given block hashes.
-func (tc *testChain[T,P]) bodies(hashes []common.Hash) ([][]*types.Transaction[P], [][]*types.Header[P]) {
+func (tc *testChain[T, P]) bodies(hashes []common.Hash) ([][]*types.Transaction[P], [][]*types.Header[P]) {
 	transactions := make([][]*types.Transaction[P], 0, len(hashes))
 	uncles := make([][]*types.Header[P], 0, len(hashes))
 	for _, hash := range hashes {
@@ -231,7 +231,7 @@ func (tc *testChain[T,P]) bodies(hashes []common.Hash) ([][]*types.Transaction[P
 	return transactions, uncles
 }
 
-func (tc *testChain[T,P]) hashToNumber(target common.Hash) (uint64, bool) {
+func (tc *testChain[T, P]) hashToNumber(target common.Hash) (uint64, bool) {
 	for num, hash := range tc.chain {
 		if hash == target {
 			return uint64(num), true

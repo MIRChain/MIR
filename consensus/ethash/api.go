@@ -19,26 +19,27 @@ package ethash
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 var errEthashStopped = errors.New("ethash stopped")
 
 // API exposes ethash related methods for the RPC interface.
-type API [P crypto.PublicKey] struct {
+type API[P crypto.PublicKey] struct {
 	ethash *Ethash[P]
 }
 
 // GetWork returns a work package for external miner.
 //
 // The work package consists of 3 strings:
-//   result[0] - 32 bytes hex encoded current block header pow-hash
-//   result[1] - 32 bytes hex encoded seed hash used for DAG
-//   result[2] - 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-//   result[3] - hex encoded block number
+//
+//	result[0] - 32 bytes hex encoded current block header pow-hash
+//	result[1] - 32 bytes hex encoded seed hash used for DAG
+//	result[2] - 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
+//	result[3] - hex encoded block number
 func (api *API[P]) GetWork() ([4]string, error) {
 	if api.ethash.remote == nil {
 		return [4]string{}, errors.New("not supported")

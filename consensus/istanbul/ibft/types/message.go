@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 const (

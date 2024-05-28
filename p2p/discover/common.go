@@ -19,12 +19,12 @@ package discover
 import (
 	"net"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/p2p/netutil"
 )
 
 // UDPConn is a network connection on which discovery can operate.
@@ -36,20 +36,20 @@ type UDPConn interface {
 }
 
 // Config holds settings for the discovery listener.
-type Config [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Config[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// These settings are required and configure the UDP listener:
 	PrivateKey T
 
 	// These settings are optional:
 	NetRestrict  *netutil.Netlist   // network whitelist
-	Bootnodes    []*enode.Node[P]      // list of bootstrap nodes
+	Bootnodes    []*enode.Node[P]   // list of bootstrap nodes
 	Unhandled    chan<- ReadPacket  // unhandled packets are sent on this channel
 	Log          log.Logger         // if set, log messages go here
 	ValidSchemes enr.IdentityScheme // allowed identity schemes
 	Clock        mclock.Clock
 }
 
-func (cfg Config[T,P]) withDefaults() Config[T,P] {
+func (cfg Config[T, P]) withDefaults() Config[T, P] {
 	if cfg.Log == nil {
 		cfg.Log = log.Root()
 	}
@@ -63,7 +63,7 @@ func (cfg Config[T,P]) withDefaults() Config[T,P] {
 }
 
 // ListenUDP starts listening for discovery packets on the given UDP socket.
-func ListenUDP [T crypto.PrivateKey, P crypto.PublicKey](c UDPConn, ln *enode.LocalNode[T,P], cfg Config[T,P]) (*UDPv4[T,P], error) {
+func ListenUDP[T crypto.PrivateKey, P crypto.PublicKey](c UDPConn, ln *enode.LocalNode[T, P], cfg Config[T, P]) (*UDPv4[T, P], error) {
 	return ListenV4(c, ln, cfg)
 }
 

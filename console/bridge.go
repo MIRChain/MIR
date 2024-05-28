@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/internal/jsre"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/dop251/goja"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/internal/jsre"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 // bridge is a collection of JavaScript utility methods to bride the .js runtime

@@ -22,14 +22,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/leveldb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/rlp"
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/leveldb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 // reverse reverses the contents of a byte slice. It's used to update random accs

@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 	"github.com/jedisct1/go-minisign"
 	"gopkg.in/urfave/cli.v1"
 )

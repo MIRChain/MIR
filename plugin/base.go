@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	iplugin "github.com/MIRChain/MIR/internal/plugin"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/plugin/initializer"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	iplugin "github.com/pavelkrolevets/MIR-pro/internal/plugin"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/plugin/initializer"
 )
 
 type managedPlugin interface {
@@ -36,8 +36,8 @@ type MetaData struct {
 	Parameters []string `json:"parameters,omitempty"`
 }
 
-type basePlugin [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	pm               *PluginManager[T,P]
+type basePlugin[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	pm               *PluginManager[T, P]
 	pluginInterface  PluginInterfaceName // plugin provider name
 	pluginDefinition *PluginDefinition
 	client           *plugin.Client
@@ -49,11 +49,11 @@ type basePlugin [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 // var basePluginPointerType = reflect.TypeOf(&basePlugin{})
 
-func newBasePlugin[T crypto.PrivateKey, P crypto.PublicKey](pm *PluginManager[T,P], pluginInterface PluginInterfaceName, pluginDefinition PluginDefinition, gateways plugin.PluginSet) (*basePlugin[T,P], error) {
+func newBasePlugin[T crypto.PrivateKey, P crypto.PublicKey](pm *PluginManager[T, P], pluginInterface PluginInterfaceName, pluginDefinition PluginDefinition, gateways plugin.PluginSet) (*basePlugin[T, P], error) {
 	gateways[initializer.ConnectorName] = &initializer.PluginConnector{}
 
 	// build basePlugin
-	return &basePlugin[T,P]{
+	return &basePlugin[T, P]{
 		pm:               pm,
 		pluginInterface:  pluginInterface,
 		logger:           log.New("provider", pluginInterface, "plugin", pluginDefinition.Name, "version", pluginDefinition.Version),
@@ -64,7 +64,7 @@ func newBasePlugin[T crypto.PrivateKey, P crypto.PublicKey](pm *PluginManager[T,
 }
 
 // metadata.Command must be populated correctly here
-func (bp *basePlugin[T,P]) load() error {
+func (bp *basePlugin[T, P]) load() error {
 	// Get plugin distribution path
 	pluginDistFilePath, err := bp.pm.downloader.Download(bp.pluginDefinition)
 	if err != nil {
@@ -113,7 +113,7 @@ func (bp *basePlugin[T,P]) load() error {
 	return nil
 }
 
-func (bp *basePlugin[T,P]) Start() (err error) {
+func (bp *basePlugin[T, P]) Start() (err error) {
 	startTime := time.Now()
 	defer func(startTime time.Time) {
 		if err == nil {
@@ -139,7 +139,7 @@ func (bp *basePlugin[T,P]) Start() (err error) {
 	return
 }
 
-func (bp *basePlugin[T,P]) Stop() error {
+func (bp *basePlugin[T, P]) Stop() error {
 	if bp.client != nil {
 		bp.client.Kill()
 	}
@@ -149,7 +149,7 @@ func (bp *basePlugin[T,P]) Stop() error {
 	return bp.cleanPluginWorkspace()
 }
 
-func (bp *basePlugin[T,P]) cleanPluginWorkspace() error {
+func (bp *basePlugin[T, P]) cleanPluginWorkspace() error {
 	workspace, err := os.Open(bp.pluginWorkspace)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func (bp *basePlugin[T,P]) cleanPluginWorkspace() error {
 	return nil
 }
 
-func (bp *basePlugin[T,P]) init() error {
+func (bp *basePlugin[T, P]) init() error {
 	bp.logger.Info("Initializing plugin")
 	raw, err := bp.dispense(initializer.ConnectorName)
 	if err != nil {
@@ -185,7 +185,7 @@ func (bp *basePlugin[T,P]) init() error {
 	return c.Init(context.Background(), bp.pm.nodeName, rawConfig)
 }
 
-func (bp *basePlugin[T,P]) dispense(name string) (interface{}, error) {
+func (bp *basePlugin[T, P]) dispense(name string) (interface{}, error) {
 	rpcClient, err := bp.client.Client()
 	if err != nil {
 		return nil, err
@@ -193,15 +193,15 @@ func (bp *basePlugin[T,P]) dispense(name string) (interface{}, error) {
 	return rpcClient.Dispense(name)
 }
 
-func (bp *basePlugin[T,P]) Config() *PluginDefinition {
+func (bp *basePlugin[T, P]) Config() *PluginDefinition {
 	return bp.pluginDefinition
 }
 
-func (bp *basePlugin[T,P]) checksum(pluginFile string) (string, error) {
+func (bp *basePlugin[T, P]) checksum(pluginFile string) (string, error) {
 	return getSha256Checksum(pluginFile)
 }
 
-func (bp *basePlugin[T,P]) Info() (PluginInterfaceName, interface{}) {
+func (bp *basePlugin[T, P]) Info() (PluginInterfaceName, interface{}) {
 	info := make(map[string]interface{})
 	info["name"] = bp.pluginDefinition.Name
 	info["version"] = bp.pluginDefinition.Version

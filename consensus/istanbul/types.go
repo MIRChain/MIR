@@ -21,10 +21,10 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Proposal supports retrieving height and serialized block to be used during Istanbul consensus.
@@ -81,9 +81,10 @@ func (v *View) String() string {
 }
 
 // Cmp compares v and y and returns:
-//   -1 if v <  y
-//    0 if v == y
-//   +1 if v >  y
+//
+//	-1 if v <  y
+//	 0 if v == y
+//	+1 if v >  y
 func (v *View) Cmp(y *View) int {
 	if v.Sequence.Cmp(y.Sequence) != 0 {
 		return v.Sequence.Cmp(y.Sequence)
@@ -94,7 +95,7 @@ func (v *View) Cmp(y *View) int {
 	return 0
 }
 
-type Preprepare [P crypto.PublicKey] struct {
+type Preprepare[P crypto.PublicKey] struct {
 	View     *View
 	Proposal Proposal
 }

@@ -20,7 +20,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func TestPeerThroughputSorting(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private/cache"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private/cache"
+	"github.com/MIRChain/MIR/private/engine"
 	gocache "github.com/patrickmn/go-cache"
 )
 

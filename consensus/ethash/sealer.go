@@ -30,11 +30,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 const (
@@ -190,7 +190,7 @@ search:
 // This is the timeout for HTTP requests to notify external miners.
 const remoteSealerTimeout = 1 * time.Second
 
-type remoteSealer [P crypto.PublicKey] struct {
+type remoteSealer[P crypto.PublicKey] struct {
 	works        map[common.Hash]*types.Block[P]
 	rates        map[common.Hash]hashrate
 	currentBlock *types.Block[P]
@@ -203,17 +203,17 @@ type remoteSealer [P crypto.PublicKey] struct {
 	noverify     bool
 	notifyURLs   []string
 	results      chan<- *types.Block[P]
-	workCh       chan *sealTask[P]   // Notification channel to push new work and relative result channel to remote sealer
-	fetchWorkCh  chan *sealWork   // Channel used for remote sealer to fetch mining work
-	submitWorkCh chan *mineResult // Channel used for remote sealer to submit their mining result
-	fetchRateCh  chan chan uint64 // Channel used to gather submitted hash rate for local or remote sealer.
-	submitRateCh chan *hashrate   // Channel used for remote sealer to submit their mining hashrate
+	workCh       chan *sealTask[P] // Notification channel to push new work and relative result channel to remote sealer
+	fetchWorkCh  chan *sealWork    // Channel used for remote sealer to fetch mining work
+	submitWorkCh chan *mineResult  // Channel used for remote sealer to submit their mining result
+	fetchRateCh  chan chan uint64  // Channel used to gather submitted hash rate for local or remote sealer.
+	submitRateCh chan *hashrate    // Channel used for remote sealer to submit their mining hashrate
 	requestExit  chan struct{}
 	exitCh       chan struct{}
 }
 
 // sealTask wraps a seal block with relative result channel for remote sealer thread.
-type sealTask [P crypto.PublicKey] struct {
+type sealTask[P crypto.PublicKey] struct {
 	block   *types.Block[P]
 	results chan<- *types.Block[P]
 }
@@ -339,10 +339,11 @@ func (s *remoteSealer[P]) loop() {
 // makeWork creates a work package for external miner.
 //
 // The work package consists of 3 strings:
-//   result[0], 32 bytes hex encoded current block header pow-hash
-//   result[1], 32 bytes hex encoded seed hash used for DAG
-//   result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-//   result[3], hex encoded block number
+//
+//	result[0], 32 bytes hex encoded current block header pow-hash
+//	result[1], 32 bytes hex encoded seed hash used for DAG
+//	result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
+//	result[3], hex encoded block number
 func (s *remoteSealer[P]) makeWork(block *types.Block[P]) {
 	hash := s.ethash.SealHash(block.Header())
 	s.currentWork[0] = hash.Hex()

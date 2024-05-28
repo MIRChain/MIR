@@ -26,23 +26,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/external"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/external"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/accounts/pluggable"
 
-	// "github.com/pavelkrolevets/MIR-pro/accounts/scwallet"
-	// "github.com/pavelkrolevets/MIR-pro/accounts/usbwallet"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/plugin"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	// "github.com/MIRChain/MIR/accounts/scwallet"
+	// "github.com/MIRChain/MIR/accounts/usbwallet"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/plugin"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 const (
@@ -56,7 +56,7 @@ const (
 // Config represents a small collection of configuration values to fine tune the
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
-type Config [T crypto.PrivateKey, P crypto.PublicKey ] struct {
+type Config[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of geth is "geth". If no
 	// value is specified, the basename of the current executable is used.
@@ -214,7 +214,7 @@ type Config [T crypto.PrivateKey, P crypto.PublicKey ] struct {
 	EnableMultitenancy   bool             `toml:",omitempty"` // comes from MultitenancyFlag flag
 
 	// Mir
-	SignerCert 		*csp.Cert
+	SignerCert *csp.Cert
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
@@ -286,7 +286,7 @@ func DefaultHTTPEndpoint[T crypto.PrivateKey, P crypto.PublicKey]() string {
 
 // WSEndpoint resolves a websocket endpoint based on the configured host interface
 // and port parameters.
-func (c *Config[T,P]) WSEndpoint() string {
+func (c *Config[T, P]) WSEndpoint() string {
 	if c.WSHost == "" {
 		return ""
 	}
@@ -295,18 +295,18 @@ func (c *Config[T,P]) WSEndpoint() string {
 
 // DefaultWSEndpoint returns the websocket endpoint used by default.
 func DefaultWSEndpoint[T crypto.PrivateKey, P crypto.PublicKey]() string {
-	config := &Config[T,P]{WSHost: DefaultWSHost, WSPort: DefaultWSPort}
+	config := &Config[T, P]{WSHost: DefaultWSHost, WSPort: DefaultWSPort}
 	return config.WSEndpoint()
 }
 
 // ExtRPCEnabled returns the indicator whether node enables the external
 // RPC(http, ws or graphql).
-func (c *Config[T,P]) ExtRPCEnabled() bool {
+func (c *Config[T, P]) ExtRPCEnabled() bool {
 	return c.HTTPHost != "" || c.WSHost != ""
 }
 
 // NodeName returns the devp2p node identifier.
-func (c *Config[T,P]) NodeName() string {
+func (c *Config[T, P]) NodeName() string {
 	name := c.name()
 	// Backwards compatibility: previous versions used title-cased "Geth", keep that.
 	if name == "mir" || name == "mir-testnet" {
@@ -323,7 +323,7 @@ func (c *Config[T,P]) NodeName() string {
 	return name
 }
 
-func (c *Config[T,P]) name() string {
+func (c *Config[T, P]) name() string {
 	if c.Name == "" {
 		progname := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
 		if progname == "" {
@@ -344,7 +344,7 @@ var isOldGethResource = map[string]bool{
 }
 
 // ResolvePath resolves path in the instance directory.
-func (c *Config[T,P]) ResolvePath(path string) string {
+func (c *Config[T, P]) ResolvePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
@@ -368,7 +368,7 @@ func (c *Config[T,P]) ResolvePath(path string) string {
 	return filepath.Join(c.instanceDir(), path)
 }
 
-func (c *Config[T,P]) instanceDir() string {
+func (c *Config[T, P]) instanceDir() string {
 	if c.DataDir == "" {
 		return ""
 	}
@@ -378,9 +378,9 @@ func (c *Config[T,P]) instanceDir() string {
 // NodeKey retrieves the currently configured private key of the node, checking
 // first any manually set key, falling back to the one found in the configured
 // data folder. If no key can be found, a new one is generated.
-func (c *Config[T,P]) NodeKey() T {
+func (c *Config[T, P]) NodeKey() T {
 	// Use any specifically configured key.
-	if !reflect.ValueOf(&c.P2P.PrivateKey).Elem().IsZero(){
+	if !reflect.ValueOf(&c.P2P.PrivateKey).Elem().IsZero() {
 		return c.P2P.PrivateKey
 	}
 	// Generate ephemeral key if no datadir is being used.
@@ -413,18 +413,18 @@ func (c *Config[T,P]) NodeKey() T {
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.
-func (c *Config[T,P]) StaticNodes() []*enode.Node[P] {
+func (c *Config[T, P]) StaticNodes() []*enode.Node[P] {
 	return c.parsePersistentNodes(&c.staticNodesWarning, c.ResolvePath(datadirStaticNodes))
 }
 
 // TrustedNodes returns a list of node enode URLs configured as trusted nodes.
-func (c *Config[T,P]) TrustedNodes() []*enode.Node[P] {
+func (c *Config[T, P]) TrustedNodes() []*enode.Node[P] {
 	return c.parsePersistentNodes(&c.trustedNodesWarning, c.ResolvePath(datadirTrustedNodes))
 }
 
 // parsePersistentNodes parses a list of discovery node URLs loaded from a .json
 // file from within the data directory.
-func (c *Config[T,P]) parsePersistentNodes(w *bool, path string) []*enode.Node[P] {
+func (c *Config[T, P]) parsePersistentNodes(w *bool, path string) []*enode.Node[P] {
 	// Short circuit if no node config is present
 	if c.DataDir == "" {
 		return nil
@@ -457,7 +457,7 @@ func (c *Config[T,P]) parsePersistentNodes(w *bool, path string) []*enode.Node[P
 }
 
 // AccountConfig determines the settings for scrypt and keydirectory
-func (c *Config[T,P]) AccountConfig() (int, int, string, error) {
+func (c *Config[T, P]) AccountConfig() (int, int, string, error) {
 	scryptN := keystore.StandardScryptN
 	scryptP := keystore.StandardScryptP
 	if c.UseLightweightKDF {
@@ -487,7 +487,7 @@ func (c *Config[T,P]) AccountConfig() (int, int, string, error) {
 // Quorum
 //
 // Make sure plugin base dir exists
-func (c *Config[T,P]) ResolvePluginBaseDir() error {
+func (c *Config[T, P]) ResolvePluginBaseDir() error {
 	if c.Plugins == nil {
 		return nil
 	}
@@ -509,7 +509,7 @@ func (c *Config[T,P]) ResolvePluginBaseDir() error {
 }
 
 // check if smart-contract-based permissioning is enabled by reading `--permissioned` flag and checking permission config file
-func (c *Config[T,P]) IsPermissionEnabled() bool {
+func (c *Config[T, P]) IsPermissionEnabled() bool {
 	fullPath := filepath.Join(c.DataDir, params.PERMISSION_MODEL_CONFIG)
 	if _, err := os.Stat(fullPath); err != nil {
 		log.Warn(fmt.Sprintf("%s file is missing. Smart-contract-based permission service will be disabled", params.PERMISSION_MODEL_CONFIG), "error", err)
@@ -518,7 +518,7 @@ func (c *Config[T,P]) IsPermissionEnabled() bool {
 	return true
 }
 
-func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T,P]) (*accounts.Manager[P], string, error) {
+func makeAccountManager[T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T, P]) (*accounts.Manager[P], string, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 	var ephemeral string
 	if keydir == "" {
@@ -548,7 +548,7 @@ func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T
 		// If/when we implement some form of lockfile for USB and keystore wallets,
 		// we can have both, but it's very confusing for the user to see the same
 		// accounts in both externally and locally, plus very racey.
-		backends = append(backends, keystore.NewKeyStore[T,P](keydir, scryptN, scryptP))
+		backends = append(backends, keystore.NewKeyStore[T, P](keydir, scryptN, scryptP))
 		// if conf.USB {
 		// 	// Start a USB hub for Ledger hardware wallets
 		// 	if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
@@ -590,7 +590,7 @@ func makeAccountManager [T crypto.PrivateKey, P crypto.PublicKey](conf *Config[T
 
 var warnLock sync.Mutex
 
-func (c *Config[T,P]) warnOnce(w *bool, format string, args ...interface{}) {
+func (c *Config[T, P]) warnOnce(w *bool, format string, args ...interface{}) {
 	warnLock.Lock()
 	defer warnLock.Unlock()
 
@@ -606,7 +606,7 @@ func (c *Config[T,P]) warnOnce(w *bool, format string, args ...interface{}) {
 }
 
 // Mir chain
-func  (c *Config[T,P]) GetSignerCert() (*csp.Cert, error) {
+func (c *Config[T, P]) GetSignerCert() (*csp.Cert, error) {
 	if c.SignerCert != nil {
 		return c.SignerCert, nil
 	}

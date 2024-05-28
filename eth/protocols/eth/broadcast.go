@@ -19,9 +19,9 @@ package eth
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 
 // blockPropagation is a block propagation event, waiting for its turn in the
 // broadcast queue.
-type blockPropagation [P crypto.PublicKey] struct {
+type blockPropagation[P crypto.PublicKey] struct {
 	block *types.Block[P]
 	td    *big.Int
 }
@@ -40,7 +40,7 @@ type blockPropagation [P crypto.PublicKey] struct {
 // broadcastBlocks is a write loop that multiplexes blocks and block accouncements
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer[T,P]) broadcastBlocks() {
+func (p *Peer[T, P]) broadcastBlocks() {
 	for {
 		select {
 		case prop := <-p.queuedBlocks:
@@ -64,7 +64,7 @@ func (p *Peer[T,P]) broadcastBlocks() {
 // broadcastTransactions is a write loop that schedules transaction broadcasts
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer[T,P]) broadcastTransactions() {
+func (p *Peer[T, P]) broadcastTransactions() {
 	var (
 		queue  []common.Hash         // Queue of hashes to broadcast as full transactions
 		done   chan struct{}         // Non-nil if background broadcaster is running
@@ -131,7 +131,7 @@ func (p *Peer[T,P]) broadcastTransactions() {
 // announceTransactions is a write loop that schedules transaction broadcasts
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer[T,P]) announceTransactions() {
+func (p *Peer[T, P]) announceTransactions() {
 	var (
 		queue  []common.Hash         // Queue of hashes to announce as transaction stubs
 		done   chan struct{}         // Non-nil if background announcer is running

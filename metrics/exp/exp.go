@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/metrics/prometheus"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/metrics/prometheus"
 )
 
 type exp struct {

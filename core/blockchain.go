@@ -30,27 +30,27 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/common/prque"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/privatecache"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/qlight"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/common/prque"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/qlight"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 var (
@@ -163,14 +163,14 @@ var defaultCacheConfig = &CacheConfig{
 // important to note that GetBlock can return any block and does not need to be
 // included in the canonical one where as GetBlockByNumber always represents the
 // canonical chain.
-type BlockChain [P crypto.PublicKey] struct {
+type BlockChain[P crypto.PublicKey] struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
+	db     ethdb.Database    // Low level persistent database to store final content in
 	snaps  *snapshot.Tree[P] // Snapshot tree for fast trie leaf access
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	triegc *prque.Prque      // Priority queue mapping block numbers to tries to gc
+	gcproc time.Duration     // Accumulates canonical block processing for trie dumping
 
 	// txLookupLimit is the maximum number of blocks from head whose tx indices
 	// are reserved:
@@ -213,11 +213,11 @@ type BlockChain [P crypto.PublicKey] struct {
 	processor  Processor[P] // Block transaction processor interface
 	vmConfig   vm.Config[P]
 
-	shouldPreserve  func(*types.Block[P]) bool        // Function used to determine whether should preserve the given block.
+	shouldPreserve  func(*types.Block[P]) bool     // Function used to determine whether should preserve the given block.
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 
 	// Quorum
-	quorumConfig    *QuorumChainConfig                                               // quorum chain config holds all the possible configuration fields for GoQuorum
+	quorumConfig    *QuorumChainConfig                                                  // quorum chain config holds all the possible configuration fields for GoQuorum
 	setPrivateState func([]*types.Log, *state.StateDB[P], types.PrivateStateIdentifier) // Function to check extension and set private state
 
 	// privateStateManager manages private state(s) for this blockchain
@@ -2557,7 +2557,7 @@ func (bc *BlockChain[P]) maintainTxIndex(ancients uint64) {
 	}
 	// Any reindexing done, start listening to chain events and moving the index window
 	var (
-		done   chan struct{}                  // Non-nil if background unindexing or reindexing routine is active.
+		done   chan struct{}                     // Non-nil if background unindexing or reindexing routine is active.
 		headCh = make(chan ChainHeadEvent[P], 1) // Buffered to avoid locking up the event feed
 	)
 	sub := bc.SubscribeChainHeadEvent(headCh)

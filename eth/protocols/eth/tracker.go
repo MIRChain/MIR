@@ -19,7 +19,7 @@ package eth
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/p2p/tracker"
+	"github.com/MIRChain/MIR/p2p/tracker"
 )
 
 // requestTracker is a singleton tracker for eth/66 and newer request times.

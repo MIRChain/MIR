@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 const (

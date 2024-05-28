@@ -19,8 +19,8 @@ package vm
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func TestJumpDestAnalysis(t *testing.T) {

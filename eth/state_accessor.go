@@ -22,16 +22,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // stateAtBlock retrieves the state database associated with a certain block.
@@ -39,7 +39,7 @@ import (
 // are attempted to be reexecuted to generate the desired state. The optional
 // base layer statedb can be passed then it's regarded as the statedb of the
 // parent block.
-func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (statedb *state.StateDB[P], privateStateDB mps.PrivateStateRepository[P], err error) {
+func (eth *Ethereum[T, P]) stateAtBlock(block *types.Block[P], reexec uint64, base *state.StateDB[P], checkLive bool) (statedb *state.StateDB[P], privateStateDB mps.PrivateStateRepository[P], err error) {
 	var (
 		current  *types.Block[P]
 		database state.Database
@@ -165,7 +165,7 @@ func (eth *Ethereum[T,P]) stateAtBlock(block *types.Block[P], reexec uint64, bas
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error) {
+func (eth *Ethereum[T, P]) stateAtTransaction(ctx context.Context, block *types.Block[P], txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB[P], *state.StateDB[P], mps.PrivateStateRepository[P], error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, nil, nil, errors.New("no transaction in genesis")
@@ -224,7 +224,7 @@ func (eth *Ethereum[T,P]) stateAtTransaction(ctx context.Context, block *types.B
 
 // Quorum
 
-func (eth *Ethereum[T,P]) GetBlockchain() *core.BlockChain[P] {
+func (eth *Ethereum[T, P]) GetBlockchain() *core.BlockChain[P] {
 	return eth.BlockChain()
 }
 
@@ -241,7 +241,7 @@ func applyInnerTransaction[P crypto.PublicKey](bc *core.BlockChain[P], stateDB *
 // transaction. The effect is that when the private tx payload is resolved using the privacy manager the private part of
 // the transaction is not retrieved and the transaction is being executed as if the node/private state is not party to
 // the transaction.
-func (eth *Ethereum[T,P]) clearMessageDataIfNonParty(msg types.Message, psm *mps.PrivateStateMetadata) types.Message {
+func (eth *Ethereum[T, P]) clearMessageDataIfNonParty(msg types.Message, psm *mps.PrivateStateMetadata) types.Message {
 	if msg.IsPrivate() {
 		_, managedParties, _, _, _ := private.Ptm.Receive(common.BytesToEncryptedPayloadHash(msg.Data()))
 

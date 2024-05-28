@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 type bytesBacked interface {
@@ -149,7 +149,7 @@ func Bloom9[P crypto.PublicKey](data []byte) []byte {
 // bloomValues returns the bytes (index-value pairs) to set for the given data
 func bloomValues[P crypto.PublicKey](data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		sha := hasherPoolNist.Get().(crypto.KeccakState)
 		sha.Reset()

@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/MIRChain/MIR/core/types"
 )
 
 func newTestServer() *Server {

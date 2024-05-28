@@ -25,13 +25,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/p2p/netutil"
 )
 
 const (
@@ -44,7 +44,7 @@ const (
 // LocalNode produces the signed node record of a local node, i.e. a node run in the
 // current process. Setting ENR entries via the Set method updates the record. A new version
 // of the record is signed on demand when the Node method is called.
-type LocalNode [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type LocalNode[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	cur atomic.Value // holds a non-nil node pointer while the record is up-to-date.
 	id  ID
 	key T
@@ -65,11 +65,11 @@ type lnEndpoint struct {
 }
 
 // NewLocalNode creates a local node.
-func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T) *LocalNode[T,P] {
-	var ln *LocalNode[T,P]
+func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey](db *DB[P], prvKey T) *LocalNode[T, P] {
+	var ln *LocalNode[T, P]
 	switch key := any(&prvKey).(type) {
 	case *nist.PrivateKey:
-		ln = &LocalNode[T,P]{
+		ln = &LocalNode[T, P]{
 			id:      PubkeyToIDV4(*key.Public()),
 			db:      db,
 			key:     prvKey,
@@ -82,7 +82,7 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 			},
 		}
 	case *gost3410.PrivateKey:
-		ln = &LocalNode[T,P]{
+		ln = &LocalNode[T, P]{
 			id:      PubkeyToIDV4(*key.Public()),
 			db:      db,
 			key:     prvKey,
@@ -95,7 +95,7 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 			},
 		}
 	case *csp.Cert:
-		ln = &LocalNode[T,P]{
+		ln = &LocalNode[T, P]{
 			id:      PubkeyToIDV4(key.Public()),
 			db:      db,
 			key:     prvKey,
@@ -114,12 +114,12 @@ func NewLocalNode[T crypto.PrivateKey, P crypto.PublicKey] (db *DB[P], prvKey T)
 }
 
 // Database returns the node database associated with the local node.
-func (ln *LocalNode[T,P]) Database() *DB[P] {
+func (ln *LocalNode[T, P]) Database() *DB[P] {
 	return ln.db
 }
 
 // Node returns the current version of the local node record.
-func (ln *LocalNode[T,P]) Node() *Node[P] {
+func (ln *LocalNode[T, P]) Node() *Node[P] {
 	n := ln.cur.Load().(*Node[P])
 	if n != nil {
 		return n
@@ -132,7 +132,7 @@ func (ln *LocalNode[T,P]) Node() *Node[P] {
 }
 
 // Seq returns the current sequence number of the local node record.
-func (ln *LocalNode[T,P]) Seq() uint64 {
+func (ln *LocalNode[T, P]) Seq() uint64 {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -140,21 +140,21 @@ func (ln *LocalNode[T,P]) Seq() uint64 {
 }
 
 // ID returns the local node ID.
-func (ln *LocalNode[T,P]) ID() ID {
+func (ln *LocalNode[T, P]) ID() ID {
 	return ln.id
 }
 
 // Set puts the given entry into the local record, overwriting any existing value.
 // Use Set*IP and SetFallbackUDP to set IP addresses and UDP port, otherwise they'll
 // be overwritten by the endpoint predictor.
-func (ln *LocalNode[T,P]) Set(e enr.Entry) {
+func (ln *LocalNode[T, P]) Set(e enr.Entry) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
 	ln.set(e)
 }
 
-func (ln *LocalNode[T,P]) set(e enr.Entry) {
+func (ln *LocalNode[T, P]) set(e enr.Entry) {
 	val, exists := ln.entries[e.ENRKey()]
 	if !exists || !reflect.DeepEqual(val, e) {
 		ln.entries[e.ENRKey()] = e
@@ -163,14 +163,14 @@ func (ln *LocalNode[T,P]) set(e enr.Entry) {
 }
 
 // Delete removes the given entry from the local record.
-func (ln *LocalNode[T,P]) Delete(e enr.Entry) {
+func (ln *LocalNode[T, P]) Delete(e enr.Entry) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
 	ln.delete(e)
 }
 
-func (ln *LocalNode[T,P]) delete(e enr.Entry) {
+func (ln *LocalNode[T, P]) delete(e enr.Entry) {
 	_, exists := ln.entries[e.ENRKey()]
 	if exists {
 		delete(ln.entries, e.ENRKey())
@@ -178,7 +178,7 @@ func (ln *LocalNode[T,P]) delete(e enr.Entry) {
 	}
 }
 
-func (ln *LocalNode[T,P]) endpointForIP(ip net.IP) *lnEndpoint {
+func (ln *LocalNode[T, P]) endpointForIP(ip net.IP) *lnEndpoint {
 	if ip.To4() != nil {
 		return &ln.endpoint4
 	}
@@ -187,7 +187,7 @@ func (ln *LocalNode[T,P]) endpointForIP(ip net.IP) *lnEndpoint {
 
 // SetStaticIP sets the local IP to the given one unconditionally.
 // This disables endpoint prediction.
-func (ln *LocalNode[T,P]) SetStaticIP(ip net.IP) {
+func (ln *LocalNode[T, P]) SetStaticIP(ip net.IP) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -197,7 +197,7 @@ func (ln *LocalNode[T,P]) SetStaticIP(ip net.IP) {
 
 // SetFallbackIP sets the last-resort IP address. This address is used
 // if no endpoint prediction can be made and no static IP is set.
-func (ln *LocalNode[T,P]) SetFallbackIP(ip net.IP) {
+func (ln *LocalNode[T, P]) SetFallbackIP(ip net.IP) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -207,7 +207,7 @@ func (ln *LocalNode[T,P]) SetFallbackIP(ip net.IP) {
 
 // SetFallbackUDP sets the last-resort UDP-on-IPv4 port. This port is used
 // if no endpoint prediction can be made.
-func (ln *LocalNode[T,P]) SetFallbackUDP(port int) {
+func (ln *LocalNode[T, P]) SetFallbackUDP(port int) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -218,7 +218,7 @@ func (ln *LocalNode[T,P]) SetFallbackUDP(port int) {
 
 // UDPEndpointStatement should be called whenever a statement about the local node's
 // UDP endpoint is received. It feeds the local endpoint predictor.
-func (ln *LocalNode[T,P]) UDPEndpointStatement(fromaddr, endpoint *net.UDPAddr) {
+func (ln *LocalNode[T, P]) UDPEndpointStatement(fromaddr, endpoint *net.UDPAddr) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -228,7 +228,7 @@ func (ln *LocalNode[T,P]) UDPEndpointStatement(fromaddr, endpoint *net.UDPAddr) 
 
 // UDPContact should be called whenever the local node has announced itself to another node
 // via UDP. It feeds the local endpoint predictor.
-func (ln *LocalNode[T,P]) UDPContact(toaddr *net.UDPAddr) {
+func (ln *LocalNode[T, P]) UDPContact(toaddr *net.UDPAddr) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
@@ -237,7 +237,7 @@ func (ln *LocalNode[T,P]) UDPContact(toaddr *net.UDPAddr) {
 }
 
 // updateEndpoints updates the record with predicted endpoints.
-func (ln *LocalNode[T,P]) updateEndpoints() {
+func (ln *LocalNode[T, P]) updateEndpoints() {
 	ip4, udp4 := ln.endpoint4.get()
 	ip6, udp6 := ln.endpoint6.get()
 
@@ -291,11 +291,11 @@ func predictAddr(t *netutil.IPTracker) (net.IP, int) {
 	return ip, port
 }
 
-func (ln *LocalNode[T,P]) invalidate() {
+func (ln *LocalNode[T, P]) invalidate() {
 	ln.cur.Store((*Node[P])(nil))
 }
 
-func (ln *LocalNode[T,P]) sign() {
+func (ln *LocalNode[T, P]) sign() {
 	if n := ln.cur.Load().(*Node[P]); n != nil {
 		return // no changes
 	}
@@ -306,7 +306,7 @@ func (ln *LocalNode[T,P]) sign() {
 	}
 	ln.bumpSeq()
 	r.SetSeq(ln.seq)
-	if err := SignV4[T,P](&r, ln.key); err != nil {
+	if err := SignV4[T, P](&r, ln.key); err != nil {
 		panic(fmt.Errorf("enode: can't sign record: %v", err))
 	}
 	n, err := New[P](enr.SchemeMap{"v4": V4ID[P]{}}, &r)
@@ -317,7 +317,7 @@ func (ln *LocalNode[T,P]) sign() {
 	log.Info("New local node record", "seq", ln.seq, "id", n.ID(), "ip", n.IP(), "udp", n.UDP(), "tcp", n.TCP())
 }
 
-func (ln *LocalNode[T,P]) bumpSeq() {
+func (ln *LocalNode[T, P]) bumpSeq() {
 	ln.seq++
 	ln.db.storeLocalSeq(ln.id, ln.seq)
 }

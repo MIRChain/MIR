@@ -23,12 +23,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

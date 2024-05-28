@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 type gethrpc struct {

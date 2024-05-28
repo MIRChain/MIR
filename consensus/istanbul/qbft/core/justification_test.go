@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/consensus/istanbul/validator"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 // Tests combinations of justifications that evaluate to true.
@@ -83,7 +83,7 @@ func testParameterizedCase[T crypto.PrivateKey, P crypto.PublicKey](
 
 	pp := istanbul.NewRoundRobinProposerPolicy()
 	pp.Use(istanbul.ValidatorSortByByte())
-	validatorSet := validator.NewSet(generateValidators[T,P](quorumSize), pp)
+	validatorSet := validator.NewSet(generateValidators[T, P](quorumSize), pp)
 	block := makeBlock[P](1)
 	var round int64 = 10
 	var targetPreparedRound int64 = 5
@@ -159,11 +159,11 @@ func createPrepareMessage(from common.Address, round int64, preparedBlock istanb
 	return qbfttypes.NewPrepareWithSigAndSource(big.NewInt(1), big.NewInt(round), preparedBlock.Hash(), nil, from)
 }
 
-func generateValidators[T crypto.PrivateKey,P crypto.PublicKey](n int) []common.Address {
+func generateValidators[T crypto.PrivateKey, P crypto.PublicKey](n int) []common.Address {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey[T]()
-		switch t:=any(&privateKey).(type){
+		switch t := any(&privateKey).(type) {
 		case *nist.PrivateKey:
 			vals = append(vals, crypto.PubkeyToAddress(*t.Public()))
 		case *gost3410.PrivateKey:
@@ -173,7 +173,7 @@ func generateValidators[T crypto.PrivateKey,P crypto.PublicKey](n int) []common.
 	return vals
 }
 
-func makeBlock[P crypto.PublicKey] (number int64) *types.Block[P] {
+func makeBlock[P crypto.PublicKey](number int64) *types.Block[P] {
 	header := &types.Header[P]{
 		Difficulty: big.NewInt(0),
 		Number:     big.NewInt(number),

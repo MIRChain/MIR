@@ -26,11 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/testlog"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Tests whether remote HTTP servers are correctly notified of new work.

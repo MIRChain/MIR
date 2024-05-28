@@ -22,12 +22,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 const sampleNumber = 3 // Number of transactions sampled in a block
@@ -42,7 +42,7 @@ type Config struct {
 }
 
 // OracleBackend includes all necessary background APIs for oracle.
-type OracleBackend [P crypto.PublicKey] interface {
+type OracleBackend[P crypto.PublicKey] interface {
 	HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header[P], error)
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block[P], error)
 	ChainConfig() *params.ChainConfig
@@ -50,7 +50,7 @@ type OracleBackend [P crypto.PublicKey] interface {
 
 // Oracle recommends gas prices based on the content of recent
 // blocks. Suitable for both light and full clients.
-type Oracle [P crypto.PublicKey] struct {
+type Oracle[P crypto.PublicKey] struct {
 	backend   OracleBackend[P]
 	lastHead  common.Hash
 	lastPrice *big.Int

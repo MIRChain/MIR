@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 var (
@@ -57,7 +57,7 @@ type LeafCallback func(paths [][]byte, hexpath []byte, leaf []byte, parent commo
 // Use New to create a trie that sits on top of a database.
 //
 // Trie is not safe for concurrent use.
-type Trie [P crypto.PublicKey] struct {
+type Trie[P crypto.PublicKey] struct {
 	db   *Database
 	root node
 	// Keep track of the number leafs which have been inserted since the last

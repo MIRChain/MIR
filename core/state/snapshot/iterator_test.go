@@ -23,10 +23,10 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 // TestAccountIteratorBasics tests some simple single-layer(diff and disk) iteration

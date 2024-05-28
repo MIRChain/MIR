@@ -27,16 +27,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto/nist"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin"
+	"github.com/MIRChain/MIR/plugin"
 
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/params"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p"
 )
 
 // Tests that datadirs can be successfully created, be them manually configured
@@ -213,7 +213,6 @@ func TestConfig_ResolvePluginBaseDir_whenBaseDirExists(t *testing.T) {
 }
 
 // Quorum
-//
 func TestConfig_IsPermissionEnabled_whenTypical(t *testing.T) {
 	tmpdir, err := ioutil.TempDir("", "q-")
 	if err != nil {
@@ -234,7 +233,6 @@ func TestConfig_IsPermissionEnabled_whenTypical(t *testing.T) {
 }
 
 // Quorum
-//
 func TestConfig_IsPermissionEnabled_whenPermissionedFlagIsFalse(t *testing.T) {
 	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		EnableNodePermission: false,
@@ -244,7 +242,6 @@ func TestConfig_IsPermissionEnabled_whenPermissionedFlagIsFalse(t *testing.T) {
 }
 
 // Quorum
-//
 func TestConfig_IsPermissionEnabled_whenPermissionConfigIsNotAvailable(t *testing.T) {
 	testObject := &Config[nist.PrivateKey, nist.PublicKey]{
 		EnableNodePermission: true,

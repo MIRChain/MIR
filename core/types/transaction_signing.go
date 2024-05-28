@@ -21,19 +21,19 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 var ErrInvalidChainId = errors.New("invalid chain id for signer")
 
 // sigCache is used to cache the derived sender and contains
 // the signer used to derive it.
-type sigCache [P crypto.PublicKey] struct {
+type sigCache[P crypto.PublicKey] struct {
 	signer Signer[P]
 	from   common.Address
 }
@@ -150,7 +150,7 @@ func Sender[P crypto.PublicKey](signer Signer[P], tx *Transaction[P]) (common.Ad
 //
 // Note that this interface is not a stable API and may change at any time to accommodate
 // new protocol rules.
-type Signer [P crypto.PublicKey] interface {
+type Signer[P crypto.PublicKey] interface {
 	// Sender returns the sender address of the transaction.
 	Sender(tx *Transaction[P]) (common.Address, error)
 
@@ -167,7 +167,7 @@ type Signer [P crypto.PublicKey] interface {
 	Equal(Signer[P]) bool
 }
 
-type eip2930Signer [P crypto.PublicKey]struct{ EIP155Signer[P] }
+type eip2930Signer[P crypto.PublicKey] struct{ EIP155Signer[P] }
 
 // NewEIP2930Signer returns a signer that accepts EIP-2930 access list transactions,
 // EIP-155 replay protected transactions, and legacy Homestead transactions.
@@ -267,7 +267,7 @@ func (s eip2930Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 
 // EIP155Signer implements Signer using the EIP-155 rules. This accepts transactions which
 // are replay-protected as well as unprotected homestead transactions.
-type EIP155Signer [P crypto.PublicKey] struct {
+type EIP155Signer[P crypto.PublicKey] struct {
 	chainId, chainIdMul *big.Int
 }
 
@@ -341,7 +341,7 @@ func (s EIP155Signer[P]) Hash(tx *Transaction[P]) common.Hash {
 
 // HomesteadTransaction implements TransactionInterface using the
 // homestead rules.
-type HomesteadSigner [P crypto.PublicKey] struct{ FrontierSigner[P] }
+type HomesteadSigner[P crypto.PublicKey] struct{ FrontierSigner[P] }
 
 func (s HomesteadSigner[P]) ChainID() *big.Int {
 	return nil
@@ -366,7 +366,7 @@ func (hs HomesteadSigner[P]) Sender(tx *Transaction[P]) (common.Address, error) 
 	return recoverPlain[P](hs.Hash(tx), r, s, v, true)
 }
 
-type FrontierSigner [P crypto.PublicKey] struct{}
+type FrontierSigner[P crypto.PublicKey] struct{}
 
 func (s FrontierSigner[P]) ChainID() *big.Int {
 	return nil
@@ -413,7 +413,7 @@ func decodeSignature[P crypto.PublicKey](sig []byte) (r, s, v *big.Int) {
 		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), crypto.SignatureLength))
 	}
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		r = new(big.Int).SetBytes(sig[:32])
 		s = new(big.Int).SetBytes(sig[32:64])
@@ -451,7 +451,7 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 	sig := make([]byte, crypto.SignatureLength)
 	// MIR
 	var p P
-	switch any(&p).(type){
+	switch any(&p).(type) {
 	case *nist.PublicKey:
 		r, s := R.Bytes(), S.Bytes()
 		copy(sig[32-len(r):32], r)
@@ -476,7 +476,7 @@ func recoverPlain[P crypto.PublicKey](sighash common.Hash, R, S, Vb *big.Int, ho
 	if err != nil {
 		return common.Address{}, err
 	}
-	if len(pub) == 0 || !(pub[0] == 4 || pub[0] == 64){
+	if len(pub) == 0 || !(pub[0] == 4 || pub[0] == 64) {
 		return common.Address{}, errors.New("invalid public key")
 	}
 	var addr common.Address

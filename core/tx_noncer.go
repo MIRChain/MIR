@@ -19,15 +19,15 @@ package core
 import (
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // txNoncer is a tiny virtual state database to manage the executable nonces of
 // accounts in the pool, falling back to reading from a real state database if
 // an account is unknown.
-type txNoncer [P crypto.PublicKey] struct {
+type txNoncer[P crypto.PublicKey] struct {
 	fallback *state.StateDB[P]
 	nonces   map[common.Address]uint64
 	lock     sync.Mutex

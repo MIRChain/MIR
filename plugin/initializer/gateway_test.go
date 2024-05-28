@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/gen/proto_common"
+	"github.com/MIRChain/MIR/plugin/gen/proto_common"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

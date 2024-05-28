@@ -24,11 +24,11 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 //go:generate gencodec -type Receipt -field-override receiptMarshaling -out gen_receipt_json.go
@@ -50,15 +50,15 @@ const (
 )
 
 // Receipt represents the results of a transaction.
-type Receipt [P crypto.PublicKey] struct {
+type Receipt[P crypto.PublicKey] struct {
 	QuorumReceiptExtraData[P]
 	// Consensus fields: These fields are defined by the Yellow Paper
-	Type              uint8  `json:"type,omitempty"`
-	PostState         []byte `json:"root"`
-	Status            uint64 `json:"status"`
-	CumulativeGasUsed uint64 `json:"cumulativeGasUsed" gencodec:"required"`
-	Bloom             Bloom[P]  `json:"logsBloom"         gencodec:"required"`
-	Logs              []*Log `json:"logs"              gencodec:"required"`
+	Type              uint8    `json:"type,omitempty"`
+	PostState         []byte   `json:"root"`
+	Status            uint64   `json:"status"`
+	CumulativeGasUsed uint64   `json:"cumulativeGasUsed" gencodec:"required"`
+	Bloom             Bloom[P] `json:"logsBloom"         gencodec:"required"`
+	Logs              []*Log   `json:"logs"              gencodec:"required"`
 
 	// Implementation fields: These fields are added by geth when processing a transaction.
 	// They are stored in the chain database.
@@ -93,7 +93,7 @@ Procedure for adding new fields to QuorumReceiptExtraData:
 
 7. Update the QuorumReceiptExtraData.DecodeRLP - update the `switch version` statement and invoke the decode method for the newly added version
 */
-type QuorumReceiptExtraData [P crypto.PublicKey] struct {
+type QuorumReceiptExtraData[P crypto.PublicKey] struct {
 	// PSReceipts supports the execution of a private transaction on multiple private states
 	// in which receipts are produced per PSI. It is also used by privacy marker transactions, where PSReceipts contains
 	// only the receipt for the internal private transaction.
@@ -120,7 +120,7 @@ type receiptMarshaling struct {
 }
 
 // receiptRLP is the consensus encoding of a receipt.
-type receiptRLP [P crypto.PublicKey] struct {
+type receiptRLP[P crypto.PublicKey] struct {
 	PostStateOrStatus []byte
 	CumulativeGasUsed uint64
 	Bloom             Bloom[P]
@@ -145,7 +145,7 @@ type v4StoredReceiptRLP struct {
 }
 
 // v3StoredReceiptRLP is the original storage encoding of a receipt including some unnecessary fields.
-type v3StoredReceiptRLP [P crypto.PublicKey] struct {
+type v3StoredReceiptRLP[P crypto.PublicKey] struct {
 	PostStateOrStatus []byte
 	CumulativeGasUsed uint64
 	Bloom             Bloom[P]
@@ -418,9 +418,9 @@ func CopyReceipts[P crypto.PublicKey](receipts []*Receipt[P]) []*Receipt[P] {
 // DeriveFields fills the receipts with their computed fields based on consensus
 // data and contextual infos like containing block and transactions.
 // Quorum:
-// - Provide additional support for Multiple Private State and Privacy Marker Transactions,
-//   where the private receipts are held under the relevant receipt.PSReceipts
-// - Original DeriveFields func is now deriveFieldsOrig
+//   - Provide additional support for Multiple Private State and Privacy Marker Transactions,
+//     where the private receipts are held under the relevant receipt.PSReceipts
+//   - Original DeriveFields func is now deriveFieldsOrig
 func (r Receipts[P]) DeriveFields(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions[P]) error {
 	// Will work on a copy of Receipts so we don't modify the original receipts until the end
 	receiptsCopy := CopyReceipts[P](r)

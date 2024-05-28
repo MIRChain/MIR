@@ -21,32 +21,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/clique"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/clique"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/trie"
 )
 
-type mockBackend [P crypto.PublicKey] struct {
+type mockBackend[P crypto.PublicKey] struct {
 	bc     *core.BlockChain[P]
 	txPool *core.TxPool[P]
 	db     ethdb.Database
 }
 
-var _ Backend[nist.PrivateKey,nist.PublicKey] = &mockBackend[nist.PublicKey]{} // check implementation
+var _ Backend[nist.PrivateKey, nist.PublicKey] = &mockBackend[nist.PublicKey]{} // check implementation
 
-func NewMockBackend[P crypto.PublicKey] (bc *core.BlockChain[P], txPool *core.TxPool[P]) *mockBackend[P] {
+func NewMockBackend[P crypto.PublicKey](bc *core.BlockChain[P], txPool *core.TxPool[P]) *mockBackend[P] {
 	return &mockBackend[P]{
 		bc:     bc,
 		txPool: txPool,
@@ -65,7 +65,7 @@ func (m *mockBackend[P]) ChainDb() ethdb.Database {
 	return m.db
 }
 
-type testBlockChain [P crypto.PublicKey] struct {
+type testBlockChain[P crypto.PublicKey] struct {
 	statedb *state.StateDB[P]
 
 	gasLimit      uint64
@@ -91,7 +91,7 @@ func (bc *testBlockChain[P]) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEve
 }
 
 func TestMiner(t *testing.T) {
-	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, mux := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -118,7 +118,7 @@ func TestMiner(t *testing.T) {
 // An initial FailedEvent should allow mining to stop on a subsequent
 // downloader StartEvent.
 func TestMinerDownloaderFirstFails(t *testing.T) {
-	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, mux := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -149,7 +149,7 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 }
 
 func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
-	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, mux := createMiner[nist.PrivateKey, nist.PublicKey](t)
 
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -172,7 +172,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 }
 
 func TestStartWhileDownload(t *testing.T) {
-	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, mux := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -185,7 +185,7 @@ func TestStartWhileDownload(t *testing.T) {
 }
 
 func TestStartStopMiner(t *testing.T) {
-	miner, _ := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, _ := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -194,7 +194,7 @@ func TestStartStopMiner(t *testing.T) {
 }
 
 func TestCloseMiner(t *testing.T) {
-	miner, _ := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, _ := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -206,7 +206,7 @@ func TestCloseMiner(t *testing.T) {
 // TestMinerSetEtherbase checks that etherbase becomes set even if mining isn't
 // possible at the moment
 func TestMinerSetEtherbase(t *testing.T) {
-	miner, mux := createMiner[nist.PrivateKey,nist.PublicKey](t)
+	miner, mux := createMiner[nist.PrivateKey, nist.PublicKey](t)
 	// Start with a 'bad' mining address
 	miner.Start(common.HexToAddress("0xdead"))
 	waitForMiningState(t, miner, true)
@@ -228,7 +228,7 @@ func TestMinerSetEtherbase(t *testing.T) {
 // waitForMiningState waits until either
 // * the desired mining state was reached
 // * a timeout was reached which fails the test
-func waitForMiningState[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, m *Miner[T,P], mining bool) {
+func waitForMiningState[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, m *Miner[T, P], mining bool) {
 	t.Helper()
 
 	var state bool
@@ -241,7 +241,7 @@ func waitForMiningState[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, m
 	t.Fatalf("Mining() == %t, want %t", state, mining)
 }
 
-func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[T,P], *event.TypeMux) {
+func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[T, P], *event.TypeMux) {
 	// Create Ethash config
 	config := Config{
 		Etherbase: common.HexToAddress("123456789"),
@@ -269,5 +269,5 @@ func createMiner[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*Miner[
 	// Create event Mux
 	mux := new(event.TypeMux)
 	// Create Miner
-	return New[T,P](backend, &config, chainConfig, mux, engine, nil), mux
+	return New[T, P](backend, &config, chainConfig, mux, engine, nil), mux
 }

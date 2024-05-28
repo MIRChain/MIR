@@ -3,15 +3,15 @@ package pluggable
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	plugin "github.com/pavelkrolevets/MIR-pro/plugin/account"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	plugin "github.com/MIRChain/MIR/plugin/account"
 )
 
 // var BackendType = reflect.TypeOf(&Backend{})
 
-type Backend [P crypto.PublicKey]struct {
+type Backend[P crypto.PublicKey] struct {
 	wallets []accounts.Wallet[P]
 }
 

@@ -26,21 +26,21 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/notinuse"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine/notinuse"
+	"github.com/MIRChain/MIR/rlp"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -210,7 +210,7 @@ func getIsQuorum(file io.Reader) bool {
 }
 
 func initGenesisType(ctx *cli.Context) error {
-	// Mir - set crypto before the start of services 
+	// Mir - set crypto before the start of services
 	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
 		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
 			fmt.Println(`
@@ -229,7 +229,7 @@ func initGenesisType(ctx *cli.Context) error {
 			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
 				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 			}
-			return initGenesis[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+			return initGenesis[gost3410.PrivateKey, gost3410.PublicKey](ctx)
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
 			crypto.CryptoAlg = crypto.GOST_CSP
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
@@ -237,7 +237,7 @@ func initGenesisType(ctx *cli.Context) error {
 			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
 			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
 			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
-			return initGenesis[nist.PrivateKey,nist.PublicKey](ctx)
+			return initGenesis[nist.PrivateKey, nist.PublicKey](ctx)
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
 			crypto.CryptoAlg = crypto.PQC
 		} else {
@@ -246,6 +246,7 @@ func initGenesisType(ctx *cli.Context) error {
 	}
 	return nil
 }
+
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
 func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -298,7 +299,7 @@ func initGenesis[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 	// End Quorum
 
 	// Open and initialise both full and light databases
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	for _, name := range []string{"chaindata", "lightchaindata"} {
@@ -337,7 +338,7 @@ func importChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 	// Start system runtime metrics collection
 	go metrics.CollectProcessMetrics(3 * time.Second)
 
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chain, db := utils.MakeChain(ctx, stack, true)
@@ -364,13 +365,13 @@ func importChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 	var importErr error
 
 	if len(ctx.Args()) == 1 {
-		if err := utils.ImportChain[T,P](chain, ctx.Args().First()); err != nil {
+		if err := utils.ImportChain[T, P](chain, ctx.Args().First()); err != nil {
 			importErr = err
 			log.Error("Import error", "err", err)
 		}
 	} else {
 		for _, arg := range ctx.Args() {
-			if err := utils.ImportChain[T,P](chain, arg); err != nil {
+			if err := utils.ImportChain[T, P](chain, arg); err != nil {
 				importErr = err
 				log.Error("Import error", "file", arg, "err", err)
 			}
@@ -408,7 +409,7 @@ func importChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 }
 
 func mpsdbUpgrade[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	// initialise the tx manager with the dummy tx mgr
@@ -431,7 +432,7 @@ func exportChain[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) erro
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	chain, _ := utils.MakeChain(ctx, stack, true)
@@ -470,7 +471,7 @@ func importPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) 
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -489,7 +490,7 @@ func exportPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) 
 		utils.Fatalf("This command requires an argument.")
 	}
 
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -503,7 +504,7 @@ func exportPreimages[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) 
 }
 
 func dump[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)

@@ -29,9 +29,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/rs/cors"
 )
 

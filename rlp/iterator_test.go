@@ -19,7 +19,7 @@ package rlp
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 // TestIterator tests some basic things about the ListIterator. A more

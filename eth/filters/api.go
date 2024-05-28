@@ -25,19 +25,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
-type filter [P crypto.PublicKey] struct {
+type filter[P crypto.PublicKey] struct {
 	typ      Type
 	deadline *time.Timer // filter is inactiv when deadline triggers
 	hashes   []common.Hash
@@ -48,7 +48,7 @@ type filter [P crypto.PublicKey] struct {
 
 // PublicFilterAPI offers support to create and manage filters. This will allow external clients to retrieve various
 // information related to the Ethereum protocol such als blocks, transactions and logs.
-type PublicFilterAPI [P crypto.PublicKey] struct {
+type PublicFilterAPI[P crypto.PublicKey] struct {
 	backend   Backend[P]
 	mux       *event.TypeMux
 	quit      chan struct{}

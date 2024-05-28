@@ -23,16 +23,16 @@ import (
 	"net"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/discover"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/nat"
+	"github.com/MIRChain/MIR/p2p/netutil"
 )
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 		cryptoType  = flag.String("crypto", "nist", "switch between differet tyoes of cryptography - NIST, GOST, PostQuantum")
 		gostCurve   = flag.String("gostcurve", "id-GostR3410-2001-CryptoPro-A-ParamSet", "GOST ECDSA curve parameters")
 		// nodeKey *ecdsa.PrivateKey
-		err     error
+		err error
 	)
 	flag.Parse()
 
@@ -59,12 +59,12 @@ func main() {
 	glogger.Vmodule(*vmodule)
 	log.Root().SetHandler(glogger)
 
-	if *cryptoType == "nist" || *cryptoType == "gost" || *cryptoType == "gost_csp" ||  *cryptoType == "pqc" {
-		if *cryptoType == "nist"{
+	if *cryptoType == "nist" || *cryptoType == "gost" || *cryptoType == "gost_csp" || *cryptoType == "pqc" {
+		if *cryptoType == "nist" {
 			runNode[nist.PrivateKey, nist.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict, writeAddr, runv5, err)
 		}
-		if *cryptoType == "gost"{
-			if *gostCurve == "" || *gostCurve == "id-GostR3410-2001-CryptoPro-A-ParamSet"{
+		if *cryptoType == "gost" {
+			if *gostCurve == "" || *gostCurve == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
 				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 			} else if *gostCurve == "id-tc26-gost-3410-12-256-paramSetC" {
 				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
@@ -94,7 +94,7 @@ func printNotice[P crypto.PublicKey](nodeKey P, addr net.UDPAddr) {
 	fmt.Println("We recommend using a regular node as bootstrap node for production deployments.")
 }
 
-func runNode[T crypto.PrivateKey, P crypto.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict *string, writeAddr, runv5 *bool, err error){
+func runNode[T crypto.PrivateKey, P crypto.PublicKey](listenAddr, genKey, nodeKeyFile, nodeKeyHex, natdesc, netrestrict *string, writeAddr, runv5 *bool, err error) {
 	var nodeKey T
 	natm, err := nat.Parse(*natdesc)
 	if err != nil {
@@ -126,12 +126,12 @@ func runNode[T crypto.PrivateKey, P crypto.PublicKey](listenAddr, genKey, nodeKe
 		}
 	}
 	var pub P
-	switch t:=any(&nodeKey).(type) {
+	switch t := any(&nodeKey).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	if *writeAddr {
@@ -167,7 +167,7 @@ func runNode[T crypto.PrivateKey, P crypto.PublicKey](listenAddr, genKey, nodeKe
 	printNotice(pub, *realaddr)
 	db, _ := enode.OpenDB[P]("")
 	ln := enode.NewLocalNode(db, nodeKey)
-	cfg := discover.Config[T,P]{
+	cfg := discover.Config[T, P]{
 		PrivateKey:  nodeKey,
 		NetRestrict: restrictList,
 	}

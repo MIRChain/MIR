@@ -22,9 +22,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	ibfttypes "github.com/MIRChain/MIR/consensus/istanbul/ibft/types"
 )
 
 // Construct a new message set to accumulate messages for given sequence/view number.

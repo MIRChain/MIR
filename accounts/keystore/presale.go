@@ -25,11 +25,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/google/uuid"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -91,12 +91,12 @@ func decryptPreSaleKey[T crypto.PrivateKey, P crypto.PublicKey](fileContent []by
 	ecKey := crypto.ToECDSAUnsafe[T](ethPriv)
 
 	var pub P
-	switch t:=any(&ecKey).(type) {
+	switch t := any(&ecKey).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	key = &Key[T]{

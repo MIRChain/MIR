@@ -17,9 +17,9 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	ibfttypes "github.com/MIRChain/MIR/consensus/istanbul/ibft/types"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

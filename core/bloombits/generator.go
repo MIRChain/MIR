@@ -19,8 +19,8 @@ package bloombits
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 
 // Generator takes a number of bloom filters and generates the rotated bloom bits
 // to be used for batched filtering.
-type Generator [P crypto.PublicKey] struct {
+type Generator[P crypto.PublicKey] struct {
 	blooms   [types.BloomBitLength][]byte // Rotated blooms for per-bit matching
 	sections uint                         // Number of sections to batch together
 	nextSec  uint                         // Next section to set when adding a bloom

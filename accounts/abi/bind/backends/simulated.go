@@ -24,28 +24,28 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/bloombits"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/filters"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/bloombits"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/filters"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // This nil assignment ensures at compile time that SimulatedBackend implements bind.ContractBackend.
@@ -62,8 +62,8 @@ var (
 // Simulated backend implements the following interfaces:
 // ChainReader, ChainStateReader, ContractBackend, ContractCaller, ContractFilterer, ContractTransactor,
 // DeployBackend, GasEstimator, GasPricer, LogFilterer, PendingContractCaller, TransactionReader, and TransactionSender
-type SimulatedBackend [P crypto.PublicKey] struct {
-	database   ethdb.Database   // In memory database to store our testing data
+type SimulatedBackend[P crypto.PublicKey] struct {
+	database   ethdb.Database      // In memory database to store our testing data
 	blockchain *core.BlockChain[P] // Ethereum blockchain to handle the consensus
 
 	mu           sync.Mutex
@@ -96,7 +96,7 @@ func NewSimulatedBackendWithDatabase[P crypto.PublicKey](database ethdb.Database
 // Quorum
 //
 // Create a simulated backend based on existing Ethereum service
-func NewSimulatedBackendFrom[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P]) *SimulatedBackend[P] {
+func NewSimulatedBackendFrom[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T, P]) *SimulatedBackend[P] {
 	backend := &SimulatedBackend[P]{
 		database:   ethereum.ChainDb(),
 		blockchain: ethereum.BlockChain(),
@@ -751,7 +751,7 @@ func (m callMsg) AccessList() types.AccessList { return m.CallMsg.AccessList }
 
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.
-type filterBackend [P crypto.PublicKey] struct {
+type filterBackend[P crypto.PublicKey] struct {
 	db ethdb.Database
 	bc *core.BlockChain[P]
 }
@@ -759,7 +759,9 @@ type filterBackend [P crypto.PublicKey] struct {
 func (fb *filterBackend[P]) ChainDb() ethdb.Database  { return fb.db }
 func (fb *filterBackend[P]) EventMux() *event.TypeMux { panic("not supported") }
 
-func (fb *filterBackend[P]) PSMR() mps.PrivateStateMetadataResolver { return fb.bc.PrivateStateManager() }
+func (fb *filterBackend[P]) PSMR() mps.PrivateStateMetadataResolver {
+	return fb.bc.PrivateStateManager()
+}
 
 func (fb *filterBackend[P]) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header[P], error) {
 	if block == rpc.LatestBlockNumber {

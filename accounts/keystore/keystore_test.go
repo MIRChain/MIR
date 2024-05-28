@@ -28,12 +28,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/event"
 )
 
 var testSigData = make([]byte, 32)
@@ -138,7 +138,6 @@ func TestSignGost(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
 
 // func TestSignCsp(t *testing.T) {
 // 	dir, ks := tmpKeyStore(t, true)
@@ -586,26 +585,30 @@ func checkEvents(t *testing.T, want []walletEvent, have []walletEvent) {
 	}
 }
 
-func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKey,nist.PublicKey]) {
+func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKey, nist.PublicKey]) {
 	d, err := ioutil.TempDir("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	newKs := NewPlaintextKeyStore[nist.PrivateKey,nist.PublicKey]
+	newKs := NewPlaintextKeyStore[nist.PrivateKey, nist.PublicKey]
 	if encrypted {
-		newKs = func(kd string) *KeyStore[nist.PrivateKey,nist.PublicKey] { return NewKeyStore[nist.PrivateKey,nist.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
+		newKs = func(kd string) *KeyStore[nist.PrivateKey, nist.PublicKey] {
+			return NewKeyStore[nist.PrivateKey, nist.PublicKey](kd, veryLightScryptN, veryLightScryptP)
+		}
 	}
 	return d, newKs(d)
 }
 
-func tmpKeyStoreGost(t *testing.T, encrypted bool) (string, *KeyStore[gost3410.PrivateKey,gost3410.PublicKey]) {
+func tmpKeyStoreGost(t *testing.T, encrypted bool) (string, *KeyStore[gost3410.PrivateKey, gost3410.PublicKey]) {
 	d, err := ioutil.TempDir("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	newKs := NewPlaintextKeyStore[gost3410.PrivateKey,gost3410.PublicKey]
+	newKs := NewPlaintextKeyStore[gost3410.PrivateKey, gost3410.PublicKey]
 	if encrypted {
-		newKs = func(kd string) *KeyStore[gost3410.PrivateKey,gost3410.PublicKey] { return NewKeyStore[gost3410.PrivateKey,gost3410.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
+		newKs = func(kd string) *KeyStore[gost3410.PrivateKey, gost3410.PublicKey] {
+			return NewKeyStore[gost3410.PrivateKey, gost3410.PublicKey](kd, veryLightScryptN, veryLightScryptP)
+		}
 	}
 	return d, newKs(d)
 }

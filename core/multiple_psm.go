@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/privatecache"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/rpc"
+	"github.com/MIRChain/MIR/trie"
 )
 
-type MultiplePrivateStateManager [P crypto.PublicKey] struct {
+type MultiplePrivateStateManager[P crypto.PublicKey] struct {
 	// Low level persistent database to store final content in
 	db                     ethdb.Database
 	privateStatesTrieCache state.Database
@@ -26,7 +26,7 @@ type MultiplePrivateStateManager [P crypto.PublicKey] struct {
 	privacyGroupById   map[types.PrivateStateIdentifier]*mps.PrivateStateMetadata
 }
 
-func newMultiplePrivateStateManager [P crypto.PublicKey] (db ethdb.Database, privateCacheProvider privatecache.Provider, residentGroupByKey map[string]*mps.PrivateStateMetadata, privacyGroupById map[types.PrivateStateIdentifier]*mps.PrivateStateMetadata) (*MultiplePrivateStateManager[P], error) {
+func newMultiplePrivateStateManager[P crypto.PublicKey](db ethdb.Database, privateCacheProvider privatecache.Provider, residentGroupByKey map[string]*mps.PrivateStateMetadata, privacyGroupById map[types.PrivateStateIdentifier]*mps.PrivateStateMetadata) (*MultiplePrivateStateManager[P], error) {
 	return &MultiplePrivateStateManager[P]{
 		db:                     db,
 		privateStatesTrieCache: privateCacheProvider.GetCacheWithConfig(),

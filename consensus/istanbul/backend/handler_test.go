@@ -23,15 +23,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 func TestIstanbulMessage(t *testing.T) {
@@ -80,7 +80,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
 
-func tryUntilMessageIsHandled(backend *Backend[nist.PrivateKey,nist.PublicKey], arbitraryAddress common.Address, arbitraryP2PMessage p2p.Msg) (handled bool, err error) {
+func tryUntilMessageIsHandled(backend *Backend[nist.PrivateKey, nist.PublicKey], arbitraryAddress common.Address, arbitraryP2PMessage p2p.Msg) (handled bool, err error) {
 	for i := 0; i < 5; i++ { // make 5 tries if a little wait
 		handled, err = backend.HandleMsg(arbitraryAddress, arbitraryP2PMessage)
 		if handled && err == nil {
@@ -157,7 +157,7 @@ func TestHandleNewBlockMessage_whenFailToDecode(t *testing.T) {
 	}
 }
 
-func postAndWait[T crypto.PrivateKey,P crypto.PublicKey](backend *Backend[T,P], block *types.Block[P], t *testing.T) {
+func postAndWait[T crypto.PrivateKey, P crypto.PublicKey](backend *Backend[T, P], block *types.Block[P], t *testing.T) {
 	eventSub := backend.EventMux().Subscribe(istanbul.RequestEvent{})
 	defer eventSub.Unsubscribe()
 	stop := make(chan struct{}, 1)

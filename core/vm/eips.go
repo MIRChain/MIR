@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // var activators = map[int]func(*JumpTable[nist.PublicKey]){

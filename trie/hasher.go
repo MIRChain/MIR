@@ -19,11 +19,11 @@ package trie
 import (
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 type sliceBuffer []byte
@@ -39,14 +39,14 @@ func (b *sliceBuffer) Reset() {
 
 // hasher is a type used for the trie Hash operation. A hasher has some
 // internal preallocated temp space
-type hasher [P crypto.PublicKey] struct {
+type hasher[P crypto.PublicKey] struct {
 	sha      crypto.KeccakState
 	tmp      sliceBuffer
 	parallel bool // Whether to use paralallel threads when hashing
 }
 
 // hasherPool holds pureHashers
-var hasherPoolNist = sync.Pool {
+var hasherPoolNist = sync.Pool{
 	New: func() interface{} {
 		return &hasher[nist.PublicKey]{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
@@ -54,7 +54,7 @@ var hasherPoolNist = sync.Pool {
 		}
 	},
 }
-var hasherPoolGost = sync.Pool {
+var hasherPoolGost = sync.Pool{
 	New: func() interface{} {
 		return &hasher[gost3410.PublicKey]{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
@@ -63,7 +63,7 @@ var hasherPoolGost = sync.Pool {
 	},
 }
 
-var hasherPoolCsp = sync.Pool {
+var hasherPoolCsp = sync.Pool{
 	New: func() interface{} {
 		return &hasher[csp.PublicKey]{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
@@ -74,7 +74,7 @@ var hasherPoolCsp = sync.Pool {
 
 func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		h := hasherPoolNist.Get().(*hasher[P])
 		h.parallel = parallel
@@ -94,7 +94,7 @@ func newHasher[P crypto.PublicKey](parallel bool) *hasher[P] {
 
 func returnHasherToPool[P crypto.PublicKey](h *hasher[P]) {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		hasherPoolNist.Put(h)
 	case *gost3410.PublicKey:

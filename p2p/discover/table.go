@@ -32,11 +32,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/netutil"
 )
 
 const (
@@ -65,11 +65,11 @@ const (
 // Table is the 'node table', a Kademlia-like index of neighbor nodes. The table keeps
 // itself up-to-date by verifying the liveness of neighbors and requesting their node
 // records when announcements of a new record version are received.
-type Table [P crypto.PublicKey] struct {
-	mutex   sync.Mutex        // protects buckets, bucket content, nursery, rand
+type Table[P crypto.PublicKey] struct {
+	mutex   sync.Mutex           // protects buckets, bucket content, nursery, rand
 	buckets [nBuckets]*bucket[P] // index of known nodes by distance
 	nursery []*node[P]           // bootstrap nodes
-	rand    *mrand.Rand       // source of randomness, periodically reseeded
+	rand    *mrand.Rand          // source of randomness, periodically reseeded
 	ips     netutil.DistinctNetSet
 
 	log        log.Logger
@@ -84,7 +84,7 @@ type Table [P crypto.PublicKey] struct {
 }
 
 // transport is implemented by the UDP transports.
-type transport [P crypto.PublicKey] interface {
+type transport[P crypto.PublicKey] interface {
 	Self() *enode.Node[P]
 	RequestENR(*enode.Node[P]) (*enode.Node[P], error)
 	lookupRandom() []*enode.Node[P]
@@ -94,7 +94,7 @@ type transport [P crypto.PublicKey] interface {
 
 // bucket contains nodes, ordered by their last activity. the entry
 // that was most recently active is the first element in entries.
-type bucket [P crypto.PublicKey] struct {
+type bucket[P crypto.PublicKey] struct {
 	entries      []*node[P] // live entries, sorted by time of last contact
 	replacements []*node[P] // recently seen nodes to be used if revalidation fails
 	ips          netutil.DistinctNetSet
@@ -663,7 +663,7 @@ func deleteNode[P crypto.PublicKey](list []*node[P], n *node[P]) []*node[P] {
 }
 
 // nodesByDistance is a list of nodes, ordered by distance to target.
-type nodesByDistance [P crypto.PublicKey] struct {
+type nodesByDistance[P crypto.PublicKey] struct {
 	entries []*node[P]
 	target  enode.ID
 }

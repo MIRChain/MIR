@@ -21,8 +21,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 // Tests that batched bloom bits are correctly rotated from the input bloom

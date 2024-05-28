@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/internal/cmdtest"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/pavelkrolevets/MIR-pro/internal/cmdtest"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 func tmpdir(t *testing.T) string {

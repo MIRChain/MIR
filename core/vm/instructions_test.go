@@ -23,11 +23,11 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 type TwoOperandTestcase struct {
@@ -94,7 +94,7 @@ func init() {
 func testTwoOperandOp[P crypto.PublicKey](t *testing.T, tests []TwoOperandTestcase, opFn executionFunc[P], name string) {
 
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[P]{})
 		stack          = newstack()
 		pc             = uint64(0)
 		evmInterpreter = env.interpreter.(*EVMInterpreter[P])
@@ -193,7 +193,7 @@ func TestSAR(t *testing.T) {
 
 func TestAddMod(t *testing.T) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[nist.PublicKey]{})
 		stack          = newstack()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 		pc             = uint64(0)
@@ -232,7 +232,7 @@ func TestAddMod(t *testing.T) {
 // getResult is a convenience function to generate the expected values
 func getResult[P crypto.PublicKey](args []*twoOperandParams, opFn executionFunc[P]) []TwoOperandTestcase {
 	var (
-		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
+		env         = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[P]{})
 		stack       = newstack()
 		pc          = uint64(0)
 		interpreter = env.interpreter.(*EVMInterpreter[P])
@@ -282,7 +282,7 @@ func TestJsonTestcases(t *testing.T) {
 
 func opBenchmark[P crypto.PublicKey](bench *testing.B, op executionFunc[P], args ...string) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[P]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[P]{})
 		stack          = newstack()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
@@ -516,7 +516,7 @@ func BenchmarkOpIsZero(b *testing.B) {
 
 func TestOpMstore(t *testing.T) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
@@ -540,7 +540,7 @@ func TestOpMstore(t *testing.T) {
 
 func BenchmarkOpMstore(bench *testing.B) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
@@ -561,7 +561,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 
 func BenchmarkOpSHA3(bench *testing.B) {
 	var (
-		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig,Config[nist.PublicKey]{})
+		env            = NewEVM(BlockContext{}, TxContext{}, nil, nil, params.TestChainConfig, Config[nist.PublicKey]{})
 		stack          = newstack()
 		mem            = NewMemory()
 		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)

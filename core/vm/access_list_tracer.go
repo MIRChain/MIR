@@ -20,9 +20,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM
@@ -108,7 +108,7 @@ func (al accessList) accessList() types.AccessList {
 
 // AccessListTracer is a tracer that accumulates touched accounts and storage
 // slots into an internal set.
-type AccessListTracer [P crypto.PublicKey] struct {
+type AccessListTracer[P crypto.PublicKey] struct {
 	excl map[common.Address]struct{} // Set of account to exclude from the list
 	list accessList                  // Set of accounts and storage slots touched
 }

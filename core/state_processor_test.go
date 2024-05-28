@@ -20,16 +20,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -46,7 +46,7 @@ func TestStateProcessorErrors(t *testing.T) {
 			Config: params.TestChainConfig,
 		}
 		genesis       = gspec.MustCommit(db)
-		blockchain, _ = NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+		blockchain, _ = NewBlockChain[nist.PublicKey](db, nil, gspec.Config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	)
 	defer blockchain.Stop()
 	var makeTx = func(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *types.Transaction[nist.PublicKey] {
@@ -107,7 +107,7 @@ func TestStateProcessorErrors(t *testing.T) {
 		// trigger that one, we'd have to allocate a _huge_ chunk of data, such that the
 		// multiplication len(data) +gas_per_byte overflows uint64. Not testable at the moment
 	} {
-		block := GenerateBadBlock[nist.PublicKey](genesis,  ethash.NewFaker[nist.PublicKey](), tt.txs)
+		block := GenerateBadBlock[nist.PublicKey](genesis, ethash.NewFaker[nist.PublicKey](), tt.txs)
 		_, err := blockchain.InsertChain(types.Blocks[nist.PublicKey]{block})
 		if err == nil {
 			t.Fatal("block imported without errors")

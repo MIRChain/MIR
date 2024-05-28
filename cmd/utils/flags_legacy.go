@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/node"
+	"github.com/MIRChain/MIR/node"
 	"gopkg.in/urfave/cli.v1"
 )
 

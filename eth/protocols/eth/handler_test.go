@@ -22,20 +22,20 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
 var (
@@ -49,20 +49,20 @@ var (
 // testBackend is a mock implementation of the live Ethereum message handler. Its
 // purpose is to allow testing the request/reply workflows and wire serialization
 // in the `eth` protocol without actually doing any data processing.
-type testBackend [T crypto.PrivateKey,P crypto.PublicKey] struct {
+type testBackend[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db     ethdb.Database
 	chain  *core.BlockChain[P]
 	txpool *core.TxPool[P]
 }
 
 // newTestBackend creates an empty chain and wraps it into a mock backend.
-func newTestBackend[T crypto.PrivateKey,P crypto.PublicKey](blocks int) *testBackend[T,P] {
-	return newTestBackendWithGenerator[T,P](blocks, nil)
+func newTestBackend[T crypto.PrivateKey, P crypto.PublicKey](blocks int) *testBackend[T, P] {
+	return newTestBackendWithGenerator[T, P](blocks, nil)
 }
 
 // newTestBackend creates a chain with a number of explicitly defined blocks and
 // wraps it into a mock backend.
-func newTestBackendWithGenerator[T crypto.PrivateKey,P crypto.PublicKey](blocks int, generator func(int, *core.BlockGen[P])) *testBackend[T,P] {
+func newTestBackendWithGenerator[T crypto.PrivateKey, P crypto.PublicKey](blocks int, generator func(int, *core.BlockGen[P])) *testBackend[T, P] {
 	// Create a database pre-initialize with a genesis block
 	db := rawdb.NewMemoryDatabase()
 	(&core.Genesis[P]{
@@ -70,16 +70,16 @@ func newTestBackendWithGenerator[T crypto.PrivateKey,P crypto.PublicKey](blocks 
 		Alloc:  core.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
 	}).MustCommit(db)
 
-	chain, _ := core.NewBlockChain[P](db, nil, params.TestChainConfig,  ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[P](db, nil, params.TestChainConfig, ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
 
-	bs, _ := core.GenerateChain[P](params.TestChainConfig, chain.Genesis(),  ethash.NewFaker[P](), db, blocks, generator)
+	bs, _ := core.GenerateChain[P](params.TestChainConfig, chain.Genesis(), ethash.NewFaker[P](), db, blocks, generator)
 	if _, err := chain.InsertChain(bs); err != nil {
 		panic(err)
 	}
 	txconfig := core.DefaultTxPoolConfig
 	txconfig.Journal = "" // Don't litter the disk with test journals
 
-	return &testBackend[T,P]{
+	return &testBackend[T, P]{
 		db:     db,
 		chain:  chain,
 		txpool: core.NewTxPool[P](txconfig, params.TestChainConfig, chain),
@@ -87,26 +87,26 @@ func newTestBackendWithGenerator[T crypto.PrivateKey,P crypto.PublicKey](blocks 
 }
 
 // close tears down the transaction pool and chain behind the mock backend.
-func (b *testBackend[T,P]) close() {
+func (b *testBackend[T, P]) close() {
 	b.txpool.Stop()
 	b.chain.Stop()
 }
 
-func (b *testBackend[T,P]) Chain() *core.BlockChain[P]     { return b.chain }
-func (b *testBackend[T,P]) StateBloom() *trie.SyncBloom { return nil }
-func (b *testBackend[T,P]) TxPool() TxPool[P]             { return b.txpool }
+func (b *testBackend[T, P]) Chain() *core.BlockChain[P]  { return b.chain }
+func (b *testBackend[T, P]) StateBloom() *trie.SyncBloom { return nil }
+func (b *testBackend[T, P]) TxPool() TxPool[P]           { return b.txpool }
 
-func (b *testBackend[T,P]) RunPeer(peer *Peer[T,P], handler Handler[T,P]) error {
+func (b *testBackend[T, P]) RunPeer(peer *Peer[T, P], handler Handler[T, P]) error {
 	// Normally the backend would do peer mainentance and handshakes. All that
 	// is omitted and we will just give control back to the handler.
 	return handler(peer)
 }
-func (b *testBackend[T,P]) PeerInfo(enode.ID) interface{} { panic("not implemented") }
+func (b *testBackend[T, P]) PeerInfo(enode.ID) interface{} { panic("not implemented") }
 
-func (b *testBackend[T,P]) AcceptTxs() bool {
+func (b *testBackend[T, P]) AcceptTxs() bool {
 	panic("data processing tests should be done in the handler package")
 }
-func (b *testBackend[T,P]) Handle(*Peer[T,P], Packet) error {
+func (b *testBackend[T, P]) Handle(*Peer[T, P], Packet) error {
 	panic("data processing tests should be done in the handler package")
 }
 
@@ -117,10 +117,10 @@ func TestGetBlockHeaders66(t *testing.T) { testGetBlockHeaders(t, ETH66) }
 func testGetBlockHeaders(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	backend := newTestBackend[nist.PrivateKey,nist.PublicKey](maxHeadersServe + 15)
+	backend := newTestBackend[nist.PrivateKey, nist.PublicKey](maxHeadersServe + 15)
 	defer backend.close()
 
-	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey, nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Create a "random" unknown hash for testing
@@ -309,7 +309,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 	backend := newTestBackend[nist.PrivateKey, nist.PublicKey](maxBodiesServe + 15)
 	defer backend.close()
 
-	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey, nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Create a batch of tests for various scenarios
@@ -409,13 +409,13 @@ func testGetNodeData(t *testing.T, protocol uint) {
 		switch i {
 		case 0:
 			// In block 1, the test bank sends account #1 some ether.
-			tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
+			tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
 			block.AddTx(tx)
 		case 1:
 			// In block 2, the test bank sends some more ether to account #1.
 			// acc1Addr passes it on to account #2.
-			tx1, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-			tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
+			tx1, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			tx2, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 			block.AddTx(tx1)
 			block.AddTx(tx2)
 		case 2:
@@ -433,10 +433,10 @@ func testGetNodeData(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	backend := newTestBackendWithGenerator[nist.PrivateKey,nist.PublicKey](4, generator)
+	backend := newTestBackendWithGenerator[nist.PrivateKey, nist.PublicKey](4, generator)
 	defer backend.close()
 
-	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey, nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Fetch for now the entire chain db
@@ -525,13 +525,13 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 		switch i {
 		case 0:
 			// In block 1, the test bank sends account #1 some ether.
-			tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
+			tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testKey)
 			block.AddTx(tx)
 		case 1:
 			// In block 2, the test bank sends some more ether to account #1.
 			// acc1Addr passes it on to account #2.
-			tx1, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-			tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
+			tx1, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddr), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			tx2, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(acc1Addr), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 			block.AddTx(tx1)
 			block.AddTx(tx2)
 		case 2:
@@ -549,10 +549,10 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	backend := newTestBackendWithGenerator[nist.PrivateKey,nist.PublicKey](4, generator)
+	backend := newTestBackendWithGenerator[nist.PrivateKey, nist.PublicKey](4, generator)
 	defer backend.close()
 
-	peer, _ := newTestPeer[nist.PrivateKey,nist.PublicKey]("peer", protocol, backend)
+	peer, _ := newTestPeer[nist.PrivateKey, nist.PublicKey]("peer", protocol, backend)
 	defer peer.close()
 
 	// Collect the hashes to request, and the response to expect

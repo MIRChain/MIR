@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"sync/atomic"
 
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/plugin/security"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
 )
 
 const MetadataApi = "rpc"

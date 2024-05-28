@@ -27,13 +27,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v5wire"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/testlog"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/discover/v5wire"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Real sockets, real crypto: this test checks end-to-end connectivity for UDPv5.
@@ -160,9 +160,9 @@ func TestUDPv5_findnodeHandling(t *testing.T) {
 	defer test.close()
 
 	// Create test nodes and insert them into the table.
-	nodes253 := nodesAtDistance[nist.PrivateKey,nist.PublicKey](test.table.self().ID(), 253, 10)
-	nodes249 := nodesAtDistance[nist.PrivateKey,nist.PublicKey](test.table.self().ID(), 249, 4)
-	nodes248 := nodesAtDistance[nist.PrivateKey,nist.PublicKey](test.table.self().ID(), 248, 10)
+	nodes253 := nodesAtDistance[nist.PrivateKey, nist.PublicKey](test.table.self().ID(), 253, 10)
+	nodes249 := nodesAtDistance[nist.PrivateKey, nist.PublicKey](test.table.self().ID(), 249, 4)
+	nodes248 := nodesAtDistance[nist.PrivateKey, nist.PublicKey](test.table.self().ID(), 248, 10)
 	fillTable(test.table, wrapNodes(nodes253))
 	fillTable(test.table, wrapNodes(nodes249))
 	fillTable(test.table, wrapNodes(nodes248))
@@ -214,7 +214,7 @@ func (test *udpV5Test) expectNodes(wantReqID []byte, wantTotal uint8, wantNodes 
 				test.t.Fatalf("wrong total response count %d, want %d", p.Total, wantTotal)
 			}
 			for _, record := range p.Nodes {
-				n, _ := enode.New[nist.PublicKey](enr.SchemeMap{"v4":enode.V4ID[nist.PublicKey]{},"null":enode.NullID{}}, record)
+				n, _ := enode.New[nist.PublicKey](enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}, "null": enode.NullID{}}, record)
 				want := nodeSet[n.ID()]
 				if want == nil {
 					test.t.Fatalf("unexpected node in response: %v", n)
@@ -287,7 +287,7 @@ func TestUDPv5_findnodeCall(t *testing.T) {
 	var (
 		distances = []uint{230}
 		remote    = test.getNode(test.remotekey, test.remoteaddr).Node()
-		nodes     = nodesAtDistance[nist.PrivateKey,nist.PublicKey](remote.ID(), int(distances[0]), 8)
+		nodes     = nodesAtDistance[nist.PrivateKey, nist.PublicKey](remote.ID(), int(distances[0]), 8)
 		done      = make(chan error, 1)
 		response  []*enode.Node[nist.PublicKey]
 	)
@@ -399,7 +399,7 @@ func TestUDPv5_callTimeoutReset(t *testing.T) {
 	var (
 		distance = uint(230)
 		remote   = test.getNode(test.remotekey, test.remoteaddr).Node()
-		nodes    = nodesAtDistance[nist.PrivateKey,nist.PublicKey](remote.ID(), int(distance), 8)
+		nodes    = nodesAtDistance[nist.PrivateKey, nist.PublicKey](remote.ID(), int(distance), 8)
 		done     = make(chan error, 1)
 	)
 	go func() {
@@ -525,26 +525,26 @@ func TestUDPv5_lookup(t *testing.T) {
 	test := newUDPV5Test(t)
 
 	// Lookup on empty table returns no nodes.
-	if results := test.udp.Lookup(lookupTestnet[nist.PrivateKey,nist.PublicKey]().target.id()); len(results) > 0 {
+	if results := test.udp.Lookup(lookupTestnet[nist.PrivateKey, nist.PublicKey]().target.id()); len(results) > 0 {
 		t.Fatalf("lookup on empty table returned %d results: %#v", len(results), results)
 	}
 
 	// Ensure the tester knows all nodes in lookupTestnet by IP.
-	for d, nn := range lookupTestnet[nist.PrivateKey,nist.PublicKey]().dists {
+	for d, nn := range lookupTestnet[nist.PrivateKey, nist.PublicKey]().dists {
 		for i, key := range nn {
-			n := lookupTestnet[nist.PrivateKey,nist.PublicKey]().node(d, i)
+			n := lookupTestnet[nist.PrivateKey, nist.PublicKey]().node(d, i)
 			test.getNode(&key, &net.UDPAddr{IP: n.IP(), Port: n.UDP()})
 		}
 	}
 
 	// Seed table with initial node.
-	initialNode := lookupTestnet[nist.PrivateKey,nist.PublicKey]().node(256, 0)
+	initialNode := lookupTestnet[nist.PrivateKey, nist.PublicKey]().node(256, 0)
 	fillTable(test.table, []*node[nist.PublicKey]{wrapNode(initialNode)})
 
 	// Start the lookup.
 	resultC := make(chan []*enode.Node[nist.PublicKey], 1)
 	go func() {
-		resultC <- test.udp.Lookup(lookupTestnet[nist.PrivateKey,nist.PublicKey]().target.id())
+		resultC <- test.udp.Lookup(lookupTestnet[nist.PrivateKey, nist.PublicKey]().target.id())
 		test.close()
 	}()
 
@@ -552,7 +552,7 @@ func TestUDPv5_lookup(t *testing.T) {
 	asked := make(map[enode.ID]bool)
 	for done := false; !done; {
 		done = test.waitPacketOut(func(p v5wire.Packet, to *net.UDPAddr, _ v5wire.Nonce) {
-			recipient, key := lookupTestnet[nist.PrivateKey,nist.PublicKey]().nodeByAddr(to)
+			recipient, key := lookupTestnet[nist.PrivateKey, nist.PublicKey]().nodeByAddr(to)
 			switch p := p.(type) {
 			case *v5wire.Ping:
 				test.packetInFrom(&key, to, &v5wire.Pong{ReqID: p.ReqID})
@@ -561,7 +561,7 @@ func TestUDPv5_lookup(t *testing.T) {
 					t.Error("Asked node", recipient.ID(), "twice")
 				}
 				asked[recipient.ID()] = true
-				nodes := lookupTestnet[nist.PrivateKey,nist.PublicKey]().neighborsAtDistances(recipient, p.Distances, 16)
+				nodes := lookupTestnet[nist.PrivateKey, nist.PublicKey]().neighborsAtDistances(recipient, p.Distances, 16)
 				t.Logf("Got FINDNODE for %v, returning %d nodes", p.Distances, len(nodes))
 				for _, resp := range packNodes(p.ReqID, nodes) {
 					test.packetInFrom(&key, to, resp)
@@ -572,7 +572,7 @@ func TestUDPv5_lookup(t *testing.T) {
 
 	// Verify result nodes.
 	results := <-resultC
-	checkLookupResults(t, lookupTestnet[nist.PrivateKey,nist.PublicKey](), results)
+	checkLookupResults(t, lookupTestnet[nist.PrivateKey, nist.PublicKey](), results)
 }
 
 // This test checks the local node can be utilised to set key-values.
@@ -711,8 +711,8 @@ func newUDPV5Test(t *testing.T) *udpV5Test {
 	ln.SetStaticIP(net.IP{10, 0, 0, 1})
 	ln.Set(enr.UDP(30303))
 	test.udp, _ = ListenV5(test.pipe, ln, Config[nist.PrivateKey, nist.PublicKey]{
-		PrivateKey:   *test.localkey,
-		Log:          testlog.Logger(t, log.LvlTrace),
+		PrivateKey: *test.localkey,
+		Log:        testlog.Logger(t, log.LvlTrace),
 		ValidSchemes: enr.SchemeMap{
 			"v4":   enode.V4ID[nist.PublicKey]{},
 			"null": enode.NullID{},

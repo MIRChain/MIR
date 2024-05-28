@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 const methoddata = `

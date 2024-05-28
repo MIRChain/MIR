@@ -26,11 +26,11 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 )
 
 var (
@@ -46,7 +46,7 @@ var (
 )
 
 // Blockchain defines all necessary method to build a forkID.
-type Blockchain [P crypto.PublicKey] interface {
+type Blockchain[P crypto.PublicKey] interface {
 	// Config retrieves the chain's fork configuration.
 	Config() *params.ChainConfig
 

@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // The ABI holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.
-type ABI [P crypto.PublicKey] struct {
+type ABI[P crypto.PublicKey] struct {
 	Constructor Method
 	Methods     map[string]Method
 	Events      map[string]Event
@@ -263,7 +263,7 @@ func (abi *ABI[P]) HasReceive() bool {
 // spec https://solidity.readthedocs.io/en/latest/control-structures.html#revert,
 // the provided revert reason is abi-encoded as if it were a call to a function
 // `Error(string)`. So it's a special tool for it.
-func UnpackRevert[P crypto.PublicKey] (data []byte) (string, error) {
+func UnpackRevert[P crypto.PublicKey](data []byte) (string, error) {
 	if len(data) < 4 {
 		return "", errors.New("invalid data for unpacking")
 	}

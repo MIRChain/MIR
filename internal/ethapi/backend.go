@@ -22,28 +22,28 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/bloombits"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/bloombits"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 )
 
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
-type Backend [T crypto.PrivateKey,P crypto.PublicKey] interface {
+type Backend[T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// General Ethereum API
-	Downloader() *downloader.Downloader[T,P]
+	Downloader() *downloader.Downloader[T, P]
 	SuggestPrice(ctx context.Context) (*big.Int, error)
 	ChainDb() ethdb.Database
 	AccountManager() *accounts.Manager[P]
@@ -102,7 +102,7 @@ type Backend [T crypto.PrivateKey,P crypto.PublicKey] interface {
 	IsPrivacyMarkerTransactionCreationEnabled() bool
 }
 
-func GetAPIs[T crypto.PrivateKey, P crypto.PublicKey] (apiBackend Backend[T,P]) []rpc.API {
+func GetAPIs[T crypto.PrivateKey, P crypto.PublicKey](apiBackend Backend[T, P]) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
@@ -142,7 +142,7 @@ func GetAPIs[T crypto.PrivateKey, P crypto.PublicKey] (apiBackend Backend[T,P]) 
 		}, {
 			Namespace: "personal",
 			Version:   "1.0",
-			Service:   NewPrivateAccountProxyAPI[T,P](apiBackend, nonceLock),
+			Service:   NewPrivateAccountProxyAPI[T, P](apiBackend, nonceLock),
 			Public:    false,
 		},
 	}

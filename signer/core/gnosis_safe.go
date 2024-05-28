@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // GnosisSafeTx is a type to parse the safe-tx returned by the relayer,
 // it also conforms to the API required by the Gnosis Safe tx relay service.
 // See 'SafeMultisigTransaction' on https://safe-transaction.mainnet.gnosis.io/
-type GnosisSafeTx [P crypto.PublicKey] struct {
+type GnosisSafeTx[P crypto.PublicKey] struct {
 	// These fields are only used on output
 	Signature  hexutil.Bytes           `json:"signature"`
 	SafeTxHash common.Hash             `json:"contractTransactionHash"`

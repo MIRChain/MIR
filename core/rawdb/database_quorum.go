@@ -19,10 +19,10 @@
 package rawdb
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 var (
@@ -38,8 +38,8 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
-//returns whether we have a chain configuration that can't be updated
-//after the EIP155 HF has happened
+// returns whether we have a chain configuration that can't be updated
+// after the EIP155 HF has happened
 func GetIsQuorumEIP155Activated(db ethdb.KeyValueReader) bool {
 	data, _ := db.Get(quorumEIP155ActivatedPrefix)
 	return len(data) == 1

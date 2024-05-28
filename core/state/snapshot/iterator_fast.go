@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // weightedIterator is a iterator with an assigned weight. It is used to prioritise
@@ -63,8 +63,8 @@ func (its weightedIterators) Swap(i, j int) {
 
 // fastIterator is a more optimized multi-layer iterator which maintains a
 // direct mapping of all iterators leading down to the bottom layer.
-type fastIterator [P crypto.PublicKey] struct {
-	tree *Tree[P]       // Snapshot tree to reinitialize stale sub-iterators with
+type fastIterator[P crypto.PublicKey] struct {
+	tree *Tree[P]    // Snapshot tree to reinitialize stale sub-iterators with
 	root common.Hash // Root hash to reinitialize stale sub-iterators through
 
 	curAccount []byte

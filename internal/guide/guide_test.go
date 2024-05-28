@@ -30,10 +30,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 // Tests that the account management snippets work correctly.
@@ -46,7 +46,7 @@ func TestAccountManagement(t *testing.T) {
 	defer os.RemoveAll(workdir)
 
 	// Create an encrypted keystore with standard crypto parameters
-	ks := keystore.NewKeyStore[nist.PrivateKey,nist.PublicKey](filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore[nist.PrivateKey, nist.PublicKey](filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
 
 	// Create a new account with the specified encryption passphrase
 	newAcc, err := ks.NewAccount("Creation password")

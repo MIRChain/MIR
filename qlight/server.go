@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/multitenancy"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/multitenancy"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/rpc"
 )
 
-type privateBlockDataResolverImpl [P crypto.PublicKey] struct {
+type privateBlockDataResolverImpl[P crypto.PublicKey] struct {
 	privateStateManager mps.PrivateStateManager[P]
 	ptm                 private.PrivateTransactionManager
 }
@@ -117,7 +117,7 @@ func (p *privateBlockDataResolverImpl[P]) fetchPrivateData(encryptedPayloadHash 
 	return &ptd, nil
 }
 
-type authProviderImpl [P crypto.PublicKey] struct {
+type authProviderImpl[P crypto.PublicKey] struct {
 	privateStateManager mps.PrivateStateManager[P]
 	authManagerProvider AuthManagerProvider
 	authManager         security.AuthenticationManager

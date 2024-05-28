@@ -20,10 +20,10 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
@@ -46,7 +46,7 @@ func newRoundState[P crypto.PublicKey](view *istanbul.View, validatorSet istanbu
 }
 
 // roundState stores the consensus state
-type roundState [P crypto.PublicKey] struct {
+type roundState[P crypto.PublicKey] struct {
 	round      *big.Int
 	sequence   *big.Int
 	Preprepare *qbfttypes.Preprepare[P]

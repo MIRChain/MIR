@@ -25,10 +25,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // The values in those tests are from the Transaction Tests
@@ -130,7 +130,7 @@ func TestEIP2930Signer(t *testing.T) {
 
 	var (
 		key, _  = crypto.HexToECDSA[nist.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		keyAddr =crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		keyAddr = crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		signer1 = NewEIP2930Signer[nist.PublicKey](big.NewInt(1))
 		signer2 = NewEIP2930Signer[nist.PublicKey](big.NewInt(2))
 		tx0     = NewTx[nist.PublicKey](&AccessListTx{Nonce: 1})
@@ -190,7 +190,7 @@ func TestEIP2930Signer(t *testing.T) {
 		if err == nil && sender != keyAddr {
 			t.Errorf("test %d: wrong sender address %x", i, sender)
 		}
-		signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](test.tx, test.signer, key)
+		signedTx, err := SignTx[nist.PrivateKey, nist.PublicKey](test.tx, test.signer, key)
 		if err != test.wantSignErr {
 			t.Fatalf("test %d: wrong SignTx error %q", i, err)
 		}
@@ -235,7 +235,7 @@ func decodeTx(data []byte) (*Transaction[nist.PublicKey], error) {
 
 func defaultTestKey() (nist.PrivateKey, common.Address) {
 	key, _ := crypto.HexToECDSA[nist.PrivateKey]("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
-	addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	return key, addr
 }
 
@@ -286,9 +286,9 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 	// Generate a batch of transactions with overlapping values, but shifted nonces
 	groups := map[common.Address]Transactions[nist.PublicKey]{}
 	for start, key := range keys {
-		addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 		for i := 0; i < 25; i++ {
-			tx, _ := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](uint64(start+i), common.Address{}, big.NewInt(100), 100, big.NewInt(int64(start+i)), nil), signer, key)
+			tx, _ := SignTx[nist.PrivateKey, nist.PublicKey](NewTransaction[nist.PublicKey](uint64(start+i), common.Address{}, big.NewInt(100), 100, big.NewInt(int64(start+i)), nil), signer, key)
 			groups[addr] = append(groups[addr], tx)
 		}
 	}
@@ -337,9 +337,9 @@ func TestTransactionTimeSort(t *testing.T) {
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions[nist.PublicKey]{}
 	for start, key := range keys {
-		addr :=crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
+		addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 
-		tx, _ := SignTx[nist.PrivateKey,nist.PublicKey](NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+		tx, _ := SignTx[nist.PrivateKey, nist.PublicKey](NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
 		tx.time = time.Unix(0, int64(len(keys)-start))
 
 		groups[addr] = append(groups[addr], tx)

@@ -23,17 +23,17 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/eth/filters"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/filters"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 var (
@@ -72,23 +72,23 @@ func (b *Long) UnmarshalGraphQL(input interface{}) error {
 }
 
 // Account represents an Ethereum account at a particular block.
-type Account [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	backend       ethapi.Backend[T,P]
+type Account[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend       ethapi.Backend[T, P]
 	address       common.Address
 	blockNrOrHash rpc.BlockNumberOrHash
 }
 
 // getState fetches the StateDB object for an account.
-func (a *Account[T,P]) getState(ctx context.Context) (vm.MinimalApiState, error) {
+func (a *Account[T, P]) getState(ctx context.Context) (vm.MinimalApiState, error) {
 	stat, _, err := a.backend.StateAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
 	return stat, err
 }
 
-func (a *Account[T,P]) Address(ctx context.Context) (common.Address, error) {
+func (a *Account[T, P]) Address(ctx context.Context) (common.Address, error) {
 	return a.address, nil
 }
 
-func (a *Account[T,P]) Balance(ctx context.Context) (hexutil.Big, error) {
+func (a *Account[T, P]) Balance(ctx context.Context) (hexutil.Big, error) {
 	state, err := a.getState(ctx)
 	if err != nil {
 		return hexutil.Big{}, err
@@ -96,7 +96,7 @@ func (a *Account[T,P]) Balance(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*state.GetBalance(a.address)), nil
 }
 
-func (a *Account[T,P]) TransactionCount(ctx context.Context) (hexutil.Uint64, error) {
+func (a *Account[T, P]) TransactionCount(ctx context.Context) (hexutil.Uint64, error) {
 	state, err := a.getState(ctx)
 	if err != nil {
 		return 0, err
@@ -104,7 +104,7 @@ func (a *Account[T,P]) TransactionCount(ctx context.Context) (hexutil.Uint64, er
 	return hexutil.Uint64(state.GetNonce(a.address)), nil
 }
 
-func (a *Account[T,P]) Code(ctx context.Context) (hexutil.Bytes, error) {
+func (a *Account[T, P]) Code(ctx context.Context) (hexutil.Bytes, error) {
 	state, err := a.getState(ctx)
 	if err != nil {
 		return hexutil.Bytes{}, err
@@ -112,7 +112,7 @@ func (a *Account[T,P]) Code(ctx context.Context) (hexutil.Bytes, error) {
 	return state.GetCode(a.address), nil
 }
 
-func (a *Account[T,P]) Storage(ctx context.Context, args struct{ Slot common.Hash }) (common.Hash, error) {
+func (a *Account[T, P]) Storage(ctx context.Context, args struct{ Slot common.Hash }) (common.Hash, error) {
 	state, err := a.getState(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -121,33 +121,33 @@ func (a *Account[T,P]) Storage(ctx context.Context, args struct{ Slot common.Has
 }
 
 // Log represents an individual log message. All arguments are mandatory.
-type Log [T crypto.PrivateKey, P crypto.PublicKey]  struct {
-	backend     ethapi.Backend[T,P]
-	transaction *Transaction[T,P]
+type Log[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend     ethapi.Backend[T, P]
+	transaction *Transaction[T, P]
 	log         *types.Log
 }
 
-func (l *Log[T,P]) Transaction(ctx context.Context) *Transaction[T,P] {
+func (l *Log[T, P]) Transaction(ctx context.Context) *Transaction[T, P] {
 	return l.transaction
 }
 
-func (l *Log[T,P]) Account(ctx context.Context, args BlockNumberArgs) *Account[T,P] {
-	return &Account[T,P]{
+func (l *Log[T, P]) Account(ctx context.Context, args BlockNumberArgs) *Account[T, P] {
+	return &Account[T, P]{
 		backend:       l.backend,
 		address:       l.log.Address,
 		blockNrOrHash: args.NumberOrLatest(),
 	}
 }
 
-func (l *Log[T,P]) Index(ctx context.Context) int32 {
+func (l *Log[T, P]) Index(ctx context.Context) int32 {
 	return int32(l.log.Index)
 }
 
-func (l *Log[T,P]) Topics(ctx context.Context) []common.Hash {
+func (l *Log[T, P]) Topics(ctx context.Context) []common.Hash {
 	return l.log.Topics
 }
 
-func (l *Log[T,P]) Data(ctx context.Context) hexutil.Bytes {
+func (l *Log[T, P]) Data(ctx context.Context) hexutil.Bytes {
 	return l.log.Data
 }
 
@@ -167,23 +167,23 @@ func (at *AccessTuple) StorageKeys(ctx context.Context) *[]common.Hash {
 
 // Transaction represents an Ethereum transaction.
 // backend and hash are mandatory; all others will be fetched when required.
-type Transaction [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	backend       ethapi.Backend[T,P]
+type Transaction[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend       ethapi.Backend[T, P]
 	hash          common.Hash
 	tx            *types.Transaction[P]
-	block         *Block[T,P]
+	block         *Block[T, P]
 	index         uint64
-	receiptGetter receiptGetter[T,P]
+	receiptGetter receiptGetter[T, P]
 }
 
 // resolve returns the internal transaction object, fetching it if needed.
-func (t *Transaction[T,P]) resolve(ctx context.Context) (*types.Transaction[P], error) {
+func (t *Transaction[T, P]) resolve(ctx context.Context) (*types.Transaction[P], error) {
 	if t.tx == nil {
 		tx, blockHash, _, index := rawdb.ReadTransaction[P](t.backend.ChainDb(), t.hash)
 		if tx != nil {
 			t.tx = tx
 			blockNrOrHash := rpc.BlockNumberOrHashWithHash(blockHash, false)
-			t.block = &Block[T,P]{
+			t.block = &Block[T, P]{
 				backend:      t.backend,
 				numberOrHash: &blockNrOrHash,
 			}
@@ -195,11 +195,11 @@ func (t *Transaction[T,P]) resolve(ctx context.Context) (*types.Transaction[P], 
 	return t.tx, nil
 }
 
-func (t *Transaction[T,P]) Hash(ctx context.Context) common.Hash {
+func (t *Transaction[T, P]) Hash(ctx context.Context) common.Hash {
 	return t.hash
 }
 
-func (t *Transaction[T,P]) InputData(ctx context.Context) (hexutil.Bytes, error) {
+func (t *Transaction[T, P]) InputData(ctx context.Context) (hexutil.Bytes, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Bytes{}, err
@@ -207,7 +207,7 @@ func (t *Transaction[T,P]) InputData(ctx context.Context) (hexutil.Bytes, error)
 	return tx.Data(), nil
 }
 
-func (t *Transaction[T,P]) Gas(ctx context.Context) (hexutil.Uint64, error) {
+func (t *Transaction[T, P]) Gas(ctx context.Context) (hexutil.Uint64, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return 0, err
@@ -215,7 +215,7 @@ func (t *Transaction[T,P]) Gas(ctx context.Context) (hexutil.Uint64, error) {
 	return hexutil.Uint64(tx.Gas()), nil
 }
 
-func (t *Transaction[T,P]) GasPrice(ctx context.Context) (hexutil.Big, error) {
+func (t *Transaction[T, P]) GasPrice(ctx context.Context) (hexutil.Big, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Big{}, err
@@ -223,7 +223,7 @@ func (t *Transaction[T,P]) GasPrice(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*tx.GasPrice()), nil
 }
 
-func (t *Transaction[T,P]) Value(ctx context.Context) (hexutil.Big, error) {
+func (t *Transaction[T, P]) Value(ctx context.Context) (hexutil.Big, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Big{}, err
@@ -231,7 +231,7 @@ func (t *Transaction[T,P]) Value(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*tx.Value()), nil
 }
 
-func (t *Transaction[T,P]) Nonce(ctx context.Context) (hexutil.Uint64, error) {
+func (t *Transaction[T, P]) Nonce(ctx context.Context) (hexutil.Uint64, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return 0, err
@@ -239,7 +239,7 @@ func (t *Transaction[T,P]) Nonce(ctx context.Context) (hexutil.Uint64, error) {
 	return hexutil.Uint64(tx.Nonce()), nil
 }
 
-func (t *Transaction[T,P]) To(ctx context.Context, args BlockNumberArgs) (*Account[T,P], error) {
+func (t *Transaction[T, P]) To(ctx context.Context, args BlockNumberArgs) (*Account[T, P], error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return nil, err
@@ -248,35 +248,35 @@ func (t *Transaction[T,P]) To(ctx context.Context, args BlockNumberArgs) (*Accou
 	if to == nil {
 		return nil, nil
 	}
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       t.backend,
 		address:       *to,
 		blockNrOrHash: args.NumberOrLatest(),
 	}, nil
 }
 
-func (t *Transaction[T,P]) From(ctx context.Context, args BlockNumberArgs) (*Account[T,P], error) {
+func (t *Transaction[T, P]) From(ctx context.Context, args BlockNumberArgs) (*Account[T, P], error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return nil, err
 	}
 	signer := types.LatestSigner[P](t.backend.ChainConfig())
 	from, _ := types.Sender(signer, tx)
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       t.backend,
 		address:       from,
 		blockNrOrHash: args.NumberOrLatest(),
 	}, nil
 }
 
-func (t *Transaction[T,P]) Block(ctx context.Context) (*Block[T,P], error) {
+func (t *Transaction[T, P]) Block(ctx context.Context) (*Block[T, P], error) {
 	if _, err := t.resolve(ctx); err != nil {
 		return nil, err
 	}
 	return t.block, nil
 }
 
-func (t *Transaction[T,P]) Index(ctx context.Context) (*int32, error) {
+func (t *Transaction[T, P]) Index(ctx context.Context) (*int32, error) {
 	if _, err := t.resolve(ctx); err != nil {
 		return nil, err
 	}
@@ -289,17 +289,17 @@ func (t *Transaction[T,P]) Index(ctx context.Context) (*int32, error) {
 
 // (Quorum) receiptGetter allows Transaction to have different behaviours for getting transaction receipts
 // (e.g. getting standard receipts or privacy precompile receipts from the db)
-type receiptGetter [T crypto.PrivateKey, P crypto.PublicKey] interface {
+type receiptGetter[T crypto.PrivateKey, P crypto.PublicKey] interface {
 	get(ctx context.Context) (*types.Receipt[P], error)
 }
 
 // (Quorum) transactionReceiptGetter implements receiptGetter and provides the standard behaviour for getting transaction
 // receipts from the db
-type transactionReceiptGetter [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	tx *Transaction[T,P]
+type transactionReceiptGetter[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	tx *Transaction[T, P]
 }
 
-func (g *transactionReceiptGetter[T,P]) get(ctx context.Context) (*types.Receipt[P], error) {
+func (g *transactionReceiptGetter[T, P]) get(ctx context.Context) (*types.Receipt[P], error) {
 	if _, err := g.tx.resolve(ctx); err != nil {
 		return nil, err
 	}
@@ -315,11 +315,11 @@ func (g *transactionReceiptGetter[T,P]) get(ctx context.Context) (*types.Receipt
 
 // (Quorum) privateTransactionReceiptGetter implements receiptGetter and gets privacy precompile transaction receipts
 // from the the db
-type privateTransactionReceiptGetter [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	pmt *Transaction[T,P]
+type privateTransactionReceiptGetter[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	pmt *Transaction[T, P]
 }
 
-func (g *privateTransactionReceiptGetter[T,P]) get(ctx context.Context) (*types.Receipt[P], error) {
+func (g *privateTransactionReceiptGetter[T, P]) get(ctx context.Context) (*types.Receipt[P], error) {
 	if _, err := g.pmt.resolve(ctx); err != nil {
 		return nil, err
 	}
@@ -346,15 +346,15 @@ func (g *privateTransactionReceiptGetter[T,P]) get(ctx context.Context) (*types.
 }
 
 // getReceipt returns the receipt associated with this transaction, if any.
-func (t *Transaction[T,P]) getReceipt(ctx context.Context) (*types.Receipt[P], error) {
+func (t *Transaction[T, P]) getReceipt(ctx context.Context) (*types.Receipt[P], error) {
 	// default to standard receipt getter if one is not set
 	if t.receiptGetter == nil {
-		t.receiptGetter = &transactionReceiptGetter[T,P]{tx: t}
+		t.receiptGetter = &transactionReceiptGetter[T, P]{tx: t}
 	}
 	return t.receiptGetter.get(ctx)
 }
 
-func (t *Transaction[T,P]) Status(ctx context.Context) (*Long, error) {
+func (t *Transaction[T, P]) Status(ctx context.Context) (*Long, error) {
 	receipt, err := t.getReceipt(ctx)
 	if err != nil || receipt == nil {
 		return nil, err
@@ -363,7 +363,7 @@ func (t *Transaction[T,P]) Status(ctx context.Context) (*Long, error) {
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) GasUsed(ctx context.Context) (*Long, error) {
+func (t *Transaction[T, P]) GasUsed(ctx context.Context) (*Long, error) {
 	receipt, err := t.getReceipt(ctx)
 	if err != nil || receipt == nil {
 		return nil, err
@@ -372,7 +372,7 @@ func (t *Transaction[T,P]) GasUsed(ctx context.Context) (*Long, error) {
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) CumulativeGasUsed(ctx context.Context) (*Long, error) {
+func (t *Transaction[T, P]) CumulativeGasUsed(ctx context.Context) (*Long, error) {
 	receipt, err := t.getReceipt(ctx)
 	if err != nil || receipt == nil {
 		return nil, err
@@ -381,26 +381,26 @@ func (t *Transaction[T,P]) CumulativeGasUsed(ctx context.Context) (*Long, error)
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) CreatedContract(ctx context.Context, args BlockNumberArgs) (*Account[T,P], error) {
+func (t *Transaction[T, P]) CreatedContract(ctx context.Context, args BlockNumberArgs) (*Account[T, P], error) {
 	receipt, err := t.getReceipt(ctx)
 	if err != nil || receipt == nil || receipt.ContractAddress == (common.Address{}) {
 		return nil, err
 	}
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       t.backend,
 		address:       receipt.ContractAddress,
 		blockNrOrHash: args.NumberOrLatest(),
 	}, nil
 }
 
-func (t *Transaction[T,P]) Logs(ctx context.Context) (*[]*Log[T,P], error) {
+func (t *Transaction[T, P]) Logs(ctx context.Context) (*[]*Log[T, P], error) {
 	receipt, err := t.getReceipt(ctx)
 	if err != nil || receipt == nil {
 		return nil, err
 	}
-	ret := make([]*Log[T,P], 0, len(receipt.Logs))
+	ret := make([]*Log[T, P], 0, len(receipt.Logs))
 	for _, log := range receipt.Logs {
-		ret = append(ret, &Log[T,P]{
+		ret = append(ret, &Log[T, P]{
 			backend:     t.backend,
 			transaction: t,
 			log:         log,
@@ -409,7 +409,7 @@ func (t *Transaction[T,P]) Logs(ctx context.Context) (*[]*Log[T,P], error) {
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) Type(ctx context.Context) (*int32, error) {
+func (t *Transaction[T, P]) Type(ctx context.Context) (*int32, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil {
 		return nil, err
@@ -418,7 +418,7 @@ func (t *Transaction[T,P]) Type(ctx context.Context) (*int32, error) {
 	return &txType, nil
 }
 
-func (t *Transaction[T,P]) AccessList(ctx context.Context) (*[]*AccessTuple, error) {
+func (t *Transaction[T, P]) AccessList(ctx context.Context) (*[]*AccessTuple, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return nil, err
@@ -434,7 +434,7 @@ func (t *Transaction[T,P]) AccessList(ctx context.Context) (*[]*AccessTuple, err
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) R(ctx context.Context) (hexutil.Big, error) {
+func (t *Transaction[T, P]) R(ctx context.Context) (hexutil.Big, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Big{}, err
@@ -443,7 +443,7 @@ func (t *Transaction[T,P]) R(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*r), nil
 }
 
-func (t *Transaction[T,P]) S(ctx context.Context) (hexutil.Big, error) {
+func (t *Transaction[T, P]) S(ctx context.Context) (hexutil.Big, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Big{}, err
@@ -452,7 +452,7 @@ func (t *Transaction[T,P]) S(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*s), nil
 }
 
-func (t *Transaction[T,P]) V(ctx context.Context) (hexutil.Big, error) {
+func (t *Transaction[T, P]) V(ctx context.Context) (hexutil.Big, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return hexutil.Big{}, err
@@ -466,8 +466,8 @@ type BlockType int
 // Block represents an Ethereum block.
 // backend, and numberOrHash are mandatory. All other fields are lazily fetched
 // when required.
-type Block [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	backend      ethapi.Backend[T,P]
+type Block[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend      ethapi.Backend[T, P]
 	numberOrHash *rpc.BlockNumberOrHash
 	hash         common.Hash
 	header       *types.Header[P]
@@ -477,7 +477,7 @@ type Block [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 // resolve returns the internal Block object representing this block, fetching
 // it if necessary.
-func (b *Block[T,P]) resolve(ctx context.Context) (*types.Block[P], error) {
+func (b *Block[T, P]) resolve(ctx context.Context) (*types.Block[P], error) {
 	if b.block != nil {
 		return b.block, nil
 	}
@@ -499,7 +499,7 @@ func (b *Block[T,P]) resolve(ctx context.Context) (*types.Block[P], error) {
 // resolveHeader returns the internal Header object for this block, fetching it
 // if necessary. Call this function instead of `resolve` unless you need the
 // additional data (transactions and uncles).
-func (b *Block[T,P]) resolveHeader(ctx context.Context) (*types.Header[P], error) {
+func (b *Block[T, P]) resolveHeader(ctx context.Context) (*types.Header[P], error) {
 	if b.numberOrHash == nil && b.hash == (common.Hash{}) {
 		return nil, errBlockInvariant
 	}
@@ -516,7 +516,7 @@ func (b *Block[T,P]) resolveHeader(ctx context.Context) (*types.Header[P], error
 
 // resolveReceipts returns the list of receipts for this block, fetching them
 // if necessary.
-func (b *Block[T,P]) resolveReceipts(ctx context.Context) ([]*types.Receipt[P], error) {
+func (b *Block[T, P]) resolveReceipts(ctx context.Context) ([]*types.Receipt[P], error) {
 	if b.receipts == nil {
 		hash := b.hash
 		if hash == (common.Hash{}) {
@@ -535,7 +535,7 @@ func (b *Block[T,P]) resolveReceipts(ctx context.Context) ([]*types.Receipt[P], 
 	return b.receipts, nil
 }
 
-func (b *Block[T,P]) Number(ctx context.Context) (Long, error) {
+func (b *Block[T, P]) Number(ctx context.Context) (Long, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return 0, err
@@ -544,7 +544,7 @@ func (b *Block[T,P]) Number(ctx context.Context) (Long, error) {
 	return Long(header.Number.Uint64()), nil
 }
 
-func (b *Block[T,P]) Hash(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) Hash(ctx context.Context) (common.Hash, error) {
 	if b.hash == (common.Hash{}) {
 		header, err := b.resolveHeader(ctx)
 		if err != nil {
@@ -555,7 +555,7 @@ func (b *Block[T,P]) Hash(ctx context.Context) (common.Hash, error) {
 	return b.hash, nil
 }
 
-func (b *Block[T,P]) GasLimit(ctx context.Context) (Long, error) {
+func (b *Block[T, P]) GasLimit(ctx context.Context) (Long, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return 0, err
@@ -563,7 +563,7 @@ func (b *Block[T,P]) GasLimit(ctx context.Context) (Long, error) {
 	return Long(header.GasLimit), nil
 }
 
-func (b *Block[T,P]) GasUsed(ctx context.Context) (Long, error) {
+func (b *Block[T, P]) GasUsed(ctx context.Context) (Long, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return 0, err
@@ -571,7 +571,7 @@ func (b *Block[T,P]) GasUsed(ctx context.Context) (Long, error) {
 	return Long(header.GasUsed), nil
 }
 
-func (b *Block[T,P]) Parent(ctx context.Context) (*Block[T,P], error) {
+func (b *Block[T, P]) Parent(ctx context.Context) (*Block[T, P], error) {
 	// If the block header hasn't been fetched, and we'll need it, fetch it.
 	if b.numberOrHash == nil && b.header == nil {
 		if _, err := b.resolveHeader(ctx); err != nil {
@@ -580,7 +580,7 @@ func (b *Block[T,P]) Parent(ctx context.Context) (*Block[T,P], error) {
 	}
 	if b.header != nil && b.header.Number.Uint64() > 0 {
 		num := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(b.header.Number.Uint64() - 1))
-		return &Block[T,P]{
+		return &Block[T, P]{
 			backend:      b.backend,
 			numberOrHash: &num,
 			hash:         b.header.ParentHash,
@@ -589,7 +589,7 @@ func (b *Block[T,P]) Parent(ctx context.Context) (*Block[T,P], error) {
 	return nil, nil
 }
 
-func (b *Block[T,P]) Difficulty(ctx context.Context) (hexutil.Big, error) {
+func (b *Block[T, P]) Difficulty(ctx context.Context) (hexutil.Big, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return hexutil.Big{}, err
@@ -597,7 +597,7 @@ func (b *Block[T,P]) Difficulty(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*header.Difficulty), nil
 }
 
-func (b *Block[T,P]) Timestamp(ctx context.Context) (hexutil.Uint64, error) {
+func (b *Block[T, P]) Timestamp(ctx context.Context) (hexutil.Uint64, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return 0, err
@@ -605,7 +605,7 @@ func (b *Block[T,P]) Timestamp(ctx context.Context) (hexutil.Uint64, error) {
 	return hexutil.Uint64(header.Time), nil
 }
 
-func (b *Block[T,P]) Nonce(ctx context.Context) (hexutil.Bytes, error) {
+func (b *Block[T, P]) Nonce(ctx context.Context) (hexutil.Bytes, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return hexutil.Bytes{}, err
@@ -613,7 +613,7 @@ func (b *Block[T,P]) Nonce(ctx context.Context) (hexutil.Bytes, error) {
 	return header.Nonce[:], nil
 }
 
-func (b *Block[T,P]) MixHash(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) MixHash(ctx context.Context) (common.Hash, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -621,7 +621,7 @@ func (b *Block[T,P]) MixHash(ctx context.Context) (common.Hash, error) {
 	return header.MixDigest, nil
 }
 
-func (b *Block[T,P]) TransactionsRoot(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) TransactionsRoot(ctx context.Context) (common.Hash, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -629,7 +629,7 @@ func (b *Block[T,P]) TransactionsRoot(ctx context.Context) (common.Hash, error) 
 	return header.TxHash, nil
 }
 
-func (b *Block[T,P]) StateRoot(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) StateRoot(ctx context.Context) (common.Hash, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -637,7 +637,7 @@ func (b *Block[T,P]) StateRoot(ctx context.Context) (common.Hash, error) {
 	return header.Root, nil
 }
 
-func (b *Block[T,P]) ReceiptsRoot(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) ReceiptsRoot(ctx context.Context) (common.Hash, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -645,7 +645,7 @@ func (b *Block[T,P]) ReceiptsRoot(ctx context.Context) (common.Hash, error) {
 	return header.ReceiptHash, nil
 }
 
-func (b *Block[T,P]) OmmerHash(ctx context.Context) (common.Hash, error) {
+func (b *Block[T, P]) OmmerHash(ctx context.Context) (common.Hash, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
@@ -653,7 +653,7 @@ func (b *Block[T,P]) OmmerHash(ctx context.Context) (common.Hash, error) {
 	return header.UncleHash, nil
 }
 
-func (b *Block[T,P]) OmmerCount(ctx context.Context) (*int32, error) {
+func (b *Block[T, P]) OmmerCount(ctx context.Context) (*int32, error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
@@ -662,15 +662,15 @@ func (b *Block[T,P]) OmmerCount(ctx context.Context) (*int32, error) {
 	return &count, err
 }
 
-func (b *Block[T,P]) Ommers(ctx context.Context) (*[]*Block[T,P], error) {
+func (b *Block[T, P]) Ommers(ctx context.Context) (*[]*Block[T, P], error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
 	}
-	ret := make([]*Block[T,P], 0, len(block.Uncles()))
+	ret := make([]*Block[T, P], 0, len(block.Uncles()))
 	for _, uncle := range block.Uncles() {
 		blockNumberOrHash := rpc.BlockNumberOrHashWithHash(uncle.Hash(), false)
-		ret = append(ret, &Block[T,P]{
+		ret = append(ret, &Block[T, P]{
 			backend:      b.backend,
 			numberOrHash: &blockNumberOrHash,
 			header:       uncle,
@@ -679,7 +679,7 @@ func (b *Block[T,P]) Ommers(ctx context.Context) (*[]*Block[T,P], error) {
 	return &ret, nil
 }
 
-func (b *Block[T,P]) ExtraData(ctx context.Context) (hexutil.Bytes, error) {
+func (b *Block[T, P]) ExtraData(ctx context.Context) (hexutil.Bytes, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return hexutil.Bytes{}, err
@@ -687,7 +687,7 @@ func (b *Block[T,P]) ExtraData(ctx context.Context) (hexutil.Bytes, error) {
 	return header.Extra, nil
 }
 
-func (b *Block[T,P]) LogsBloom(ctx context.Context) (hexutil.Bytes, error) {
+func (b *Block[T, P]) LogsBloom(ctx context.Context) (hexutil.Bytes, error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return hexutil.Bytes{}, err
@@ -695,7 +695,7 @@ func (b *Block[T,P]) LogsBloom(ctx context.Context) (hexutil.Bytes, error) {
 	return header.Bloom.Bytes(), nil
 }
 
-func (b *Block[T,P]) TotalDifficulty(ctx context.Context) (hexutil.Big, error) {
+func (b *Block[T, P]) TotalDifficulty(ctx context.Context) (hexutil.Big, error) {
 	h := b.hash
 	if h == (common.Hash{}) {
 		header, err := b.resolveHeader(ctx)
@@ -731,19 +731,19 @@ func (a BlockNumberArgs) NumberOrLatest() rpc.BlockNumberOrHash {
 	return a.NumberOr(rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber))
 }
 
-func (b *Block[T,P]) Miner(ctx context.Context, args BlockNumberArgs) (*Account[T,P], error) {
+func (b *Block[T, P]) Miner(ctx context.Context, args BlockNumberArgs) (*Account[T, P], error) {
 	header, err := b.resolveHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       b.backend,
 		address:       header.Coinbase,
 		blockNrOrHash: args.NumberOrLatest(),
 	}, nil
 }
 
-func (b *Block[T,P]) TransactionCount(ctx context.Context) (*int32, error) {
+func (b *Block[T, P]) TransactionCount(ctx context.Context) (*int32, error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
@@ -752,14 +752,14 @@ func (b *Block[T,P]) TransactionCount(ctx context.Context) (*int32, error) {
 	return &count, err
 }
 
-func (b *Block[T,P]) Transactions(ctx context.Context) (*[]*Transaction[T,P], error) {
+func (b *Block[T, P]) Transactions(ctx context.Context) (*[]*Transaction[T, P], error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
 	}
-	ret := make([]*Transaction[T,P], 0, len(block.Transactions()))
+	ret := make([]*Transaction[T, P], 0, len(block.Transactions()))
 	for i, tx := range block.Transactions() {
-		ret = append(ret, &Transaction[T,P]{
+		ret = append(ret, &Transaction[T, P]{
 			backend: b.backend,
 			hash:    tx.Hash(),
 			tx:      tx,
@@ -770,7 +770,7 @@ func (b *Block[T,P]) Transactions(ctx context.Context) (*[]*Transaction[T,P], er
 	return &ret, nil
 }
 
-func (b *Block[T,P]) TransactionAt(ctx context.Context, args struct{ Index int32 }) (*Transaction[T,P], error) {
+func (b *Block[T, P]) TransactionAt(ctx context.Context, args struct{ Index int32 }) (*Transaction[T, P], error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
@@ -780,7 +780,7 @@ func (b *Block[T,P]) TransactionAt(ctx context.Context, args struct{ Index int32
 		return nil, nil
 	}
 	tx := txs[args.Index]
-	return &Transaction[T,P]{
+	return &Transaction[T, P]{
 		backend: b.backend,
 		hash:    tx.Hash(),
 		tx:      tx,
@@ -789,7 +789,7 @@ func (b *Block[T,P]) TransactionAt(ctx context.Context, args struct{ Index int32
 	}, nil
 }
 
-func (b *Block[T,P]) OmmerAt(ctx context.Context, args struct{ Index int32 }) (*Block[T,P], error) {
+func (b *Block[T, P]) OmmerAt(ctx context.Context, args struct{ Index int32 }) (*Block[T, P], error) {
 	block, err := b.resolve(ctx)
 	if err != nil || block == nil {
 		return nil, err
@@ -800,7 +800,7 @@ func (b *Block[T,P]) OmmerAt(ctx context.Context, args struct{ Index int32 }) (*
 	}
 	uncle := uncles[args.Index]
 	blockNumberOrHash := rpc.BlockNumberOrHashWithHash(uncle.Hash(), false)
-	return &Block[T,P]{
+	return &Block[T, P]{
 		backend:      b.backend,
 		numberOrHash: &blockNumberOrHash,
 		header:       uncle,
@@ -828,23 +828,23 @@ type BlockFilterCriteria struct {
 
 // runFilter accepts a filter and executes it, returning all its results as
 // `Log` objects.
-func runFilter[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Context, be ethapi.Backend[T,P], filter *filters.Filter[P]) ([]*Log[T,P], error) {
+func runFilter[T crypto.PrivateKey, P crypto.PublicKey](ctx context.Context, be ethapi.Backend[T, P], filter *filters.Filter[P]) ([]*Log[T, P], error) {
 	logs, err := filter.Logs(ctx)
 	if err != nil || logs == nil {
 		return nil, err
 	}
-	ret := make([]*Log[T,P], 0, len(logs))
+	ret := make([]*Log[T, P], 0, len(logs))
 	for _, log := range logs {
-		ret = append(ret, &Log[T,P]{
+		ret = append(ret, &Log[T, P]{
 			backend:     be,
-			transaction: &Transaction[T,P]{backend: be, hash: log.TxHash},
+			transaction: &Transaction[T, P]{backend: be, hash: log.TxHash},
 			log:         log,
 		})
 	}
 	return ret, nil
 }
 
-func (b *Block[T,P]) Logs(ctx context.Context, args struct{ Filter BlockFilterCriteria }) ([]*Log[T,P], error) {
+func (b *Block[T, P]) Logs(ctx context.Context, args struct{ Filter BlockFilterCriteria }) ([]*Log[T, P], error) {
 	var addresses []common.Address
 	if args.Filter.Addresses != nil {
 		addresses = *args.Filter.Addresses
@@ -872,16 +872,16 @@ func (b *Block[T,P]) Logs(ctx context.Context, args struct{ Filter BlockFilterCr
 	return runFilter(ctx, b.backend, filter)
 }
 
-func (b *Block[T,P]) Account(ctx context.Context, args struct {
+func (b *Block[T, P]) Account(ctx context.Context, args struct {
 	Address common.Address
-}) (*Account[T,P], error) {
+}) (*Account[T, P], error) {
 	if b.numberOrHash == nil {
 		_, err := b.resolveHeader(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       b.backend,
 		address:       args.Address,
 		blockNrOrHash: *b.numberOrHash,
@@ -918,7 +918,7 @@ func (c *CallResult) Status() Long {
 	return c.status
 }
 
-func (b *Block[T,P]) Call(ctx context.Context, args struct {
+func (b *Block[T, P]) Call(ctx context.Context, args struct {
 	Data ethapi.CallArgs
 }) (*CallResult, error) {
 	if b.numberOrHash == nil {
@@ -945,7 +945,7 @@ func (b *Block[T,P]) Call(ctx context.Context, args struct {
 	}, nil
 }
 
-func (b *Block[T,P]) EstimateGas(ctx context.Context, args struct {
+func (b *Block[T, P]) EstimateGas(ctx context.Context, args struct {
 	Data ethapi.CallArgs
 }) (Long, error) {
 	if b.numberOrHash == nil {
@@ -958,23 +958,23 @@ func (b *Block[T,P]) EstimateGas(ctx context.Context, args struct {
 	return Long(gas), err
 }
 
-type Pending [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	backend ethapi.Backend[T,P]
+type Pending[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend ethapi.Backend[T, P]
 }
 
-func (p *Pending[T,P]) TransactionCount(ctx context.Context) (int32, error) {
+func (p *Pending[T, P]) TransactionCount(ctx context.Context) (int32, error) {
 	txs, err := p.backend.GetPoolTransactions()
 	return int32(len(txs)), err
 }
 
-func (p *Pending[T,P]) Transactions(ctx context.Context) (*[]*Transaction[T,P], error) {
+func (p *Pending[T, P]) Transactions(ctx context.Context) (*[]*Transaction[T, P], error) {
 	txs, err := p.backend.GetPoolTransactions()
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*Transaction[T,P], 0, len(txs))
+	ret := make([]*Transaction[T, P], 0, len(txs))
 	for i, tx := range txs {
-		ret = append(ret, &Transaction[T,P]{
+		ret = append(ret, &Transaction[T, P]{
 			backend: p.backend,
 			hash:    tx.Hash(),
 			tx:      tx,
@@ -984,18 +984,18 @@ func (p *Pending[T,P]) Transactions(ctx context.Context) (*[]*Transaction[T,P], 
 	return &ret, nil
 }
 
-func (p *Pending[T,P]) Account(ctx context.Context, args struct {
+func (p *Pending[T, P]) Account(ctx context.Context, args struct {
 	Address common.Address
-}) *Account[T,P] {
+}) *Account[T, P] {
 	pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	return &Account[T,P]{
+	return &Account[T, P]{
 		backend:       p.backend,
 		address:       args.Address,
 		blockNrOrHash: pendingBlockNr,
 	}
 }
 
-func (p *Pending[T,P]) Call(ctx context.Context, args struct {
+func (p *Pending[T, P]) Call(ctx context.Context, args struct {
 	Data ethapi.CallArgs
 }) (*CallResult, error) {
 	pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
@@ -1017,7 +1017,7 @@ func (p *Pending[T,P]) Call(ctx context.Context, args struct {
 	}, nil
 }
 
-func (p *Pending[T,P]) EstimateGas(ctx context.Context, args struct {
+func (p *Pending[T, P]) EstimateGas(ctx context.Context, args struct {
 	Data ethapi.CallArgs
 }) (Long, error) {
 	pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
@@ -1026,34 +1026,34 @@ func (p *Pending[T,P]) EstimateGas(ctx context.Context, args struct {
 }
 
 // Resolver is the top-level object in the GraphQL hierarchy.
-type Resolver [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	backend ethapi.Backend[T,P]
+type Resolver[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	backend ethapi.Backend[T, P]
 }
 
-func (r *Resolver[T,P]) Block(ctx context.Context, args struct {
+func (r *Resolver[T, P]) Block(ctx context.Context, args struct {
 	Number *Long
 	Hash   *common.Hash
-}) (*Block[T,P], error) {
-	var block *Block[T,P]
+}) (*Block[T, P], error) {
+	var block *Block[T, P]
 	if args.Number != nil {
 		if *args.Number < 0 {
 			return nil, nil
 		}
 		number := rpc.BlockNumber(*args.Number)
 		numberOrHash := rpc.BlockNumberOrHashWithNumber(number)
-		block = &Block[T,P]{
+		block = &Block[T, P]{
 			backend:      r.backend,
 			numberOrHash: &numberOrHash,
 		}
 	} else if args.Hash != nil {
 		numberOrHash := rpc.BlockNumberOrHashWithHash(*args.Hash, false)
-		block = &Block[T,P]{
+		block = &Block[T, P]{
 			backend:      r.backend,
 			numberOrHash: &numberOrHash,
 		}
 	} else {
 		numberOrHash := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-		block = &Block[T,P]{
+		block = &Block[T, P]{
 			backend:      r.backend,
 			numberOrHash: &numberOrHash,
 		}
@@ -1070,10 +1070,10 @@ func (r *Resolver[T,P]) Block(ctx context.Context, args struct {
 	return block, nil
 }
 
-func (r *Resolver[T,P]) Blocks(ctx context.Context, args struct {
+func (r *Resolver[T, P]) Blocks(ctx context.Context, args struct {
 	From *Long
 	To   *Long
-}) ([]*Block[T,P], error) {
+}) ([]*Block[T, P], error) {
 	from := rpc.BlockNumber(*args.From)
 
 	var to rpc.BlockNumber
@@ -1083,12 +1083,12 @@ func (r *Resolver[T,P]) Blocks(ctx context.Context, args struct {
 		to = rpc.BlockNumber(r.backend.CurrentBlock().Number().Int64())
 	}
 	if to < from {
-		return []*Block[T,P]{}, nil
+		return []*Block[T, P]{}, nil
 	}
-	ret := make([]*Block[T,P], 0, to-from+1)
+	ret := make([]*Block[T, P], 0, to-from+1)
 	for i := from; i <= to; i++ {
 		numberOrHash := rpc.BlockNumberOrHashWithNumber(i)
-		ret = append(ret, &Block[T,P]{
+		ret = append(ret, &Block[T, P]{
 			backend:      r.backend,
 			numberOrHash: &numberOrHash,
 		})
@@ -1096,12 +1096,12 @@ func (r *Resolver[T,P]) Blocks(ctx context.Context, args struct {
 	return ret, nil
 }
 
-func (r *Resolver[T,P]) Pending(ctx context.Context) *Pending[T,P] {
-	return &Pending[T,P]{r.backend}
+func (r *Resolver[T, P]) Pending(ctx context.Context) *Pending[T, P] {
+	return &Pending[T, P]{r.backend}
 }
 
-func (r *Resolver[T,P]) Transaction(ctx context.Context, args struct{ Hash common.Hash }) (*Transaction[T,P], error) {
-	tx := &Transaction[T,P]{
+func (r *Resolver[T, P]) Transaction(ctx context.Context, args struct{ Hash common.Hash }) (*Transaction[T, P], error) {
+	tx := &Transaction[T, P]{
 		backend: r.backend,
 		hash:    args.Hash,
 	}
@@ -1115,7 +1115,7 @@ func (r *Resolver[T,P]) Transaction(ctx context.Context, args struct{ Hash commo
 	return tx, nil
 }
 
-func (r *Resolver[T,P]) SendRawTransaction(ctx context.Context, args struct{ Data hexutil.Bytes }) (common.Hash, error) {
+func (r *Resolver[T, P]) SendRawTransaction(ctx context.Context, args struct{ Data hexutil.Bytes }) (common.Hash, error) {
 	tx := new(types.Transaction[P])
 	if err := tx.UnmarshalBinary(args.Data); err != nil {
 		return common.Hash{}, err
@@ -1144,7 +1144,7 @@ type FilterCriteria struct {
 	Topics *[][]common.Hash
 }
 
-func (r *Resolver[T,P]) Logs(ctx context.Context, args struct{ Filter FilterCriteria }) ([]*Log[T,P], error) {
+func (r *Resolver[T, P]) Logs(ctx context.Context, args struct{ Filter FilterCriteria }) ([]*Log[T, P], error) {
 	// Convert the RPC block numbers into internal representations
 	begin := rpc.LatestBlockNumber.Int64()
 	if args.Filter.FromBlock != nil {
@@ -1171,12 +1171,12 @@ func (r *Resolver[T,P]) Logs(ctx context.Context, args struct{ Filter FilterCrit
 	return runFilter(ctx, r.backend, filter)
 }
 
-func (r *Resolver[T,P]) GasPrice(ctx context.Context) (hexutil.Big, error) {
+func (r *Resolver[T, P]) GasPrice(ctx context.Context) (hexutil.Big, error) {
 	price, err := r.backend.SuggestPrice(ctx)
 	return hexutil.Big(*price), err
 }
 
-func (r *Resolver[T,P]) ChainID(ctx context.Context) (hexutil.Big, error) {
+func (r *Resolver[T, P]) ChainID(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*r.backend.ChainConfig().ChainID), nil
 }
 
@@ -1214,7 +1214,7 @@ func (s *SyncState) KnownStates() *hexutil.Uint64 {
 // - highestBlock:  block number of the highest block header this node has received from peers
 // - pulledStates:  number of state entries processed until now
 // - knownStates:   number of known state entries that still need to be pulled
-func (r *Resolver[T,P]) Syncing() (*SyncState, error) {
+func (r *Resolver[T, P]) Syncing() (*SyncState, error) {
 	progress := r.backend.Downloader().Progress()
 
 	// Return not syncing if the synchronisation already completed
@@ -1228,7 +1228,7 @@ func (r *Resolver[T,P]) Syncing() (*SyncState, error) {
 // Quorum
 
 // PrivateTransaction returns the internal private transaction for privacy marker transactions
-func (t *Transaction[T,P]) PrivateTransaction(ctx context.Context) (*Transaction[T,P], error) {
+func (t *Transaction[T, P]) PrivateTransaction(ctx context.Context) (*Transaction[T, P], error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return nil, err
@@ -1248,17 +1248,17 @@ func (t *Transaction[T,P]) PrivateTransaction(ctx context.Context) (*Transaction
 		return nil, nil
 	}
 
-	return &Transaction[T,P]{
+	return &Transaction[T, P]{
 		backend:       t.backend,
 		hash:          t.hash,
 		tx:            pvtTx,
 		block:         t.block,
 		index:         t.index,
-		receiptGetter: &privateTransactionReceiptGetter[T,P]{pmt: t},
+		receiptGetter: &privateTransactionReceiptGetter[T, P]{pmt: t},
 	}, nil
 }
 
-func (t *Transaction[T,P]) IsPrivate(ctx context.Context) (*bool, error) {
+func (t *Transaction[T, P]) IsPrivate(ctx context.Context) (*bool, error) {
 	ret := false
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
@@ -1268,7 +1268,7 @@ func (t *Transaction[T,P]) IsPrivate(ctx context.Context) (*bool, error) {
 	return &ret, nil
 }
 
-func (t *Transaction[T,P]) PrivateInputData(ctx context.Context) (*hexutil.Bytes, error) {
+func (t *Transaction[T, P]) PrivateInputData(ctx context.Context) (*hexutil.Bytes, error) {
 	tx, err := t.resolve(ctx)
 	if err != nil || tx == nil {
 		return &hexutil.Bytes{}, err

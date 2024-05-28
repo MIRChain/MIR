@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 // Quorum - test code size and transaction size limit in chain config

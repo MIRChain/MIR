@@ -23,13 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	ibfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/ibft/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	ibfttypes "github.com/MIRChain/MIR/consensus/istanbul/ibft/types"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

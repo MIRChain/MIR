@@ -19,9 +19,9 @@ package vm
 import (
 	"math/big"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ContractRef is a reference to the contract's backing object
@@ -43,7 +43,7 @@ func (ar AccountRef) Address() common.Address { return (common.Address)(ar) }
 
 // Contract represents an ethereum contract in the state database. It contains
 // the contract code, calling arguments. Contract implements ContractRef
-type Contract [P crypto.PublicKey] struct {
+type Contract[P crypto.PublicKey] struct {
 	// CallerAddress is the result of the caller which initialised this
 	// contract. However when the "call method" is delegated this value
 	// needs to be initialised to that of the caller's caller.

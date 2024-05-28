@@ -29,8 +29,8 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // GraphiQL is an in-browser IDE for exploring GraphiQL APIs.

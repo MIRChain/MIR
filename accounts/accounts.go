@@ -21,12 +21,13 @@ import (
 	"fmt"
 	"math/big"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	// "github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+
+	// "github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -46,7 +47,7 @@ const (
 
 // Wallet represents a software or hardware wallet that might contain one or more
 // accounts (derived from the same seed).
-type Wallet [P crypto.PublicKey] interface {
+type Wallet[P crypto.PublicKey] interface {
 	// URL retrieves the canonical path under which this wallet is reachable. It is
 	// user by upper layers to define a sorting order over all wallets from multiple
 	// backends.
@@ -157,7 +158,7 @@ type Wallet [P crypto.PublicKey] interface {
 
 // Backend is a "wallet provider" that may contain a batch of accounts they can
 // sign transactions with and upon request, do so.
-type Backend [P crypto.PublicKey] interface {
+type Backend[P crypto.PublicKey] interface {
 	// Wallets retrieves the list of wallets the backend is currently aware of.
 	//
 	// The returned wallets are not opened by default. For software HD wallets this
@@ -179,7 +180,8 @@ type Backend [P crypto.PublicKey] interface {
 // safely used to calculate a signature from.
 //
 // The hash is calulcated as
-//   keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
+//
+//	keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
 //
 // This gives context to the signed message and prevents signing of transactions.
 func TextHash(data []byte) []byte {
@@ -191,19 +193,20 @@ func TextHash(data []byte) []byte {
 // safely used to calculate a signature from.
 //
 // The hash is calulcated as
-//   keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
+//
+//	keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
 //
 // This gives context to the signed message and prevents signing of transactions.
 func TextAndHash(data []byte) ([]byte, string) {
 	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), string(data))
 	hasher := sha3.NewLegacyKeccak256()
-	
+
 	// Mir - Gost hash 34.11
 	// hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
 	// if err != nil {
 	// 	panic(err)
 	// }
-	
+
 	hasher.Write([]byte(msg))
 	return hasher.Sum(nil), msg
 }
@@ -227,7 +230,7 @@ const (
 
 // WalletEvent is an event fired by an account backend when a wallet arrival or
 // departure is detected.
-type WalletEvent [P crypto.PublicKey] struct {
-	Wallet Wallet[P]          // Wallet instance arrived or departed
+type WalletEvent[P crypto.PublicKey] struct {
+	Wallet Wallet[P]       // Wallet instance arrived or departed
 	Kind   WalletEventType // Event type that happened in the system
 }

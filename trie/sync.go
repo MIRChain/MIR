@@ -20,11 +20,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/prque"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/prque"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 // ErrNotRequested is returned by the trie sync when it's requested to process a
@@ -122,7 +122,7 @@ func (batch *syncMemBatch) hasCode(hash common.Hash) bool {
 // Sync is the main state trie synchronisation scheduler, which provides yet
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
 // and reconstructs the trie step by step until all is done.
-type Sync [P crypto.PublicKey] struct {
+type Sync[P crypto.PublicKey] struct {
 	database ethdb.KeyValueReader     // Persistent database to check for existing entries
 	membatch *syncMemBatch            // Memory buffer to avoid frequent database writes
 	nodeReqs map[common.Hash]*request // Pending requests pertaining to a trie node hash
@@ -133,7 +133,7 @@ type Sync [P crypto.PublicKey] struct {
 }
 
 // NewSync creates a new trie data download scheduler.
-func NewSync[P crypto.PublicKey] (root common.Hash, database ethdb.KeyValueReader, callback LeafCallback, bloom *SyncBloom) *Sync[P] {
+func NewSync[P crypto.PublicKey](root common.Hash, database ethdb.KeyValueReader, callback LeafCallback, bloom *SyncBloom) *Sync[P] {
 	ts := &Sync[P]{
 		database: database,
 		membatch: newSyncMemBatch(),

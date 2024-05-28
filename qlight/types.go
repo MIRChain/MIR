@@ -4,13 +4,13 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/private/engine/qlightptm"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 type PrivateStateRootHashValidator interface {
@@ -23,7 +23,7 @@ type PrivateClientCache interface {
 	CheckAndAddEmptyEntry(hash common.EncryptedPayloadHash)
 }
 
-type PrivateBlockDataResolver [P crypto.PublicKey]interface {
+type PrivateBlockDataResolver[P crypto.PublicKey] interface {
 	PrepareBlockPrivateData(block *types.Block[P], psi string) (*BlockPrivateData, error)
 }
 

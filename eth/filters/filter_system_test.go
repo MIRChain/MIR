@@ -26,28 +26,28 @@ import (
 	"testing"
 	"time"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/bloombits"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/bloombits"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 var (
 	deadline = 5 * time.Minute
 )
 
-type testBackend [P crypto.PublicKey]struct {
+type testBackend[P crypto.PublicKey] struct {
 	mux             *event.TypeMux
 	db              ethdb.Database
 	sections        uint64
@@ -200,7 +200,7 @@ func TestBlockSubscription(t *testing.T) {
 		backend     = &testBackend[nist.PublicKey]{db: db}
 		api         = NewPublicFilterAPI[nist.PublicKey](backend, false, deadline)
 		genesis     = new(core.Genesis[nist.PublicKey]).MustCommit(db)
-		chain, _    = core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), db, 10, func(i int, gen *core.BlockGen[nist.PublicKey]) {})
+		chain, _    = core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), db, 10, func(i int, gen *core.BlockGen[nist.PublicKey]) {})
 		chainEvents = []core.ChainEvent[nist.PublicKey]{}
 	)
 

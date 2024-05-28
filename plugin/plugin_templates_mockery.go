@@ -7,7 +7,7 @@ package plugin
 import (
 	reflect "reflect"
 
-	qlight "github.com/pavelkrolevets/MIR-pro/plugin/qlight"
+	qlight "github.com/MIRChain/MIR/plugin/qlight"
 	gomock "github.com/golang/mock/gomock"
 )
 

@@ -1,7 +1,6 @@
 package params
 
-import "github.com/pavelkrolevets/MIR-pro/crypto/csp"
-
+import "github.com/MIRChain/MIR/crypto/csp"
 
 var SignerCert *csp.Cert
 

@@ -16,7 +16,7 @@
 
 package bind
 
-import "github.com/pavelkrolevets/MIR-pro/accounts/abi"
+import "github.com/MIRChain/MIR/accounts/abi"
 
 // tmplData is the data structure required to fill the binding template.
 type tmplData struct {
@@ -91,14 +91,14 @@ import (
 	"math/big"
 	"strings"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

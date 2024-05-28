@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 func TestNodeIterator(t *testing.T) {
@@ -42,7 +42,7 @@ func TestNodeIterator(t *testing.T) {
 	)
 	gspec.MustCommit(lightdb)
 	blockchain, _ := core.NewBlockChain[nist.PublicKey](fulldb, nil, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
-	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), fulldb, 4, testChainGen)
+	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), fulldb, 4, testChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		panic(err)
 	}

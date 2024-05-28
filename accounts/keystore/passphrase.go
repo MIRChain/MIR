@@ -39,13 +39,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/google/uuid"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
@@ -73,7 +73,7 @@ const (
 	scryptDKLen = 32
 )
 
-type keyStorePassphrase [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type keyStorePassphrase[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	keysDirPath string
 	scryptN     int
 	scryptP     int
@@ -83,13 +83,13 @@ type keyStorePassphrase [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	skipKeyFileVerification bool
 }
 
-func (ks keyStorePassphrase[T,P]) GetKey(addr common.Address, filename, auth string) (*Key[T], error) {
+func (ks keyStorePassphrase[T, P]) GetKey(addr common.Address, filename, auth string) (*Key[T], error) {
 	// Load the key from the keystore and decrypt its contents
 	keyjson, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	key, err := DecryptKey[T,P](keyjson, auth)
+	key, err := DecryptKey[T, P](keyjson, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -102,12 +102,12 @@ func (ks keyStorePassphrase[T,P]) GetKey(addr common.Address, filename, auth str
 
 // StoreKey generates a key, encrypts with 'auth' and stores in the given directory
 func StoreKey[T crypto.PrivateKey, P crypto.PublicKey](dir, auth string, scryptN, scryptP int) (accounts.Account, error) {
-	_, a, err := storeNewKey[T,P](&keyStorePassphrase[T,P] {dir, scryptN, scryptP, false}, rand.Reader, auth)
+	_, a, err := storeNewKey[T, P](&keyStorePassphrase[T, P]{dir, scryptN, scryptP, false}, rand.Reader, auth)
 	return a, err
 }
 
-func (ks keyStorePassphrase[T,P]) StoreKey(filename string, key *Key[T], auth string) error {
-	keyjson, err := EncryptKey[T,P](key, auth, ks.scryptN, ks.scryptP)
+func (ks keyStorePassphrase[T, P]) StoreKey(filename string, key *Key[T], auth string) error {
+	keyjson, err := EncryptKey[T, P](key, auth, ks.scryptN, ks.scryptP)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (ks keyStorePassphrase[T,P]) StoreKey(filename string, key *Key[T], auth st
 				"This indicates that the keystore is corrupted. \n" +
 				"The corrupted file is stored at \n%v\n" +
 				"Please file a ticket at:\n\n" +
-				"https://github.com/pavelkrolevets/MIR-pro/issues." +
+				"https://github.com/MIRChain/MIR/issues." +
 				"The error was : %s"
 			//lint:ignore ST1005 This is a message for the user
 			return fmt.Errorf(msg, tmpName, err)
@@ -133,7 +133,7 @@ func (ks keyStorePassphrase[T,P]) StoreKey(filename string, key *Key[T], auth st
 	return os.Rename(tmpName, filename)
 }
 
-func (ks keyStorePassphrase[T,P]) JoinPath(filename string) string {
+func (ks keyStorePassphrase[T, P]) JoinPath(filename string) string {
 	if filepath.IsAbs(filename) {
 		return filename
 	}
@@ -188,7 +188,7 @@ func EncryptDataV3[P crypto.PublicKey](data, auth []byte, scryptN, scryptP int) 
 // blob that can be decrypted later on.
 func EncryptKey[T crypto.PrivateKey, P crypto.PublicKey](key *Key[T], auth string, scryptN, scryptP int) ([]byte, error) {
 	var D big.Int
-	switch t:= any(&key.PrivateKey).(type) {
+	switch t := any(&key.PrivateKey).(type) {
 	case *nist.PrivateKey:
 		D = *t.D
 	case *gost3410.PrivateKey:
@@ -243,13 +243,13 @@ func DecryptKey[T crypto.PrivateKey, P crypto.PublicKey](keyjson []byte, auth st
 		return nil, err
 	}
 	var pub P
-	switch t:= any(&key).(type) {
+	switch t := any(&key).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
 	}
 	return &Key[T]{
 		Id:         id,

@@ -19,7 +19,7 @@ package abi
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 type packUnpackTest struct {

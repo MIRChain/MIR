@@ -21,16 +21,16 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // lockedHash and preprepare are for round change when lock exists,
 // we need to keep a reference of preprepare in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState[P crypto.PublicKey] (view *istanbul.View, validatorSet istanbul.ValidatorSet, lockedHash common.Hash, preprepare *istanbul.Preprepare[P], pendingRequest *istanbul.Request, hasBadProposal func(hash common.Hash) bool) *roundState[P] {
+func newRoundState[P crypto.PublicKey](view *istanbul.View, validatorSet istanbul.ValidatorSet, lockedHash common.Hash, preprepare *istanbul.Preprepare[P], pendingRequest *istanbul.Request, hasBadProposal func(hash common.Hash) bool) *roundState[P] {
 	return &roundState[P]{
 		round:          view.Round,
 		sequence:       view.Sequence,
@@ -45,7 +45,7 @@ func newRoundState[P crypto.PublicKey] (view *istanbul.View, validatorSet istanb
 }
 
 // roundState stores the consensus state
-type roundState [P crypto.PublicKey] struct {
+type roundState[P crypto.PublicKey] struct {
 	round          *big.Int
 	sequence       *big.Int
 	Preprepare     *istanbul.Preprepare[P]

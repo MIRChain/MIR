@@ -19,7 +19,7 @@ package netutil
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/MIRChain/MIR/common/mclock"
 )
 
 // IPTracker predicts the external endpoint, i.e. IP address and port, of the local host

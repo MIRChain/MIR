@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 func ExampleGenerateChain() {
@@ -51,7 +51,7 @@ func ExampleGenerateChain() {
 	// each block and adds different features to gen based on the
 	// block index.
 	signer := types.HomesteadSigner[nist.PublicKey]{}
-	chain, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis,  ethash.NewFaker[nist.PublicKey](), db, 5, func(i int, gen *BlockGen[nist.PublicKey]) {
+	chain, _ := GenerateChain[nist.PublicKey](gspec.Config, genesis, ethash.NewFaker[nist.PublicKey](), db, 5, func(i int, gen *BlockGen[nist.PublicKey]) {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
@@ -80,7 +80,7 @@ func ExampleGenerateChain() {
 	})
 
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](db, nil, gspec.Config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer blockchain.Stop()
 
 	if i, err := blockchain.InsertChain(chain); err != nil {

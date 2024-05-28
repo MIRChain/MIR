@@ -7,7 +7,7 @@ package plugin
 import (
 	reflect "reflect"
 
-	rpc "github.com/pavelkrolevets/MIR-pro/rpc"
+	rpc "github.com/MIRChain/MIR/rpc"
 	gomock "github.com/golang/mock/gomock"
 )
 

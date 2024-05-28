@@ -26,13 +26,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // trieKV represents a trie key-value pair
@@ -361,7 +361,7 @@ func generateTrieRoot[P crypto.PublicKey](db ethdb.KeyValueWriter, it Iterator, 
 	return stop(nil)
 }
 
-func stackTrieGenerate[P crypto.PublicKey] (db ethdb.KeyValueWriter, in chan trieKV, out chan common.Hash) {
+func stackTrieGenerate[P crypto.PublicKey](db ethdb.KeyValueWriter, in chan trieKV, out chan common.Hash) {
 	t := trie.NewStackTrie[P](db)
 	for leaf := range in {
 		t.TryUpdate(leaf.key[:], leaf.value)

@@ -20,11 +20,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/forkid"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/forkid"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // Tests that handshake failures are detected and reported correctly.
@@ -35,7 +35,7 @@ func testHandshake(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Create a test backend only to have some valid genesis chain
-	backend := newTestBackend[nist.PrivateKey,nist.PublicKey](3)
+	backend := newTestBackend[nist.PrivateKey, nist.PublicKey](3)
 	defer backend.close()
 
 	var (
@@ -76,7 +76,7 @@ func testHandshake(t *testing.T, protocol uint) {
 		defer app.Close()
 		defer net.Close()
 
-		peer := NewPeer(protocol, p2p.NewPeer[nist.PrivateKey,nist.PublicKey](enode.ID{}, "peer", nil), net, nil)
+		peer := NewPeer(protocol, p2p.NewPeer[nist.PrivateKey, nist.PublicKey](enode.ID{}, "peer", nil), net, nil)
 		defer peer.Close()
 
 		// Send the junk test with one peer, check the handshake failure

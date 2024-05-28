@@ -19,10 +19,10 @@ package core
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // sendPreprepareMsg is called either

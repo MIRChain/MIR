@@ -21,10 +21,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/qlight"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/snap"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/eth/protocols/qlight"
+	"github.com/MIRChain/MIR/eth/protocols/snap"
 )
 
 // ethPeerInfo represents a short summary of the `eth` sub-protocol metadata known
@@ -36,10 +36,10 @@ type ethPeerInfo struct {
 }
 
 // ethPeer is a wrapper around eth.Peer to maintain a few extra metadata.
-type ethPeer [T crypto.PrivateKey, P crypto.PublicKey]struct {
-	*eth.Peer[T,P]
-	snapExt *snapPeer[T,P] // Satellite `snap` connection
-	qlight  *qlight.Peer[T,P]
+type ethPeer[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*eth.Peer[T, P]
+	snapExt *snapPeer[T, P] // Satellite `snap` connection
+	qlight  *qlight.Peer[T, P]
 
 	syncDrop *time.Timer   // Connection dropper if `eth` sync progress isn't validated in time
 	snapWait chan struct{} // Notification channel for snap connections
@@ -47,7 +47,7 @@ type ethPeer [T crypto.PrivateKey, P crypto.PublicKey]struct {
 }
 
 // info gathers and returns some `eth` protocol metadata known about a peer.
-func (p *ethPeer[T,P]) info() *ethPeerInfo {
+func (p *ethPeer[T, P]) info() *ethPeerInfo {
 	hash, td := p.Head()
 
 	return &ethPeerInfo{
@@ -64,12 +64,12 @@ type snapPeerInfo struct {
 }
 
 // snapPeer is a wrapper around snap.Peer to maintain a few extra metadata.
-type snapPeer [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	*snap.Peer[T,P]
+type snapPeer[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*snap.Peer[T, P]
 }
 
 // info gathers and returns some `snap` protocol metadata known about a peer.
-func (p *snapPeer[T,P]) info() *snapPeerInfo {
+func (p *snapPeer[T, P]) info() *snapPeerInfo {
 	return &snapPeerInfo{
 		Version: p.Version(),
 	}

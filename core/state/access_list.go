@@ -17,7 +17,7 @@
 package state
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 type accessList struct {

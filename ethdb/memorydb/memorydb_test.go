@@ -19,8 +19,8 @@ package memorydb
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/dbtest"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/dbtest"
 )
 
 func TestMemoryDB(t *testing.T) {

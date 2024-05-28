@@ -9,11 +9,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	common "github.com/pavelkrolevets/MIR-pro/common"
-	state "github.com/pavelkrolevets/MIR-pro/core/state"
-	types "github.com/pavelkrolevets/MIR-pro/core/types"
-	trie "github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	common "github.com/MIRChain/MIR/common"
+	state "github.com/MIRChain/MIR/core/state"
+	types "github.com/MIRChain/MIR/core/types"
+	trie "github.com/MIRChain/MIR/trie"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // MockPrivateStateManager is a mock of PrivateStateManager interface.

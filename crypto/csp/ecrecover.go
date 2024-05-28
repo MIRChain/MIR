@@ -10,9 +10,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 )
-
 
 func Ecrecover(m, signature []byte) ([]byte, error) {
 	curve := gost3410.CurveIdGostR34102001CryptoProAParamSet()
@@ -34,15 +33,15 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	if z.Cmp(big.NewInt(0)) == 0 {
 		z = big.NewInt(1)
 	}
-	var Rx,Ry, w, u1, u2 = new(big.Int), new(big.Int), new(big.Int), new(big.Int), new(big.Int)
-	
+	var Rx, Ry, w, u1, u2 = new(big.Int), new(big.Int), new(big.Int), new(big.Int), new(big.Int)
+
 	x3 := new(big.Int).Mul(r, r)
 	x3.Mul(x3, r)
 	aX := new(big.Int).Mul(curve.A, r)
 	x3.Add(x3, aX)
 	x3.Add(x3, curve.B)
 	x3.Mod(x3, curve.P)
-	
+
 	y0 := new(big.Int).ModSqrt(x3, curve.P)
 
 	if y0.Cmp(big.NewInt(0)) == 0 {
@@ -54,7 +53,7 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	Ry.Set(y0)
 
 	w.ModInverse(r, curve.Q)
-	
+
 	u1.Mul(s, w)
 	u1.Mod(u1, curve.Q)
 
@@ -72,7 +71,7 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	reverse(raw)
 	recPub := append(
 		[]byte{0x04, 0x40},
-		raw...
+		raw...,
 	)
 	if len(recPub) != 66 {
 		return nil, fmt.Errorf("key len isnt 66")
@@ -80,8 +79,8 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	ver, err := VerifySignatureRaw(m, signature, recPub)
 	if ver {
 		return append(raw, byte(0)), nil
-	}	
-	u2Rx_, u2Ry_ :=  curve.ScalarMult(y1, u2, Rx.Bytes())
+	}
+	u2Rx_, u2Ry_ := curve.ScalarMult(y1, u2, Rx.Bytes())
 	Qx, Qy = curve.Add(u1Gx, u1Gy, u2Rx_, u2Ry_)
 	_raw := append(
 		pad(Qy.Bytes(), pointSize),
@@ -90,12 +89,12 @@ func Ecrecover(m, signature []byte) ([]byte, error) {
 	reverse(_raw)
 	_recPub := append(
 		[]byte{0x04, 0x40},
-		_raw...
+		_raw...,
 	)
 	ver, err = VerifySignatureRaw(m, signature, _recPub)
 	if ver {
 		return append(raw, byte(1)), nil
-	}	
+	}
 	return nil, err
 }
 

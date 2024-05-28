@@ -5,15 +5,15 @@ package mps
 import (
 	"context"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // PrivateStateManager interface separates
-type PrivateStateManager [P crypto.PublicKey] interface {
+type PrivateStateManager[P crypto.PublicKey] interface {
 	PrivateStateMetadataResolver
 	// StateRepository returns repository corresponding to a block hash
 	StateRepository(blockHash common.Hash) (PrivateStateRepository[P], error)
@@ -35,7 +35,7 @@ type PrivateStateMetadataResolver interface {
 
 // PrivateStateRepository abstracts how we handle private state(s) including
 // retrieving from and peristing private states to the underlying database
-type PrivateStateRepository [P crypto.PublicKey] interface {
+type PrivateStateRepository[P crypto.PublicKey] interface {
 	PrivateStateRoot(psi types.PrivateStateIdentifier) (common.Hash, error)
 	StatePSI(psi types.PrivateStateIdentifier) (*state.StateDB[P], error)
 	CommitAndWrite(isEIP158 bool, block *types.Block[P]) error

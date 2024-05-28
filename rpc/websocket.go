@@ -28,8 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MIRChain/MIR/log"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/log"
 	"github.com/gorilla/websocket"
 )
 

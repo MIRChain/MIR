@@ -3,7 +3,7 @@ package helloworld
 import (
 	"context"
 
-	iplugin "github.com/pavelkrolevets/MIR-pro/internal/plugin"
+	iplugin "github.com/MIRChain/MIR/internal/plugin"
 	"github.com/hashicorp/go-plugin"
 	"github.com/jpmorganchase/quorum-hello-world-plugin-sdk-go/proto"
 	"google.golang.org/grpc"

@@ -24,15 +24,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
 var (
@@ -48,13 +48,13 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.Block[nist.PublicKey]) ([]common.Hash, map[common.Hash]*types.Block[nist.PublicKey]) {
-	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, parent,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
+	blocks, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, parent, ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{seed})
 
 		// If the block number is multiple of 3, send a bonus transaction to the miner
 		if parent == genesis && i%3 == 0 {
 			signer := types.MakeSigner[nist.PublicKey](params.TestChainConfig, block.Number())
-			tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
+			tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 			if err != nil {
 				panic(err)
 			}
@@ -77,13 +77,13 @@ func makeChain(n int, seed byte, parent *types.Block[nist.PublicKey]) ([]common.
 }
 
 // fetcherTester is a test simulator for mocking out local block chain.
-type fetcherTester [P crypto.PublicKey] struct {
+type fetcherTester[P crypto.PublicKey] struct {
 	fetcher *BlockFetcher[P]
 
-	hashes  []common.Hash                 // Hash chain belonging to the tester
+	hashes  []common.Hash                    // Hash chain belonging to the tester
 	headers map[common.Hash]*types.Header[P] // Headers belonging to the tester
 	blocks  map[common.Hash]*types.Block[P]  // Blocks belonging to the tester
-	drops   map[string]bool               // Map of peers dropped by the fetcher
+	drops   map[string]bool                  // Map of peers dropped by the fetcher
 
 	lock sync.RWMutex
 }

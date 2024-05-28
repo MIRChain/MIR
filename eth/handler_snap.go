@@ -17,25 +17,25 @@
 package eth
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/snap"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/protocols/snap"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // snapHandler implements the snap.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
-type snapHandler [T crypto.PrivateKey, P crypto.PublicKey] handler[T,P]
+type snapHandler[T crypto.PrivateKey, P crypto.PublicKey] handler[T, P]
 
-func (h *snapHandler[T,P]) Chain() *core.BlockChain[P] { return h.chain }
+func (h *snapHandler[T, P]) Chain() *core.BlockChain[P] { return h.chain }
 
 // RunPeer is invoked when a peer joins on the `snap` protocol.
-func (h *snapHandler[T,P]) RunPeer(peer *snap.Peer[T,P], hand snap.Handler[T,P]) error {
-	return (*handler[T,P])(h).runSnapExtension(peer, hand)
+func (h *snapHandler[T, P]) RunPeer(peer *snap.Peer[T, P], hand snap.Handler[T, P]) error {
+	return (*handler[T, P])(h).runSnapExtension(peer, hand)
 }
 
 // PeerInfo retrieves all known `snap` information about a peer.
-func (h *snapHandler[T,P]) PeerInfo(id enode.ID) interface{} {
+func (h *snapHandler[T, P]) PeerInfo(id enode.ID) interface{} {
 	if p := h.peers.peer(id.String()); p != nil {
 		if p.snapExt != nil {
 			return p.snapExt.info()
@@ -46,6 +46,6 @@ func (h *snapHandler[T,P]) PeerInfo(id enode.ID) interface{} {
 
 // Handle is invoked from a peer's message handler when it receives a new remote
 // message that the handler couldn't consume and serve itself.
-func (h *snapHandler[T,P]) Handle(peer *snap.Peer[T,P], packet snap.Packet) error {
+func (h *snapHandler[T, P]) Handle(peer *snap.Peer[T, P], packet snap.Packet) error {
 	return h.downloader.DeliverSnapPacket(peer, packet)
 }

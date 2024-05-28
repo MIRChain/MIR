@@ -8,22 +8,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/notinuse"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/private/engine/notinuse"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
@@ -69,7 +69,7 @@ var (
 	c2AccountWithC1AddressStored = &state.Account{Nonce: 1, Balance: big.NewInt(0), Root: c2StorageTrieWithC1Address.Hash(), CodeHash: c2CodeHash.Bytes()}
 )
 
-type contract [P crypto.PublicKey] struct {
+type contract[P crypto.PublicKey] struct {
 	abi      abi.ABI[P]
 	bytecode []byte
 	name     string
@@ -259,7 +259,7 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testi
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -268,7 +268,7 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1_Success(t *testi
 		setNonce(1).
 		setTo(c1Address)
 	privateMsg := newTypicalPrivateMessage(cfg)
-	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored})
+	mr, _ := calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored})
 	//since state validation need ACHashes, MerkleRoot and PrivacyFlag
 	mockPM.When("Receive").Return(c1.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -297,7 +297,7 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithEmptyMRFromTe
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -334,7 +334,7 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithWrongMRFromTe
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// calling C1.Set() state validation
@@ -359,8 +359,8 @@ func TestApplyMessage_Private_whenInteractWithStateValidationC1WithWrongMRFromTe
 	mockPM.Verify(assert)
 }
 
-//Limitation of design --if don't send privacyFlag can't be guaranteed to catch non-party
-//review this...
+// Limitation of design --if don't send privacyFlag can't be guaranteed to catch non-party
+// review this...
 func TestApplyMessage_Private_whenNonPartyTriesInteractingWithPartyProtectionC1_NoFlag_Succeed(t *testing.T) {
 	originalP := private.Ptm
 	defer func() { private.Ptm = originalP }()
@@ -557,8 +557,8 @@ func TestApplyMessage_Private_whenPartyProtectionC2InteractsWithPartyProtectionC
 	mockPM.Verify(assert)
 }
 
-//scenario where sender Q1 runs simulation which affects c2 and c1 privy for Q3 and Q7
-//Q3 receives block but wasn't privy to C1 so doesn't have creation info in tessera
+// scenario where sender Q1 runs simulation which affects c2 and c1 privy for Q3 and Q7
+// Q3 receives block but wasn't privy to C1 so doesn't have creation info in tessera
 func TestApplyMessage_Private_whenPartyProtectionC2AndC1ButMissingC1CreationInTessera_Fail(t *testing.T) {
 	originalP := private.Ptm
 	defer func() { private.Ptm = originalP }()
@@ -601,9 +601,9 @@ func TestApplyMessage_Private_whenPartyProtectionC2AndC1ButMissingC1CreationInTe
 	mockPM.Verify(assert)
 }
 
-//scenario where the simulation is run on the Q1 (privatefor Q3 and Q7) and 3 contracts are affected (C2,C1,C0)
-//but now Q3 receives block and should be privy to all 3 given tessera response
-//but doesn't have C0 privacyMetadata stored in its db
+// scenario where the simulation is run on the Q1 (privatefor Q3 and Q7) and 3 contracts are affected (C2,C1,C0)
+// but now Q3 receives block and should be privy to all 3 given tessera response
+// but doesn't have C0 privacyMetadata stored in its db
 // UPDATE - after relaxing the ACOTH checks this is a valid scenario where C0 acoth is ignored if it isn't detected as an
 // affected contract during transaction execution
 func TestApplyMessage_Private_whenPartyProtectionC2AndC1AndC0ButMissingC0InStateDB_Fail(t *testing.T) {
@@ -664,7 +664,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 	c1EncPayloadHash := []byte("c1")
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c1EncPayloadHash)
-	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue42Stored})
 	c1Address := createContract(cfg, mockPM, assert, c1, big.NewInt(42))
 
 	// create state validation c2
@@ -672,7 +672,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 	cfg.setPrivacyFlag(engine.PrivacyFlagStateValidation).
 		setData(c2EncPayloadHash).
 		setNonce(1)
-	cfg.acMerkleRoot, _ =calcAccMR[nist.PublicKey](accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	cfg.acMerkleRoot, _ = calcAccMR[nist.PublicKey](accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	c2Address := createContract(cfg, mockPM, assert, c2, c1Address)
 
 	// calling C2.Set() state validation
@@ -685,7 +685,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithStateValidationC
 	log.Trace("stuff", "c2code", stuff[:])
 
 	privateMsg := newTypicalPrivateMessage(cfg)
-	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	mr, _ := calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	//since state validation need ACHashes, PrivacyFlag & MerkleRoot
 	mockPM.When("Receive").Return(c2.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -732,7 +732,7 @@ func TestApplyMessage_Private_whenStateValidationC2InteractsWithPartyProtectionC
 		setTo(c2Address)
 	privateMsg := newTypicalPrivateMessage(cfg)
 	// use the correctly calculated MR so that it can't be a source of false positives
-	mr, _ :=calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
+	mr, _ := calcAccMR[nist.PublicKey](accEntry{address: c1AccAddress, account: c1AccountWithValue53Stored}, accEntry{address: c2AccAddress, account: c2AccountWithC1AddressStored})
 	//since state validation need ACHashes, PrivacyFlag & MerkleRoot
 	mockPM.When("Receive").Return(c2.set(53), &engine.ExtraMetadata{
 		ACHashes: common.EncryptedPayloadHashes{
@@ -976,7 +976,7 @@ func calcAccMR[P crypto.PublicKey](entries ...accEntry) (common.Hash, error) {
 	return combined.Hash(), nil
 }
 
-type config [P crypto.PublicKey] struct {
+type config[P crypto.PublicKey] struct {
 	from  common.Address
 	to    *common.Address
 	data  []byte
@@ -1066,7 +1066,7 @@ func mustParse[P crypto.PublicKey](def string) abi.ABI[P] {
 	return ret
 }
 
-type stubSigner [P crypto.PublicKey] struct {
+type stubSigner[P crypto.PublicKey] struct {
 }
 
 func (ss *stubSigner[P]) Sender(tx *types.Transaction[P]) (common.Address, error) {

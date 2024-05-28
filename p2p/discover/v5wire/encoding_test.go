@@ -29,18 +29,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
 )
 
 // To regenerate discv5 test vectors, run
 //
-//     go test -run TestVectors -write-test-vectors
-//
+//	go test -run TestVectors -write-test-vectors
 var writeTestVectorsFlag = flag.Bool("write-test-vectors", false, "Overwrite discv5 test vectors in testdata/")
 
 var (
@@ -309,10 +308,10 @@ func TestTestVectorsV5(t *testing.T) {
 	net.close()
 
 	type testVectorTest struct {
-		name      string               // test vector name
-		packet    Packet               // the packet to be encoded
-		challenge *Whoareyou[nist.PublicKey]           // handshake challenge passed to encoder
-		prep      func(*handshakeTest) // called before encode/decode
+		name      string                     // test vector name
+		packet    Packet                     // the packet to be encoded
+		challenge *Whoareyou[nist.PublicKey] // handshake challenge passed to encoder
+		prep      func(*handshakeTest)       // called before encode/decode
 	}
 	tests := []testVectorTest{
 		{
@@ -492,8 +491,8 @@ type handshakeTest struct {
 }
 
 type handshakeTestNode struct {
-	ln *enode.LocalNode[nist.PrivateKey,nist.PublicKey]
-	c  *Codec[nist.PrivateKey,nist.PublicKey]
+	ln *enode.LocalNode[nist.PrivateKey, nist.PublicKey]
+	c  *Codec[nist.PrivateKey, nist.PublicKey]
 }
 
 func newHandshakeTest() *handshakeTest {

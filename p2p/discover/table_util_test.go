@@ -26,11 +26,11 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
 var nullNode *enode.Node[nist.PublicKey]
@@ -38,7 +38,7 @@ var nullNode *enode.Node[nist.PublicKey]
 func init() {
 	var r enr.Record
 	r.Set(enr.IP{0, 0, 0, 0})
-	nullNode = enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, enode.ID{})
+	nullNode = enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, enode.ID{})
 }
 
 func newTestTable(t transport[nist.PublicKey]) (*Table[nist.PublicKey], *enode.DB[nist.PublicKey]) {
@@ -52,14 +52,14 @@ func newTestTable(t transport[nist.PublicKey]) (*Table[nist.PublicKey], *enode.D
 func nodeAtDistance[T crypto.PrivateKey, P crypto.PublicKey](base enode.ID, ld int, ip net.IP) *node[P] {
 	var r enr.Record
 	r.Set(enr.IP(ip))
-	return wrapNode(enode.SignNull[T,P](&r, idAtDistance(base, ld)))
+	return wrapNode(enode.SignNull[T, P](&r, idAtDistance(base, ld)))
 }
 
 // nodesAtDistance creates n nodes for which enode.LogDist(base, node.ID()) == ld.
 func nodesAtDistance[T crypto.PrivateKey, P crypto.PublicKey](base enode.ID, ld int, n int) []*enode.Node[P] {
 	results := make([]*enode.Node[P], n)
 	for i := range results {
-		results[i] = unwrapNode(nodeAtDistance[T,P](base, ld, intIP(i)))
+		results[i] = unwrapNode(nodeAtDistance[T, P](base, ld, intIP(i)))
 	}
 	return results
 }
@@ -101,7 +101,7 @@ func fillBucket[T crypto.PrivateKey, P crypto.PublicKey](tab *Table[P], n *node[
 	ld := enode.LogDist(tab.self().ID(), n.ID())
 	b := tab.bucket(n.ID())
 	for len(b.entries) < bucketSize {
-		b.entries = append(b.entries, nodeAtDistance[T,P](tab.self().ID(), ld, intIP(ld)))
+		b.entries = append(b.entries, nodeAtDistance[T, P](tab.self().ID(), ld, intIP(ld)))
 	}
 	return b.entries[bucketSize-1]
 }
@@ -124,7 +124,7 @@ type pingRecorder struct {
 func newPingRecorder() *pingRecorder {
 	var r enr.Record
 	r.Set(enr.IP{0, 0, 0, 0})
-	n := enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, enode.ID{})
+	n := enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, enode.ID{})
 
 	return &pingRecorder{
 		dead:    make(map[enode.ID]bool),
@@ -173,7 +173,7 @@ func (t *pingRecorder) RequestENR(n *enode.Node[nist.PublicKey]) (*enode.Node[ni
 	return t.records[n.ID()], nil
 }
 
-func hasDuplicates[P crypto.PublicKey] (slice []*node[P]) bool {
+func hasDuplicates[P crypto.PublicKey](slice []*node[P]) bool {
 	seen := make(map[enode.ID]bool)
 	for i, e := range slice {
 		if e == nil {
@@ -241,7 +241,7 @@ func hexEncPrivkey[T crypto.PrivateKey](h string) T {
 }
 
 // hexEncPubkey decodes h as a public key.
-func hexEncPubkey[P crypto.PublicKey] (h string) (ret encPubkey[P]) {
+func hexEncPubkey[P crypto.PublicKey](h string) (ret encPubkey[P]) {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)

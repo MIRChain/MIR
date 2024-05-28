@@ -21,12 +21,12 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 // NoOdr is the default context passed to an ODR capable function when the ODR
@@ -37,7 +37,7 @@ var NoOdr = context.Background()
 var ErrNoPeers = errors.New("no suitable peers available")
 
 // OdrBackend is an interface to a backend service that handles ODR retrievals type
-type OdrBackend [P crypto.PublicKey] interface {
+type OdrBackend[P crypto.PublicKey] interface {
 	Database() ethdb.Database
 	ChtIndexer() *core.ChainIndexer[P]
 	BloomTrieIndexer() *core.ChainIndexer[P]
@@ -83,7 +83,7 @@ func StorageTrieID(state *TrieID, addrHash, root common.Hash) *TrieID {
 }
 
 // TrieRequest is the ODR request type for state/storage trie entries
-type TrieRequest [P crypto.PublicKey]  struct {
+type TrieRequest[P crypto.PublicKey] struct {
 	Id    *TrieID
 	Key   []byte
 	Proof *NodeSet[P]
@@ -107,7 +107,7 @@ func (req *CodeRequest) StoreResult(db ethdb.Database) {
 }
 
 // BlockRequest is the ODR request type for retrieving block bodies
-type BlockRequest [P crypto.PublicKey]  struct {
+type BlockRequest[P crypto.PublicKey] struct {
 	Hash   common.Hash
 	Number uint64
 	Header *types.Header[P]
@@ -136,7 +136,7 @@ func (req *ReceiptsRequest[P]) StoreResult(db ethdb.Database) {
 }
 
 // ChtRequest is the ODR request type for retrieving header by Canonical Hash Trie
-type ChtRequest [P crypto.PublicKey] struct {
+type ChtRequest[P crypto.PublicKey] struct {
 	Config           *IndexerConfig
 	ChtNum, BlockNum uint64
 	ChtRoot          common.Hash
@@ -154,7 +154,7 @@ func (req *ChtRequest[P]) StoreResult(db ethdb.Database) {
 }
 
 // BloomRequest is the ODR request type for retrieving bloom filters from a CHT structure
-type BloomRequest [P crypto.PublicKey] struct {
+type BloomRequest[P crypto.PublicKey] struct {
 	OdrRequest
 	Config           *IndexerConfig
 	BloomTrieNum     uint64

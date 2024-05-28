@@ -27,12 +27,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto/csp"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3411"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,7 +68,6 @@ func Test3411Strebog(t *testing.T) {
 	}
 	checkhash(t, "Streebog-256-array", func(in []byte) []byte { h := Keccak256Hash[gost3410.PublicKey](in); return h[:] }, msg, exp)
 }
-
 
 func TestKeccak256Hasher(t *testing.T) {
 	msg := []byte("abc")
@@ -124,7 +123,6 @@ func Test3411Streebog512Hasher(t *testing.T) {
 	checkhash(t, "Streebog-512-array", func(in []byte) []byte { h := Keccak512[gost3410.PublicKey](in); return h[:] }, msg, exp)
 }
 
-
 func TestToECDSAErrors(t *testing.T) {
 	if _, err := HexToECDSA[nist.PrivateKey]("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
@@ -175,15 +173,14 @@ func TestUnmarshalPubkey(t *testing.T) {
 	}
 }
 
-
 func TestUnmarshalPubkeyGost(t *testing.T) {
 	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	var (
 		enc, _ = hex.DecodeString("04e4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc4218496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775")
 		dec    = gost3410.PublicKey{
-			C:     gost3410.GostCurve,
-			X:     hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
-			Y:     hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
+			C: gost3410.GostCurve,
+			X: hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
+			Y: hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
 		}
 	)
 	key, err := UnmarshalPubkey[gost3410.PublicKey](enc)
@@ -230,7 +227,7 @@ func TestSign(t *testing.T) {
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	digest := make([]byte,32)
+	digest := make([]byte, 32)
 	gostMsg.Read(digest)
 	gostSig, err := Sign(digest, *gostKey)
 	if err != nil {
@@ -253,7 +250,7 @@ func TestSign(t *testing.T) {
 		t.Log("Recovered X ", X.String())
 		t.Log("Recovered Y ", Y.String())
 	}
-	
+
 	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](digest, gostSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
@@ -410,6 +407,7 @@ func TestSignCSPRecoverGOST(t *testing.T) {
 		t.Fatalf("Pub key: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], pub)
 	}
 }
+
 // func TestInvalidSign(t *testing.T) {
 // 	if _, err := Sign(make([]byte, 1), nil); err == nil {
 // 		t.Errorf("expected sign with hash 1 byte to error")

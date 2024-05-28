@@ -3,8 +3,8 @@ package notinuse
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 var ErrPrivateTxManagerNotInUse = errors.New("private transaction manager is not in use")

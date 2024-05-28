@@ -27,16 +27,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/p2p/discover/v4wire"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
-var testTargetGost     = v4wire.Pubkey[gost3410.PublicKey]{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
+var testTargetGost = v4wire.Pubkey[gost3410.PublicKey]{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
 
 func TestUDPv4_packetErrorsGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(errExpired, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4})
@@ -47,7 +47,7 @@ func TestUDPv4_packetErrorsGost(t *testing.T) {
 
 func TestUDPv4_pingTimeoutGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	key := newkey[gost3410.PrivateKey]()
@@ -60,7 +60,7 @@ func TestUDPv4_pingTimeoutGost(t *testing.T) {
 
 func TestUDPv4_responseTimeoutsGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	rand.Seed(time.Now().UnixNano())
@@ -132,7 +132,7 @@ func TestUDPv4_responseTimeoutsGost(t *testing.T) {
 
 func TestUDPv4_findnodeTimeoutGost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
@@ -148,7 +148,7 @@ func TestUDPv4_findnodeTimeoutGost(t *testing.T) {
 }
 
 func TestUDPv4_findnodeGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	// put a few nodes into the table. their exact
@@ -203,7 +203,7 @@ func TestUDPv4_findnodeGost(t *testing.T) {
 }
 
 func TestUDPv4_findnodeMultiReplyGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	rid := enode.PubkeyToIDV4(*test.remotekey.Public())
@@ -259,7 +259,7 @@ func TestUDPv4_findnodeMultiReplyGost(t *testing.T) {
 
 // This test checks that reply matching of pong verifies the ping hash.
 func TestUDPv4_pingMatchGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	randToken := make([]byte, 32)
@@ -273,7 +273,7 @@ func TestUDPv4_pingMatchGost(t *testing.T) {
 
 // This test checks that reply matching of pong verifies the sender IP address.
 func TestUDPv4_pingMatchIPGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(nil, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4, Expiration: futureExp})
@@ -290,7 +290,7 @@ func TestUDPv4_pingMatchIPGost(t *testing.T) {
 }
 
 func TestUDPv4_successfulPingGost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	added := make(chan *node[gost3410.PublicKey], 1)
 	test.table.nodeAddedHook = func(n *node[gost3410.PublicKey]) { added <- n }
 	defer test.close()
@@ -356,7 +356,7 @@ func TestUDPv4_successfulPingGost(t *testing.T) {
 
 // This test checks that EIP-868 requests work.
 func TestUDPv4_EIP868Gost(t *testing.T) {
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	test.udp.localNode.Set(enr.WithEntry("foo", "bar"))
@@ -397,9 +397,9 @@ func TestUDPv4_smallNetConvergenceGost(t *testing.T) {
 	t.Parallel()
 
 	// Start the network.
-	nodes := make([]*UDPv4[gost3410.PrivateKey,gost3410.PublicKey], 4)
+	nodes := make([]*UDPv4[gost3410.PrivateKey, gost3410.PublicKey], 4)
 	for i := range nodes {
-		var cfg Config[gost3410.PrivateKey,gost3410.PublicKey]
+		var cfg Config[gost3410.PrivateKey, gost3410.PublicKey]
 		if i > 0 {
 			bn := nodes[0].Self()
 			cfg.Bootnodes = []*enode.Node[gost3410.PublicKey]{bn}
