@@ -6,42 +6,42 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/forkid"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/eth/fetcher"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	qlightproto "github.com/pavelkrolevets/MIR-pro/eth/protocols/qlight"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/forkid"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/eth/fetcher"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	qlightproto "github.com/MIRChain/MIR/eth/protocols/qlight"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
-type qlightClientHandler[T crypto.PrivateKey, P crypto.PublicKey] ethHandler[T,P]
+type qlightClientHandler[T crypto.PrivateKey, P crypto.PublicKey] ethHandler[T, P]
 
-func (h *qlightClientHandler[T,P]) Chain() *core.BlockChain[P]     { return h.chain }
-func (h *qlightClientHandler[T,P]) StateBloom() *trie.SyncBloom { return h.stateBloom }
-func (h *qlightClientHandler[T,P]) TxPool() eth.TxPool[P]          { return h.txpool }
+func (h *qlightClientHandler[T, P]) Chain() *core.BlockChain[P]  { return h.chain }
+func (h *qlightClientHandler[T, P]) StateBloom() *trie.SyncBloom { return h.stateBloom }
+func (h *qlightClientHandler[T, P]) TxPool() eth.TxPool[P]       { return h.txpool }
 
-func (h *qlightClientHandler[T,P]) RunPeer(peer *eth.Peer[T,P], handler eth.Handler[T,P]) error {
+func (h *qlightClientHandler[T, P]) RunPeer(peer *eth.Peer[T, P], handler eth.Handler[T, P]) error {
 	return nil
 }
-func (h *qlightClientHandler[T,P]) Handle(peer *eth.Peer[T,P], packet eth.Packet) error {
-	return (*ethHandler[T,P])(h).Handle(peer, packet)
+func (h *qlightClientHandler[T, P]) Handle(peer *eth.Peer[T, P], packet eth.Packet) error {
+	return (*ethHandler[T, P])(h).Handle(peer, packet)
 }
 
-func (h *qlightClientHandler[T,P]) RunQPeer(peer *qlightproto.Peer[T,P], hand qlightproto.Handler[T,P]) error {
-	return (*handler[T,P])(h).runQLightClientPeer(peer, hand)
+func (h *qlightClientHandler[T, P]) RunQPeer(peer *qlightproto.Peer[T, P], hand qlightproto.Handler[T, P]) error {
+	return (*handler[T, P])(h).runQLightClientPeer(peer, hand)
 }
 
 // PeerInfo retrieves all known `eth` information about a peer.
-func (h *qlightClientHandler[T,P]) PeerInfo(id enode.ID) interface{} {
+func (h *qlightClientHandler[T, P]) PeerInfo(id enode.ID) interface{} {
 	if p := h.peers.peer(id.String()); p != nil {
 		return p.info()
 	}
@@ -50,26 +50,26 @@ func (h *qlightClientHandler[T,P]) PeerInfo(id enode.ID) interface{} {
 
 // AcceptTxs retrieves whether transaction processing is enabled on the node
 // or if inbound transactions should simply be dropped.
-func (h *qlightClientHandler[T,P]) AcceptTxs() bool {
+func (h *qlightClientHandler[T, P]) AcceptTxs() bool {
 	return atomic.LoadUint32(&h.acceptTxs) == 1
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
-func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T,P]) (*handler[T,P], error) {
+func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *handlerConfig[T, P]) (*handler[T, P], error) {
 	// Create the protocol manager with the base fields
 	if config.EventMux == nil {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
-	h := &handler[T,P]{
+	h := &handler[T, P]{
 		networkID:          config.Network,
 		forkFilter:         forkid.NewFilter[P](config.Chain),
 		eventMux:           config.EventMux,
 		database:           config.Database,
 		txpool:             config.TxPool,
 		chain:              config.Chain,
-		peers:              newPeerSet[T,P](),
+		peers:              newPeerSet[T, P](),
 		authorizationList:  config.AuthorizationList,
-		txsyncCh:           make(chan *txsync[T,P]),
+		txsyncCh:           make(chan *txsync[T, P]),
 		quitSync:           make(chan struct{}),
 		raftMode:           config.RaftMode,
 		engine:             config.Engine,
@@ -115,7 +115,7 @@ func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *han
 	if atomic.LoadUint32(&h.fastSync) == 1 {
 		h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
 	}
-	h.downloader = downloader.New[T,P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
+	h.downloader = downloader.New[T, P](h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header[P]) error {
@@ -166,7 +166,7 @@ func newQLightClientHandler[T crypto.PrivateKey, P crypto.PublicKey](config *han
 
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
 // various subsistems and starts handling messages.
-func (h *handler[T,P]) runQLightClientPeer(peer *qlightproto.Peer[T,P], handler qlightproto.Handler[T,P]) error {
+func (h *handler[T, P]) runQLightClientPeer(peer *qlightproto.Peer[T, P], handler qlightproto.Handler[T, P]) error {
 	// If the peer has a `snap` extension, wait for it to connect so we can have
 	// a uniform initialization/teardown mechanism
 	snap, err := h.peers.waitSnapExtension(peer.EthPeer)
@@ -312,7 +312,7 @@ func (h *handler[T,P]) runQLightClientPeer(peer *qlightproto.Peer[T,P], handler 
 	return handler(peer)
 }
 
-func (h *handler[T,P]) StartQLightClient() {
+func (h *handler[T, P]) StartQLightClient() {
 	h.maxPeers = 1
 	// Quorum
 	if h.raftMode {
@@ -328,7 +328,7 @@ func (h *handler[T,P]) StartQLightClient() {
 	go h.chainSync.loop()
 }
 
-func (h *handler[T,P]) StopQLightClient() {
+func (h *handler[T, P]) StopQLightClient() {
 	if h == nil {
 		return
 	}
@@ -348,37 +348,37 @@ func (h *handler[T,P]) StopQLightClient() {
 
 // BroadcastBlock will either propagate a block to a subset of its peers, or
 // will only announce its availability (depending what's requested).
-func (h *handler[T,P]) BroadcastBlockQLightClient(block *types.Block[P], propagate bool) {
+func (h *handler[T, P]) BroadcastBlockQLightClient(block *types.Block[P], propagate bool) {
 }
 
 // Handle is invoked from a peer's message handler when it receives a new remote
 // message that the handler couldn't consume and serve itself.
-func (h *qlightClientHandler[T,P]) QHandle(peer *qlightproto.Peer[T,P], packet eth.Packet) error {
+func (h *qlightClientHandler[T, P]) QHandle(peer *qlightproto.Peer[T, P], packet eth.Packet) error {
 	// Consume any broadcasts and announces, forwarding the rest to the downloader
 	switch packet := packet.(type) {
 	case *eth.BlockHeadersPacket[P]:
-		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
+		return (*ethHandler[T, P])(h).Handle(peer.EthPeer, packet)
 
 	case *eth.BlockBodiesPacket[P]:
 		txset, uncleset := packet.Unpack()
 		h.handleBodiesQLight(txset)
-		return (*ethHandler[T,P])(h).handleBodies(peer.EthPeer, txset, uncleset)
+		return (*ethHandler[T, P])(h).handleBodies(peer.EthPeer, txset, uncleset)
 
 	case *eth.NewBlockHashesPacket:
-		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
+		return (*ethHandler[T, P])(h).Handle(peer.EthPeer, packet)
 
 	case *eth.NewBlockPacket[P]:
 		h.updateCacheWithNonPartyTxData(packet.Block.Transactions())
-		return (*ethHandler[T,P])(h).handleBlockBroadcast(peer.EthPeer, packet.Block, packet.TD)
+		return (*ethHandler[T, P])(h).handleBlockBroadcast(peer.EthPeer, packet.Block, packet.TD)
 	case *qlightproto.BlockPrivateDataPacket:
 		return h.handleBlockPrivateData(packet)
 	case *eth.NewPooledTransactionHashesPacket:
-		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
+		return (*ethHandler[T, P])(h).Handle(peer.EthPeer, packet)
 	case *eth.TransactionsPacket[P]:
 		h.updateCacheWithNonPartyTxData(*packet)
-		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
+		return (*ethHandler[T, P])(h).Handle(peer.EthPeer, packet)
 	case *eth.PooledTransactionsPacket[P]:
-		return (*ethHandler[T,P])(h).Handle(peer.EthPeer, packet)
+		return (*ethHandler[T, P])(h).Handle(peer.EthPeer, packet)
 
 	default:
 		return fmt.Errorf("unexpected eth packet type: %T", packet)
@@ -387,13 +387,13 @@ func (h *qlightClientHandler[T,P]) QHandle(peer *qlightproto.Peer[T,P], packet e
 
 // handleBodies is invoked from a peer's message handler when it transmits a batch
 // of block bodies for the local node to process.
-func (h *qlightClientHandler[T,P]) handleBodiesQLight(txs [][]*types.Transaction[P]) {
+func (h *qlightClientHandler[T, P]) handleBodiesQLight(txs [][]*types.Transaction[P]) {
 	for _, txArray := range txs {
 		h.updateCacheWithNonPartyTxData(txArray)
 	}
 }
 
-func (h *qlightClientHandler[T,P]) updateCacheWithNonPartyTxData(transactions []*types.Transaction[P]) {
+func (h *qlightClientHandler[T, P]) updateCacheWithNonPartyTxData(transactions []*types.Transaction[P]) {
 	for _, tx := range transactions {
 		if tx.IsPrivate() || tx.IsPrivacyMarker() {
 			txHash := common.BytesToEncryptedPayloadHash(tx.Data())
@@ -402,7 +402,7 @@ func (h *qlightClientHandler[T,P]) updateCacheWithNonPartyTxData(transactions []
 	}
 }
 
-func (h *qlightClientHandler[T,P]) handleBlockPrivateData(blockPrivateData *qlightproto.BlockPrivateDataPacket) error {
+func (h *qlightClientHandler[T, P]) handleBlockPrivateData(blockPrivateData *qlightproto.BlockPrivateDataPacket) error {
 	for _, b := range *blockPrivateData {
 		if err := h.privateClientCache.AddPrivateBlock(b); err != nil {
 			return fmt.Errorf("Unable to handle private block data: %v", err)

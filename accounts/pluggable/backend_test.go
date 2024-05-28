@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/pluggable/internal/testutils/mock_plugin"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable/internal/testutils/mock_plugin"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 	"github.com/stretchr/testify/require"
 )
 

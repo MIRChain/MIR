@@ -39,8 +39,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 func TestKDF(t *testing.T) {
@@ -81,7 +81,7 @@ func TestSharedKey(t *testing.T) {
 	}
 	skLen := MaxSharedKeyLength(&prv1.PublicKey) / 2
 
-	prv2, err := GenerateKey[nist.PrivateKey,nist.PublicKey](rand.Reader, DefaultCurve, nil)
+	prv2, err := GenerateKey[nist.PrivateKey, nist.PublicKey](rand.Reader, DefaultCurve, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,18 +17,18 @@
 package vm
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
 )
 
 type (
-	executionFunc [P crypto.PublicKey]func(pc *uint64, interpreter *EVMInterpreter[P], callContext *ScopeContext[P]) ([]byte, error)
-	gasFunc       [P crypto.PublicKey]func(*EVM[P], *Contract[P], *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
+	executionFunc[P crypto.PublicKey] func(pc *uint64, interpreter *EVMInterpreter[P], callContext *ScopeContext[P]) ([]byte, error)
+	gasFunc[P crypto.PublicKey]       func(*EVM[P], *Contract[P], *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
 	// memorySizeFunc returns the required size, and whether the operation overflowed a uint64
 	memorySizeFunc func(*Stack) (size uint64, overflow bool)
 )
 
-type operation [P crypto.PublicKey] struct {
+type operation[P crypto.PublicKey] struct {
 	// execute is the operation function
 	execute     executionFunc[P]
 	constantGas uint64
@@ -61,7 +61,7 @@ type operation [P crypto.PublicKey] struct {
 // )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
-type JumpTable [P crypto.PublicKey] [256]*operation[P]
+type JumpTable[P crypto.PublicKey] [256]*operation[P]
 
 // newBerlinInstructionSet returns the frontier, homestead, byzantium,
 // contantinople, istanbul, petersburg and berlin instructions.

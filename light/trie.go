@@ -21,13 +21,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // var (
@@ -43,7 +43,7 @@ func NewStateDatabase[P crypto.PublicKey](ctx context.Context, head *types.Heade
 	return &odrDatabase[P]{ctx, StateTrieID(head), odr}
 }
 
-type odrDatabase [P crypto.PublicKey] struct {
+type odrDatabase[P crypto.PublicKey] struct {
 	ctx     context.Context
 	id      *TrieID
 	backend OdrBackend[P]
@@ -114,7 +114,7 @@ func (db *odrDatabase[P]) AccountExtraDataLinker() rawdb.AccountExtraDataLinker 
 	return newAccountExtraDataLinkerStub()
 }
 
-type odrTrie [P crypto.PublicKey] struct {
+type odrTrie[P crypto.PublicKey] struct {
 	db   *odrDatabase[P]
 	id   *TrieID
 	trie *trie.Trie[P]
@@ -191,13 +191,13 @@ func (t *odrTrie[P]) do(key []byte, fn func() error) error {
 	}
 }
 
-type nodeIterator [P crypto.PublicKey]  struct {
+type nodeIterator[P crypto.PublicKey] struct {
 	trie.NodeIterator
 	t   *odrTrie[P]
 	err error
 }
 
-func newNodeIterator[P crypto.PublicKey] (t *odrTrie[P], startkey []byte) trie.NodeIterator {
+func newNodeIterator[P crypto.PublicKey](t *odrTrie[P], startkey []byte) trie.NodeIterator {
 	it := &nodeIterator[P]{t: t}
 	// Open the actual non-ODR trie if that hasn't happened yet.
 	if t.trie == nil {

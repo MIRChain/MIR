@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // var emptyCodeHash = crypto.Keccak256(nil)
@@ -64,7 +64,7 @@ func (s Storage) Copy() Storage {
 // First you need to obtain a state object.
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
-type stateObject [P crypto.PublicKey] struct {
+type stateObject[P crypto.PublicKey] struct {
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
@@ -121,7 +121,7 @@ type Account struct {
 }
 
 // newObject creates a state object.
-func newObject[P crypto.PublicKey] (db *StateDB[P], address common.Address, data Account) *stateObject[P] {
+func newObject[P crypto.PublicKey](db *StateDB[P], address common.Address, data Account) *stateObject[P] {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}

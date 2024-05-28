@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
+	"github.com/MIRChain/MIR/plugin/security"
 )
 
 type TLSConfig struct {

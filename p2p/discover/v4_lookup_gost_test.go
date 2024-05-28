@@ -19,23 +19,23 @@ package discover
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 func TestUDPv4_Lookup_Gost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 
 	// Lookup on empty table returns no nodes.
-	targetKey, _ := decodePubkey[gost3410.PublicKey](lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().target[:])
+	targetKey, _ := decodePubkey[gost3410.PublicKey](lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().target[:])
 	if results := test.udp.LookupPubkey(targetKey); len(results) > 0 {
 		t.Fatalf("lookup on empty table returned %d results: %#v", len(results), results)
 	}
 
 	// Seed table with initial node.
-	fillTable(test.table, []*node[gost3410.PublicKey]{wrapNode(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().node(256, 0))})
+	fillTable(test.table, []*node[gost3410.PublicKey]{wrapNode(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().node(256, 0))})
 
 	// Start the lookup.
 	resultC := make(chan []*enode.Node[gost3410.PublicKey], 1)
@@ -45,37 +45,37 @@ func TestUDPv4_Lookup_Gost(t *testing.T) {
 	}()
 
 	// Answer lookup packets.
-	serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]())
+	serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]())
 
 	// Verify result nodes.
 	results := <-resultC
 	t.Logf("results:")
 	for _, e := range results {
-		t.Logf("  ld=%d, %x", enode.LogDist(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().target.id(), e.ID()), e.ID().Bytes())
+		t.Logf("  ld=%d, %x", enode.LogDist(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().target.id(), e.ID()), e.ID().Bytes())
 	}
 	if len(results) != bucketSize {
 		t.Errorf("wrong number of results: got %d, want %d", len(results), bucketSize)
 	}
-	checkLookupResults(t, lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey](), results)
+	checkLookupResults(t, lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey](), results)
 }
 
 func TestUDPv4_LookupIterator_Gost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	// Seed table with initial nodes.
-	bootnodes := make([]*node[gost3410.PublicKey], len(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().dists[256]))
-	for i := range lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().dists[256] {
-		bootnodes[i] = wrapNode(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().node(256, i))
+	bootnodes := make([]*node[gost3410.PublicKey], len(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().dists[256]))
+	for i := range lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().dists[256] {
+		bootnodes[i] = wrapNode(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().node(256, i))
 	}
 	fillTable(test.table, bootnodes)
-	go serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]())
+	go serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]())
 
 	// Create the iterator and collect the nodes it yields.
 	iter := test.udp.RandomNodes()
 	seen := make(map[enode.ID]*enode.Node[gost3410.PublicKey])
-	for limit := lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().len(); iter.Next() && len(seen) < limit; {
+	for limit := lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().len(); iter.Next() && len(seen) < limit; {
 		seen[iter.Node().ID()] = iter.Node()
 	}
 	iter.Close()
@@ -86,7 +86,7 @@ func TestUDPv4_LookupIterator_Gost(t *testing.T) {
 		results = append(results, n)
 	}
 	sortByID(results)
-	want := lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().nodes()
+	want := lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().nodes()
 	if err := checkNodesEqual(results, want); err != nil {
 		t.Fatal(err)
 	}
@@ -96,16 +96,16 @@ func TestUDPv4_LookupIterator_Gost(t *testing.T) {
 // method is called.
 func TestUDPv4_LookupIteratorClose_Gost(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[gost3410.PrivateKey,gost3410.PublicKey](t)
+	test := newUDPTest[gost3410.PrivateKey, gost3410.PublicKey](t)
 	defer test.close()
 
 	// Seed table with initial nodes.
-	bootnodes := make([]*node[gost3410.PublicKey], len(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().dists[256]))
-	for i := range lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().dists[256] {
-		bootnodes[i] = wrapNode(lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]().node(256, i))
+	bootnodes := make([]*node[gost3410.PublicKey], len(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().dists[256]))
+	for i := range lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().dists[256] {
+		bootnodes[i] = wrapNode(lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]().node(256, i))
 	}
 	fillTable(test.table, bootnodes)
-	go serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey,gost3410.PublicKey]())
+	go serveTestnet(test, lookupTestnetGost[gost3410.PrivateKey, gost3410.PublicKey]())
 
 	it := test.udp.RandomNodes()
 	if ok := it.Next(); !ok || it.Node() == nil {
@@ -131,8 +131,8 @@ func TestUDPv4_LookupIteratorClose_Gost(t *testing.T) {
 
 // This is the test network for the Lookup test.
 // The nodes were obtained by running lookupTestnet.mine with a random NodeID as target.
-func lookupTestnetGost[T crypto.PrivateKey, P crypto.PublicKey]() *preminedTestnet[T,P]{
-	return &preminedTestnet[T,P]{
+func lookupTestnetGost[T crypto.PrivateKey, P crypto.PublicKey]() *preminedTestnet[T, P] {
+	return &preminedTestnet[T, P]{
 		target: hexEncPubkey[P]("ba6303fbb832ef2a24a5a2b8603bc18981073dd7634b9c6454aa8183ccf07c3b60aabbca2fd8601a29958dd7d7799eb725051d25244635417b9f5a34f1c29a28"),
 		dists: [257][]T{
 			251: {

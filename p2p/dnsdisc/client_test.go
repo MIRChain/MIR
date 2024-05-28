@@ -25,14 +25,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/testlog"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
 const (
@@ -56,7 +56,7 @@ func TestClientSyncTree(t *testing.T) {
 		wantSeq   = uint(1)
 	)
 
-	c := NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
+	c := NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
 	stree, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
 	if err != nil {
 		t.Fatal("sync error:", err)
@@ -90,7 +90,7 @@ func TestClientSyncTreeBadNode(t *testing.T) {
 		"C7HRFPF3BLGF3YR4DY5KX3SMBE.n": "enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org",
 		"INDMVBZEEQ4ESVYAKGIYU74EAA.n": "enr:-----",
 	}
-	c := NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
+	c := NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
 	_, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
 	wantErr := nameError{name: "INDMVBZEEQ4ESVYAKGIYU74EAA.n", err: entryError{typ: "enr", err: errInvalidENR}}
 	if err != wantErr {
@@ -103,7 +103,7 @@ func TestIterator(t *testing.T) {
 	nodes := testNodes(nodesSeed1, 30)
 	tree, url := makeTestTree("n", nodes, nil)
 	r := mapResolver(tree.ToTXT("n"))
-	c := NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{
+	c := NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{
 		Resolver:  r,
 		Logger:    testlog.Logger(t, log.LvlTrace),
 		RateLimit: 500,
@@ -120,7 +120,7 @@ func TestIterator(t *testing.T) {
 func TestIteratorClose(t *testing.T) {
 	nodes := testNodes(nodesSeed1, 500)
 	tree1, url1 := makeTestTree("t1", nodes, nil)
-	c := NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{Resolver: newMapResolver(tree1.ToTXT("t1"))})
+	c := NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{Resolver: newMapResolver(tree1.ToTXT("t1"))})
 	it, err := c.NewIterator(url1)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func TestIteratorLinks(t *testing.T) {
 	nodes := testNodes(nodesSeed1, 40)
 	tree1, url1 := makeTestTree("t1", nodes[:10], nil)
 	tree2, url2 := makeTestTree("t2", nodes[10:], []string{url1})
-	c := NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{
+	c := NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{
 		Resolver:  newMapResolver(tree1.ToTXT("t1"), tree2.ToTXT("t2")),
 		Logger:    testlog.Logger(t, log.LvlTrace),
 		RateLimit: 500,
@@ -164,7 +164,7 @@ func TestIteratorNodeUpdates(t *testing.T) {
 		clock    = new(mclock.Simulated)
 		nodes    = testNodes(nodesSeed1, 30)
 		resolver = newMapResolver()
-		c        = NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{
+		c        = NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{
 			Resolver:        resolver,
 			Logger:          testlog.Logger(t, log.LvlTrace),
 			RecheckInterval: 20 * time.Minute,
@@ -201,7 +201,7 @@ func TestIteratorRootRecheckOnFail(t *testing.T) {
 		clock    = new(mclock.Simulated)
 		nodes    = testNodes(nodesSeed1, 30)
 		resolver = newMapResolver()
-		c        = NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{
+		c        = NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{
 			Resolver:        resolver,
 			Logger:          testlog.Logger(t, log.LvlTrace),
 			RecheckInterval: 20 * time.Minute,
@@ -238,7 +238,7 @@ func TestIteratorEmptyTree(t *testing.T) {
 		clock    = new(mclock.Simulated)
 		nodes    = testNodes(nodesSeed1, 1)
 		resolver = newMapResolver()
-		c        = NewClient[nist.PrivateKey ,nist.PublicKey](Config[nist.PublicKey]{
+		c        = NewClient[nist.PrivateKey, nist.PublicKey](Config[nist.PublicKey]{
 			Resolver:        resolver,
 			Logger:          testlog.Logger(t, log.LvlTrace),
 			RecheckInterval: 20 * time.Minute,
@@ -286,7 +286,7 @@ func updateSomeNodes(keySeed int64, nodes []*enode.Node[nist.PublicKey]) {
 		r := n.Record()
 		r.Set(enr.IP{127, 0, 0, 1})
 		r.SetSeq(55)
-		enode.SignV4[nist.PrivateKey ,nist.PublicKey](r, keys[i])
+		enode.SignV4[nist.PrivateKey, nist.PublicKey](r, keys[i])
 		n2, _ := enode.New[nist.PublicKey](enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}}, r)
 		nodes[i] = n2
 	}
@@ -329,23 +329,23 @@ func TestIteratorLinkUpdates(t *testing.T) {
 
 	clock.Run(c.cfg.RecheckInterval + 1*time.Second)
 
-	var wantNodes []*enode.Node[nist.PublicKey] 
+	var wantNodes []*enode.Node[nist.PublicKey]
 	wantNodes = append(wantNodes, tree1.Nodes()...)
 	wantNodes = append(wantNodes, tree3.Nodes()...)
 	checkIterator(t, it, wantNodes)
 
 	// Check that linked trees are GCed when they're no longer referenced.
-	knownTrees := it.(*randomIterator[nist.PrivateKey ,nist.PublicKey]).trees
+	knownTrees := it.(*randomIterator[nist.PrivateKey, nist.PublicKey]).trees
 	if len(knownTrees) != 2 {
 		t.Errorf("client knows %d trees, want 2", len(knownTrees))
 	}
 }
 
-func checkIterator(t *testing.T, it enode.Iterator[nist.PublicKey] , wantNodes []*enode.Node[nist.PublicKey] ) {
+func checkIterator(t *testing.T, it enode.Iterator[nist.PublicKey], wantNodes []*enode.Node[nist.PublicKey]) {
 	t.Helper()
 
 	var (
-		want     = make(map[enode.ID]*enode.Node[nist.PublicKey] )
+		want     = make(map[enode.ID]*enode.Node[nist.PublicKey])
 		maxCalls = len(wantNodes) * 3
 		calls    = 0
 	)
@@ -365,8 +365,8 @@ func checkIterator(t *testing.T, it enode.Iterator[nist.PublicKey] , wantNodes [
 	}
 }
 
-func makeTestTree(domain string, nodes []*enode.Node[nist.PublicKey] , links []string) (*Tree[nist.PrivateKey,nist.PublicKey] , string) {
-	tree, err := MakeTree[nist.PrivateKey,nist.PublicKey] (1, nodes, links)
+func makeTestTree(domain string, nodes []*enode.Node[nist.PublicKey], links []string) (*Tree[nist.PrivateKey, nist.PublicKey], string) {
+	tree, err := MakeTree[nist.PrivateKey, nist.PublicKey](1, nodes, links)
 	if err != nil {
 		panic(err)
 	}
@@ -397,12 +397,12 @@ func testKey(seed int64) nist.PrivateKey {
 
 func testNodes(seed int64, n int) []*enode.Node[nist.PublicKey] {
 	keys := testKeys(seed, n)
-	nodes := make([]*enode.Node[nist.PublicKey] , n)
+	nodes := make([]*enode.Node[nist.PublicKey], n)
 	for i, key := range keys {
 		record := new(enr.Record)
 		record.SetSeq(uint64(i))
-		enode.SignV4[nist.PrivateKey,nist.PublicKey] (record, key)
-		n, err := enode.New[nist.PublicKey] (enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}}, record)
+		enode.SignV4[nist.PrivateKey, nist.PublicKey](record, key)
+		n, err := enode.New[nist.PublicKey](enr.SchemeMap{"v4": enode.V4ID[nist.PublicKey]{}}, record)
 		if err != nil {
 			panic(err)
 		}
@@ -411,7 +411,7 @@ func testNodes(seed int64, n int) []*enode.Node[nist.PublicKey] {
 	return nodes
 }
 
-func testNode(seed int64) *enode.Node[nist.PublicKey]  {
+func testNode(seed int64) *enode.Node[nist.PublicKey] {
 	return testNodes(seed, 1)[0]
 }
 

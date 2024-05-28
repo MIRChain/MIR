@@ -24,13 +24,13 @@ import (
 	mrand "math/rand"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 func TestDeriveSha(t *testing.T) {
@@ -152,7 +152,7 @@ func genTxs(num uint64) (types.Transactions[nist.PublicKey], error) {
 	newTx := func(i uint64) (*types.Transaction[nist.PublicKey], error) {
 		signer := types.NewEIP155Signer[nist.PublicKey](big.NewInt(18))
 		utx := types.NewTransaction[nist.PublicKey](i, addr, new(big.Int), 0, new(big.Int).SetUint64(10000000), nil)
-		tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](utx, signer, key)
+		tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](utx, signer, key)
 		return tx, err
 	}
 	var txs types.Transactions[nist.PublicKey]

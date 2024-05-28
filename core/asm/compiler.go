@@ -22,8 +22,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/vm"
 )
 
 // Compiler contains information about the parsed source

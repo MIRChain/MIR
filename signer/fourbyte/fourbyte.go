@@ -28,12 +28,12 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // Database is a 4byte database with the possibility of maintaining an immutable
 // set (embedded) into the process and a mutable set (loaded and written to file).
-type Database[P crypto.PublicKey]struct {
+type Database[P crypto.PublicKey] struct {
 	embedded   map[string]string
 	custom     map[string]string
 	customPath string

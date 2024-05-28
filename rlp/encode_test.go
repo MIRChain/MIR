@@ -26,7 +26,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/MIRChain/MIR/common/math"
 )
 
 type testEncoder struct {

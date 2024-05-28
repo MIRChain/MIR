@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
+	"github.com/MIRChain/MIR/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

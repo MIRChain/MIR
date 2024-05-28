@@ -26,7 +26,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/MIRChain/MIR/common/math"
 	"gopkg.in/urfave/cli.v1"
 )
 

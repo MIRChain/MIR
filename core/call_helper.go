@@ -3,23 +3,23 @@ package core
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
 )
 
 // callHelper makes it easier to do proper calls and use the state transition object.
 // It also manages the nonces of the caller and keeps private and public state, which
 // can be freely modified outside of the helper.
-type callHelper [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type callHelper[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db ethdb.Database
 
 	nonces map[common.Address]uint64
@@ -30,20 +30,20 @@ type callHelper [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // TxNonce returns the pending nonce
-func (cg *callHelper[T,P]) TxNonce(addr common.Address) uint64 {
+func (cg *callHelper[T, P]) TxNonce(addr common.Address) uint64 {
 	return cg.nonces[addr]
 }
 
 // MakeCall makes does a call to the recipient using the given input. It can switch between private and public
 // by setting the private boolean flag. It returns an error if the call failed.
-func (cg *callHelper[T,P]) MakeCall(private bool, key T, to common.Address, input []byte) error {
+func (cg *callHelper[T, P]) MakeCall(private bool, key T, to common.Address, input []byte) error {
 	var pub P
-	switch t:=any(&key).(type){
+	switch t := any(&key).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	var (
@@ -88,7 +88,7 @@ func (cg *callHelper[T,P]) MakeCall(private bool, key T, to common.Address, inpu
 }
 
 // MakeCallHelper returns a new callHelper
-func MakeCallHelper[T crypto.PrivateKey, P crypto.PublicKey]() *callHelper[T,P] {
+func MakeCallHelper[T crypto.PrivateKey, P crypto.PublicKey]() *callHelper[T, P] {
 	memdb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase[P](memdb)
 
@@ -100,7 +100,7 @@ func MakeCallHelper[T crypto.PrivateKey, P crypto.PublicKey]() *callHelper[T,P] 
 	if err != nil {
 		panic(err)
 	}
-	cg := &callHelper[T,P]{
+	cg := &callHelper[T, P]{
 		db:           memdb,
 		nonces:       make(map[common.Address]uint64),
 		gp:           new(GasPool).AddGas(5000000),

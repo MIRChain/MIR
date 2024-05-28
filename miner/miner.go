@@ -22,22 +22,22 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Backend wraps all methods required for mining.
-type Backend [T crypto.PrivateKey, P crypto.PublicKey] interface {
+type Backend[T crypto.PrivateKey, P crypto.PublicKey] interface {
 	BlockChain() *core.BlockChain[P]
 	TxPool() *core.TxPool[P]
 	ChainDb() ethdb.Database
@@ -60,19 +60,19 @@ type Config struct {
 }
 
 // Miner creates blocks and searches for proof-of-work values.
-type Miner [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Miner[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	mux      *event.TypeMux
-	worker   *worker[T,P]
+	worker   *worker[T, P]
 	coinbase common.Address
-	eth      Backend[T,P]
+	eth      Backend[T, P]
 	engine   consensus.Engine[P]
 	exitCh   chan struct{}
 	startCh  chan common.Address
 	stopCh   chan struct{}
 }
 
-func New[T crypto.PrivateKey, P crypto.PublicKey](eth Backend[T,P], config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine[P], isLocalBlock func(block *types.Block[P]) bool) *Miner[T,P] {
-	miner := &Miner[T,P]{
+func New[T crypto.PrivateKey, P crypto.PublicKey](eth Backend[T, P], config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine[P], isLocalBlock func(block *types.Block[P]) bool) *Miner[T, P] {
+	miner := &Miner[T, P]{
 		eth:     eth,
 		mux:     mux,
 		engine:  engine,
@@ -90,7 +90,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](eth Backend[T,P], config *Conf
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
-func (miner *Miner[T,P]) update() {
+func (miner *Miner[T, P]) update() {
 	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent[P]{}, downloader.FailedEvent{})
 	defer func() {
 		if !events.Closed() {
@@ -150,30 +150,30 @@ func (miner *Miner[T,P]) update() {
 	}
 }
 
-func (miner *Miner[T,P]) Start(coinbase common.Address) {
+func (miner *Miner[T, P]) Start(coinbase common.Address) {
 	miner.startCh <- coinbase
 }
 
-func (miner *Miner[T,P]) Stop() {
+func (miner *Miner[T, P]) Stop() {
 	miner.stopCh <- struct{}{}
 }
 
-func (miner *Miner[T,P]) Close() {
+func (miner *Miner[T, P]) Close() {
 	close(miner.exitCh)
 }
 
-func (miner *Miner[T,P]) Mining() bool {
+func (miner *Miner[T, P]) Mining() bool {
 	return miner.worker.isRunning()
 }
 
-func (miner *Miner[T,P]) Hashrate() uint64 {
+func (miner *Miner[T, P]) Hashrate() uint64 {
 	if pow, ok := miner.engine.(consensus.PoW[P]); ok {
 		return uint64(pow.Hashrate())
 	}
 	return 0
 }
 
-func (miner *Miner[T,P]) SetExtra(extra []byte) error {
+func (miner *Miner[T, P]) SetExtra(extra []byte) error {
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
@@ -182,12 +182,12 @@ func (miner *Miner[T,P]) SetExtra(extra []byte) error {
 }
 
 // SetRecommitInterval sets the interval for sealing work resubmitting.
-func (miner *Miner[T,P]) SetRecommitInterval(interval time.Duration) {
+func (miner *Miner[T, P]) SetRecommitInterval(interval time.Duration) {
 	miner.worker.setRecommitInterval(interval)
 }
 
 // Pending returns the currently pending block and associated state.
-func (self *Miner[T,P]) Pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB[P], *state.StateDB[P]) {
+func (self *Miner[T, P]) Pending(psi types.PrivateStateIdentifier) (*types.Block[P], *state.StateDB[P], *state.StateDB[P]) {
 	return self.worker.pending(psi)
 }
 
@@ -196,11 +196,11 @@ func (self *Miner[T,P]) Pending(psi types.PrivateStateIdentifier) (*types.Block[
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
-func (miner *Miner[T,P]) PendingBlock() *types.Block[P] {
+func (miner *Miner[T, P]) PendingBlock() *types.Block[P] {
 	return miner.worker.pendingBlock()
 }
 
-func (miner *Miner[T,P]) SetEtherbase(addr common.Address) {
+func (miner *Miner[T, P]) SetEtherbase(addr common.Address) {
 	miner.coinbase = addr
 	miner.worker.setEtherbase(addr)
 }
@@ -209,7 +209,7 @@ func (miner *Miner[T,P]) SetEtherbase(addr common.Address) {
 // Note this function shouldn't be exposed to API, it's unnecessary for users
 // (miners) to actually know the underlying detail. It's only for outside project
 // which uses this library.
-func (miner *Miner[T,P]) EnablePreseal() {
+func (miner *Miner[T, P]) EnablePreseal() {
 	miner.worker.enablePreseal()
 }
 
@@ -218,12 +218,12 @@ func (miner *Miner[T,P]) EnablePreseal() {
 // Note this function shouldn't be exposed to API, it's unnecessary for users
 // (miners) to actually know the underlying detail. It's only for outside project
 // which uses this library.
-func (miner *Miner[T,P]) DisablePreseal() {
+func (miner *Miner[T, P]) DisablePreseal() {
 	miner.worker.disablePreseal()
 }
 
 // SubscribePendingLogs starts delivering logs from pending transactions
 // to the given channel.
-func (miner *Miner[T,P]) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
+func (miner *Miner[T, P]) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
 	return miner.worker.pendingLogsFeed.Subscribe(ch)
 }

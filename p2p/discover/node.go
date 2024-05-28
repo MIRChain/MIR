@@ -24,25 +24,26 @@ import (
 	"net"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // node represents a host on the network.
 // The fields of Node may not be modified.
-type node [P crypto.PublicKey] struct {
+type node[P crypto.PublicKey] struct {
 	enode.Node[P]
 	addedAt        time.Time // time when the node was added to the table
 	livenessChecks uint      // how often liveness was checked
 }
 
-type encPubkey [P crypto.PublicKey] [64]byte
+type encPubkey[P crypto.PublicKey] [64]byte
 
-func encodePubkey [P crypto.PublicKey] (key P) encPubkey[P] {
-	var e encPubkey[P] 
+func encodePubkey[P crypto.PublicKey](key P) encPubkey[P] {
+	var e encPubkey[P]
 	math.ReadBits(key.GetX(), e[:len(e)/2])
 	math.ReadBits(key.GetY(), e[len(e)/2:])
 	return e
@@ -50,7 +51,7 @@ func encodePubkey [P crypto.PublicKey] (key P) encPubkey[P] {
 
 func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 	var pub P
-	switch p:= any(&pub).(type){
+	switch p := any(&pub).(type) {
 	case *nist.PublicKey:
 		if len(e) != len(encPubkey[P]{}) {
 			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
@@ -75,6 +76,18 @@ func decodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 		// if !k.C.IsOnCurve(k.X, k.Y) {
 		// 	return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
 		// }
+		*p = *k
+	case *csp.PublicKey:
+		if len(e) != len(encPubkey[P]{}) {
+			return crypto.ZeroPublicKey[P](), errors.New("wrong size public key data")
+		}
+		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !k.Curve.IsOnCurve(k.X, k.Y) {
+			return crypto.ZeroPublicKey[P](), errors.New("invalid curve point")
+		}
 		*p = *k
 	default:
 		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")

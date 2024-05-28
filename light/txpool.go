@@ -23,16 +23,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 )
 
 const (
@@ -49,7 +49,7 @@ var txPermanent = uint64(500)
 // in a block (mined) or rolled back. There are no queued transactions since we
 // always receive all locally signed transactions in the same order as they are
 // created.
-type TxPool [P crypto.PublicKey] struct {
+type TxPool[P crypto.PublicKey] struct {
 	config       *params.ChainConfig
 	signer       types.Signer[P]
 	quit         chan bool
@@ -63,10 +63,10 @@ type TxPool [P crypto.PublicKey] struct {
 	chainDb      ethdb.Database
 	relay        TxRelayBackend[P]
 	head         common.Hash
-	nonce        map[common.Address]uint64            // "pending" nonce
+	nonce        map[common.Address]uint64               // "pending" nonce
 	pending      map[common.Hash]*types.Transaction[P]   // pending transactions by tx hash
 	mined        map[common.Hash][]*types.Transaction[P] // mined transactions by block hash
-	clearIdx     uint64                               // earliest block nr that can contain mined tx info
+	clearIdx     uint64                                  // earliest block nr that can contain mined tx info
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are in the eip2718 stage.
@@ -84,7 +84,7 @@ type TxPool [P crypto.PublicKey] struct {
 //
 //	because they have been replaced by a re-send or because they have been mined
 //	long ago and no rollback is expected
-type TxRelayBackend [P crypto.PublicKey] interface {
+type TxRelayBackend[P crypto.PublicKey] interface {
 	Send(txs types.Transactions[P])
 	NewHead(head common.Hash, mined []common.Hash, rollback []common.Hash)
 	Discard(hashes []common.Hash)

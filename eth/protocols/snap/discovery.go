@@ -17,7 +17,7 @@
 package snap
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // enrEntry is the ENR entry which advertises `snap` protocol on the discovery.

@@ -1,9 +1,9 @@
 package rawdb
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 // HasBadBlock returns whether the block with the hash is a bad block. dep: Istanbul

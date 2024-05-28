@@ -25,12 +25,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 	"gopkg.in/olebedev/go-duktape.v3"
 )
 
@@ -241,7 +241,7 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 }
 
 // contractWrapper provides a JavaScript wrapper around vm.Contract
-type contractWrapper [P crypto.PublicKey] struct {
+type contractWrapper[P crypto.PublicKey] struct {
 	contract *vm.Contract[P]
 }
 
@@ -286,17 +286,17 @@ func (cw *contractWrapper[P]) pushObject(vm *duktape.Context) {
 
 // Tracer provides an implementation of Tracer that evaluates a Javascript
 // function for each VM execution step.
-type Tracer [P crypto.PublicKey] struct {
+type Tracer[P crypto.PublicKey] struct {
 	vm *duktape.Context // Javascript VM instance
 
 	tracerObject int // Stack index of the tracer JavaScript object
 	stateObject  int // Stack index of the global state to pull arguments from
 
-	opWrapper       *opWrapper       // Wrapper around the VM opcode
-	stackWrapper    *stackWrapper    // Wrapper around the VM stack
-	memoryWrapper   *memoryWrapper   // Wrapper around the VM memory
+	opWrapper       *opWrapper          // Wrapper around the VM opcode
+	stackWrapper    *stackWrapper       // Wrapper around the VM stack
+	memoryWrapper   *memoryWrapper      // Wrapper around the VM memory
 	contractWrapper *contractWrapper[P] // Wrapper around the contract object
-	dbWrapper       *dbWrapper       // Wrapper around the VM environment
+	dbWrapper       *dbWrapper          // Wrapper around the VM environment
 
 	pcValue     *uint   // Swappable pc value wrapped by a log accessor
 	gasValue    *uint   // Swappable gas value wrapped by a log accessor

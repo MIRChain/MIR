@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"math/big"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/event"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
 )
 
 // SignerFn is a signer function callback when a contract requires a method to
@@ -52,10 +52,10 @@ type CallOpts struct {
 
 // TransactOpts is the collection of authorization data required to create a
 // valid Ethereum transaction.
-type TransactOpts [P crypto.PublicKey] struct {
+type TransactOpts[P crypto.PublicKey] struct {
 	From   common.Address // Ethereum account to send the transaction from
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
-	Signer SignerFn[P]       // Method to use for signing the transaction (mandatory)
+	Signer SignerFn[P]    // Method to use for signing the transaction (mandatory)
 
 	Value    *big.Int // Funds to transfer along the transaction (nil = 0 = no funds)
 	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
@@ -90,12 +90,12 @@ type WatchOpts struct {
 // BoundContract is the base wrapper object that reflects a contract on the
 // Ethereum network. It contains a collection of methods that are used by the
 // higher level contract bindings to operate.
-type BoundContract [P crypto.PublicKey] struct {
-	address    common.Address     // Deployment address of the contract on the Ethereum blockchain
+type BoundContract[P crypto.PublicKey] struct {
+	address    common.Address        // Deployment address of the contract on the Ethereum blockchain
 	abi        abi.ABI[P]            // Reflect based ABI to access the correct Ethereum methods
-	caller     ContractCaller     // Read interface to interact with the blockchain
+	caller     ContractCaller        // Read interface to interact with the blockchain
 	transactor ContractTransactor[P] // Write interface to interact with the blockchain
-	filterer   ContractFilterer   // Event filtering to interact with the blockchain
+	filterer   ContractFilterer      // Event filtering to interact with the blockchain
 }
 
 // NewBoundContract creates a low level contract interface through which calls

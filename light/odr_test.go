@@ -24,20 +24,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 var (
@@ -54,7 +54,7 @@ var (
 	testContractAddr common.Address
 )
 
-type testOdr [P crypto.PublicKey]  struct {
+type testOdr[P crypto.PublicKey] struct {
 	OdrBackend[P]
 	indexerConfig *IndexerConfig
 	sdb, ldb      ethdb.Database
@@ -102,7 +102,7 @@ type odrTestFn[P crypto.PublicKey] func(ctx context.Context, db ethdb.Database, 
 
 func TestOdrGetBlockLes2(t *testing.T) { testChainOdr(t, 1, odrGetBlock[nist.PublicKey]) }
 
-func odrGetBlock[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+func odrGetBlock[P crypto.PublicKey](ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	var block *types.Block[P]
 	if bc != nil {
 		block = bc.GetBlockByHash(bhash)
@@ -118,7 +118,7 @@ func odrGetBlock[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc
 
 func TestOdrGetReceiptsLes2(t *testing.T) { testChainOdr(t, 1, odrGetReceipts[nist.PublicKey]) }
 
-func odrGetReceipts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+func odrGetReceipts[P crypto.PublicKey](ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	var receipts types.Receipts[P]
 	if bc != nil {
 		number := rawdb.ReadHeaderNumber(db, bhash)
@@ -140,7 +140,7 @@ func odrGetReceipts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database,
 
 func TestOdrAccountsLes2(t *testing.T) { testChainOdr(t, 1, odrAccounts[nist.PublicKey]) }
 
-func odrAccounts[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+func odrAccounts[P crypto.PublicKey](ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	dummyAddr := common.HexToAddress("1234567812345678123456781234567812345678")
 	acc := []common.Address{testBankAddress, acc1Addr, acc2Addr, dummyAddr}
 
@@ -170,7 +170,7 @@ type callmsg struct {
 
 func (callmsg) CheckNonce() bool { return false }
 
-func odrContractCall[P crypto.PublicKey] (ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
+func odrContractCall[P crypto.PublicKey](ctx context.Context, db ethdb.Database, bc *core.BlockChain[P], lc *LightChain[P], bhash common.Hash) ([]byte, error) {
 	data := common.Hex2Bytes("60CD26850000000000000000000000000000000000000000000000000000000000000000")
 	config := params.TestChainConfig
 
@@ -214,17 +214,17 @@ func testChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 	switch i {
 	case 0:
 		// In block 1, the test bank sends account #1 some ether.
-		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testBankKey)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), acc1Addr, big.NewInt(10000), params.TxGas, nil, nil), signer, testBankKey)
 		block.AddTx(tx)
 	case 1:
 		// In block 2, the test bank sends some more ether to account #1.
 		// acc1Addr passes it on to account #2.
 		// acc1Addr creates a test contract.
-		tx1, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testBankKey)
+		tx1, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), acc1Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, testBankKey)
 		nonce := block.TxNonce(acc1Addr)
-		tx2, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
+		tx2, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](nonce, acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 		nonce++
-		tx3, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](nonce, big.NewInt(0), 1000000, big.NewInt(0), testContractCode), signer, acc1Key)
+		tx3, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](nonce, big.NewInt(0), 1000000, big.NewInt(0), testContractCode), signer, acc1Key)
 		testContractAddr = crypto.CreateAddress[nist.PublicKey](acc1Addr, nonce)
 		block.AddTx(tx1)
 		block.AddTx(tx2)
@@ -234,7 +234,7 @@ func testChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(acc2Addr)
 		block.SetExtra([]byte("yeehaw"))
 		data := common.Hex2Bytes("C16431B900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001")
-		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), testContractAddr, big.NewInt(0), 100000, nil, data), signer, testBankKey)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), testContractAddr, big.NewInt(0), 100000, nil, data), signer, testBankKey)
 		block.AddTx(tx)
 	case 3:
 		// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
@@ -245,7 +245,7 @@ func testChainGen(i int, block *core.BlockGen[nist.PublicKey]) {
 		b3.Extra = []byte("foo")
 		block.AddUncle(b3)
 		data := common.Hex2Bytes("C16431B900000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002")
-		tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), testContractAddr, big.NewInt(0), 100000, nil, data), signer, testBankKey)
+		tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](block.TxNonce(testBankAddress), testContractAddr, big.NewInt(0), 100000, nil, data), signer, testBankKey)
 		block.AddTx(tx)
 	}
 }
@@ -260,7 +260,7 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn[nist.PublicKey]) {
 	gspec.MustCommit(ldb)
 	// Assemble the test environment
 	blockchain, _ := core.NewBlockChain[nist.PublicKey](sdb, nil, params.TestChainConfig, ethash.NewFullFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
-	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), sdb, 4, testChainGen)
+	gchain, _ := core.GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), sdb, 4, testChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		t.Fatal(err)
 	}

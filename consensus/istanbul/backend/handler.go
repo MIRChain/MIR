@@ -23,12 +23,12 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/p2p"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -46,11 +46,11 @@ var (
 )
 
 // Protocol implements consensus.Engine.Protocol
-func (sb *Backend[T,P]) Protocol() consensus.Protocol {
+func (sb *Backend[T, P]) Protocol() consensus.Protocol {
 	return consensus.IstanbulProtocol
 }
 
-func (sb *Backend[T,P]) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
+func (sb *Backend[T, P]) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
 	var data []byte
 	if sb.IsQBFTConsensus() {
 		data = make([]byte, msg.Size)
@@ -66,7 +66,7 @@ func (sb *Backend[T,P]) decode(msg p2p.Msg) ([]byte, common.Hash, error) {
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
-func (sb *Backend[T,P]) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+func (sb *Backend[T, P]) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if _, ok := qbfttypes.MessageCodes()[msg.Code]; ok || msg.Code == istanbulMsg {
@@ -133,11 +133,11 @@ func (sb *Backend[T,P]) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
-func (sb *Backend[T,P]) SetBroadcaster(broadcaster consensus.Broadcaster[P]) {
+func (sb *Backend[T, P]) SetBroadcaster(broadcaster consensus.Broadcaster[P]) {
 	sb.broadcaster = broadcaster
 }
 
-func (sb *Backend[T,P]) NewChainHead() error {
+func (sb *Backend[T, P]) NewChainHead() error {
 	sb.coreMu.RLock()
 	defer sb.coreMu.RUnlock()
 	if !sb.coreStarted {

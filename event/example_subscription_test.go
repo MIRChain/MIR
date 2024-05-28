@@ -19,7 +19,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/MIRChain/MIR/event"
 )
 
 func ExampleNewSubscription() {

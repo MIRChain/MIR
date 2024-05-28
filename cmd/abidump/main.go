@@ -23,10 +23,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
-	"github.com/pavelkrolevets/MIR-pro/signer/fourbyte"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/signer/core"
+	"github.com/MIRChain/MIR/signer/fourbyte"
 )
 
 func init() {

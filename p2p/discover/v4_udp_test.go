@@ -30,13 +30,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover/v4wire"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/testlog"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/discover/v4wire"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
 // shared test variables
@@ -48,19 +48,19 @@ var (
 	testLocal          = v4wire.Endpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
 )
 
-type udpTest [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type udpTest[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	t                   *testing.T
 	pipe                *dgramPipe
 	table               *Table[P]
 	db                  *enode.DB[P]
-	udp                 *UDPv4[T,P]
+	udp                 *UDPv4[T, P]
 	sent                [][]byte
 	localkey, remotekey T
 	remoteaddr          *net.UDPAddr
 }
 
-func newUDPTest[T crypto.PrivateKey, P crypto.PublicKey] (t *testing.T) *udpTest[T,P] {
-	test := &udpTest[T,P]{
+func newUDPTest[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) *udpTest[T, P] {
+	test := &udpTest[T, P]{
 		t:          t,
 		pipe:       newpipe(),
 		localkey:   newkey[T](),
@@ -70,7 +70,7 @@ func newUDPTest[T crypto.PrivateKey, P crypto.PublicKey] (t *testing.T) *udpTest
 
 	test.db, _ = enode.OpenDB[P]("")
 	ln := enode.NewLocalNode(test.db, test.localkey)
-	test.udp, _ = ListenV4(test.pipe, ln, Config[T,P]{
+	test.udp, _ = ListenV4(test.pipe, ln, Config[T, P]{
 		PrivateKey: test.localkey,
 		Log:        testlog.Logger(t, log.LvlTrace),
 	})
@@ -80,23 +80,23 @@ func newUDPTest[T crypto.PrivateKey, P crypto.PublicKey] (t *testing.T) *udpTest
 	return test
 }
 
-func (test *udpTest[T,P]) close() {
+func (test *udpTest[T, P]) close() {
 	test.udp.Close()
 	test.db.Close()
 }
 
 // handles a packet as if it had been sent to the transport.
-func (test *udpTest[T,P]) packetIn(wantError error, data v4wire.Packet) {
+func (test *udpTest[T, P]) packetIn(wantError error, data v4wire.Packet) {
 	test.t.Helper()
 
 	test.packetInFrom(wantError, test.remotekey, test.remoteaddr, data)
 }
 
 // handles a packet as if it had been sent to the transport by the key/endpoint.
-func (test *udpTest[T,P]) packetInFrom(wantError error, key T, addr *net.UDPAddr, data v4wire.Packet) {
+func (test *udpTest[T, P]) packetInFrom(wantError error, key T, addr *net.UDPAddr, data v4wire.Packet) {
 	test.t.Helper()
 
-	enc, _, err := v4wire.Encode[T,P](key, data)
+	enc, _, err := v4wire.Encode[T, P](key, data)
 	if err != nil {
 		test.t.Errorf("%s encode error: %v", data.Name(), err)
 	}
@@ -108,7 +108,7 @@ func (test *udpTest[T,P]) packetInFrom(wantError error, key T, addr *net.UDPAddr
 
 // waits for a packet to be sent by the transport.
 // validate should have type func(X, *net.UDPAddr, []byte), where X is a packet type.
-func (test *udpTest[T,P]) waitPacketOut(validate interface{}) (closed bool) {
+func (test *udpTest[T, P]) waitPacketOut(validate interface{}) (closed bool) {
 	test.t.Helper()
 
 	dgram, err := test.pipe.receive()
@@ -134,7 +134,7 @@ func (test *udpTest[T,P]) waitPacketOut(validate interface{}) (closed bool) {
 }
 
 func TestUDPv4_packetErrors(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(errExpired, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4})
@@ -145,7 +145,7 @@ func TestUDPv4_packetErrors(t *testing.T) {
 
 func TestUDPv4_pingTimeout(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	key := newkey[nist.PrivateKey]()
@@ -163,7 +163,7 @@ func (req testPacket) Name() string { return "" }
 
 func TestUDPv4_responseTimeouts(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	rand.Seed(time.Now().UnixNano())
@@ -235,7 +235,7 @@ func TestUDPv4_responseTimeouts(t *testing.T) {
 
 func TestUDPv4_findnodeTimeout(t *testing.T) {
 	t.Parallel()
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
@@ -251,7 +251,7 @@ func TestUDPv4_findnodeTimeout(t *testing.T) {
 }
 
 func TestUDPv4_findnode(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	// put a few nodes into the table. their exact
@@ -306,7 +306,7 @@ func TestUDPv4_findnode(t *testing.T) {
 }
 
 func TestUDPv4_findnodeMultiReply(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	rid := enode.PubkeyToIDV4(*test.remotekey.Public())
@@ -362,7 +362,7 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 
 // This test checks that reply matching of pong verifies the ping hash.
 func TestUDPv4_pingMatch(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	randToken := make([]byte, 32)
@@ -376,7 +376,7 @@ func TestUDPv4_pingMatch(t *testing.T) {
 
 // This test checks that reply matching of pong verifies the sender IP address.
 func TestUDPv4_pingMatchIP(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	test.packetIn(nil, &v4wire.Ping{From: testRemote, To: testLocalAnnounced, Version: 4, Expiration: futureExp})
@@ -393,7 +393,7 @@ func TestUDPv4_pingMatchIP(t *testing.T) {
 }
 
 func TestUDPv4_successfulPing(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	added := make(chan *node[nist.PublicKey], 1)
 	test.table.nodeAddedHook = func(n *node[nist.PublicKey]) { added <- n }
 	defer test.close()
@@ -459,7 +459,7 @@ func TestUDPv4_successfulPing(t *testing.T) {
 
 // This test checks that EIP-868 requests work.
 func TestUDPv4_EIP868(t *testing.T) {
-	test := newUDPTest[nist.PrivateKey,nist.PublicKey](t)
+	test := newUDPTest[nist.PrivateKey, nist.PublicKey](t)
 	defer test.close()
 
 	test.udp.localNode.Set(enr.WithEntry("foo", "bar"))
@@ -500,9 +500,9 @@ func TestUDPv4_smallNetConvergence(t *testing.T) {
 	t.Parallel()
 
 	// Start the network.
-	nodes := make([]*UDPv4[nist.PrivateKey,nist.PublicKey], 4)
+	nodes := make([]*UDPv4[nist.PrivateKey, nist.PublicKey], 4)
 	for i := range nodes {
-		var cfg Config[nist.PrivateKey,nist.PublicKey]
+		var cfg Config[nist.PrivateKey, nist.PublicKey]
 		if i > 0 {
 			bn := nodes[0].Self()
 			cfg.Bootnodes = []*enode.Node[nist.PublicKey]{bn}
@@ -549,7 +549,7 @@ func TestUDPv4_smallNetConvergence(t *testing.T) {
 	}
 }
 
-func startLocalhostV4[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, cfg Config[T,P]) *UDPv4[T,P] {
+func startLocalhostV4[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, cfg Config[T, P]) *UDPv4[T, P] {
 	t.Helper()
 
 	cfg.PrivateKey = newkey[T]()

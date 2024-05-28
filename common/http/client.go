@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private/engine"
 )
 
 func CreateClient(cfg Config) (*engine.Client, error) {

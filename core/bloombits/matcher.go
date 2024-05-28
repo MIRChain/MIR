@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/bitutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common/bitutil"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong

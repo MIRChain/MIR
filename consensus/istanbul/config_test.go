@@ -21,8 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/params"
 	"github.com/naoina/toml"
 	"github.com/stretchr/testify/assert"
 )

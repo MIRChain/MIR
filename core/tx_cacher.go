@@ -17,8 +17,8 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // senderCacher is a concurrent transaction sender recoverer and cacher.
@@ -30,7 +30,7 @@ import (
 // The inc field defines the number of transactions to skip after each recovery,
 // which is used to feed the same underlying input array to different threads but
 // ensure they process the early transactions fast.
-type txSenderCacherRequest [P crypto.PublicKey] struct {
+type txSenderCacherRequest[P crypto.PublicKey] struct {
 	signer types.Signer[P]
 	txs    []*types.Transaction[P]
 	inc    int
@@ -38,7 +38,7 @@ type txSenderCacherRequest [P crypto.PublicKey] struct {
 
 // txSenderCacher is a helper structure to concurrently ecrecover transaction
 // senders from digital signatures on background threads.
-type txSenderCacher [P crypto.PublicKey] struct {
+type txSenderCacher[P crypto.PublicKey] struct {
 	threads int
 	tasks   chan *txSenderCacherRequest[P]
 }

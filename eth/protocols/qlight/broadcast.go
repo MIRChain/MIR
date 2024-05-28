@@ -3,14 +3,14 @@ package qlight
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/qlight"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/qlight"
 )
 
 // blockPropagation is a block propagation event, waiting for its turn in the
 // broadcast queue.
-type blockPropagation [P crypto.PublicKey] struct {
+type blockPropagation[P crypto.PublicKey] struct {
 	block            *types.Block[P]
 	td               *big.Int
 	blockPrivateData *qlight.BlockPrivateData
@@ -19,7 +19,7 @@ type blockPropagation [P crypto.PublicKey] struct {
 // broadcastBlocks is a write loop that multiplexes blocks and block accouncements
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
-func (p *Peer[T,P]) broadcastBlocksQLightServer() {
+func (p *Peer[T, P]) broadcastBlocksQLightServer() {
 	for {
 		select {
 		case prop := <-p.queuedBlocks:

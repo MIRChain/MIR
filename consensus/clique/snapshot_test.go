@@ -22,33 +22,33 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 // testerAccountPool is a pool to maintain currently active tester accounts,
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
-type testerAccountPool [T crypto.PrivateKey,P crypto.PublicKey] struct {
+type testerAccountPool[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	accounts map[string]T
 }
 
-func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey] () *testerAccountPool[T,P] {
-	return &testerAccountPool[T,P]{
+func newTesterAccountPool[T crypto.PrivateKey, P crypto.PublicKey]() *testerAccountPool[T, P] {
+	return &testerAccountPool[T, P]{
 		accounts: make(map[string]T),
 	}
 }
 
 // checkpoint creates a Clique checkpoint signer section from the provided list
 // of authorized signers and embeds it into the provided header.
-func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header[P], signers []string) {
+func (ap *testerAccountPool[T, P]) checkpoint(header *types.Header[P], signers []string) {
 	auths := make([]common.Address, len(signers))
 	for i, signer := range signers {
 		auths[i] = ap.address(signer)
@@ -61,7 +61,7 @@ func (ap *testerAccountPool[T,P]) checkpoint(header *types.Header[P], signers []
 
 // address retrieves the Ethereum address of a tester account by label, creating
 // a new account if no previous one exists yet.
-func (ap *testerAccountPool[T,P]) address(account string) common.Address {
+func (ap *testerAccountPool[T, P]) address(account string) common.Address {
 	// Return the zero account for non-addresses
 	if account == "" {
 		return common.Address{}
@@ -73,20 +73,20 @@ func (ap *testerAccountPool[T,P]) address(account string) common.Address {
 	// Resolve and return the Ethereum address
 	acc := ap.accounts[account]
 	var pub P
-	switch t:=any(&acc).(type){
+	switch t := any(&acc).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
 	}
 	return crypto.PubkeyToAddress(pub)
 }
 
 // sign calculates a Clique digital signature for the given block and embeds it
 // back into the header.
-func (ap *testerAccountPool[T,P]) sign(header *types.Header[P], signer string) {
+func (ap *testerAccountPool[T, P]) sign(header *types.Header[P], signer string) {
 	// Ensure we have a persistent key for the signer
 	if reflect.ValueOf(ap.accounts[signer]).IsZero() {
 		ap.accounts[signer], _ = crypto.GenerateKey[T]()
@@ -375,7 +375,7 @@ func TestClique(t *testing.T) {
 			failure: errRecentlySigned,
 		}, {
 			// Recent signatures should not reset on checkpoint blocks imported in a new
-			// batch (https://github.com/pavelkrolevets/MIR-pro/issues/17593). Whilst this
+			// batch (https://github.com/MIRChain/MIR/issues/17593). Whilst this
 			// seems overly specific and weird, it was a Rinkeby consensus split.
 			epoch:   3,
 			signers: []string{"A", "B", "C"},
@@ -391,7 +391,7 @@ func TestClique(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of signers
-		accounts := newTesterAccountPool[nist.PrivateKey,nist.PublicKey]()
+		accounts := newTesterAccountPool[nist.PrivateKey, nist.PublicKey]()
 
 		signers := make([]common.Address, len(tt.signers))
 		for j, signer := range tt.signers {

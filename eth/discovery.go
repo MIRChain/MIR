@@ -17,10 +17,10 @@
 package eth
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/forkid"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/forkid"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // ethEntry is the "eth" ENR entry which advertises eth protocol
@@ -38,7 +38,7 @@ func (e ethEntry) ENRKey() string {
 }
 
 // startEthEntryUpdate starts the ENR updater loop.
-func (eth *Ethereum[T,P]) startEthEntryUpdate(ln *enode.LocalNode[T,P]) {
+func (eth *Ethereum[T, P]) startEthEntryUpdate(ln *enode.LocalNode[T, P]) {
 	var newHead = make(chan core.ChainHeadEvent[P], 10)
 	sub := eth.blockchain.SubscribeChainHeadEvent(newHead)
 
@@ -57,7 +57,7 @@ func (eth *Ethereum[T,P]) startEthEntryUpdate(ln *enode.LocalNode[T,P]) {
 	}()
 }
 
-func (eth *Ethereum[T,P]) currentEthEntry() *ethEntry {
+func (eth *Ethereum[T, P]) currentEthEntry() *ethEntry {
 	return &ethEntry{ForkID: forkid.NewID(eth.blockchain.Config(), eth.blockchain.Genesis().Hash(),
 		eth.blockchain.CurrentHeader().Number.Uint64())}
 }

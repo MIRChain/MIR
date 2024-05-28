@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ConsenSys/quorum-qlight-token-manager-plugin-sdk-go/proto"
-	iplugin "github.com/pavelkrolevets/MIR-pro/internal/plugin"
+	iplugin "github.com/MIRChain/MIR/internal/plugin"
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )

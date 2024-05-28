@@ -23,20 +23,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/testutils"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	"github.com/MIRChain/MIR/consensus/istanbul/testutils"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
-func newBlockchainFromConfig(genesis *core.Genesis[nist.PublicKey], nodeKeys []nist.PrivateKey, cfg *istanbul.Config) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey,nist.PublicKey]) {
+func newBlockchainFromConfig(genesis *core.Genesis[nist.PublicKey], nodeKeys []nist.PrivateKey, cfg *istanbul.Config) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey, nist.PublicKey]) {
 	memDB := rawdb.NewMemoryDatabase()
 
 	// Use the first key as private key
@@ -76,9 +76,9 @@ func newBlockchainFromConfig(genesis *core.Genesis[nist.PublicKey], nodeKeys []n
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func NewBlockChain(n int, qbftBlock *big.Int) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey,nist.PublicKey]) {
+func NewBlockChain(n int, qbftBlock *big.Int) (*core.BlockChain[nist.PublicKey], *Backend[nist.PrivateKey, nist.PublicKey]) {
 	isQBFT := qbftBlock != nil && qbftBlock.Uint64() == 0
-	genesis, nodeKeys := testutils.GenesisAndKeys[nist.PrivateKey,nist.PublicKey](n, isQBFT)
+	genesis, nodeKeys := testutils.GenesisAndKeys[nist.PrivateKey, nist.PublicKey](n, isQBFT)
 
 	config := copyConfig(istanbul.DefaultConfig)
 
@@ -106,7 +106,7 @@ func makeHeader[P crypto.PublicKey](parent *types.Block[P], config *istanbul.Con
 	return header
 }
 
-func makeBlock(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey,nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
+func makeBlock(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey, nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
 	block := makeBlockWithoutSeal(chain, engine, parent)
 	stopCh := make(chan struct{})
 	resultCh := make(chan *types.Block[nist.PublicKey], 10)
@@ -115,7 +115,7 @@ func makeBlock(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.Priv
 	return blk
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey,nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
+func makeBlockWithoutSeal(chain *core.BlockChain[nist.PublicKey], engine *Backend[nist.PrivateKey, nist.PublicKey], parent *types.Block[nist.PublicKey]) *types.Block[nist.PublicKey] {
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, _, _ := chain.StateAt(parent.Root())

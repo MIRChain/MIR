@@ -22,15 +22,15 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/params"
 )
 
 // So we can deterministically seed different blockchains
@@ -41,7 +41,7 @@ var (
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
 func makeHeaderChain[P crypto.PublicKey](parent *types.Header[P], n int, db ethdb.Database, seed int) []*types.Header[P] {
-	blocks, _ := core.GenerateChain[P](params.TestChainConfig, types.NewBlockWithHeader[P](parent),  ethash.NewFaker[P](), db, n, func(i int, b *core.BlockGen[P]) {
+	blocks, _ := core.GenerateChain[P](params.TestChainConfig, types.NewBlockWithHeader[P](parent), ethash.NewFaker[P](), db, n, func(i int, b *core.BlockGen[P]) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	headers := make([]*types.Header[P], len(blocks))
@@ -58,7 +58,7 @@ func newCanonical[P crypto.PublicKey](n int) (ethdb.Database, *LightChain[P], er
 	db := rawdb.NewMemoryDatabase()
 	gspec := core.Genesis[P]{Config: params.TestChainConfig}
 	genesis := gspec.MustCommit(db)
-	blockchain, _ := NewLightChain[P](&dummyOdr[P]{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config,  ethash.NewFaker[P](), nil)
+	blockchain, _ := NewLightChain[P](&dummyOdr[P]{db: db, indexerConfig: TestClientIndexerConfig}, gspec.Config, ethash.NewFaker[P](), nil)
 
 	// Create and inject the requested chain
 	if n == 0 {
@@ -266,7 +266,7 @@ func makeHeaderChainWithDiff[P crypto.PublicKey](genesis *types.Block[P], d []in
 	return chain
 }
 
-type dummyOdr [P crypto.PublicKey]  struct {
+type dummyOdr[P crypto.PublicKey] struct {
 	OdrBackend[P]
 	db            ethdb.Database
 	indexerConfig *IndexerConfig
@@ -347,7 +347,7 @@ func TestReorgBadHeaderHashes(t *testing.T) {
 	defer func() { delete(core.BadHashes, headers[3].Hash()) }()
 
 	// Create a new LightChain and check that it rolled back the state.
-	ncm, err := NewLightChain[nist.PublicKey](&dummyOdr[nist.PublicKey]{db: bc.chainDb}, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), nil)
+	ncm, err := NewLightChain[nist.PublicKey](&dummyOdr[nist.PublicKey]{db: bc.chainDb}, params.TestChainConfig, ethash.NewFaker[nist.PublicKey](), nil)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}

@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -26,8 +26,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
 	"github.com/dop251/goja"
-	"github.com/pavelkrolevets/MIR-pro/common"
 )
 
 // JSRE is a JS runtime environment embedding the goja interpreter.

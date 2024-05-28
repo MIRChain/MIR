@@ -19,18 +19,18 @@ package vm
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/private"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/private"
 )
 
 // QuorumPrecompiledContract is an extended interface for native Quorum Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
-type QuorumPrecompiledContract [P crypto.PublicKey] interface {
-	RequiredGas(input []byte) uint64            // RequiredPrice calculates the contract gas use
+type QuorumPrecompiledContract[P crypto.PublicKey] interface {
+	RequiredGas(input []byte) uint64               // RequiredPrice calculates the contract gas use
 	Run(evm *EVM[P], input []byte) ([]byte, error) // Run runs the precompiled contract
 }
 
@@ -54,7 +54,7 @@ func RunQuorumPrecompiledContract[P crypto.PublicKey](evm *EVM[P], p QuorumPreco
 	return output, suppliedGas, err
 }
 
-type privacyMarker [P crypto.PublicKey] struct{}
+type privacyMarker[P crypto.PublicKey] struct{}
 
 func (c *privacyMarker[P]) RequiredGas(_ []byte) uint64 {
 	return uint64(0)
@@ -63,7 +63,8 @@ func (c *privacyMarker[P]) RequiredGas(_ []byte) uint64 {
 // privacyMarker precompile execution
 // Retrieves private transaction from Tessera and executes it.
 // If we are not a participant, then just ensure public state remains in sync.
-//		input = 20 byte address of sender, 64 byte hash for the private transaction
+//
+//	input = 20 byte address of sender, 64 byte hash for the private transaction
 func (c *privacyMarker[P]) Run(evm *EVM[P], _ []byte) ([]byte, error) {
 	log.Debug("Running privacy marker precompile")
 

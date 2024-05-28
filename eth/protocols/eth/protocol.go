@@ -22,11 +22,11 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/forkid"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/forkid"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -119,7 +119,7 @@ func (p *NewBlockHashesPacket) Unpack() ([]common.Hash, []uint64) {
 }
 
 // TransactionsPacket is the network packet for broadcasting new transactions.
-type TransactionsPacket[P crypto.PublicKey]  []*types.Transaction[P]
+type TransactionsPacket[P crypto.PublicKey] []*types.Transaction[P]
 
 // GetBlockHeadersPacket represents a block header query.
 type GetBlockHeadersPacket struct {
@@ -172,16 +172,16 @@ func (hn *HashOrNumber) DecodeRLP(s *rlp.Stream) error {
 }
 
 // BlockHeadersPacket represents a block header response.
-type BlockHeadersPacket [P crypto.PublicKey]  []*types.Header[P]
+type BlockHeadersPacket[P crypto.PublicKey] []*types.Header[P]
 
 // BlockHeadersPacket represents a block header response over eth/66.
-type BlockHeadersPacket66 [P crypto.PublicKey]  struct {
+type BlockHeadersPacket66[P crypto.PublicKey] struct {
 	RequestId uint64
 	BlockHeadersPacket[P]
 }
 
 // NewBlockPacket is the network packet for the block propagation message.
-type NewBlockPacket [P crypto.PublicKey] struct {
+type NewBlockPacket[P crypto.PublicKey] struct {
 	Block *types.Block[P]
 	TD    *big.Int
 }
@@ -212,7 +212,7 @@ type GetBlockBodiesPacket66 struct {
 type BlockBodiesPacket[P crypto.PublicKey] []*BlockBody[P]
 
 // BlockBodiesPacket is the network packet for block content distribution over eth/66.
-type BlockBodiesPacket66 [P crypto.PublicKey] struct {
+type BlockBodiesPacket66[P crypto.PublicKey] struct {
 	RequestId uint64
 	BlockBodiesPacket[P]
 }
@@ -229,7 +229,7 @@ type BlockBodiesRLPPacket66 struct {
 }
 
 // BlockBody represents the data content of a single block.
-type BlockBody [P crypto.PublicKey] struct {
+type BlockBody[P crypto.PublicKey] struct {
 	Transactions []*types.Transaction[P] // Transactions contained within a block
 	Uncles       []*types.Header[P]      // Uncles contained within a block
 }
@@ -278,7 +278,7 @@ type GetReceiptsPacket66 struct {
 type ReceiptsPacket[P crypto.PublicKey] [][]*types.Receipt[P]
 
 // ReceiptsPacket is the network packet for block receipts distribution over eth/66.
-type ReceiptsPacket66 [P crypto.PublicKey] struct {
+type ReceiptsPacket66[P crypto.PublicKey] struct {
 	RequestId uint64
 	ReceiptsPacket[P]
 }

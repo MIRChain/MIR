@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/params"
 )
 
 func TestCliqueGost(t *testing.T) {
@@ -280,7 +280,7 @@ func TestCliqueGost(t *testing.T) {
 			failure: errRecentlySigned,
 		}, {
 			// Recent signatures should not reset on checkpoint blocks imported in a new
-			// batch (https://github.com/pavelkrolevets/MIR-pro/issues/17593). Whilst this
+			// batch (https://github.com/MIRChain/MIR/issues/17593). Whilst this
 			// seems overly specific and weird, it was a Rinkeby consensus split.
 			epoch:   3,
 			signers: []string{"A", "B", "C"},
@@ -296,7 +296,7 @@ func TestCliqueGost(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of signers
-		accounts := newTesterAccountPool[gost3410.PrivateKey,gost3410.PublicKey]()
+		accounts := newTesterAccountPool[gost3410.PrivateKey, gost3410.PublicKey]()
 
 		signers := make([]common.Address, len(tt.signers))
 		for j, signer := range tt.signers {

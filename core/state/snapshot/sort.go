@@ -19,7 +19,7 @@ package snapshot
 import (
 	"bytes"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 // hashes is a helper to implement sort.Interface.

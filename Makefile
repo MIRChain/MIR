@@ -25,6 +25,10 @@ bootnode:
 all:
 	$(GORUN) build/ci.go install
 
+mir-docker-build:
+	@echo "Building using Docker"
+	docker image build -t mir:latest . 
+
 # android:
 # 	$(GORUN) build/ci.go aar --local
 # 	@echo "Done building."

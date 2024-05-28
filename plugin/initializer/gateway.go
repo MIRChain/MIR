@@ -3,7 +3,7 @@ package initializer
 import (
 	"context"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/gen/proto_common"
+	"github.com/MIRChain/MIR/plugin/gen/proto_common"
 )
 
 type PluginGateway struct {

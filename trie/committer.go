@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 	"golang.org/x/crypto/sha3"
 )
 

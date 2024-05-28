@@ -3,8 +3,8 @@ package qbfttypes
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
 )
 
 // Data that is common to all QBFT messages. Used for composition.

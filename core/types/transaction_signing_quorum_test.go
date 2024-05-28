@@ -23,9 +23,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 	testifyassert "github.com/stretchr/testify/assert"
 )
 
@@ -51,7 +51,7 @@ func createKey(c elliptic.Curve, k *big.Int) (nist.PrivateKey, error) {
 func signTx(key nist.PrivateKey, signer Signer[nist.PublicKey]) (*Transaction[nist.PublicKey], common.Address, error) {
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
 	tx := NewTransaction[nist.PublicKey](0, addr, new(big.Int), 0, new(big.Int), nil)
-	signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](tx, signer, key)
+	signedTx, err := SignTx[nist.PrivateKey, nist.PublicKey](tx, signer, key)
 	//fmt.Printf("\ntx.data.V signTx after sign [%v] \n", signedTx.data.V)
 	return signedTx, addr, err
 }
@@ -221,7 +221,8 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 
 }
 
-/**
+/*
+*
 *  As of quorum v2.2.3 commit be7cc31ce208525ea1822e7d0fee88bf7f14500b 30 April 2019 behavior
 *
 *  Use Homestead to sign and EIPSigner to recover.
@@ -237,9 +238,10 @@ func TestSignQuorumEIP155FailPublicChain1(t *testing.T) {
 *  1. sign with HomesteadSigner, this will set the v parameter to
 *     27 or 28. // there is no indication that this is a private tx yet.
 *
-*  2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction[nist.PublicKey], isPrivate bool)`
-      check isPrivate param, and call `tx.SetPrivate()`, this will update the `v` signature param (recoveryID)
-*     from 27 -> 37, 28 -> 38. // this is now considered a private tx.
+  - 2. when submitting a transaction `submitTransaction(ctx context.Context, b Backend, tx *types.Transaction[nist.PublicKey], isPrivate bool)`
+    check isPrivate param, and call `tx.SetPrivate()`, this will update the `v` signature param (recoveryID)
+  - from 27 -> 37, 28 -> 38. // this is now considered a private tx.
+
 *
 *  $> go test -run TestSignQuorumHomesteadEIP155SigningPrivateQuorum
 */

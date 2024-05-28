@@ -26,11 +26,11 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/p2p/netutil"
 )
 
 func TestTable_pingReplace(t *testing.T) {
@@ -103,7 +103,7 @@ func TestBucket_bumpNoDuplicates(t *testing.T) {
 			n := rand.Intn(bucketSize-1) + 1
 			nodes := make([]*node[nist.PublicKey], n)
 			for i := range nodes {
-				nodes[i] = nodeAtDistance[nist.PrivateKey,nist.PublicKey](enode.ID{}, 200, intIP(200))
+				nodes[i] = nodeAtDistance[nist.PrivateKey, nist.PublicKey](enode.ID{}, 200, intIP(200))
 			}
 			args[0] = reflect.ValueOf(nodes)
 			// generate random bump positions.
@@ -148,7 +148,7 @@ func TestTable_IPLimit(t *testing.T) {
 	defer tab.close()
 
 	for i := 0; i < tableIPLimit+1; i++ {
-		n := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), i, net.IP{172, 0, 1, byte(i)})
+		n := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), i, net.IP{172, 0, 1, byte(i)})
 		tab.addSeenNode(n)
 	}
 	if tab.len() > tableIPLimit {
@@ -166,7 +166,7 @@ func TestTable_BucketIPLimit(t *testing.T) {
 
 	d := 3
 	for i := 0; i < bucketIPLimit+1; i++ {
-		n := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), d, net.IP{172, 0, 1, byte(i)})
+		n := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), d, net.IP{172, 0, 1, byte(i)})
 		tab.addSeenNode(n)
 	}
 	if tab.len() > bucketIPLimit {
@@ -265,7 +265,7 @@ func TestTable_ReadRandomNodesGetAll(t *testing.T) {
 
 		for i := 0; i < len(buf); i++ {
 			ld := cfg.Rand.Intn(len(tab.buckets))
-			fillTable(tab, []*node[nist.PublicKey]{nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), ld, intIP(ld))})
+			fillTable(tab, []*node[nist.PublicKey]{nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), ld, intIP(ld))})
 		}
 		gotN := tab.ReadRandomNodes(buf)
 		if gotN != tab.len() {
@@ -299,7 +299,7 @@ func (*closeTest) Generate(rand *rand.Rand, size int) reflect.Value {
 	for _, id := range gen([]enode.ID{}, rand).([]enode.ID) {
 		r := new(enr.Record)
 		r.Set(enr.IP(genIP(rand)))
-		n := wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](r, id))
+		n := wrapNode(enode.SignNull[nist.PrivateKey, nist.PublicKey](r, id))
 		n.livenessChecks = 1
 		t.All = append(t.All, n)
 	}
@@ -313,8 +313,8 @@ func TestTable_addVerifiedNode(t *testing.T) {
 	defer tab.close()
 
 	// Insert two nodes.
-	n1 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
-	n2 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
+	n1 := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
+	n2 := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
 	tab.addSeenNode(n1)
 	tab.addSeenNode(n2)
 
@@ -345,8 +345,8 @@ func TestTable_addSeenNode(t *testing.T) {
 	defer tab.close()
 
 	// Insert two nodes.
-	n1 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
-	n2 := nodeAtDistance[nist.PrivateKey,nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
+	n1 := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 1})
+	n2 := nodeAtDistance[nist.PrivateKey, nist.PublicKey](tab.self().ID(), 256, net.IP{88, 77, 66, 2})
 	tab.addSeenNode(n1)
 	tab.addSeenNode(n2)
 
@@ -382,12 +382,12 @@ func TestTable_revalidateSyncRecord(t *testing.T) {
 	var r enr.Record
 	r.Set(enr.IP(net.IP{127, 0, 0, 1}))
 	id := enode.ID{1}
-	n1 := wrapNode(enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, id))
+	n1 := wrapNode(enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, id))
 	tab.addSeenNode(n1)
 
 	// Update the node record.
 	r.Set(enr.WithEntry("foo", "bar"))
-	n2 := enode.SignNull[nist.PrivateKey,nist.PublicKey](&r, id)
+	n2 := enode.SignNull[nist.PrivateKey, nist.PublicKey](&r, id)
 	transport.updateRecord(n2)
 
 	tab.doRevalidate(make(chan struct{}, 1))

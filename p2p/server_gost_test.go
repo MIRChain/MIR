@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/internal/testlog"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/internal/testlog"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
 func TestServerListenGost(t *testing.T) {
@@ -183,7 +183,7 @@ func TestServerAtCapGost(t *testing.T) {
 
 	newconn := func(id enode.ID) *conn[gost3410.PrivateKey, gost3410.PublicKey] {
 		fd, _ := net.Pipe()
-		tx := newTestTransport[gost3410.PrivateKey,gost3410.PublicKey](*trustedNode.Public(), fd, gost3410.PublicKey{})
+		tx := newTestTransport[gost3410.PrivateKey, gost3410.PublicKey](*trustedNode.Public(), fd, gost3410.PublicKey{})
 		node := enode.SignNull[gost3410.PrivateKey, gost3410.PublicKey](new(enr.Record), id)
 		return &conn[gost3410.PrivateKey, gost3410.PublicKey]{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
 	}
@@ -233,7 +233,7 @@ func TestServerPeerLimitsGost(t *testing.T) {
 	clientkey := newkey[gost3410.PrivateKey]()
 	clientnode := enode.NewV4(*clientkey.Public(), nil, 0, 0)
 
-	var tp = &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{
+	var tp = &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{
 		pubkey: *clientkey.Public(),
 		phs: protoHandshake{
 			ID: crypto.FromECDSAPub(*clientkey.Public())[1:],
@@ -248,27 +248,29 @@ func TestServerPeerLimitsGost(t *testing.T) {
 			MaxPeers:    0,
 			NoDial:      true,
 			NoDiscovery: true,
-			Protocols:   []Protocol[gost3410.PrivateKey, gost3410.PublicKey]{
-				Protocol[gost3410.PrivateKey,gost3410.PublicKey]{
-				Name:   "discard",
-				Length: 1,
-				Run: func(p *Peer[gost3410.PrivateKey, gost3410.PublicKey], rw MsgReadWriter) error {
-					for {
-						msg, err := rw.ReadMsg()
-						if err != nil {
-							return err
+			Protocols: []Protocol[gost3410.PrivateKey, gost3410.PublicKey]{
+				Protocol[gost3410.PrivateKey, gost3410.PublicKey]{
+					Name:   "discard",
+					Length: 1,
+					Run: func(p *Peer[gost3410.PrivateKey, gost3410.PublicKey], rw MsgReadWriter) error {
+						for {
+							msg, err := rw.ReadMsg()
+							if err != nil {
+								return err
+							}
+							fmt.Printf("discarding %d\n", msg.Code)
+							if err = msg.Discard(); err != nil {
+								return err
+							}
 						}
-						fmt.Printf("discarding %d\n", msg.Code)
-						if err = msg.Discard(); err != nil {
-							return err
-						}
-					}
+					},
 				},
 			},
+			Logger: testlog.Logger(t, log.LvlTrace),
 		},
-			Logger:      testlog.Logger(t, log.LvlTrace),
+		newTransport: func(fd net.Conn, dialDest gost3410.PublicKey) transport[gost3410.PrivateKey, gost3410.PublicKey] {
+			return tp
 		},
-		newTransport: func(fd net.Conn, dialDest gost3410.PublicKey) transport[gost3410.PrivateKey, gost3410.PublicKey] { return tp },
 	}
 	if err := srv.Start(); err != nil {
 		t.Fatalf("couldn't start server: %v", err)
@@ -318,7 +320,7 @@ func TestServerSetupConnGost(t *testing.T) {
 	)
 	tests := []struct {
 		dontstart bool
-		tt        *setupTransport[gost3410.PrivateKey,gost3410.PublicKey]
+		tt        *setupTransport[gost3410.PrivateKey, gost3410.PublicKey]
 		flags     connFlag
 		dialDest  *enode.Node[gost3410.PublicKey]
 
@@ -327,38 +329,38 @@ func TestServerSetupConnGost(t *testing.T) {
 	}{
 		{
 			dontstart:    true,
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *clientpub},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *clientpub},
 			wantCalls:    "close,",
 			wantCloseErr: errServerStopped,
 		},
 		{
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *clientpub, encHandshakeErr: errors.New("read error")},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *clientpub, encHandshakeErr: errors.New("read error")},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,close,",
 			wantCloseErr: errors.New("read error"),
 		},
 		{
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
 			dialDest:     enode.NewV4(*clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUnexpectedIdentity,
 		},
 		{
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *clientpub, protoHandshakeErr: errors.New("foo")},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *clientpub, protoHandshakeErr: errors.New("foo")},
 			dialDest:     enode.NewV4(*clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: errors.New("foo"),
 		},
 		{
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *srvpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*srvpub)[1:]}},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *srvpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*srvpub)[1:]}},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,close,",
 			wantCloseErr: DiscSelf,
 		},
 		{
-			tt:           &setupTransport[gost3410.PrivateKey,gost3410.PublicKey]{pubkey: *clientpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*clientpub)[1:]}},
+			tt:           &setupTransport[gost3410.PrivateKey, gost3410.PublicKey]{pubkey: *clientpub, phs: protoHandshake{ID: crypto.FromECDSAPub(*clientpub)[1:]}},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUselessPeer,
@@ -367,13 +369,13 @@ func TestServerSetupConnGost(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(test.wantCalls, func(t *testing.T) {
-			cfg := Config[gost3410.PrivateKey,gost3410.PublicKey]{
+			cfg := Config[gost3410.PrivateKey, gost3410.PublicKey]{
 				PrivateKey:  srvkey,
 				MaxPeers:    10,
 				NoDial:      true,
 				NoDiscovery: true,
-				Protocols:   []Protocol[gost3410.PrivateKey,gost3410.PublicKey]{
-					Protocol[gost3410.PrivateKey,gost3410.PublicKey]{
+				Protocols: []Protocol[gost3410.PrivateKey, gost3410.PublicKey]{
+					Protocol[gost3410.PrivateKey, gost3410.PublicKey]{
 						Name:   "discard",
 						Length: 1,
 						Run: func(p *Peer[gost3410.PrivateKey, gost3410.PublicKey], rw MsgReadWriter) error {
@@ -390,12 +392,14 @@ func TestServerSetupConnGost(t *testing.T) {
 						},
 					},
 				},
-				Logger:      testlog.Logger(t, log.LvlTrace),
+				Logger: testlog.Logger(t, log.LvlTrace),
 			}
-			srv := &Server[gost3410.PrivateKey,gost3410.PublicKey]{
-				Config:       cfg,
-				newTransport: func(fd net.Conn, dialDest gost3410.PublicKey) transport[gost3410.PrivateKey,gost3410.PublicKey] { return test.tt },
-				log:          cfg.Logger,
+			srv := &Server[gost3410.PrivateKey, gost3410.PublicKey]{
+				Config: cfg,
+				newTransport: func(fd net.Conn, dialDest gost3410.PublicKey) transport[gost3410.PrivateKey, gost3410.PublicKey] {
+					return test.tt
+				},
+				log: cfg.Logger,
 			}
 			if !test.dontstart {
 				if err := srv.Start(); err != nil {

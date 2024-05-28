@@ -22,14 +22,14 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	qbfttypes "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/types"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	qbfttypes "github.com/MIRChain/MIR/consensus/istanbul/qbft/types"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // broadcastNextRoundChange sends the ROUND CHANGE message with current round + 1
@@ -194,7 +194,7 @@ func (c *core[P]) highestPrepared(round *big.Int) (*big.Int, istanbul.Proposal) 
 
 // ----------------------------------------------------------------------------
 
-func newRoundChangeSet [P crypto.PublicKey] (valSet istanbul.ValidatorSet) *roundChangeSet[P] {
+func newRoundChangeSet[P crypto.PublicKey](valSet istanbul.ValidatorSet) *roundChangeSet[P] {
 	return &roundChangeSet[P]{
 		validatorSet:         valSet,
 		roundChanges:         make(map[uint64]*qbftMsgSet),
@@ -205,7 +205,7 @@ func newRoundChangeSet [P crypto.PublicKey] (valSet istanbul.ValidatorSet) *roun
 	}
 }
 
-type roundChangeSet [P crypto.PublicKey] struct {
+type roundChangeSet[P crypto.PublicKey] struct {
 	validatorSet         istanbul.ValidatorSet
 	roundChanges         map[uint64]*qbftMsgSet
 	prepareMessages      map[uint64][]*qbfttypes.Prepare

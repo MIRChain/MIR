@@ -25,24 +25,25 @@ import (
 	"net"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var errMissingPrefix = errors.New("missing 'enr:' prefix for base64-encoded record")
 
 // Node represents a host on the network.
-type Node [P crypto.PublicKey] struct {
+type Node[P crypto.PublicKey] struct {
 	r  enr.Record
 	id ID
 }
 
 // New wraps a node record. The record must be valid according to the given
 // identity scheme.
-func New[P crypto.PublicKey] (validSchemes enr.IdentityScheme, r *enr.Record) (*Node[P], error) {
+func New[P crypto.PublicKey](validSchemes enr.IdentityScheme, r *enr.Record) (*Node[P], error) {
 	if err := r.VerifySignature(validSchemes); err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func New[P crypto.PublicKey] (validSchemes enr.IdentityScheme, r *enr.Record) (*
 }
 
 // MustParse parses a node record or enode:// URL. It panics if the input is invalid.
-func MustParse[P crypto.PublicKey] (rawurl string) *Node[P] {
+func MustParse[P crypto.PublicKey](rawurl string) *Node[P] {
 	n, err := Parse[P](enr.SchemeMap{"v4": V4ID[P]{}}, rawurl)
 	if err != nil {
 		panic("invalid node: " + err.Error())
@@ -63,7 +64,7 @@ func MustParse[P crypto.PublicKey] (rawurl string) *Node[P] {
 }
 
 // Parse decodes and verifies a base64-encoded node record.
-func Parse[P crypto.PublicKey] (validSchemes enr.IdentityScheme, input string) (*Node[P], error) {
+func Parse[P crypto.PublicKey](validSchemes enr.IdentityScheme, input string) (*Node[P], error) {
 	if strings.HasPrefix(input, "enode://") {
 		return ParseV4[P](input)
 	}
@@ -180,13 +181,17 @@ func (n *Node[P]) TCP() int {
 // Pubkey returns the secp256k1 public key of the node, if present.
 func (n *Node[P]) Pubkey() P {
 	var key P
-	switch p:= any(&key).(type){
+	switch p := any(&key).(type) {
 	case *nist.PublicKey:
 		if n.Load((*Secp256k1)(p)) != nil {
 			return crypto.ZeroPublicKey[P]()
 		}
 	case *gost3410.PublicKey:
 		if n.Load((*Gost3410)(p)) != nil {
+			return crypto.ZeroPublicKey[P]()
+		}
+	case *csp.PublicKey:
+		if n.Load((*Gost3410CSP)(p)) != nil {
 			return crypto.ZeroPublicKey[P]()
 		}
 	}
@@ -215,7 +220,7 @@ func (n *Node[P]) ValidateComplete() error {
 	}
 	// Validate the node key (on curve, etc.).
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var key Secp256k1
 		return n.Load(&key)

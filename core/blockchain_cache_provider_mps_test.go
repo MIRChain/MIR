@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts/abi"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -82,7 +82,7 @@ func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumCha
 	// The generated chain deploys two Accumulator contracts
 	// - Accumulator contract 1 is incremented every 1 and 2 blocks for PS1 and PS1&PS2 respectively
 	// - Accumulator contract 2 is incremented every block for both PS1 and PS2
-	blocks, _ := GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
+	blocks, _ := GenerateChain[nist.PublicKey](config, genesis, ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
@@ -150,7 +150,7 @@ func buildCacheProviderMPSTestChain(n int, config *params.ChainConfig, quorumCha
 		SnapshotWait:  true,
 	}
 
-	blockchain, err := NewBlockChain[nist.PublicKey](testdb, testingCacheConfig, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, quorumChainConfig)
+	blockchain, err := NewBlockChain[nist.PublicKey](testdb, testingCacheConfig, config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, quorumChainConfig)
 	if err != nil {
 		return nil, nil, nil
 	}

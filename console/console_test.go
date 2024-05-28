@@ -26,17 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/internal/jsre"
-	"github.com/pavelkrolevets/MIR-pro/miner"
-	"github.com/pavelkrolevets/MIR-pro/node"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/internal/jsre"
+	"github.com/MIRChain/MIR/miner"
+	"github.com/MIRChain/MIR/node"
 )
 
 const (
@@ -77,10 +77,10 @@ func (p *hookedPrompter) ClearHistory()                                   {}
 func (p *hookedPrompter) SetWordCompleter(completer prompt.WordCompleter) {}
 
 // tester is a console test environment for the console tests to operate on.
-type tester [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type tester[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	workspace string
-	stack     *node.Node[T,P]
-	ethereum  *eth.Ethereum[T,P]
+	stack     *node.Node[T, P]
+	ethereum  *eth.Ethereum[T, P]
 	console   *Console
 	input     *hookedPrompter
 	output    *bytes.Buffer
@@ -88,7 +88,7 @@ type tester [T crypto.PrivateKey, P crypto.PublicKey] struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey])) *tester[nist.PrivateKey,nist.PublicKey] {
+func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey])) *tester[nist.PrivateKey, nist.PublicKey] {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
@@ -96,7 +96,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey]
 	}
 
 	// Create a networkless protocol stack and start an Ethereum service within
-	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
+	stack, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
@@ -139,7 +139,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey]
 		t.Fatalf("failed to create JavaScript console: %v", err)
 	}
 	// Create the final tester and return
-	return &tester[nist.PrivateKey,nist.PublicKey]{
+	return &tester[nist.PrivateKey, nist.PublicKey]{
 		workspace: workspace,
 		stack:     stack,
 		ethereum:  ethBackend,
@@ -150,7 +150,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config[nist.PublicKey]
 }
 
 // Close cleans up any temporary data folders and held resources.
-func (env *tester[T,P]) Close(t *testing.T) {
+func (env *tester[T, P]) Close(t *testing.T) {
 	if err := env.console.Stop(false); err != nil {
 		t.Errorf("failed to stop embedded console: %v", err)
 	}

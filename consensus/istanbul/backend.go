@@ -20,8 +20,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/event"
 )
 
 // Backend provides application specific functions for Istanbul core

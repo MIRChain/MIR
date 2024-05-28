@@ -4,7 +4,7 @@ package rpc
 import (
 	"context"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/MIRChain/MIR/core/types"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 

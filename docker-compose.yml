@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  mir1_csp:
+    container_name: mir1_csp
+    image: mirchain_centos7:version1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATADIR=/mir/mir_data_node1
+      - CSPDEBUG=1
+      - IP=10.8.0.5
+    volumes:
+      - ./:/mir
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    ports:
+      - "30303:30303"
+      - "8001:8000"
+      - "6001:6000"
+      - "7001:7000"
+      - "20001:20000"
+    networks:
+      mir_centos7:
+        ipv4_address: 10.8.0.5
+  certs:
+    container_name: certs
+    image: certs:version1.0
+    build:
+      context: .
+      dockerfile: Dockerfile_certs
+    environment:
+      - DATADIR=./devchain/pow_csp/certs
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+networks:
+  mir_centos7:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv4: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.8.0.0/16

@@ -29,12 +29,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/internal/jsre"
+	"github.com/MIRChain/MIR/internal/jsre/deps"
+	"github.com/MIRChain/MIR/internal/web3ext"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/dop251/goja"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/internal/jsre"
-	"github.com/pavelkrolevets/MIR-pro/internal/jsre/deps"
-	"github.com/pavelkrolevets/MIR-pro/internal/web3ext"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 )

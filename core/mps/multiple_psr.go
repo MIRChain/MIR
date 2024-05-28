@@ -3,13 +3,13 @@ package mps
 import (
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/privatecache"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 var (
@@ -22,7 +22,7 @@ type StateRootProviderFunc func(isEIP158 bool) (common.Hash, error)
 // MultiplePrivateStateRepository manages a number of state DB objects
 // identified by their types.PrivateStateIdentifier. It also maintains a trie
 // of private states whose root hash is mapped with a block hash.
-type MultiplePrivateStateRepository [P crypto.PublicKey] struct {
+type MultiplePrivateStateRepository[P crypto.PublicKey] struct {
 	db ethdb.Database
 	// trie of private states cache
 	repoCache            state.Database
@@ -56,7 +56,7 @@ func NewMultiplePrivateStateRepository[P crypto.PublicKey](db ethdb.Database, ca
 
 // A managed state is a pair of stateDb and it's corresponding stateCache objects
 // Although right now we may not need a separate stateCache it may be useful if we'll do multiple managed state commits in parallel
-type managedState [P crypto.PublicKey] struct {
+type managedState[P crypto.PublicKey] struct {
 	stateDb               *state.StateDB[P]
 	stateCache            state.Database
 	privateCacheProvider  privatecache.Provider

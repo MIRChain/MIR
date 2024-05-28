@@ -22,14 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 )
 
 func verifyUnbrokenCanonchain[P crypto.PublicKey](hc *HeaderChain[P]) error {
@@ -75,14 +75,14 @@ func TestHeaderInsertion(t *testing.T) {
 		genesis = new(Genesis[nist.PublicKey]).MustCommit(db)
 	)
 
-	hc, err := NewHeaderChain[nist.PublicKey](db, params.AllEthashProtocolChanges,  ethash.NewFaker[nist.PublicKey](), func() bool { return false })
+	hc, err := NewHeaderChain[nist.PublicKey](db, params.AllEthashProtocolChanges, ethash.NewFaker[nist.PublicKey](), func() bool { return false })
 	if err != nil {
 		t.Fatal(err)
 	}
 	// chain A: G->A1->A2...A128
-	chainA := makeHeaderChain[nist.PublicKey](genesis.Header(), 128,  ethash.NewFaker[nist.PublicKey](), db, 10)
+	chainA := makeHeaderChain[nist.PublicKey](genesis.Header(), 128, ethash.NewFaker[nist.PublicKey](), db, 10)
 	// chain B: G->A1->B2...B128
-	chainB := makeHeaderChain[nist.PublicKey](chainA[0], 128,  ethash.NewFaker[nist.PublicKey](), db, 10)
+	chainB := makeHeaderChain[nist.PublicKey](chainA[0], 128, ethash.NewFaker[nist.PublicKey](), db, 10)
 	log.Root().SetHandler(log.StdoutHandler)
 
 	// Inserting 64 headers on an empty chain, expecting

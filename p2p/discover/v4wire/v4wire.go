@@ -26,13 +26,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // RPC packet types
@@ -68,7 +69,7 @@ type (
 	}
 
 	// Findnode is a query for nodes close to the given target.
-	Findnode [P crypto.PublicKey] struct {
+	Findnode[P crypto.PublicKey] struct {
 		Target     Pubkey[P]
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
@@ -76,7 +77,7 @@ type (
 	}
 
 	// Neighbors is the reply to findnode.
-	Neighbors [P crypto.PublicKey] struct {
+	Neighbors[P crypto.PublicKey] struct {
 		Nodes      []Node[P]
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
@@ -132,7 +133,7 @@ func (e Pubkey[P]) ID() enode.ID {
 }
 
 // Node represents information about a node.
-type Node [P crypto.PublicKey] struct {
+type Node[P crypto.PublicKey] struct {
 	IP  net.IP // len 4 for IPv4 or 16 for IPv6
 	UDP uint16 // for discovery protocol
 	TCP uint16 // for RLPx protocol
@@ -251,7 +252,7 @@ func Decode[P crypto.PublicKey](input []byte) (Packet, Pubkey[P], []byte, error)
 }
 
 // Encode encodes a discovery packet.
-func Encode [T crypto.PrivateKey, P crypto.PublicKey] (priv T, req Packet) (packet, hash []byte, err error) {
+func Encode[T crypto.PrivateKey, P crypto.PublicKey](priv T, req Packet) (packet, hash []byte, err error) {
 	b := new(bytes.Buffer)
 	b.Write(headSpace)
 	b.WriteByte(req.Kind())
@@ -282,13 +283,18 @@ func recoverNodeKey[P crypto.PublicKey](hash, sig []byte) (key Pubkey[P], err er
 
 // EncodePubkey encodes a secp256k1 public key.
 func EncodePubkey[P crypto.PublicKey](key P) Pubkey[P] {
-	switch p:= any(&key).(type){
+	switch p := any(&key).(type) {
 	case *nist.PublicKey:
 		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
 		return e
 	case *gost3410.PublicKey:
+		var e Pubkey[P]
+		math.ReadBits(p.X, e[:len(e)/2])
+		math.ReadBits(p.Y, e[len(e)/2:])
+		return e
+	case *csp.PublicKey:
 		var e Pubkey[P]
 		math.ReadBits(p.X, e[:len(e)/2])
 		math.ReadBits(p.Y, e[len(e)/2:])
@@ -301,7 +307,7 @@ func EncodePubkey[P crypto.PublicKey](key P) Pubkey[P] {
 // DecodePubkey reads an encoded secp256k1 public key.
 func DecodePubkey[P crypto.PublicKey](e Pubkey[P]) (P, error) {
 	var pub P
-	switch p:= any(&pub).(type){
+	switch p := any(&pub).(type) {
 	case *nist.PublicKey:
 		k := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
 		half := len(e) / 2
@@ -320,6 +326,15 @@ func DecodePubkey[P crypto.PublicKey](e Pubkey[P]) (P, error) {
 		// if !k.C.IsOnCurve(k.X, k.Y) {
 		// 	return crypto.ZeroPublicKey[P](), ErrBadPoint
 		// }
+		*p = *k
+	case *csp.PublicKey:
+		k := &csp.PublicKey{Curve: gost3410.CurveIdGostR34102001CryptoProAParamSet(), X: new(big.Int), Y: new(big.Int)}
+		half := len(e) / 2
+		k.X.SetBytes(e[:half])
+		k.Y.SetBytes(e[half:])
+		if !k.Curve.IsOnCurve(k.X, k.Y) {
+			return crypto.ZeroPublicKey[P](), ErrBadPoint
+		}
 		*p = *k
 	default:
 		return crypto.ZeroPublicKey[P](), fmt.Errorf("cant infer public key")

@@ -27,19 +27,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/google/uuid"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
 )
 
 const (
 	version = 3
 )
 
-type Key [T crypto.PrivateKey] struct {
+type Key[T crypto.PrivateKey] struct {
 	Id uuid.UUID // Version 4 "random" for unique id not derived from key data
 	// to simplify lookups we also store the address
 	Address common.Address
@@ -48,13 +48,16 @@ type Key [T crypto.PrivateKey] struct {
 	PrivateKey T
 }
 
-type keyStore [T crypto.PrivateKey] interface {
+type keyStore[T crypto.PrivateKey] interface {
 	// Loads and decrypts the key from disk.
 	GetKey(addr common.Address, filename string, auth string) (*Key[T], error)
 	// Writes and encrypts the key.
 	StoreKey(filename string, k *Key[T], auth string) error
 	// Joins filename with the key directory unless it is already absolute.
 	JoinPath(filename string) string
+	// Keys from CSP adapter
+	GetKeyCsp(addr common.Address, filename string) (*KeyCsp, error)
+	StoreKeyCsp(filename string, k *KeyCsp) error
 }
 
 type plainKeyJSON struct {
@@ -136,12 +139,12 @@ func newKeyFromECDSA[T crypto.PrivateKey, P crypto.PublicKey](privateKeyECDSA T)
 		panic(fmt.Sprintf("Could not create random uuid: %v", err))
 	}
 	var pub P
-	switch t:=any(&privateKeyECDSA).(type) {
+	switch t := any(&privateKeyECDSA).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	key := &Key[T]{
@@ -167,9 +170,9 @@ func NewKeyForDirectICAP[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader
 	if err != nil {
 		panic("key generation: ecdsa.GenerateKey failed: " + err.Error())
 	}
-	key := newKeyFromECDSA[T,P](privateKeyECDSA)
+	key := newKeyFromECDSA[T, P](privateKeyECDSA)
 	if !strings.HasPrefix(key.Address.Hex(), "0x00") {
-		return NewKeyForDirectICAP[T,P](rand)
+		return NewKeyForDirectICAP[T, P](rand)
 	}
 	return key
 }
@@ -180,11 +183,11 @@ func newKey[T crypto.PrivateKey, P crypto.PublicKey](rand io.Reader) (*Key[T], e
 	if err != nil {
 		return nil, err
 	}
-	return newKeyFromECDSA[T,P](privateKeyECDSA), nil
+	return newKeyFromECDSA[T, P](privateKeyECDSA), nil
 }
 
 func storeNewKey[T crypto.PrivateKey, P crypto.PublicKey](ks keyStore[T], rand io.Reader, auth string) (*Key[T], accounts.Account, error) {
-	key, err := newKey[T,P](rand)
+	key, err := newKey[T, P](rand)
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
@@ -193,7 +196,7 @@ func storeNewKey[T crypto.PrivateKey, P crypto.PublicKey](ks keyStore[T], rand i
 		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))},
 	}
 	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
-		zeroKey[T,P](key.PrivateKey)
+		zeroKey[T, P](key.PrivateKey)
 		return nil, a, err
 	}
 	return key, a, err

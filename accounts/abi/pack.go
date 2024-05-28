@@ -22,8 +22,8 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
 )
 
 // packBytesSlice packs the given bytes as [L, V] as the canonical representation

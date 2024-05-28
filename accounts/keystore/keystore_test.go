@@ -28,12 +28,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/event"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/event"
 )
 
 var testSigData = make([]byte, 32)
@@ -63,6 +63,38 @@ func TestKeyStore(t *testing.T) {
 		t.Errorf("Update error: %v", err)
 	}
 	if err := ks.Delete(a, "bar"); err != nil {
+		t.Errorf("Delete error: %v", err)
+	}
+	if common.FileExist(a.URL.Path) {
+		t.Errorf("account file %s should be gone after Delete", a.URL)
+	}
+	if ks.HasAddress(a.Address) {
+		t.Errorf("HasAccount(%x) should've returned true after Delete", a.Address)
+	}
+}
+
+func TestKeyStoreCsp(t *testing.T) {
+	dir, ks := tmpKeyStore(t, true)
+	defer os.RemoveAll(dir)
+
+	a, err := ks.NewAccountCsp("43ad4195a67f95eea752861c96297045bb9ea5a7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(a.URL.Path, dir) {
+		t.Errorf("account file %s doesn't have dir prefix", a.URL)
+	}
+	stat, err := os.Stat(a.URL.Path)
+	if err != nil {
+		t.Fatalf("account file %s doesn't exist (%v)", a.URL, err)
+	}
+	if runtime.GOOS != "windows" && stat.Mode() != 0600 {
+		t.Fatalf("account file has wrong mode: got %o, want %o", stat.Mode(), 0600)
+	}
+	if !ks.HasAddress(a.Address) {
+		t.Errorf("HasAccount(%x) should've returned true", a.Address)
+	}
+	if err := ks.DeleteCsp(a, "bar"); err != nil {
 		t.Errorf("Delete error: %v", err)
 	}
 	if common.FileExist(a.URL.Path) {
@@ -106,7 +138,6 @@ func TestSignGost(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
 
 // func TestSignCsp(t *testing.T) {
 // 	dir, ks := tmpKeyStore(t, true)
@@ -554,26 +585,30 @@ func checkEvents(t *testing.T, want []walletEvent, have []walletEvent) {
 	}
 }
 
-func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKey,nist.PublicKey]) {
+func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore[nist.PrivateKey, nist.PublicKey]) {
 	d, err := ioutil.TempDir("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	newKs := NewPlaintextKeyStore[nist.PrivateKey,nist.PublicKey]
+	newKs := NewPlaintextKeyStore[nist.PrivateKey, nist.PublicKey]
 	if encrypted {
-		newKs = func(kd string) *KeyStore[nist.PrivateKey,nist.PublicKey] { return NewKeyStore[nist.PrivateKey,nist.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
+		newKs = func(kd string) *KeyStore[nist.PrivateKey, nist.PublicKey] {
+			return NewKeyStore[nist.PrivateKey, nist.PublicKey](kd, veryLightScryptN, veryLightScryptP)
+		}
 	}
 	return d, newKs(d)
 }
 
-func tmpKeyStoreGost(t *testing.T, encrypted bool) (string, *KeyStore[gost3410.PrivateKey,gost3410.PublicKey]) {
+func tmpKeyStoreGost(t *testing.T, encrypted bool) (string, *KeyStore[gost3410.PrivateKey, gost3410.PublicKey]) {
 	d, err := ioutil.TempDir("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	newKs := NewPlaintextKeyStore[gost3410.PrivateKey,gost3410.PublicKey]
+	newKs := NewPlaintextKeyStore[gost3410.PrivateKey, gost3410.PublicKey]
 	if encrypted {
-		newKs = func(kd string) *KeyStore[gost3410.PrivateKey,gost3410.PublicKey] { return NewKeyStore[gost3410.PrivateKey,gost3410.PublicKey](kd, veryLightScryptN, veryLightScryptP) }
+		newKs = func(kd string) *KeyStore[gost3410.PrivateKey, gost3410.PublicKey] {
+			return NewKeyStore[gost3410.PrivateKey, gost3410.PublicKey](kd, veryLightScryptN, veryLightScryptP)
+		}
 	}
 	return d, newKs(d)
 }

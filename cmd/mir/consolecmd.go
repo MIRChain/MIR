@@ -28,15 +28,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/console"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/console"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -196,13 +196,13 @@ func _localConsole(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil		
+	}
+	return nil
 }
 func localConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	stack, backend := makeFullNode[T,P](ctx)
+	stack, backend := makeFullNode[T, P](ctx)
 	startNode(ctx, stack, backend)
 	defer stack.Close()
 
@@ -278,9 +278,10 @@ func _remoteConsole(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil	
+	}
+	return nil
 }
+
 // remoteConsole will connect to a remote geth instance, attaching a JavaScript
 // console to it.
 func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
@@ -305,7 +306,7 @@ func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 		}
 		endpoint = fmt.Sprintf("%s/mir.ipc", path)
 	}
-	client, err := dialRPC[T,P](endpoint, ctx)
+	client, err := dialRPC[T, P](endpoint, ctx)
 	if err != nil {
 		utils.Fatalf("Unable to attach to remote mir: %v", err)
 	}
@@ -344,7 +345,7 @@ func remoteConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) er
 // 3. PSI awareness from environment variable and endpoint query param
 func dialRPC[T crypto.PrivateKey, P crypto.PublicKey](endpoint string, ctx *cli.Context) (*rpc.Client, error) {
 	if endpoint == "" {
-		endpoint = node.DefaultIPCEndpoint[T,P](clientIdentifier)
+		endpoint = node.DefaultIPCEndpoint[T, P](clientIdentifier)
 	} else if strings.HasPrefix(endpoint, "rpc:") || strings.HasPrefix(endpoint, "ipc:") {
 		// Backwards compatibility with geth < 1.5 which required
 		// these prefixes.
@@ -439,8 +440,8 @@ func _ephemeralConsole(ctx *cli.Context) error {
 		} else {
 			fmt.Errorf("wrong crypto flag")
 		}
-	} 	
-	return nil	
+	}
+	return nil
 }
 
 // ephemeralConsole starts a new geth node, attaches an ephemeral JavaScript
@@ -448,7 +449,7 @@ func _ephemeralConsole(ctx *cli.Context) error {
 // everything down.
 func ephemeralConsole[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	stack, backend := makeFullNode[T,P](ctx)
+	stack, backend := makeFullNode[T, P](ctx)
 	startNode(ctx, stack, backend)
 	defer stack.Close()
 

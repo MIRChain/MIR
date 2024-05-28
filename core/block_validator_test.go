@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Tests that simple header verification works, for both good and bad blocks.
@@ -44,7 +44,7 @@ func TestHeaderVerification(t *testing.T) {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain[nist.PublicKey](testdb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	chain, _ := NewBlockChain[nist.PublicKey](testdb, nil, params.TestChainConfig, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	defer chain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
@@ -52,7 +52,7 @@ func TestHeaderVerification(t *testing.T) {
 			var results <-chan error
 
 			if valid {
-				engine :=  ethash.NewFaker[nist.PublicKey]()
+				engine := ethash.NewFaker[nist.PublicKey]()
 				_, results = engine.VerifyHeaders(chain, []*types.Header[nist.PublicKey]{headers[i]}, []bool{true})
 			} else {
 				engine := ethash.NewFakeFailer[nist.PublicKey](headers[i].Number.Uint64())
@@ -89,7 +89,7 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		testdb    = rawdb.NewMemoryDatabase()
 		gspec     = &Genesis[nist.PublicKey]{Config: params.TestChainConfig}
 		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, 8, nil)
+		blocks, _ = GenerateChain[nist.PublicKey](params.TestChainConfig, genesis, ethash.NewFaker[nist.PublicKey](), testdb, 8, nil)
 	)
 	headers := make([]*types.Header[nist.PublicKey], len(blocks))
 	seals := make([]bool, len(blocks))
@@ -108,7 +108,7 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		var results <-chan error
 
 		if valid {
-			chain, _ := NewBlockChain[nist.PublicKey](testdb, nil, params.TestChainConfig,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+			chain, _ := NewBlockChain[nist.PublicKey](testdb, nil, params.TestChainConfig, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		} else {
@@ -151,9 +151,11 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 
 // Tests that aborting a header validation indeed prevents further checks from being
 // run, as well as checks that no left-over goroutines are leaked.
-func TestHeaderConcurrentAbortion2(t *testing.T)  { testHeaderConcurrentAbortion[nist.PublicKey](t, 2) }
-func TestHeaderConcurrentAbortion8(t *testing.T)  { testHeaderConcurrentAbortion[nist.PublicKey](t, 8) }
-func TestHeaderConcurrentAbortion32(t *testing.T) { testHeaderConcurrentAbortion[nist.PublicKey](t, 32) }
+func TestHeaderConcurrentAbortion2(t *testing.T) { testHeaderConcurrentAbortion[nist.PublicKey](t, 2) }
+func TestHeaderConcurrentAbortion8(t *testing.T) { testHeaderConcurrentAbortion[nist.PublicKey](t, 8) }
+func TestHeaderConcurrentAbortion32(t *testing.T) {
+	testHeaderConcurrentAbortion[nist.PublicKey](t, 32)
+}
 
 func testHeaderConcurrentAbortion[P crypto.PublicKey](t *testing.T, threads int) {
 	// Create a simple chain to verify
@@ -161,7 +163,7 @@ func testHeaderConcurrentAbortion[P crypto.PublicKey](t *testing.T, threads int)
 		testdb    = rawdb.NewMemoryDatabase()
 		gspec     = &Genesis[P]{Config: params.TestChainConfig}
 		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain[P](params.TestChainConfig, genesis,  ethash.NewFaker[P](), testdb, 1024, nil)
+		blocks, _ = GenerateChain[P](params.TestChainConfig, genesis, ethash.NewFaker[P](), testdb, 1024, nil)
 	)
 	headers := make([]*types.Header[P], len(blocks))
 	seals := make([]bool, len(blocks))

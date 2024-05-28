@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/openpgp"
 )

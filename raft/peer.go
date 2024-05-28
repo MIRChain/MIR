@@ -6,10 +6,10 @@ import (
 	"log"
 	"net"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Serializable information about a Peer. Sufficient to build `etcdRaft.Peer`
@@ -61,8 +61,8 @@ func newAddress[P crypto.PublicKey](raftId uint16, raftPort int, node *enode.Nod
 }
 
 // A peer that we're connected to via both raft's http transport, and ethereum p2p
-type Peer [P crypto.PublicKey] struct {
-	address *Address    // For raft transport
+type Peer[P crypto.PublicKey] struct {
+	address *Address       // For raft transport
 	p2pNode *enode.Node[P] // For ethereum transport
 }
 

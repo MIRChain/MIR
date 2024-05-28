@@ -27,30 +27,30 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common/http"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/catalyst"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common/http"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/catalyst"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/rpc"
 
-	// "github.com/pavelkrolevets/MIR-pro/extension/privacyExtension"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	// "github.com/MIRChain/MIR/extension/privacyExtension"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/nat"
+	"github.com/MIRChain/MIR/params"
 
-	// "github.com/pavelkrolevets/MIR-pro/permission/core"
+	// "github.com/MIRChain/MIR/permission/core"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/qlight"
 	"github.com/naoina/toml"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/qlight"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -92,14 +92,14 @@ type ethstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
-type gethConfig [T crypto.PrivateKey, P crypto.PublicKey]struct {
+type gethConfig[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	Eth      ethconfig.Config[P]
-	Node     node.Config[T,P]
+	Node     node.Config[T, P]
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
 }
 
-func loadConfig[T crypto.PrivateKey, P crypto.PublicKey](file string, cfg *gethConfig[T,P]) error {
+func loadConfig[T crypto.PrivateKey, P crypto.PublicKey](file string, cfg *gethConfig[T, P]) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -114,8 +114,8 @@ func loadConfig[T crypto.PrivateKey, P crypto.PublicKey](file string, cfg *gethC
 	return err
 }
 
-func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,P] {
-	cfg := node.Config[T,P]{
+func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T, P] {
+	cfg := node.Config[T, P]{
 		DataDir:             node.DefaultDataDir(),
 		HTTPPort:            node.DefaultHTTPPort,
 		HTTPModules:         []string{"net", "web3"},
@@ -124,7 +124,7 @@ func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,
 		WSPort:              node.DefaultWSPort,
 		WSModules:           []string{"net", "web3"},
 		GraphQLVirtualHosts: []string{"localhost"},
-		P2P: p2p.Config[T,P]{
+		P2P: p2p.Config[T, P]{
 			ListenAddr: ":30303",
 			MaxPeers:   50,
 			NAT:        nat.Any(),
@@ -139,7 +139,7 @@ func defaultNodeConfig[T crypto.PrivateKey, P crypto.PublicKey]() node.Config[T,
 }
 
 // makeConfigNode loads geth configuration and creates a blank node instance.
-func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T,P], gethConfig[T,P]) {
+func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T, P], gethConfig[T, P]) {
 	// Quorum: Must occur before setQuorumConfig, as it needs an initialised PTM to be enabled
 	// 		   Extension Service and Multitenancy feature validation also depend on PTM availability
 	// if err := quorumInitialisePrivacy(ctx); err != nil {
@@ -147,9 +147,9 @@ func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (
 	// }
 
 	// Load defaults.
-	cfg := gethConfig[T,P]{
+	cfg := gethConfig[T, P]{
 		Eth:     *ethconfig.Defaults[P](),
-		Node:    defaultNodeConfig[T,P](),
+		Node:    defaultNodeConfig[T, P](),
 		Metrics: metrics.DefaultConfig,
 	}
 
@@ -200,8 +200,8 @@ func makeConfigNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (
 }
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.
-func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T,P], ethapi.Backend[T,P]) {
-	stack, cfg := makeConfigNode[T,P](ctx)
+func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*node.Node[T, P], ethapi.Backend[T, P]) {
+	stack, cfg := makeConfigNode[T, P](ctx)
 	if ctx.GlobalIsSet(utils.OverrideBerlinFlag.Name) {
 		cfg.Eth.OverrideBerlin = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideBerlinFlag.Name))
 	}
@@ -261,7 +261,7 @@ func makeFullNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) (*n
 
 // dumpConfig is the dumpconfig command.
 func dumpConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	_, cfg := makeConfigNode[T,P](ctx)
+	_, cfg := makeConfigNode[T, P](ctx)
 	comment := ""
 
 	if cfg.Eth.Genesis != nil {
@@ -288,7 +288,7 @@ func dumpConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 	return nil
 }
 
-func applyMetricConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *gethConfig[T,P]) {
+func applyMetricConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, cfg *gethConfig[T, P]) {
 	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
 		cfg.Metrics.Enabled = ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
 	}
@@ -323,7 +323,7 @@ func applyMetricConfig[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context
 
 // Quorum
 
-func readQLightClientTLSConfig[ P crypto.PublicKey](ctx *cli.Context) *tls.Config {
+func readQLightClientTLSConfig[P crypto.PublicKey](ctx *cli.Context) *tls.Config {
 	if !ctx.GlobalIsSet(utils.QuorumLightTLSFlag.Name) {
 		return nil
 	}
@@ -371,8 +371,8 @@ func readQLightServerTLSConfig(ctx *cli.Context) *tls.Config {
 }
 
 // quorumValidateEthService checks quorum features that depend on the ethereum service
-func quorumValidateEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], isRaft bool) {
-	var ethereum *eth.Ethereum[T,P]
+func quorumValidateEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T, P], isRaft bool) {
+	var ethereum *eth.Ethereum[T, P]
 
 	err := stack.Lifecycle(&ethereum)
 	if err != nil {
@@ -387,7 +387,7 @@ func quorumValidateEthService[T crypto.PrivateKey, P crypto.PublicKey](stack *no
 }
 
 // quorumValidateConsensus checks if a consensus was used. The node is killed if consensus was not used
-func quorumValidateConsensus[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P], isRaft bool) {
+func quorumValidateConsensus[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T, P], isRaft bool) {
 	transitionAlgorithmOnBlockZero := false
 	ethereum.BlockChain().Config().GetTransitionValue(big.NewInt(0), func(transition params.Transition) {
 		transitionAlgorithmOnBlockZero = strings.EqualFold(transition.Algorithm, params.IBFT) || strings.EqualFold(transition.Algorithm, params.QBFT)
@@ -399,7 +399,7 @@ func quorumValidateConsensus[T crypto.PrivateKey, P crypto.PublicKey](ethereum *
 
 // quorumValidatePrivacyEnhancements checks if privacy enhancements are configured the transaction manager supports
 // the PrivacyEnhancements feature
-func quorumValidatePrivacyEnhancements[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T,P]) {
+func quorumValidatePrivacyEnhancements[T crypto.PrivateKey, P crypto.PublicKey](ethereum *eth.Ethereum[T, P]) {
 	privacyEnhancementsBlock := ethereum.BlockChain().Config().PrivacyEnhancementsBlock
 
 	for _, transition := range ethereum.BlockChain().Config().Transitions {

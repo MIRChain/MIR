@@ -252,7 +252,7 @@ Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could 
 `)
 }
 
-// https://github.com/pavelkrolevets/MIR-pro/issues/1785
+// https://github.com/MIRChain/MIR/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
 	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGethWithRaftConsensus(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),

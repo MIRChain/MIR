@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 func BenchmarkCutOriginal(b *testing.B) {

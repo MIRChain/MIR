@@ -3,7 +3,7 @@ package qlight
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/qlight"
+	"github.com/MIRChain/MIR/qlight"
 )
 
 const (

@@ -21,9 +21,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
 )
 
 // Config contains the settings of the global account manager.
@@ -36,10 +36,10 @@ type Config struct {
 
 // Manager is an overarching account manager that can communicate with various
 // backends for signing transactions.
-type Manager [P crypto.PublicKey] struct {
-	config   *Config                    // Global account manager configurations
+type Manager[P crypto.PublicKey] struct {
+	config   *Config                       // Global account manager configurations
 	backends map[reflect.Type][]Backend[P] // Index of backends currently registered
-	updaters []event.Subscription       // Wallet update subscriptions for all backends
+	updaters []event.Subscription          // Wallet update subscriptions for all backends
 	updates  chan WalletEvent[P]           // Subscription sink for backend wallet changes
 	wallets  []Wallet[P]                   // Cache of all wallets from all registered backends
 

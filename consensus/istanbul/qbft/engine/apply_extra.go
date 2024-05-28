@@ -1,8 +1,8 @@
 package qbftengine
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 type ApplyQBFTExtra func(*types.QBFTExtra) error

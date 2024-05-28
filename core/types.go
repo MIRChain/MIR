@@ -17,17 +17,17 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // Validator is an interface which defines the standard for block validation. It
 // is only responsible for validating block contents, as the header validation is
 // done by the specific consensus engines.
-type Validator [P crypto.PublicKey] interface {
+type Validator[P crypto.PublicKey] interface {
 	// ValidateBody validates the given block's content.
 	ValidateBody(block *types.Block[P]) error
 
@@ -37,7 +37,7 @@ type Validator [P crypto.PublicKey] interface {
 }
 
 // Prefetcher is an interface for pre-caching transaction signatures and state.
-type Prefetcher [P crypto.PublicKey] interface {
+type Prefetcher[P crypto.PublicKey] interface {
 	// Prefetch processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb, but any changes are discarded. The
 	// only goal is to pre-cache transaction signatures and state trie nodes.
@@ -46,7 +46,7 @@ type Prefetcher [P crypto.PublicKey] interface {
 }
 
 // Processor is an interface for processing blocks using a given initial state.
-type Processor [P crypto.PublicKey] interface {
+type Processor[P crypto.PublicKey] interface {
 	// Process processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb and applying any rewards to both
 	// the processor (coinbase) and any included uncles.

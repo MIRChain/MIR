@@ -26,10 +26,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var (
@@ -98,10 +98,10 @@ func init() {
 //
 // The goal of a diff layer is to act as a journal, tracking recent modifications
 // made to the state, that have not yet graduated into a semi-immutable state.
-type diffLayer [P crypto.PublicKey] struct {
+type diffLayer[P crypto.PublicKey] struct {
 	origin *diskLayer[P] // Base disk layer to directly use on bloom misses
 	parent snapshot[P]   // Parent snapshot modified by this one, never nil
-	memory uint64     // Approximate guess as to how much memory we use
+	memory uint64        // Approximate guess as to how much memory we use
 
 	root  common.Hash // Root hash to which this snapshot diff belongs to
 	stale uint32      // Signals that the layer became stale (state progressed)
@@ -169,7 +169,7 @@ func (h storageBloomHasher) Sum64() uint64 {
 
 // newDiffLayer creates a new diff on top of an existing snapshot, whether that's a low
 // level persistent database or a hierarchical diff already.
-func newDiffLayer[P crypto.PublicKey]  (parent snapshot[P], root common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer[P] {
+func newDiffLayer[P crypto.PublicKey](parent snapshot[P], root common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) *diffLayer[P] {
 	// Create the new layer with some pre-allocated data segments
 	dl := &diffLayer[P]{
 		parent:      parent,

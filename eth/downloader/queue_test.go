@@ -24,16 +24,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 )
 
 var (
@@ -46,21 +46,21 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain[T crypto.PrivateKey, P crypto.PublicKey](n int, seed byte, parent *types.Block[P], empty bool) ([]*types.Block[P], []types.Receipts[P]) {
-	blocks, receipts := core.GenerateChain[P](params.TestChainConfig, parent,  ethash.NewFaker[P](), testdb, n, func(i int, block *core.BlockGen[P]) {
+	blocks, receipts := core.GenerateChain[P](params.TestChainConfig, parent, ethash.NewFaker[P](), testdb, n, func(i int, block *core.BlockGen[P]) {
 		block.SetCoinbase(common.Address{seed})
 		// Add one tx to every secondblock
 		if !empty && i%2 == 0 {
 			signer := types.MakeSigner[P](params.TestChainConfig, block.Number())
 			var key T
-			switch t:= any(&testKey).(type){
+			switch t := any(&testKey).(type) {
 			case *nist.PrivateKey:
-				tt:=any(&key).(*nist.PrivateKey)
+				tt := any(&key).(*nist.PrivateKey)
 				*tt = *t
 			case *gost3410.PrivateKey:
-				tt:=any(&key).(*gost3410.PrivateKey)
+				tt := any(&key).(*gost3410.PrivateKey)
 				*tt = *t
 			}
-			tx, err := types.SignTx[T,P](types.NewTransaction[P](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+			tx, err := types.SignTx[T, P](types.NewTransaction[P](block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -70,7 +70,7 @@ func makeChain[T crypto.PrivateKey, P crypto.PublicKey](n int, seed byte, parent
 	return blocks, receipts
 }
 
-type chainData [P crypto.PublicKey]struct {
+type chainData[P crypto.PublicKey] struct {
 	blocks []*types.Block[P]
 	offset int
 }
@@ -81,10 +81,10 @@ var emptyChain *chainData[nist.PublicKey]
 func init() {
 	// Create a chain of blocks to import
 	targetBlocks := 128
-	blocks, _ := makeChain[nist.PrivateKey,nist.PublicKey](targetBlocks, 0, genesis, false)
+	blocks, _ := makeChain[nist.PrivateKey, nist.PublicKey](targetBlocks, 0, genesis, false)
 	chain = &chainData[nist.PublicKey]{blocks, 0}
 
-	blocks, _ = makeChain[nist.PrivateKey,nist.PublicKey](targetBlocks, 0, genesis, true)
+	blocks, _ = makeChain[nist.PrivateKey, nist.PublicKey](targetBlocks, 0, genesis, true)
 	emptyChain = &chainData[nist.PublicKey]{blocks, 0}
 }
 
@@ -273,7 +273,7 @@ func TestEmptyBlocks(t *testing.T) {
 // some more advanced scenarios
 func XTestDelivery(t *testing.T) {
 	// the outside network, holding blocks
-	blo, rec := makeChain[nist.PrivateKey,nist.PublicKey](128, 0, genesis, false)
+	blo, rec := makeChain[nist.PrivateKey, nist.PublicKey](128, 0, genesis, false)
 	world := newNetwork()
 	world.receipts = rec
 	world.chain = blo
@@ -399,7 +399,7 @@ func newNetwork() *network[nist.PrivateKey, nist.PublicKey] {
 }
 
 // represents the network
-type network [T crypto.PrivateKey,P crypto.PublicKey]struct {
+type network[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	offset   int
 	chain    []*types.Block[P]
 	receipts []types.Receipts[P]
@@ -407,11 +407,11 @@ type network [T crypto.PrivateKey,P crypto.PublicKey]struct {
 	cond     *sync.Cond
 }
 
-func (n *network[T,P]) getTransactions(blocknum uint64) types.Transactions[P] {
+func (n *network[T, P]) getTransactions(blocknum uint64) types.Transactions[P] {
 	index := blocknum - uint64(n.offset)
 	return n.chain[index].Transactions()
 }
-func (n *network[T,P]) getReceipts(blocknum uint64) types.Receipts[P] {
+func (n *network[T, P]) getReceipts(blocknum uint64) types.Receipts[P] {
 	index := blocknum - uint64(n.offset)
 	if got := n.chain[index].Header().Number.Uint64(); got != blocknum {
 		fmt.Printf("Err, got %d exp %d\n", got, blocknum)
@@ -420,25 +420,25 @@ func (n *network[T,P]) getReceipts(blocknum uint64) types.Receipts[P] {
 	return n.receipts[index]
 }
 
-func (n *network[T,P]) forget(blocknum uint64) {
+func (n *network[T, P]) forget(blocknum uint64) {
 	index := blocknum - uint64(n.offset)
 	n.chain = n.chain[index:]
 	n.receipts = n.receipts[index:]
 	n.offset = int(blocknum)
 
 }
-func (n *network[T,P]) progress(numBlocks int) {
+func (n *network[T, P]) progress(numBlocks int) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	//fmt.Printf("progressing...\n")
-	newBlocks, newR := makeChain[T,P](numBlocks, 0, n.chain[len(n.chain)-1], false)
+	newBlocks, newR := makeChain[T, P](numBlocks, 0, n.chain[len(n.chain)-1], false)
 	n.chain = append(n.chain, newBlocks...)
 	n.receipts = append(n.receipts, newR...)
 	n.cond.Broadcast()
 
 }
 
-func (n *network[T,P]) headers(from int) []*types.Header[P] {
+func (n *network[T, P]) headers(from int) []*types.Header[P] {
 	numHeaders := 128
 	var hdrs []*types.Header[P]
 	index := from - n.offset

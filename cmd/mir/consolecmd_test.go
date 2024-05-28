@@ -30,8 +30,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/params"
 	testifyassert "github.com/stretchr/testify/assert"
 	"gopkg.in/urfave/cli.v1"
 )

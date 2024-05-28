@@ -24,17 +24,17 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // Client defines typed wrappers for the Ethereum RPC API.
-type Client [P crypto.PublicKey] struct {
+type Client[P crypto.PublicKey] struct {
 	c  *rpc.Client
 	pc privateTransactionManagerClient // Tessera/Constellation client
 }
@@ -116,10 +116,10 @@ func (ec *Client[P]) BlockNumber(ctx context.Context) (uint64, error) {
 	return uint64(result), err
 }
 
-type rpcBlock [P crypto.PublicKey] struct {
-	Hash         common.Hash      `json:"hash"`
+type rpcBlock[P crypto.PublicKey] struct {
+	Hash         common.Hash         `json:"hash"`
 	Transactions []rpcTransaction[P] `json:"transactions"`
-	UncleHashes  []common.Hash    `json:"uncles"`
+	UncleHashes  []common.Hash       `json:"uncles"`
 }
 
 func (ec *Client[P]) getBlock(ctx context.Context, method string, args ...interface{}) (*types.Block[P], error) {
@@ -208,7 +208,7 @@ func (ec *Client[P]) HeaderByNumber(ctx context.Context, number *big.Int) (*type
 	return head, err
 }
 
-type rpcTransaction [P crypto.PublicKey]  struct {
+type rpcTransaction[P crypto.PublicKey] struct {
 	tx *types.Transaction[P]
 	txExtraInfo
 }

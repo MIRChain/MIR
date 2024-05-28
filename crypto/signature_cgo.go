@@ -26,10 +26,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/crypto/secp256k1"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/crypto/secp256k1"
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.
@@ -57,14 +58,22 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 			X: X,
 			Y: Y,
 		}
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		return gost3410.Marshal(gost3410.GostCurve, pubKey.X, pubKey.Y), nil
+	case *csp.PublicKey:
+		r, s, revHash := RevertCSP(digestHash, sig)
+		X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, int(sig[64]))
+		if err != nil {
+			return nil, err
+		}
+		return csp.Marshal(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), X, Y), nil
 	default:
 		return nil, fmt.Errorf("no crypto alg was set")
 	}
 }
+
 // SigToPub returns the public key that created the given signature.
 func SigToPub[P PublicKey](hash, sig []byte) (P, error) {
 	var pubKey P
@@ -82,7 +91,17 @@ func SigToPub[P PublicKey](hash, sig []byte) (P, error) {
 		if err != nil {
 			return ZeroPublicKey[P](), err
 		}
-		key, err := gost3410.NewPublicKey(gost3410.GostCurve,s)
+		key, err := gost3410.NewPublicKey(gost3410.GostCurve, s)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		*p = *key
+	case *csp.PublicKey:
+		s, err := Ecrecover[P](hash, sig)
+		if err != nil {
+			return ZeroPublicKey[P](), err
+		}
+		key, err := csp.NewPublicKey(s)
 		if err != nil {
 			return ZeroPublicKey[P](), err
 		}
@@ -101,8 +120,8 @@ func SigToPub[P PublicKey](hash, sig []byte) (P, error) {
 // solution is to hash any input before calculating the signature.
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
-func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
-	switch prv:=any(&key).(type) {
+func Sign[T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
+	switch prv := any(&key).(type) {
 	case *nist.PrivateKey:
 		if len(digestHash) != DigestLength {
 			return nil, fmt.Errorf("hash is required to be exactly %d bytes (%d)", DigestLength, len(digestHash))
@@ -127,6 +146,32 @@ func Sign [T PrivateKey](digestHash []byte, key T) (sig []byte, err error) {
 		for i := 0; i < (1+1)*2; i++ {
 			X, Y, err := gost3410.RecoverCompact(*prv.C, revHash, r, s, i)
 			if err == nil && X.Cmp(prv.PublicKey.X) == 0 && Y.Cmp(prv.PublicKey.Y) == 0 {
+				resSig = append(resSig, sig...)
+				resSig = append(resSig, byte(i))
+			}
+		}
+		return resSig, nil
+	case *csp.Cert:
+		defer prv.Close()
+		var resSig []byte
+		sig, err := csp.Sign(*prv, digestHash)
+		if err != nil {
+			return nil, err
+		}
+		r, s, revHash := RevertCSP(digestHash, sig)
+		pubKey := make([]byte, 64)
+		copy(pubKey[:], prv.Info().PublicKeyBytes()[2:66])
+		reverse(pubKey)
+		pubKeyX := new(big.Int).SetBytes(pubKey[32:64])
+		pubKeyY := new(big.Int).SetBytes(pubKey[:32])
+		gostKey := gost3410.PublicKey{
+			C: gost3410.CurveIdGostR34102001CryptoProAParamSet(),
+			X: pubKeyX,
+			Y: pubKeyY,
+		}
+		for i := 0; i < 4; i++ {
+			X, Y, err := gost3410.RecoverCompact(*gost3410.CurveIdGostR34102001CryptoProAParamSet(), revHash, r, s, i)
+			if err == nil && X.Cmp(gostKey.X) == 0 && Y.Cmp(gostKey.Y) == 0 {
 				resSig = append(resSig, sig...)
 				resSig = append(resSig, byte(i))
 			}
@@ -159,6 +204,12 @@ func VerifySignature[P PublicKey](pubkey, digestHash, signature []byte) bool {
 			return false
 		}
 		return ver
+	case *csp.PublicKey:
+		res, err := csp.VerifySignatureRaw(digestHash, signature, pubkey)
+		if err != nil {
+			return false
+		}
+		return res
 	default:
 		panic("cant infer pub key type")
 	}
@@ -180,7 +231,13 @@ func DecompressPubkey[P PublicKey](pubkey []byte) (P, error) {
 		if err != nil {
 			return ZeroPublicKey[P](), fmt.Errorf("invalid gost 3410 public key")
 		}
-		*p=*k
+		*p = *k
+	case *csp.PublicKey:
+		k, err := csp.NewPublicKey(pubkey)
+		if err != nil {
+			return ZeroPublicKey[P](), fmt.Errorf("invalid csp public key")
+		}
+		*p = *k
 	default:
 		return ZeroPublicKey[P](), fmt.Errorf("cant infer pub key type")
 	}
@@ -195,6 +252,8 @@ func CompressPubkey[P PublicKey](pubkey P) []byte {
 		return secp256k1.CompressPubkey(p.X, p.Y)
 	case *gost3410.PublicKey:
 		return gost3410.Marshal(gost3410.GostCurve, p.X, p.Y)
+	case *csp.PublicKey:
+		return p.Raw()
 	default:
 		return nil
 	}

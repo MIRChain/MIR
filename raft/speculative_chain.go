@@ -4,10 +4,10 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	"gopkg.in/oleiade/lane.v1"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 )
 
 // The speculative chain represents blocks that we have minted which haven't been accepted into the chain yet, building
@@ -19,7 +19,7 @@ import (
 // Additionally:
 // * clear state when we stop minting
 // * set the parent when we're not minting (so it's always current)
-type speculativeChain [P crypto.PublicKey] struct {
+type speculativeChain[P crypto.PublicKey] struct {
 	head                       *types.Block[P]
 	unappliedBlocks            *lane.Deque
 	expectedInvalidBlockHashes mapset.Set // This is thread-safe. This set is referred to as our "guard" below.

@@ -23,15 +23,15 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/external"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/external"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
 )
 
 // ErrNoChainID is returned whenever the user failed to specify a chain id.
@@ -44,24 +44,24 @@ var ErrNotAuthorized = errors.New("not authorized to sign this account")
 // an encrypted json key stream and the associated passphrase.
 //
 // Deprecated: Use NewTransactorWithChainID instead.
-func NewTransactor[T crypto.PrivateKey,P crypto.PublicKey](keyin io.Reader, passphrase string) (*TransactOpts[P], error) {
+func NewTransactor[T crypto.PrivateKey, P crypto.PublicKey](keyin io.Reader, passphrase string) (*TransactOpts[P], error) {
 	log.Warn("WARNING: NewTransactor has been deprecated in favour of NewTransactorWithChainID")
 	json, err := ioutil.ReadAll(keyin)
 	if err != nil {
 		return nil, err
 	}
-	key, err := keystore.DecryptKey[T,P](json, passphrase)
+	key, err := keystore.DecryptKey[T, P](json, passphrase)
 	if err != nil {
 		return nil, err
 	}
-	return NewKeyedTransactor[T,P](key.PrivateKey), nil
+	return NewKeyedTransactor[T, P](key.PrivateKey), nil
 }
 
 // NewKeyStoreTransactor is a utility method to easily create a transaction signer from
 // an decrypted key from a keystore.
 //
 // Deprecated: Use NewKeyStoreTransactorWithChainID instead.
-func NewKeyStoreTransactor[T crypto.PrivateKey,P crypto.PublicKey](keystore *keystore.KeyStore[T,P], account accounts.Account) (*TransactOpts[P], error) {
+func NewKeyStoreTransactor[T crypto.PrivateKey, P crypto.PublicKey](keystore *keystore.KeyStore[T, P], account accounts.Account) (*TransactOpts[P], error) {
 	log.Warn("WARNING: NewKeyStoreTransactor has been deprecated in favour of NewTransactorWithChainID")
 	var homesteadSigner types.Signer[P] = types.HomesteadSigner[P]{}
 	return &TransactOpts[P]{
@@ -89,15 +89,15 @@ func NewKeyStoreTransactor[T crypto.PrivateKey,P crypto.PublicKey](keystore *key
 // from a single private key.
 //
 // Deprecated: Use NewKeyedTransactorWithChainID instead.
-func NewKeyedTransactor[T crypto.PrivateKey,P crypto.PublicKey](key T) *TransactOpts[P] {
+func NewKeyedTransactor[T crypto.PrivateKey, P crypto.PublicKey](key T) *TransactOpts[P] {
 	log.Warn("WARNING: NewKeyedTransactor has been deprecated in favour of NewKeyedTransactorWithChainID")
 	var pub P
-	switch t:=any(&key).(type) {
+	switch t := any(&key).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	keyAddr := crypto.PubkeyToAddress(pub)
@@ -125,21 +125,21 @@ func NewKeyedTransactor[T crypto.PrivateKey,P crypto.PublicKey](key T) *Transact
 
 // NewTransactorWithChainID is a utility method to easily create a transaction signer from
 // an encrypted json key stream and the associated passphrase.
-func NewTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](keyin io.Reader, passphrase string, chainID *big.Int) (*TransactOpts[P], error) {
+func NewTransactorWithChainID[T crypto.PrivateKey, P crypto.PublicKey](keyin io.Reader, passphrase string, chainID *big.Int) (*TransactOpts[P], error) {
 	json, err := ioutil.ReadAll(keyin)
 	if err != nil {
 		return nil, err
 	}
-	key, err := keystore.DecryptKey[T,P](json, passphrase)
+	key, err := keystore.DecryptKey[T, P](json, passphrase)
 	if err != nil {
 		return nil, err
 	}
-	return NewKeyedTransactorWithChainID[T,P](key.PrivateKey, chainID)
+	return NewKeyedTransactorWithChainID[T, P](key.PrivateKey, chainID)
 }
 
 // NewKeyStoreTransactorWithChainID is a utility method to easily create a transaction signer from
 // an decrypted key from a keystore.
-func NewKeyStoreTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](keystore *keystore.KeyStore[T,P], account accounts.Account, chainID *big.Int) (*TransactOpts[P], error) {
+func NewKeyStoreTransactorWithChainID[T crypto.PrivateKey, P crypto.PublicKey](keystore *keystore.KeyStore[T, P], account accounts.Account, chainID *big.Int) (*TransactOpts[P], error) {
 	if chainID == nil {
 		return nil, ErrNoChainID
 	}
@@ -168,14 +168,14 @@ func NewKeyStoreTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](ke
 
 // NewKeyedTransactorWithChainID is a utility method to easily create a transaction signer
 // from a single private key.
-func NewKeyedTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](key T, chainID *big.Int) (*TransactOpts[P], error) {
+func NewKeyedTransactorWithChainID[T crypto.PrivateKey, P crypto.PublicKey](key T, chainID *big.Int) (*TransactOpts[P], error) {
 	var pub P
-	switch t:=any(&key).(type) {
+	switch t := any(&key).(type) {
 	case *nist.PrivateKey:
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
 		*p = *t.Public()
 	}
 	keyAddr := crypto.PubkeyToAddress(pub)
@@ -206,7 +206,7 @@ func NewKeyedTransactorWithChainID[T crypto.PrivateKey,P crypto.PublicKey](key T
 
 // NewClefTransactor is a utility method to easily create a transaction signer
 // with a clef backend.
-func NewClefTransactor[T crypto.PrivateKey,P crypto.PublicKey](clef *external.ExternalSigner[P], account accounts.Account) *TransactOpts[P] {
+func NewClefTransactor[T crypto.PrivateKey, P crypto.PublicKey](clef *external.ExternalSigner[P], account accounts.Account) *TransactOpts[P] {
 	return &TransactOpts[P]{
 		From: account.Address,
 		Signer: func(address common.Address, transaction *types.Transaction[P]) (*types.Transaction[P], error) {

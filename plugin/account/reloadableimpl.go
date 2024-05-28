@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/log"
 )
 
 type DispenseFunc func() (Service, error)

@@ -23,12 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 var (
@@ -47,7 +47,7 @@ type doTxNotify struct {
 	peer   string
 	hashes []common.Hash
 }
-type doTxEnqueue [P crypto.PublicKey] struct {
+type doTxEnqueue[P crypto.PublicKey] struct {
 	peer   string
 	txs    []*types.Transaction[P]
 	direct bool
@@ -69,7 +69,7 @@ type isUnderpriced int
 
 // txFetcherTest represents a test scenario that can be executed by the test
 // runner.
-type txFetcherTest [P crypto.PublicKey] struct {
+type txFetcherTest[P crypto.PublicKey] struct {
 	init  func() *TxFetcher[P]
 	steps []interface{}
 }
@@ -417,7 +417,7 @@ func TestTransactionFetcherCleanup(t *testing.T) {
 // this was a bug)).
 func TestTransactionFetcherCleanupEmpty(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -455,7 +455,7 @@ func TestTransactionFetcherCleanupEmpty(t *testing.T) {
 // different peer, or self if they are after the cutoff point.
 func TestTransactionFetcherMissingRescheduling(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -501,7 +501,7 @@ func TestTransactionFetcherMissingRescheduling(t *testing.T) {
 // delivered, the peer gets properly cleaned out from the internal state.
 func TestTransactionFetcherMissingCleanup(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -539,7 +539,7 @@ func TestTransactionFetcherMissingCleanup(t *testing.T) {
 // Tests that transaction broadcasts properly clean up announcements.
 func TestTransactionFetcherBroadcasts(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -589,7 +589,7 @@ func TestTransactionFetcherBroadcasts(t *testing.T) {
 // Tests that the waiting list timers properly reset and reschedule.
 func TestTransactionFetcherWaitTimerResets(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
@@ -644,7 +644,7 @@ func TestTransactionFetcherWaitTimerResets(t *testing.T) {
 // out and be re-scheduled for someone else.
 func TestTransactionFetcherTimeoutRescheduling(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -711,7 +711,7 @@ func TestTransactionFetcherTimeoutRescheduling(t *testing.T) {
 // Tests that the fetching timeout timers properly reset and reschedule.
 func TestTransactionFetcherTimeoutTimerResets(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
@@ -770,7 +770,7 @@ func TestTransactionFetcherRateLimiting(t *testing.T) {
 	}
 
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
@@ -808,7 +808,7 @@ func TestTransactionFetcherDoSProtection(t *testing.T) {
 		hashesB = append(hashesB, common.Hash{0x02, byte(i / 256), byte(i % 256)})
 	}
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				nil,
@@ -865,7 +865,7 @@ func TestTransactionFetcherDoSProtection(t *testing.T) {
 // Tests that underpriced transactions don't get rescheduled after being rejected.
 func TestTransactionFetcherUnderpricedDedup(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -938,7 +938,7 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 		steps = append(steps, isUnderpriced((i+1)*maxTxRetrievals))
 	}
 	testTransactionFetcher(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -964,7 +964,7 @@ func TestTransactionFetcherUnderpricedDoSProtection(t *testing.T) {
 // Tests that unexpected deliveries don't corrupt the internal state.
 func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1017,7 +1017,7 @@ func TestTransactionFetcherOutOfBoundDeliveries(t *testing.T) {
 // live or danglng stages.
 func TestTransactionFetcherDrop(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1083,7 +1083,7 @@ func TestTransactionFetcherDrop(t *testing.T) {
 // available peer.
 func TestTransactionFetcherDropRescheduling(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1128,7 +1128,7 @@ func TestTransactionFetcherDropRescheduling(t *testing.T) {
 // announced one.
 func TestTransactionFetcherFuzzCrash01(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1155,7 +1155,7 @@ func TestTransactionFetcherFuzzCrash01(t *testing.T) {
 // concurrently announced one.
 func TestTransactionFetcherFuzzCrash02(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1184,7 +1184,7 @@ func TestTransactionFetcherFuzzCrash02(t *testing.T) {
 // with a concurrent notify.
 func TestTransactionFetcherFuzzCrash03(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {
@@ -1217,7 +1217,7 @@ func TestTransactionFetcherFuzzCrash04(t *testing.T) {
 	proceed := make(chan struct{})
 
 	testTransactionFetcherParallel(t, txFetcherTest[nist.PublicKey]{
-		init: func() *TxFetcher[nist.PublicKey]{
+		init: func() *TxFetcher[nist.PublicKey] {
 			return NewTxFetcher[nist.PublicKey](
 				func(common.Hash) bool { return false },
 				func(txs []*types.Transaction[nist.PublicKey]) []error {

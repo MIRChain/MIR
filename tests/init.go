@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Forks table defines supported forks and their chain config.

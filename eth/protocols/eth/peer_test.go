@@ -22,21 +22,21 @@ package eth
 import (
 	"crypto/rand"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // testPeer is a simulated peer to allow testing direct network calls.
-type testPeer [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	*Peer[T,P]
+type testPeer[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*Peer[T, P]
 
 	net p2p.MsgReadWriter // Network layer reader/writer to simulate remote messaging
 	app *p2p.MsgPipeRW    // Application layer reader/writer to simulate the local side
 }
 
 // newTestPeer creates a new peer registered at the given data backend.
-func newTestPeer[T crypto.PrivateKey, P crypto.PublicKey](name string, version uint, backend Backend[T,P]) (*testPeer[T,P], <-chan error) {
+func newTestPeer[T crypto.PrivateKey, P crypto.PublicKey](name string, version uint, backend Backend[T, P]) (*testPeer[T, P], <-chan error) {
 	// Create a message pipe to communicate through
 	app, net := p2p.MsgPipe()
 
@@ -44,19 +44,19 @@ func newTestPeer[T crypto.PrivateKey, P crypto.PublicKey](name string, version u
 	var id enode.ID
 	rand.Read(id[:])
 
-	peer := NewPeer(version, p2p.NewPeer[T,P](id, name, nil), net, backend.TxPool())
+	peer := NewPeer(version, p2p.NewPeer[T, P](id, name, nil), net, backend.TxPool())
 	errc := make(chan error, 1)
 	go func() {
-		errc <- backend.RunPeer(peer, func(peer *Peer[T,P]) error {
+		errc <- backend.RunPeer(peer, func(peer *Peer[T, P]) error {
 			return Handle(backend, peer)
 		})
 	}()
-	return &testPeer[T,P]{app: app, net: net, Peer: peer}, errc
+	return &testPeer[T, P]{app: app, net: net, Peer: peer}, errc
 }
 
 // close terminates the local side of the peer, notifying the remote protocol
 // manager of termination.
-func (p *testPeer[T,P]) close() {
+func (p *testPeer[T, P]) close() {
 	p.Peer.Close()
 	p.app.Close()
 }

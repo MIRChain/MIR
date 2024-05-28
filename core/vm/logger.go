@@ -24,12 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
 )
 
 // Storage represents a contract's storage.
@@ -104,7 +104,7 @@ func (s *StructLog) ErrorString() string {
 // current VM state.
 // Note that reference types are actual VM data structures; make copies
 // if you need to retain them beyond the current call.
-type Tracer [P crypto.PublicKey] interface {
+type Tracer[P crypto.PublicKey] interface {
 	CaptureStart(env *EVM[P], from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
 	CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], rData []byte, depth int, err error)
 	CaptureFault(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], depth int, err error)
@@ -116,7 +116,7 @@ type Tracer [P crypto.PublicKey] interface {
 // StructLogger can capture state based on the given Log configuration and also keeps
 // a track record of modified storage which is used in reporting snapshots of the
 // contract their storage.
-type StructLogger [P crypto.PublicKey] struct {
+type StructLogger[P crypto.PublicKey] struct {
 	cfg LogConfig
 
 	storage map[common.Address]Storage
@@ -276,7 +276,7 @@ func WriteLogs(writer io.Writer, logs []*types.Log) {
 	}
 }
 
-type mdLogger [P crypto.PublicKey] struct {
+type mdLogger[P crypto.PublicKey] struct {
 	out io.Writer
 	cfg *LogConfig
 }

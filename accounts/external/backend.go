@@ -21,19 +21,19 @@ import (
 	"math/big"
 	"sync"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rpc"
+	"github.com/MIRChain/MIR/signer/core"
 )
 
-type ExternalBackend [P crypto.PublicKey] struct {
+type ExternalBackend[P crypto.PublicKey] struct {
 	signers []accounts.Wallet[P]
 }
 
@@ -61,7 +61,7 @@ func (eb *ExternalBackend[P]) Subscribe(sink chan<- accounts.WalletEvent[P]) eve
 // ExternalSigner provides an API to interact with an external signer (clef)
 // It proxies request to the external signer while forwarding relevant
 // request headers
-type ExternalSigner [P crypto.PublicKey] struct {
+type ExternalSigner[P crypto.PublicKey] struct {
 	client   *rpc.Client
 	endpoint string
 	status   string
@@ -69,7 +69,7 @@ type ExternalSigner [P crypto.PublicKey] struct {
 	cache    []accounts.Account
 }
 
-func NewExternalSigner [P crypto.PublicKey](endpoint string) (*ExternalSigner[P], error) {
+func NewExternalSigner[P crypto.PublicKey](endpoint string) (*ExternalSigner[P], error) {
 	client, err := rpc.Dial(endpoint)
 	if err != nil {
 		return nil, err
@@ -192,8 +192,8 @@ func (api *ExternalSigner[P]) SignText(account accounts.Account, text []byte) ([
 }
 
 // signTransactionResult represents the signinig result returned by clef.
-type signTransactionResult [P crypto.PublicKey] struct {
-	Raw hexutil.Bytes      `json:"raw"`
+type signTransactionResult[P crypto.PublicKey] struct {
+	Raw hexutil.Bytes         `json:"raw"`
 	Tx  *types.Transaction[P] `json:"tx"`
 }
 

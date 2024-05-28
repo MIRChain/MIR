@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 func TestUnmarshalJSONNewFilterArgs(t *testing.T) {

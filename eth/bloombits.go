@@ -19,8 +19,8 @@ package eth
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/bitutil"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
+	"github.com/MIRChain/MIR/common/bitutil"
+	"github.com/MIRChain/MIR/core/rawdb"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 
 // startBloomHandlers starts a batch of goroutines to accept bloom bit database
 // retrievals from possibly a range of filters and serving the data to satisfy.
-func (eth *Ethereum[T,P]) startBloomHandlers(sectionSize uint64) {
+func (eth *Ethereum[T, P]) startBloomHandlers(sectionSize uint64) {
 	for i := 0; i < bloomServiceThreads; i++ {
 		go func() {
 			for {

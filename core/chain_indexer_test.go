@@ -25,11 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 // Runs multiple tests with randomized parameters.
@@ -137,7 +137,7 @@ func testChainIndexer[P crypto.PublicKey](t *testing.T, count int) {
 }
 
 // testChainIndexBackend implements ChainIndexerBackend
-type testChainIndexBackend [P crypto.PublicKey] struct {
+type testChainIndexBackend[P crypto.PublicKey] struct {
 	t                          *testing.T
 	indexer                    *ChainIndexer[P]
 	section, headerCnt, stored uint64

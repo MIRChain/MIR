@@ -3,9 +3,9 @@ package eth
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // Quorum: quorum_protocol enables the eth service to return two different protocols, one for the eth mainnet "eth" service,
@@ -28,8 +28,8 @@ var quorumConsensusProtocolVersions []uint
 // protocol Length describe the number of messages support by the protocol/version map[uint]uint64{Istanbul64: 18, Istanbul99: 18, Istanbul100: 18}
 var quorumConsensusProtocolLengths map[uint]uint64
 
-func (s *Ethereum[T,P]) quorumConsensusProtocols(backend eth.Backend[T,P], network uint64, dnsdisc enode.Iterator[P]) []p2p.Protocol[T,P] {
-	protos := make([]p2p.Protocol[T,P], len(quorumConsensusProtocolVersions))
+func (s *Ethereum[T, P]) quorumConsensusProtocols(backend eth.Backend[T, P], network uint64, dnsdisc enode.Iterator[P]) []p2p.Protocol[T, P] {
+	protos := make([]p2p.Protocol[T, P], len(quorumConsensusProtocolVersions))
 	for i, vsn := range quorumConsensusProtocolVersions {
 		// if we have a legacy protocol, e.g. istanbul/99, istanbul/64 then the protocol handler is will be the "eth"
 		// protocol handler, and the subprotocol "eth" will not be used, but rather the legacy subprotocol will handle

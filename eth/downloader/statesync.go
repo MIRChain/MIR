@@ -21,25 +21,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/trie"
 	"golang.org/x/crypto/sha3"
 )
 
 // stateReq represents a batch of state fetch requests grouped together into
 // a single data retrieval network packet.
-type stateReq [P crypto.PublicKey] struct {
+type stateReq[P crypto.PublicKey] struct {
 	nItems    uint16                    // Number of items requested for download (max is 384, so uint16 is sufficient)
 	trieTasks map[common.Hash]*trieTask // Trie node download tasks to track previous attempts
 	codeTasks map[common.Hash]*codeTask // Byte code download tasks to track previous attempts
 	timeout   time.Duration             // Maximum round trip time for this to complete
 	timer     *time.Timer               // Timer to fire when the RTT timeout expires
-	peer      *peerConnection[P]           // Peer that we're requesting from
+	peer      *peerConnection[P]        // Peer that we're requesting from
 	delivered time.Time                 // Time when the packet was delivered (independent when we process it)
 	response  [][]byte                  // Response data of the peer (nil for timeouts)
 	dropped   bool                      // Flag whether the peer dropped off early
@@ -60,7 +60,7 @@ type stateSyncStats struct {
 }
 
 // syncState starts downloading state with the given root hash.
-func (d *Downloader[T,P]) syncState(root common.Hash) *stateSync[T,P] {
+func (d *Downloader[T, P]) syncState(root common.Hash) *stateSync[T, P] {
 	// Create the state sync
 	s := newStateSync(d, root)
 	select {
@@ -78,7 +78,7 @@ func (d *Downloader[T,P]) syncState(root common.Hash) *stateSync[T,P] {
 
 // stateFetcher manages the active state sync and accepts requests
 // on its behalf.
-func (d *Downloader[T,P]) stateFetcher() {
+func (d *Downloader[T, P]) stateFetcher() {
 	for {
 		select {
 		case s := <-d.stateSyncStart:
@@ -95,7 +95,7 @@ func (d *Downloader[T,P]) stateFetcher() {
 
 // runStateSync runs a state synchronisation until it completes or another root
 // hash is requested to be switched over to.
-func (d *Downloader[T,P]) runStateSync(s *stateSync[T,P]) *stateSync[T,P] {
+func (d *Downloader[T, P]) runStateSync(s *stateSync[T, P]) *stateSync[T, P] {
 	var (
 		active   = make(map[string]*stateReq[P]) // Currently in-flight requests
 		finished []*stateReq[P]                  // Completed or failed requests
@@ -219,7 +219,7 @@ func (d *Downloader[T,P]) runStateSync(s *stateSync[T,P]) *stateSync[T,P] {
 // spindownStateSync 'drains' the outstanding requests; some will be delivered and other
 // will time out. This is to ensure that when the next stateSync starts working, all peers
 // are marked as idle and de facto _are_ idle.
-func (d *Downloader[T,P]) spindownStateSync(active map[string]*stateReq[P], finished []*stateReq[P], timeout chan *stateReq[P], peerDrop chan *peerConnection[P]) {
+func (d *Downloader[T, P]) spindownStateSync(active map[string]*stateReq[P], finished []*stateReq[P], timeout chan *stateReq[P], peerDrop chan *peerConnection[P]) {
 	log.Trace("State sync spinning down", "active", len(active), "finished", len(finished))
 	for len(active) > 0 {
 		var (
@@ -257,11 +257,11 @@ func (d *Downloader[T,P]) spindownStateSync(active map[string]*stateReq[P], fini
 
 // stateSync schedules requests for downloading a particular state trie defined
 // by a given state root.
-type stateSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	d *Downloader[T,P] // Downloader instance to access and manage current peerset
+type stateSync[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	d *Downloader[T, P] // Downloader instance to access and manage current peerset
 
 	root   common.Hash        // State root currently being synced
-	sched  *trie.Sync[P]         // State trie sync scheduler defining the tasks
+	sched  *trie.Sync[P]      // State trie sync scheduler defining the tasks
 	keccak crypto.KeccakState // Keccak256 hasher to verify deliveries with
 
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
@@ -273,10 +273,10 @@ type stateSync [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	started chan struct{} // Started is signalled once the sync loop starts
 
 	deliver    chan *stateReq[P] // Delivery channel multiplexing peer responses
-	cancel     chan struct{}  // Channel to signal a termination request
-	cancelOnce sync.Once      // Ensures cancel only ever gets called once
-	done       chan struct{}  // Channel to signal termination completion
-	err        error          // Any error hit during sync (set before completion)
+	cancel     chan struct{}     // Channel to signal a termination request
+	cancelOnce sync.Once         // Ensures cancel only ever gets called once
+	done       chan struct{}     // Channel to signal termination completion
+	err        error             // Any error hit during sync (set before completion)
 }
 
 // trieTask represents a single trie node download task, containing a set of
@@ -294,8 +294,8 @@ type codeTask struct {
 
 // newStateSync creates a new state trie download scheduler. This method does not
 // yet start the sync. The user needs to call run to initiate.
-func newStateSync[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T,P], root common.Hash) *stateSync[T,P] {
-	return &stateSync[T,P]{
+func newStateSync[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T, P], root common.Hash) *stateSync[T, P] {
+	return &stateSync[T, P]{
 		d:         d,
 		root:      root,
 		sched:     state.NewStateSync[P](root, d.stateDB, d.stateBloom, nil),
@@ -312,7 +312,7 @@ func newStateSync[T crypto.PrivateKey, P crypto.PublicKey](d *Downloader[T,P], r
 // run starts the task assignment and response processing loop, blocking until
 // it finishes, and finally notifying any goroutines waiting for the loop to
 // finish.
-func (s *stateSync[T,P]) run() {
+func (s *stateSync[T, P]) run() {
 	close(s.started)
 	if s.d.snapSync {
 		s.err = s.d.SnapSyncer.Sync(s.root, s.cancel)
@@ -323,13 +323,13 @@ func (s *stateSync[T,P]) run() {
 }
 
 // Wait blocks until the sync is done or canceled.
-func (s *stateSync[T,P]) Wait() error {
+func (s *stateSync[T, P]) Wait() error {
 	<-s.done
 	return s.err
 }
 
 // Cancel cancels the sync and waits until it has shut down.
-func (s *stateSync[T,P]) Cancel() error {
+func (s *stateSync[T, P]) Cancel() error {
 	s.cancelOnce.Do(func() {
 		close(s.cancel)
 	})
@@ -342,7 +342,7 @@ func (s *stateSync[T,P]) Cancel() error {
 // receive data from peers, rather those are buffered up in the downloader and
 // pushed here async. The reason is to decouple processing from data receipt
 // and timeouts.
-func (s *stateSync[T,P]) loop() (err error) {
+func (s *stateSync[T, P]) loop() (err error) {
 	// Listen for new peer events to assign tasks to them
 	newPeer := make(chan *peerConnection[P], 1024)
 	peerSub := s.d.peers.SubscribeNewPeers(newPeer)
@@ -408,7 +408,7 @@ func (s *stateSync[T,P]) loop() (err error) {
 	return nil
 }
 
-func (s *stateSync[T,P]) commit(force bool) error {
+func (s *stateSync[T, P]) commit(force bool) error {
 	if !force && s.bytesUncommitted < ethdb.IdealBatchSize {
 		return nil
 	}
@@ -428,7 +428,7 @@ func (s *stateSync[T,P]) commit(force bool) error {
 
 // assignTasks attempts to assign new tasks to all idle peers, either from the
 // batch currently being retried, or fetching new data from the trie sync itself.
-func (s *stateSync[T,P]) assignTasks() {
+func (s *stateSync[T, P]) assignTasks() {
 	// Iterate over all idle peers and try to assign them state fetches
 	peers, _ := s.d.peers.NodeDataIdlePeers()
 	for _, p := range peers {
@@ -453,7 +453,7 @@ func (s *stateSync[T,P]) assignTasks() {
 
 // fillTasks fills the given request object with a maximum of n state download
 // tasks to send to the remote peer.
-func (s *stateSync[T,P]) fillTasks(n int, req *stateReq[P]) (nodes []common.Hash, paths []trie.SyncPath, codes []common.Hash) {
+func (s *stateSync[T, P]) fillTasks(n int, req *stateReq[P]) (nodes []common.Hash, paths []trie.SyncPath, codes []common.Hash) {
 	// Refill available tasks from the scheduler.
 	if fill := n - (len(s.trieTasks) + len(s.codeTasks)); fill > 0 {
 		nodes, paths, codes := s.sched.Missing(fill)
@@ -519,7 +519,7 @@ func (s *stateSync[T,P]) fillTasks(n int, req *stateReq[P]) (nodes []common.Hash
 // into a running state sync, re-queuing any items that were requested but not
 // delivered. Returns whether the peer actually managed to deliver anything of
 // value, and any error that occurred.
-func (s *stateSync[T,P]) process(req *stateReq[P]) (int, error) {
+func (s *stateSync[T, P]) process(req *stateReq[P]) (int, error) {
 	// Collect processing stats and update progress if valid data was received
 	duplicate, unexpected, successful := 0, 0, 0
 
@@ -586,7 +586,7 @@ func (s *stateSync[T,P]) process(req *stateReq[P]) (int, error) {
 // processNodeData tries to inject a trie node data blob delivered from a remote
 // peer into the state trie, returning whether anything useful was written or any
 // error occurred.
-func (s *stateSync[T,P]) processNodeData(blob []byte) (common.Hash, error) {
+func (s *stateSync[T, P]) processNodeData(blob []byte) (common.Hash, error) {
 	res := trie.SyncResult{Data: blob}
 	s.keccak.Reset()
 	s.keccak.Write(blob)
@@ -597,7 +597,7 @@ func (s *stateSync[T,P]) processNodeData(blob []byte) (common.Hash, error) {
 
 // updateStats bumps the various state sync progress counters and displays a log
 // message for the user to see.
-func (s *stateSync[T,P]) updateStats(written, duplicate, unexpected int, duration time.Duration) {
+func (s *stateSync[T, P]) updateStats(written, duplicate, unexpected int, duration time.Duration) {
 	s.d.syncStatsLock.Lock()
 	defer s.d.syncStatsLock.Unlock()
 

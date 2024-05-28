@@ -19,7 +19,7 @@ package ethapi
 import (
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 type AddrLocker struct {

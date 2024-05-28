@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"testing"
 
-	http2 "github.com/pavelkrolevets/MIR-pro/common/http"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/constellation"
-	"github.com/pavelkrolevets/MIR-pro/private/engine/tessera"
+	http2 "github.com/MIRChain/MIR/common/http"
+	"github.com/MIRChain/MIR/private/engine/constellation"
+	"github.com/MIRChain/MIR/private/engine/tessera"
 	"github.com/stretchr/testify/assert"
 )
 

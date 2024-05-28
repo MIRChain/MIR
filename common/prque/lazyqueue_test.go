@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
+	"github.com/MIRChain/MIR/common/mclock"
 )
 
 const (

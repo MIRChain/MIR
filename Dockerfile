@@ -1,17 +1,52 @@
-# Build Geth in a stock Go builder container
-FROM golang:1.16-alpine as builder
+FROM centos:7 as builder
 
-RUN apk add --no-cache make gcc musl-dev linux-headers git
+WORKDIR /mir
 
-ADD . /go-ethereum
-RUN cd /go-ethereum && make geth bootnode
+ENV GO_VERSION 1.22.3
+ENV PATH ${PATH}:/usr/local/go/bin
 
-# Pull Geth into a second stage deploy alpine container
-FROM alpine:latest
+COPY ["linux-amd64_rpm.tgz", "cades_linux_amd64.tar.gz", "kis_1", "cacerts.p7b","entry-point.sh","."]
 
-RUN apk add --no-cache ca-certificates curl
-COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
-COPY --from=builder /go-ethereum/build/bin/bootnode /usr/local/bin/
+RUN echo "Installing GO v${GO_VERSION}..." \
+    && rm -rf /usr/local/go \
+    && curl -sSLf https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xzf - \
+    && go version
 
-EXPOSE 8545 8546 30303 30303/udp
-ENTRYPOINT ["geth"]
+RUN echo "Installing system packages..." \
+    && yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum update -y \
+    && yum install -y  lsb-core-noarch jq vim htop rsyslog net-tools git gcc gcc-c++ redhat-lsb-core jemalloc-devel gmp-devel  
+
+RUN echo "Installing CryptoPro..." \
+    && tar -xzf linux-amd64_rpm.tgz -C /tmp \
+    && /tmp/linux*/install.sh kc1 cprocsp-stunnel-msspi lsb-cprocsp-devel \
+    && mkdir /etc/opt/cprocsp/stunnel \
+    && rm -rf /tmp/* linux-amd64_rpm.tgz
+
+RUN echo "Installing CryptoPro Cades..." \
+    && tar -xzf cades_linux_amd64.tar.gz -C /tmp \
+    && cd /tmp/cades* && rpm -Uvh cprocsp-pki-cades*.rpm \
+    && cd - && rm -rf /tmp/* cades_linux_amd64.tar.gz
+
+COPY go.mod go.sum ./
+
+RUN echo "Building MIR..." \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,mode=0755,target=/go/pkg \
+    go mod download
+
+# Copy the rest of the source code
+COPY . .
+
+RUN echo "Postintall & validation..." \
+    && rpm -qa | grep csp \
+    && /opt/cprocsp/bin/amd64/csptestf -enum -info \
+    && chmod +x entry-point.sh
+
+# Build the binary with caching
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+
+RUN env GO111MODULE=on go run build/ci.go install ./cmd/mir
+
+ENTRYPOINT ["./entry-point.sh"]

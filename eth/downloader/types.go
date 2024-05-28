@@ -19,8 +19,8 @@ package downloader
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
@@ -34,7 +34,7 @@ type dataPack interface {
 }
 
 // headerPack is a batch of block headers returned by a peer.
-type headerPack [P crypto.PublicKey] struct {
+type headerPack[P crypto.PublicKey] struct {
 	peerID  string
 	headers []*types.Header[P]
 }
@@ -44,7 +44,7 @@ func (p *headerPack[P]) Items() int     { return len(p.headers) }
 func (p *headerPack[P]) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) }
 
 // bodyPack is a batch of block bodies returned by a peer.
-type bodyPack [P crypto.PublicKey] struct {
+type bodyPack[P crypto.PublicKey] struct {
 	peerID       string
 	transactions [][]*types.Transaction[P]
 	uncles       [][]*types.Header[P]
@@ -60,7 +60,7 @@ func (p *bodyPack[P]) Items() int {
 func (p *bodyPack[P]) Stats() string { return fmt.Sprintf("%d:%d", len(p.transactions), len(p.uncles)) }
 
 // receiptPack is a batch of receipts returned by a peer.
-type receiptPack [P crypto.PublicKey] struct {
+type receiptPack[P crypto.PublicKey] struct {
 	peerID   string
 	receipts [][]*types.Receipt[P]
 }

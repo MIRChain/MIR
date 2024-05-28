@@ -3,7 +3,7 @@ package account
 import (
 	"context"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
+	"github.com/MIRChain/MIR/accounts"
 )
 
 type creator struct {

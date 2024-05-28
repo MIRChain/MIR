@@ -27,36 +27,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/signer/core"
-	"github.com/pavelkrolevets/MIR-pro/signer/fourbyte"
-	"github.com/pavelkrolevets/MIR-pro/signer/storage"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/signer/core"
+	"github.com/MIRChain/MIR/signer/fourbyte"
+	"github.com/MIRChain/MIR/signer/storage"
 )
 
-//Used for testing
-type headlessUi [T crypto.PrivateKey, P crypto.PublicKey] struct {
+// Used for testing
+type headlessUi[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	approveCh chan string // to send approve/deny
 	inputCh   chan string // to send password
 }
 
-func (ui *headlessUi[T,P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
+func (ui *headlessUi[T, P]) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
 	input := <-ui.inputCh
 	return core.UserInputResponse{Text: input}, nil
 }
 
-func (ui *headlessUi[T,P]) OnSignerStartup(info core.StartupInfo)        {}
-func (ui *headlessUi[T,P]) RegisterUIServer(api *core.UIServerAPI[T,P])       {}
-func (ui *headlessUi[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {}
+func (ui *headlessUi[T, P]) OnSignerStartup(info core.StartupInfo)           {}
+func (ui *headlessUi[T, P]) RegisterUIServer(api *core.UIServerAPI[T, P])    {}
+func (ui *headlessUi[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {}
 
-func (ui *headlessUi[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
+func (ui *headlessUi[T, P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignTxResponse[P], error) {
 
 	switch <-ui.approveCh {
 	case "Y":
@@ -72,12 +72,12 @@ func (ui *headlessUi[T,P]) ApproveTx(request *core.SignTxRequest[P]) (core.SignT
 	}
 }
 
-func (ui *headlessUi[T,P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+func (ui *headlessUi[T, P]) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
 	approved := (<-ui.approveCh == "Y")
 	return core.SignDataResponse{approved}, nil
 }
 
-func (ui *headlessUi[T,P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
+func (ui *headlessUi[T, P]) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	approval := <-ui.approveCh
 	//fmt.Printf("approval %s\n", approval)
 	switch approval {
@@ -92,19 +92,19 @@ func (ui *headlessUi[T,P]) ApproveListing(request *core.ListRequest) (core.ListR
 	}
 }
 
-func (ui *headlessUi[T,P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
+func (ui *headlessUi[T, P]) ApproveNewAccount(request *core.NewAccountRequest) (core.NewAccountResponse, error) {
 	if <-ui.approveCh == "Y" {
 		return core.NewAccountResponse{true}, nil
 	}
 	return core.NewAccountResponse{false}, nil
 }
 
-func (ui *headlessUi[T,P]) ShowError(message string) {
+func (ui *headlessUi[T, P]) ShowError(message string) {
 	//stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
 
-func (ui *headlessUi[T,P]) ShowInfo(message string) {
+func (ui *headlessUi[T, P]) ShowInfo(message string) {
 	//stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
@@ -121,18 +121,18 @@ func tmpDirName(t *testing.T) string {
 	return d
 }
 
-func setup[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*core.SignerAPI[T,P], *headlessUi[T,P]) {
+func setup[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T) (*core.SignerAPI[T, P], *headlessUi[T, P]) {
 	db, err := fourbyte.New[P]()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	ui := &headlessUi[T,P]{make(chan string, 20), make(chan string, 20)}
-	am := core.StartClefAccountManager[T,P](tmpDirName(t), true, true, nil, "")
-	api := core.NewSignerAPI[T,P](am, 1337, true, ui, db, true, &storage.NoStorage{})
+	ui := &headlessUi[T, P]{make(chan string, 20), make(chan string, 20)}
+	am := core.StartClefAccountManager[T, P](tmpDirName(t), true, true, nil, "")
+	api := core.NewSignerAPI[T, P](am, 1337, true, ui, db, true, &storage.NoStorage{})
 	return api, ui
 
 }
-func createAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) {
+func createAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T, P], api *core.SignerAPI[T, P], t *testing.T) {
 	ui.approveCh <- "Y"
 	ui.inputCh <- "a_long_password"
 	_, err := api.New(context.Background())
@@ -143,7 +143,7 @@ func createAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P],
 	time.Sleep(250 * time.Millisecond)
 }
 
-func failCreateAccountWithPassword[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], password string, t *testing.T) {
+func failCreateAccountWithPassword[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T, P], api *core.SignerAPI[T, P], password string, t *testing.T) {
 
 	ui.approveCh <- "Y"
 	// We will be asked three times to provide a suitable password
@@ -160,7 +160,7 @@ func failCreateAccountWithPassword[T crypto.PrivateKey, P crypto.PublicKey](ui *
 	}
 }
 
-func failCreateAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) {
+func failCreateAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T, P], api *core.SignerAPI[T, P], t *testing.T) {
 	ui.approveCh <- "N"
 	addr, err := api.New(context.Background())
 	if err != core.ErrRequestDenied {
@@ -171,14 +171,14 @@ func failCreateAccount[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T
 	}
 }
 
-func list[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T,P], api *core.SignerAPI[T,P], t *testing.T) ([]common.Address, error) {
+func list[T crypto.PrivateKey, P crypto.PublicKey](ui *headlessUi[T, P], api *core.SignerAPI[T, P], t *testing.T) ([]common.Address, error) {
 	ui.approveCh <- "A"
 	return api.List(context.Background())
 
 }
 
 func TestNewAcc(t *testing.T) {
-	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
+	api, control := setup[nist.PrivateKey, nist.PublicKey](t)
 	verifyNum := func(num int) {
 		list, err := list(control, api, t)
 		if err != nil {
@@ -250,7 +250,7 @@ func TestSignTx(t *testing.T) {
 		err       error
 	)
 
-	api, control := setup[nist.PrivateKey,nist.PublicKey](t)
+	api, control := setup[nist.PrivateKey, nist.PublicKey](t)
 	createAccount(control, api, t)
 	control.approveCh <- "A"
 	list, err = api.List(context.Background())

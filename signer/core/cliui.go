@@ -24,29 +24,29 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/log"
 )
 
-type CommandlineUI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type CommandlineUI[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	in *bufio.Reader
 	mu sync.Mutex
 }
 
-func NewCommandlineUI[T crypto.PrivateKey, P crypto.PublicKey]() *CommandlineUI[T,P] {
-	return &CommandlineUI[T,P]{in: bufio.NewReader(os.Stdin)}
+func NewCommandlineUI[T crypto.PrivateKey, P crypto.PublicKey]() *CommandlineUI[T, P] {
+	return &CommandlineUI[T, P]{in: bufio.NewReader(os.Stdin)}
 }
 
-func (ui *CommandlineUI[T,P]) RegisterUIServer(api *UIServerAPI[T,P]) {
+func (ui *CommandlineUI[T, P]) RegisterUIServer(api *UIServerAPI[T, P]) {
 	// noop
 }
 
 // readString reads a single line from stdin, trimming if from spaces, enforcing
 // non-emptyness.
-func (ui *CommandlineUI[T,P]) readString() string {
+func (ui *CommandlineUI[T, P]) readString() string {
 	for {
 		fmt.Printf("> ")
 		text, err := ui.in.ReadString('\n')
@@ -59,7 +59,7 @@ func (ui *CommandlineUI[T,P]) readString() string {
 	}
 }
 
-func (ui *CommandlineUI[T,P]) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
+func (ui *CommandlineUI[T, P]) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
 
 	fmt.Printf("## %s\n\n%s\n", info.Title, info.Prompt)
 	defer fmt.Println("-----------------------")
@@ -76,7 +76,7 @@ func (ui *CommandlineUI[T,P]) OnInputRequired(info UserInputRequest) (UserInputR
 }
 
 // confirm returns true if user enters 'Yes', otherwise false
-func (ui *CommandlineUI[T,P]) confirm() bool {
+func (ui *CommandlineUI[T, P]) confirm() bool {
 	fmt.Printf("Approve? [y/N]:\n")
 	if ui.readString() == "y" {
 		return true
@@ -101,7 +101,7 @@ func showMetadata(metadata Metadata) {
 }
 
 // ApproveTx prompt the user for confirmation to request to sign Transaction
-func (ui *CommandlineUI[T,P]) ApproveTx(request *SignTxRequest[P]) (SignTxResponse[P], error) {
+func (ui *CommandlineUI[T, P]) ApproveTx(request *SignTxRequest[P]) (SignTxResponse[P], error) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 	weival := request.Transaction.Value.ToInt()
@@ -155,7 +155,7 @@ func (ui *CommandlineUI[T,P]) ApproveTx(request *SignTxRequest[P]) (SignTxRespon
 }
 
 // ApproveSignData prompt the user for confirmation to request to sign data
-func (ui *CommandlineUI[T,P]) ApproveSignData(request *SignDataRequest) (SignDataResponse, error) {
+func (ui *CommandlineUI[T, P]) ApproveSignData(request *SignDataRequest) (SignDataResponse, error) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -184,7 +184,7 @@ func (ui *CommandlineUI[T,P]) ApproveSignData(request *SignDataRequest) (SignDat
 
 // ApproveListing prompt the user for confirmation to list accounts
 // the list of accounts to list can be modified by the UI
-func (ui *CommandlineUI[T,P]) ApproveListing(request *ListRequest) (ListResponse, error) {
+func (ui *CommandlineUI[T, P]) ApproveListing(request *ListRequest) (ListResponse, error) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -204,7 +204,7 @@ func (ui *CommandlineUI[T,P]) ApproveListing(request *ListRequest) (ListResponse
 }
 
 // ApproveNewAccount prompt the user for confirmation to create new Account, and reveal to caller
-func (ui *CommandlineUI[T,P]) ApproveNewAccount(request *NewAccountRequest) (NewAccountResponse, error) {
+func (ui *CommandlineUI[T, P]) ApproveNewAccount(request *NewAccountRequest) (NewAccountResponse, error) {
 
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
@@ -221,17 +221,17 @@ func (ui *CommandlineUI[T,P]) ApproveNewAccount(request *NewAccountRequest) (New
 }
 
 // ShowError displays error message to user
-func (ui *CommandlineUI[T,P]) ShowError(message string) {
+func (ui *CommandlineUI[T, P]) ShowError(message string) {
 	fmt.Printf("## Error \n%s\n", message)
 	fmt.Printf("-------------------------------------------\n")
 }
 
 // ShowInfo displays info message to user
-func (ui *CommandlineUI[T,P]) ShowInfo(message string) {
+func (ui *CommandlineUI[T, P]) ShowInfo(message string) {
 	fmt.Printf("## Info \n%s\n", message)
 }
 
-func (ui *CommandlineUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
+func (ui *CommandlineUI[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	fmt.Printf("Transaction signed:\n ")
 	if jsn, err := json.MarshalIndent(tx.Tx, "  ", "  "); err != nil {
 		fmt.Printf("WARN: marshalling error %v\n", err)
@@ -240,7 +240,7 @@ func (ui *CommandlineUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	}
 }
 
-func (ui *CommandlineUI[T,P]) OnSignerStartup(info StartupInfo) {
+func (ui *CommandlineUI[T, P]) OnSignerStartup(info StartupInfo) {
 
 	fmt.Printf("------- Signer info -------\n")
 	for k, v := range info.Info {

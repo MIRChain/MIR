@@ -19,31 +19,31 @@ package core
 import (
 	"context"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rpc"
 )
 
-type StdIOUI [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type StdIOUI[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	client rpc.Client
 }
 
-func NewStdIOUI[T crypto.PrivateKey, P crypto.PublicKey]() *StdIOUI[T,P] {
+func NewStdIOUI[T crypto.PrivateKey, P crypto.PublicKey]() *StdIOUI[T, P] {
 	client, err := rpc.DialContext(context.Background(), "stdio://")
 	if err != nil {
 		log.Crit("Could not create stdio client", "err", err)
 	}
-	ui := &StdIOUI[T,P]{client: *client}
+	ui := &StdIOUI[T, P]{client: *client}
 	return ui
 }
 
-func (ui *StdIOUI[T,P]) RegisterUIServer(api *UIServerAPI[T,P]) {
+func (ui *StdIOUI[T, P]) RegisterUIServer(api *UIServerAPI[T, P]) {
 	ui.client.RegisterName("clef", api)
 }
 
 // dispatch sends a request over the stdio
-func (ui *StdIOUI[T,P]) dispatch(serviceMethod string, args interface{}, reply interface{}) error {
+func (ui *StdIOUI[T, P]) dispatch(serviceMethod string, args interface{}, reply interface{}) error {
 	err := ui.client.Call(&reply, serviceMethod, args)
 	if err != nil {
 		log.Info("Error", "exc", err.Error())
@@ -52,7 +52,7 @@ func (ui *StdIOUI[T,P]) dispatch(serviceMethod string, args interface{}, reply i
 }
 
 // notify sends a request over the stdio, and does not listen for a response
-func (ui *StdIOUI[T,P]) notify(serviceMethod string, args interface{}) error {
+func (ui *StdIOUI[T, P]) notify(serviceMethod string, args interface{}) error {
 	ctx := context.Background()
 	err := ui.client.Notify(ctx, serviceMethod, args)
 	if err != nil {
@@ -61,57 +61,57 @@ func (ui *StdIOUI[T,P]) notify(serviceMethod string, args interface{}) error {
 	return err
 }
 
-func (ui *StdIOUI[T,P]) ApproveTx(request *SignTxRequest[P]) (SignTxResponse[P], error) {
+func (ui *StdIOUI[T, P]) ApproveTx(request *SignTxRequest[P]) (SignTxResponse[P], error) {
 	var result SignTxResponse[P]
 	err := ui.dispatch("ui_approveTx", request, &result)
 	return result, err
 }
 
-func (ui *StdIOUI[T,P]) ApproveSignData(request *SignDataRequest) (SignDataResponse, error) {
+func (ui *StdIOUI[T, P]) ApproveSignData(request *SignDataRequest) (SignDataResponse, error) {
 	var result SignDataResponse
 	err := ui.dispatch("ui_approveSignData", request, &result)
 	return result, err
 }
 
-func (ui *StdIOUI[T,P]) ApproveListing(request *ListRequest) (ListResponse, error) {
+func (ui *StdIOUI[T, P]) ApproveListing(request *ListRequest) (ListResponse, error) {
 	var result ListResponse
 	err := ui.dispatch("ui_approveListing", request, &result)
 	return result, err
 }
 
-func (ui *StdIOUI[T,P]) ApproveNewAccount(request *NewAccountRequest) (NewAccountResponse, error) {
+func (ui *StdIOUI[T, P]) ApproveNewAccount(request *NewAccountRequest) (NewAccountResponse, error) {
 	var result NewAccountResponse
 	err := ui.dispatch("ui_approveNewAccount", request, &result)
 	return result, err
 }
 
-func (ui *StdIOUI[T,P]) ShowError(message string) {
+func (ui *StdIOUI[T, P]) ShowError(message string) {
 	err := ui.notify("ui_showError", &Message{message})
 	if err != nil {
 		log.Info("Error calling 'ui_showError'", "exc", err.Error(), "msg", message)
 	}
 }
 
-func (ui *StdIOUI[T,P]) ShowInfo(message string) {
+func (ui *StdIOUI[T, P]) ShowInfo(message string) {
 	err := ui.notify("ui_showInfo", Message{message})
 	if err != nil {
 		log.Info("Error calling 'ui_showInfo'", "exc", err.Error(), "msg", message)
 	}
 }
-func (ui *StdIOUI[T,P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
+func (ui *StdIOUI[T, P]) OnApprovedTx(tx ethapi.SignTransactionResult[P]) {
 	err := ui.notify("ui_onApprovedTx", tx)
 	if err != nil {
 		log.Info("Error calling 'ui_onApprovedTx'", "exc", err.Error(), "tx", tx)
 	}
 }
 
-func (ui *StdIOUI[T,P]) OnSignerStartup(info StartupInfo) {
+func (ui *StdIOUI[T, P]) OnSignerStartup(info StartupInfo) {
 	err := ui.notify("ui_onSignerStartup", info)
 	if err != nil {
 		log.Info("Error calling 'ui_onSignerStartup'", "exc", err.Error(), "info", info)
 	}
 }
-func (ui *StdIOUI[T,P]) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
+func (ui *StdIOUI[T, P]) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
 	var result UserInputResponse
 	err := ui.dispatch("ui_onInputRequired", info, &result)
 	if err != nil {

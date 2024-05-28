@@ -27,11 +27,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3411"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/gost3411"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -67,7 +68,6 @@ func Test3411Strebog(t *testing.T) {
 	}
 	checkhash(t, "Streebog-256-array", func(in []byte) []byte { h := Keccak256Hash[gost3410.PublicKey](in); return h[:] }, msg, exp)
 }
-
 
 func TestKeccak256Hasher(t *testing.T) {
 	msg := []byte("abc")
@@ -123,7 +123,6 @@ func Test3411Streebog512Hasher(t *testing.T) {
 	checkhash(t, "Streebog-512-array", func(in []byte) []byte { h := Keccak512[gost3410.PublicKey](in); return h[:] }, msg, exp)
 }
 
-
 func TestToECDSAErrors(t *testing.T) {
 	if _, err := HexToECDSA[nist.PrivateKey]("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
@@ -174,15 +173,14 @@ func TestUnmarshalPubkey(t *testing.T) {
 	}
 }
 
-
 func TestUnmarshalPubkeyGost(t *testing.T) {
 	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	var (
 		enc, _ = hex.DecodeString("04e4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc4218496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775")
 		dec    = gost3410.PublicKey{
-			C:     gost3410.GostCurve,
-			X:     hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
-			Y:     hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
+			C: gost3410.GostCurve,
+			X: hexutil.MustDecodeBig("0xe4f910baf0152b2bac365a5ac2323323dd48a46db08c30c8b0cd140154dbc421"),
+			Y: hexutil.MustDecodeBig("0x8496a69e003c2b5eb14ec23b7e0a83e9212d33500b7764f74a06ad92be36e775"),
 		}
 	)
 	key, err := UnmarshalPubkey[gost3410.PublicKey](enc)
@@ -229,7 +227,7 @@ func TestSign(t *testing.T) {
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
 	gostMsg := gost3411.New(32)
 	gostMsg.Write(([]byte("foo")))
-	digest := make([]byte,32)
+	digest := make([]byte, 32)
 	gostMsg.Read(digest)
 	gostSig, err := Sign(digest, *gostKey)
 	if err != nil {
@@ -252,7 +250,7 @@ func TestSign(t *testing.T) {
 		t.Log("Recovered X ", X.String())
 		t.Log("Recovered Y ", Y.String())
 	}
-	
+
 	recoveredGostPub, err := Ecrecover[gost3410.PublicKey](digest, gostSig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
@@ -266,6 +264,147 @@ func TestSign(t *testing.T) {
 
 	if !bytes.Equal(gostKey.Public().Raw(), recoveredGostPub[1:]) {
 		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub[1:])
+	}
+
+	CryptoAlg = GOST_CSP
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[:66])
+	defer crt.Close()
+	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest = hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+	sig, err = Sign(digest, crt)
+	if err != nil {
+		t.Fatalf("Sign error: %s", err)
+	}
+	t.Log("Sig csp", len(sig))
+	recoveredGostPub, err = Ecrecover[csp.PublicKey](digest, sig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[1:66], recoveredGostPub) {
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[1:66], recoveredGostPub)
+	}
+}
+
+func TestHashCSP(t *testing.T) {
+	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+}
+func TestHashReadCSP(t *testing.T) {
+	hasher := NewKeccakState[csp.PublicKey]()
+	_, err := hasher.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digestNew := make([]byte, 32)
+	hasher.Read(digestNew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Read hash digest: %x", digestNew)
+}
+func TestSignCSPRecoverGOST(t *testing.T) {
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	defer crt.Close()
+	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+	sig, err := Sign(digest, crt)
+	if err != nil {
+		t.Fatalf("Sign error: %s", err)
+	}
+	t.Log("Sig csp", len(sig))
+	recoveredGostPub, err := Ecrecover[csp.PublicKey](digest, sig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[1:66], recoveredGostPub) {
+		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[1:66], recoveredGostPub)
+	}
+	// Trying to Ecrecover from CSP sig to pure GOST pub key
+	// 1. Reverse and convert CSP sig to 65 bytes [r,s]+1
+	revPub := make([]byte, 65)
+	revPub[0] = 4
+	cspPub := crt.Info().PublicKeyBytes()[2:66]
+	reverse(cspPub)
+	copy(revPub[1:33], cspPub[32:64])
+	copy(revPub[33:65], cspPub[:32])
+	if crt.Public().X.Cmp(new(big.Int).SetBytes(revPub[1:33])) != 0 {
+		t.Fatalf("Pub key mismatch: want: %d have: %d", crt.Public().X, new(big.Int).SetBytes(revPub[1:33]))
+	}
+	revSig := make([]byte, 65)
+	r, s, _ := RevertCSP(digest, sig)
+	copy(revSig[:32], r.Bytes())
+	copy(revSig[32:64], s.Bytes())
+	revSig[64] = sig[64]
+	// Verify csp sig using pure gost crypto
+	ver := VerifySignature[gost3410.PublicKey](revPub, digest, revSig)
+	assert.Equal(t, true, ver)
+
+	recoveredGostPub, err = Ecrecover[gost3410.PublicKey](digest, revSig)
+	if err != nil {
+		t.Fatalf("ECRecover error: %s", err)
+	}
+	resPub := recoveredGostPub[1:]
+	pub := make([]byte, 64)
+	copy(pub[:32], resPub[32:64])
+	copy(pub[32:64], resPub[:32])
+	reverse(pub)
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], pub) {
+		t.Fatalf("Pub key: want: %x have: %x", crt.Info().PublicKeyBytes()[2:66], pub)
 	}
 }
 

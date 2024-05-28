@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/private/engine"
 	gocache "github.com/patrickmn/go-cache"
 )
 

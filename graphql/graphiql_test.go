@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/plugin/security"
+	"github.com/MIRChain/MIR/plugin/security"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
 )

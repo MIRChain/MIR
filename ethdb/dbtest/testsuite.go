@@ -22,7 +22,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 // TestDatabaseSuite runs a suite of tests against a KeyValueStore database

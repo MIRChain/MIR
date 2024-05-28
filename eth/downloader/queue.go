@@ -26,13 +26,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/prque"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/prque"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/trie"
 )
 
 const (
@@ -53,16 +53,16 @@ var (
 )
 
 // fetchRequest is a currently running data retrieval operation.
-type fetchRequest [P crypto.PublicKey] struct {
+type fetchRequest[P crypto.PublicKey] struct {
 	Peer    *peerConnection[P] // Peer to which the request was sent
-	From    uint64          // [eth/62] Requested chain element index (used for skeleton fills only)
+	From    uint64             // [eth/62] Requested chain element index (used for skeleton fills only)
 	Headers []*types.Header[P] // [eth/62] Requested headers, sorted by request order
-	Time    time.Time       // Time when the request was made
+	Time    time.Time          // Time when the request was made
 }
 
 // fetchResult is a struct collecting partial results from data fetchers until
 // all outstanding pieces complete and the result as a whole can be processed.
-type fetchResult [P crypto.PublicKey] struct {
+type fetchResult[P crypto.PublicKey] struct {
 	pending int32 // Flag telling what deliveries are outstanding
 
 	Header       *types.Header[P]
@@ -110,30 +110,30 @@ func (f *fetchResult[P]) Done(kind uint) bool {
 }
 
 // queue represents hashes that are either need fetching or are being fetched
-type queue [P crypto.PublicKey] struct {
+type queue[P crypto.PublicKey] struct {
 	mode SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching
 
 	// Headers are "special", they download in batches, supported by a skeleton chain
 	headerHead      common.Hash                    // Hash of the last queued header to verify order
-	headerTaskPool  map[uint64]*types.Header[P]       // Pending header retrieval tasks, mapping starting indexes to skeleton headers
+	headerTaskPool  map[uint64]*types.Header[P]    // Pending header retrieval tasks, mapping starting indexes to skeleton headers
 	headerTaskQueue *prque.Prque                   // Priority queue of the skeleton indexes to fetch the filling headers for
 	headerPeerMiss  map[string]map[uint64]struct{} // Set of per-peer header batches known to be unavailable
-	headerPendPool  map[string]*fetchRequest[P]       // Currently pending header retrieval operations
-	headerResults   []*types.Header[P]                // Result cache accumulating the completed headers
+	headerPendPool  map[string]*fetchRequest[P]    // Currently pending header retrieval operations
+	headerResults   []*types.Header[P]             // Result cache accumulating the completed headers
 	headerProced    int                            // Number of headers already processed from the results
 	headerOffset    uint64                         // Number of the first header in the result cache
 	headerContCh    chan bool                      // Channel to notify when header download finishes
 
 	// All data retrievals below are based on an already assembles header chain
 	blockTaskPool  map[common.Hash]*types.Header[P] // Pending block (body) retrieval tasks, mapping hashes to headers
-	blockTaskQueue *prque.Prque                  // Priority queue of the headers to fetch the blocks (bodies) for
+	blockTaskQueue *prque.Prque                     // Priority queue of the headers to fetch the blocks (bodies) for
 	blockPendPool  map[string]*fetchRequest[P]      // Currently pending block (body) retrieval operations
 
 	receiptTaskPool  map[common.Hash]*types.Header[P] // Pending receipt retrieval tasks, mapping hashes to headers
-	receiptTaskQueue *prque.Prque                  // Priority queue of the headers to fetch the receipts for
+	receiptTaskQueue *prque.Prque                     // Priority queue of the headers to fetch the receipts for
 	receiptPendPool  map[string]*fetchRequest[P]      // Currently pending receipt retrieval operations
 
-	resultCache *resultStore[P]       // Downloaded but not yet delivered fetch results
+	resultCache *resultStore[P]    // Downloaded but not yet delivered fetch results
 	resultSize  common.StorageSize // Approximate size of a block (exponential moving average)
 
 	lock   *sync.RWMutex
@@ -478,9 +478,10 @@ func (q *queue[P]) ReserveReceipts(p *peerConnection[P], count int) (*fetchReque
 // to access the queue, so they already need a lock anyway.
 //
 // Returns:
-//   item     - the fetchRequest
-//   progress - whether any progress was made
-//   throttle - if the caller should throttle for a while
+//
+//	item     - the fetchRequest
+//	progress - whether any progress was made
+//	throttle - if the caller should throttle for a while
 func (q *queue[P]) reserveHeaders(p *peerConnection[P], count int, taskPool map[common.Hash]*types.Header[P], taskQueue *prque.Prque,
 	pendPool map[string]*fetchRequest[P], kind uint) (*fetchRequest[P], bool, bool) {
 	// Short circuit if the pool has been depleted, or if the peer's already

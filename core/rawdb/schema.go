@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 // The fields below define the low level database schema prefixing.

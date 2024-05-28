@@ -27,14 +27,14 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/usbwallet/trezor"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 	"github.com/golang/protobuf/proto"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/usbwallet/trezor"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 // ErrTrezorPINNeeded is returned if opening the trezor requires a PIN code. In
@@ -51,7 +51,7 @@ var ErrTrezorPassphraseNeeded = errors.New("trezor: passphrase needed")
 var errTrezorReplyInvalidHeader = errors.New("trezor: invalid reply header")
 
 // trezorDriver implements the communication with a Trezor hardware wallet.
-type trezorDriver [P crypto.PublicKey] struct {
+type trezorDriver[P crypto.PublicKey] struct {
 	device         io.ReadWriter // USB device connection to communicate through
 	version        [3]uint32     // Current version of the Trezor firmware
 	label          string        // Current textual label of the Trezor device
@@ -85,15 +85,15 @@ func (w *trezorDriver[P]) Status() (string, error) {
 
 // Open implements usbwallet.driver, attempting to initialize the connection to
 // the Trezor hardware wallet. Initializing the Trezor is a two or three phase operation:
-//  * The first phase is to initialize the connection and read the wallet's
-//    features. This phase is invoked if the provided passphrase is empty. The
-//    device will display the pinpad as a result and will return an appropriate
-//    error to notify the user that a second open phase is needed.
-//  * The second phase is to unlock access to the Trezor, which is done by the
-//    user actually providing a passphrase mapping a keyboard keypad to the pin
-//    number of the user (shuffled according to the pinpad displayed).
-//  * If needed the device will ask for passphrase which will require calling
-//    open again with the actual passphrase (3rd phase)
+//   - The first phase is to initialize the connection and read the wallet's
+//     features. This phase is invoked if the provided passphrase is empty. The
+//     device will display the pinpad as a result and will return an appropriate
+//     error to notify the user that a second open phase is needed.
+//   - The second phase is to unlock access to the Trezor, which is done by the
+//     user actually providing a passphrase mapping a keyboard keypad to the pin
+//     number of the user (shuffled according to the pinpad displayed).
+//   - If needed the device will ask for passphrase which will require calling
+//     open again with the actual passphrase (3rd phase)
 func (w *trezorDriver[P]) Open(device io.ReadWriter, passphrase string) error {
 	w.device, w.failure = device, nil
 

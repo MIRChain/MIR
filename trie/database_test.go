@@ -19,8 +19,8 @@ package trie
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
 )
 
 // Tests that the trie database returns a missing trie node error if attempting

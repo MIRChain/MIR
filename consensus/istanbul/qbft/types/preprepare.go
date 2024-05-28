@@ -5,13 +5,13 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
-type Preprepare [P crypto.PublicKey] struct {
+type Preprepare[P crypto.PublicKey] struct {
 	CommonPayload
 	Proposal                  istanbul.Proposal
 	JustificationRoundChanges []*SignedRoundChangePayload

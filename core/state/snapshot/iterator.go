@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
 )
 
 // Iterator is an iterator to step over all the accounts or the specific
@@ -71,14 +71,14 @@ type StorageIterator interface {
 // diffAccountIterator is an account iterator that steps over the accounts (both
 // live and deleted) contained within a single diff layer. Higher order iterators
 // will use the deleted accounts to skip deeper iterators.
-type diffAccountIterator [P crypto.PublicKey] struct {
+type diffAccountIterator[P crypto.PublicKey] struct {
 	// curHash is the current hash the iterator is positioned on. The field is
 	// explicitly tracked since the referenced diff layer might go stale after
 	// the iterator was positioned and we don't want to fail accessing the old
 	// hash as long as the iterator is not touched any more.
 	curHash common.Hash
 
-	layer *diffLayer[P]    // Live layer to retrieve values from
+	layer *diffLayer[P] // Live layer to retrieve values from
 	keys  []common.Hash // Keys left in the layer to iterate
 	fail  error         // Any failures encountered (stale)
 }
@@ -162,7 +162,7 @@ func (it *diffAccountIterator[P]) Release() {}
 
 // diskAccountIterator is an account iterator that steps over the live accounts
 // contained within a disk layer.
-type diskAccountIterator [P crypto.PublicKey] struct {
+type diskAccountIterator[P crypto.PublicKey] struct {
 	layer *diskLayer[P]
 	it    ethdb.Iterator
 }
@@ -230,7 +230,7 @@ func (it *diskAccountIterator[P]) Release() {
 // diffStorageIterator is a storage iterator that steps over the specific storage
 // (both live and deleted) contained within a single diff layer. Higher order
 // iterators will use the deleted slot to skip deeper iterators.
-type diffStorageIterator [P crypto.PublicKey] struct {
+type diffStorageIterator[P crypto.PublicKey] struct {
 	// curHash is the current hash the iterator is positioned on. The field is
 	// explicitly tracked since the referenced diff layer might go stale after
 	// the iterator was positioned and we don't want to fail accessing the old
@@ -238,7 +238,7 @@ type diffStorageIterator [P crypto.PublicKey] struct {
 	curHash common.Hash
 	account common.Hash
 
-	layer *diffLayer[P]    // Live layer to retrieve values from
+	layer *diffLayer[P] // Live layer to retrieve values from
 	keys  []common.Hash // Keys left in the layer to iterate
 	fail  error         // Any failures encountered (stale)
 }
@@ -330,7 +330,7 @@ func (it *diffStorageIterator[P]) Release() {}
 
 // diskStorageIterator is a storage iterator that steps over the live storage
 // contained within a disk layer.
-type diskStorageIterator [P crypto.PublicKey] struct {
+type diskStorageIterator[P crypto.PublicKey] struct {
 	layer   *diskLayer[P]
 	account common.Hash
 	it      ethdb.Iterator

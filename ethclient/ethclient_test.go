@@ -26,20 +26,20 @@ import (
 	"testing"
 	"time"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -190,11 +190,11 @@ var (
 	testBalance = big.NewInt(2e10)
 )
 
-func newTestBackend(t *testing.T) (*node.Node[nist.PrivateKey,nist.PublicKey], []*types.Block[nist.PublicKey]) {
+func newTestBackend(t *testing.T) (*node.Node[nist.PrivateKey, nist.PublicKey], []*types.Block[nist.PublicKey]) {
 	// Generate test chain.
 	genesis, blocks := generateTestChain()
 	// Create node
-	n, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
+	n, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("can't create new node: %v", err)
 	}
@@ -229,7 +229,7 @@ func generateTestChain() (*core.Genesis[nist.PublicKey], []*types.Block[nist.Pub
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
-	engine :=  ethash.NewFaker[nist.PublicKey]()
+	engine := ethash.NewFaker[nist.PublicKey]()
 	blocks, _ := core.GenerateChain[nist.PublicKey](config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block[nist.PublicKey]{gblock}, blocks...)
 	return genesis, blocks

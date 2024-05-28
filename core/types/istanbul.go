@@ -20,9 +20,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var (
@@ -88,7 +88,7 @@ func ExtractIstanbulExtra[P crypto.PublicKey](h *Header[P]) (*IstanbulExtra, err
 
 // FilteredHeader returns a filtered header which some information (like seal, committed seals)
 // are clean to fulfill the Istanbul hash rules. It first check if the extradata can be extracted into IstanbulExtra if that fails,
-//it extracts extradata into QBFTExtra struct
+// it extracts extradata into QBFTExtra struct
 func FilteredHeader[P crypto.PublicKey](h *Header[P]) *Header[P] {
 	// Check if the header extradata can be decoded in IstanbulExtra, if yes, then call IstanbulFilteredHeader()
 	// if not then call QBFTFilteredHeader()

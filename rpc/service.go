@@ -26,7 +26,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 var (

@@ -19,7 +19,7 @@ package params
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 // DAOForkBlockExtra is the block header extra-data field to set for the DAO fork

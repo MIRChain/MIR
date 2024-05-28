@@ -22,13 +22,13 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -772,14 +772,14 @@ func DeleteBlockWithoutNumber(db ethdb.KeyValueWriter, hash common.Hash, number 
 
 const badBlockToKeep = 10
 
-type badBlock [P crypto.PublicKey] struct {
+type badBlock[P crypto.PublicKey] struct {
 	Header *types.Header[P]
 	Body   *types.Body[P]
 }
 
 // badBlockList implements the sort interface to allow sorting a list of
 // bad blocks by their number in the reverse order.
-type badBlockList [P crypto.PublicKey] []*badBlock[P]
+type badBlockList[P crypto.PublicKey] []*badBlock[P]
 
 func (s badBlockList[P]) Len() int { return len(s) }
 func (s badBlockList[P]) Less(i, j int) bool {

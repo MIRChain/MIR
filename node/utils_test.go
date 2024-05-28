@@ -20,9 +20,9 @@
 package node
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // NoopLifecycle is a trivial implementation of the Service interface.

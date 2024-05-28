@@ -22,9 +22,9 @@ import (
 	"io"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/internal/debug"
-	"github.com/pavelkrolevets/MIR-pro/internal/flags"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/internal/debug"
+	"github.com/MIRChain/MIR/internal/flags"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -337,7 +337,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.CatalystFlag,
 		},
 	},
-	// Mir 
+	// Mir
 	{
 		Name: "Mir",
 		Flags: []cli.Flag{

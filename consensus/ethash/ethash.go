@@ -33,13 +33,13 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
@@ -432,7 +432,7 @@ type Config struct {
 
 // Ethash is a consensus engine based on proof-of-work implementing the ethash
 // algorithm.
-type Ethash [P crypto.PublicKey] struct {
+type Ethash[P crypto.PublicKey] struct {
 	config Config
 
 	caches   *lru // In memory caches to avoid regenerating too often
@@ -446,7 +446,7 @@ type Ethash [P crypto.PublicKey] struct {
 	remote   *remoteSealer[P]
 
 	// The fields below are hooks for testing
-	shared    *Ethash[P]       // Shared PoW verifier to avoid cache regeneration
+	shared    *Ethash[P]    // Shared PoW verifier to avoid cache regeneration
 	fakeFail  uint64        // Block number which fails PoW check even in fake mode
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
@@ -519,7 +519,7 @@ func NewFakeFailer[P crypto.PublicKey](fail uint64) *Ethash[P] {
 // NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
-func NewFakeDelayer[P crypto.PublicKey](delay time.Duration) *Ethash[P]{
+func NewFakeDelayer[P crypto.PublicKey](delay time.Duration) *Ethash[P] {
 	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFake,
@@ -531,7 +531,7 @@ func NewFakeDelayer[P crypto.PublicKey](delay time.Duration) *Ethash[P]{
 
 // NewFullFaker creates an ethash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFaker[P crypto.PublicKey]() *Ethash[P]{
+func NewFullFaker[P crypto.PublicKey]() *Ethash[P] {
 	return &Ethash[P]{
 		config: Config{
 			PowMode: ModeFullFake,
@@ -542,7 +542,7 @@ func NewFullFaker[P crypto.PublicKey]() *Ethash[P]{
 
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
-func NewShared[P crypto.PublicKey]() *Ethash[P]{
+func NewShared[P crypto.PublicKey]() *Ethash[P] {
 	return &Ethash[P]{shared: New[P](sharedConfig, nil, false)}
 }
 

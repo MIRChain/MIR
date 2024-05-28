@@ -28,19 +28,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/discover"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/p2p/nat"
-	"github.com/pavelkrolevets/MIR-pro/p2p/netutil"
-	// "github.com/pavelkrolevets/MIR-pro/permission/core"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/discover"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/p2p/nat"
+	"github.com/MIRChain/MIR/p2p/netutil"
+	// "github.com/MIRChain/MIR/permission/core"
 )
 
 const (
@@ -69,7 +70,7 @@ const (
 var errServerStopped = errors.New("server stopped")
 
 // Config holds Server options.
-type Config  [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Config[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// This field must be set to a valid secp256k1 private key, or GOST3410 private key, or CryptoPro cert
 	PrivateKey T `toml:"-"`
 
@@ -128,7 +129,7 @@ type Config  [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Protocols should contain the protocols supported
 	// by the server. Matching protocols are launched for
 	// each peer.
-	Protocols []Protocol[T,P] `toml:"-"`
+	Protocols []Protocol[T, P] `toml:"-"`
 
 	// If ListenAddr is set to a non-nil address, the server
 	// will listen for incoming connections.
@@ -164,14 +165,14 @@ type Config  [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // Server manages all peer connections.
-type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Server[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// Config fields may not be modified while the server is running.
-	Config[T,P]
+	Config[T, P]
 
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn, P) transport[T, P]
-	newPeerHook  func(*Peer[T,P])
+	newPeerHook  func(*Peer[T, P])
 	listenFunc   func(network, addr string) (net.Listener, error)
 
 	lock    sync.Mutex // protects running
@@ -184,21 +185,21 @@ type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	log          log.Logger
 
 	nodedb    *enode.DB[P]
-	localnode *enode.LocalNode[T,P]
-	ntab      *discover.UDPv4[T,P]
-	DiscV5    *discover.UDPv5[T,P]
+	localnode *enode.LocalNode[T, P]
+	ntab      *discover.UDPv4[T, P]
+	DiscV5    *discover.UDPv5[T, P]
 	discmix   *enode.FairMix[P]
-	dialsched *dialScheduler[T,P]
+	dialsched *dialScheduler[T, P]
 
 	// Channels into the run loop.
 	quit                    chan struct{}
 	addtrusted              chan *enode.Node[P]
 	removetrusted           chan *enode.Node[P]
-	peerOp                  chan peerOpFunc[T,P]
+	peerOp                  chan peerOpFunc[T, P]
 	peerOpDone              chan struct{}
-	delpeer                 chan peerDrop[T,P]
-	checkpointPostHandshake chan *conn[T,P]
-	checkpointAddPeer       chan *conn[T,P]
+	delpeer                 chan peerDrop[T, P]
+	checkpointPostHandshake chan *conn[T, P]
+	checkpointAddPeer       chan *conn[T, P]
 
 	// State of run loop and listenLoop.
 	inboundHistory expHeap
@@ -210,10 +211,10 @@ type Server [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	isNodePermissionedFunc func(node *enode.Node[P], nodename string, currentNode string, datadir string, direction string) bool
 }
 
-type peerOpFunc[T crypto.PrivateKey, P crypto.PublicKey] func(map[enode.ID]*Peer[T,P])
+type peerOpFunc[T crypto.PrivateKey, P crypto.PublicKey] func(map[enode.ID]*Peer[T, P])
 
-type peerDrop [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	*Peer[T,P]
+type peerDrop[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	*Peer[T, P]
 	err       error
 	requested bool // true if signaled by the peer
 }
@@ -229,7 +230,7 @@ const (
 
 // conn wraps a network connection with information gathered
 // during the two handshakes.
-type conn [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type conn[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	fd net.Conn
 	transport[T, P]
 	node  *enode.Node[P]
@@ -239,7 +240,7 @@ type conn [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	name  string     // valid after the protocol handshake
 }
 
-type transport [T crypto.PrivateKey, P crypto.PublicKey]  interface {
+type transport[T crypto.PrivateKey, P crypto.PublicKey] interface {
 	// The two handshakes.
 	doEncHandshake(prv T) (P, error)
 	doProtoHandshake(our *protoHandshake) (*protoHandshake, error)
@@ -303,14 +304,14 @@ func (c *conn[T, P]) set(f connFlag, val bool) {
 }
 
 // LocalNode returns the local node record.
-func (srv *Server[T, P]) LocalNode() *enode.LocalNode[T,P] {
+func (srv *Server[T, P]) LocalNode() *enode.LocalNode[T, P] {
 	return srv.localnode
 }
 
 // Peers returns all connected peers.
-func (srv *Server[T, P]) Peers() []*Peer[T,P] {
-	var ps []*Peer[T,P]
-	srv.doPeerOp(func(peers map[enode.ID]*Peer[T,P]) {
+func (srv *Server[T, P]) Peers() []*Peer[T, P] {
+	var ps []*Peer[T, P]
+	srv.doPeerOp(func(peers map[enode.ID]*Peer[T, P]) {
 		for _, p := range peers {
 			ps = append(ps, p)
 		}
@@ -321,7 +322,7 @@ func (srv *Server[T, P]) Peers() []*Peer[T,P] {
 // PeerCount returns the number of connected peers.
 func (srv *Server[T, P]) PeerCount() int {
 	var count int
-	srv.doPeerOp(func(ps map[enode.ID]*Peer[T,P]) {
+	srv.doPeerOp(func(ps map[enode.ID]*Peer[T, P]) {
 		count = len(ps)
 	})
 	return count
@@ -345,7 +346,7 @@ func (srv *Server[T, P]) RemovePeer(node *enode.Node[P]) {
 		sub event.Subscription
 	)
 	// Disconnect the peer on the main loop.
-	srv.doPeerOp(func(peers map[enode.ID]*Peer[T,P]) {
+	srv.doPeerOp(func(peers map[enode.ID]*Peer[T, P]) {
 		srv.dialsched.removeStatic(node)
 		if peer := peers[node.ID()]; peer != nil {
 			ch = make(chan *PeerEvent, 1)
@@ -395,12 +396,17 @@ func (srv *Server[T, P]) Self() *enode.Node[P] {
 		switch key := any(srv.PrivateKey).(type) {
 		case *nist.PrivateKey:
 			var pub P
-			p:=any(&pub).(*nist.PublicKey)
+			p := any(&pub).(*nist.PublicKey)
 			*p = *key.Public()
 			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		case *gost3410.PrivateKey:
 			var pub P
-			p:=any(&pub).(*gost3410.PublicKey)
+			p := any(&pub).(*gost3410.PublicKey)
+			*p = *key.Public()
+			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
+		case *csp.Cert:
+			var pub P
+			p := any(&pub).(*csp.PublicKey)
 			*p = *key.Public()
 			return enode.NewV4(pub, net.ParseIP("0.0.0.0"), 0, 0)
 		}
@@ -477,18 +483,18 @@ func (srv *Server[T, P]) Start() (err error) {
 		return errors.New("Server.PrivateKey must be set to a non-nil key")
 	}
 	if srv.newTransport == nil {
-		srv.newTransport = newRLPX[T,P]
+		srv.newTransport = newRLPX[T, P]
 	}
 	if srv.listenFunc == nil {
 		srv.listenFunc = net.Listen
 	}
 	srv.quit = make(chan struct{})
-	srv.delpeer = make(chan peerDrop[T,P])
+	srv.delpeer = make(chan peerDrop[T, P])
 	srv.checkpointPostHandshake = make(chan *conn[T, P])
 	srv.checkpointAddPeer = make(chan *conn[T, P])
 	srv.addtrusted = make(chan *enode.Node[P])
 	srv.removetrusted = make(chan *enode.Node[P])
-	srv.peerOp = make(chan peerOpFunc[T,P])
+	srv.peerOp = make(chan peerOpFunc[T, P])
 	srv.peerOpDone = make(chan struct{})
 
 	if err := srv.setupLocalNode(); err != nil {
@@ -515,12 +521,17 @@ func (srv *Server[T, P]) setupLocalNode() error {
 	switch key := any(&srv.PrivateKey).(type) {
 	case *nist.PrivateKey:
 		var pub P
-		p:=any(&pub).(*nist.PublicKey)
+		p := any(&pub).(*nist.PublicKey)
 		*p = *key.Public()
 		pubkey = crypto.FromECDSAPub[P](pub)
 	case *gost3410.PrivateKey:
 		var pub P
-		p:=any(&pub).(*gost3410.PublicKey)
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *key.Public()
+		pubkey = crypto.FromECDSAPub[P](pub)
+	case *csp.Cert:
+		var pub P
+		p := any(&pub).(*csp.PublicKey)
 		*p = *key.Public()
 		pubkey = crypto.FromECDSAPub[P](pub)
 	}
@@ -612,7 +623,7 @@ func (srv *Server[T, P]) setupDiscovery() error {
 			unhandled = make(chan discover.ReadPacket, 100)
 			sconn = &sharedUDPConn{conn, unhandled}
 		}
-		cfg := discover.Config[T,P]{
+		cfg := discover.Config[T, P]{
 			PrivateKey:  srv.PrivateKey,
 			NetRestrict: srv.NetRestrict,
 			Bootnodes:   srv.BootstrapNodes,
@@ -629,7 +640,7 @@ func (srv *Server[T, P]) setupDiscovery() error {
 
 	// Discovery V5
 	if srv.DiscoveryV5 {
-		cfg := discover.Config[T,P]{
+		cfg := discover.Config[T, P]{
 			PrivateKey:  srv.PrivateKey,
 			NetRestrict: srv.NetRestrict,
 			Bootnodes:   srv.BootstrapNodesV5,
@@ -664,7 +675,7 @@ func (srv *Server[T, P]) setupDialScheduler() {
 	if config.dialer == nil {
 		config.dialer = tcpDialer[P]{&net.Dialer{Timeout: defaultDialTimeout}}
 	}
-	srv.dialsched = newDialScheduler[T,P](config, srv.discmix, srv.SetupConn)
+	srv.dialsched = newDialScheduler[T, P](config, srv.discmix, srv.SetupConn)
 	for _, n := range srv.StaticNodes {
 		srv.dialsched.addStatic(n)
 	}
@@ -716,7 +727,7 @@ func (srv *Server[T, P]) setupListening() error {
 }
 
 // doPeerOp runs fn on the main loop.
-func (srv *Server[T, P]) doPeerOp(fn peerOpFunc[T,P]) {
+func (srv *Server[T, P]) doPeerOp(fn peerOpFunc[T, P]) {
 	select {
 	case srv.peerOp <- fn:
 		<-srv.peerOpDone
@@ -733,7 +744,7 @@ func (srv *Server[T, P]) run() {
 	defer srv.dialsched.stop()
 
 	var (
-		peers        = make(map[enode.ID]*Peer[T,P])
+		peers        = make(map[enode.ID]*Peer[T, P])
 		inboundCount = 0
 		trusted      = make(map[enode.ID]bool, len(srv.TrustedNodes))
 	)
@@ -834,7 +845,7 @@ running:
 	}
 }
 
-func (srv *Server[T, P]) postHandshakeChecks(peers map[enode.ID]*Peer[T,P], inboundCount int, c *conn[T, P]) error {
+func (srv *Server[T, P]) postHandshakeChecks(peers map[enode.ID]*Peer[T, P], inboundCount int, c *conn[T, P]) error {
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -849,7 +860,7 @@ func (srv *Server[T, P]) postHandshakeChecks(peers map[enode.ID]*Peer[T,P], inbo
 	}
 }
 
-func (srv *Server[T, P]) addPeerChecks(peers map[enode.ID]*Peer[T,P], inboundCount int, c *conn[T, P]) error {
+func (srv *Server[T, P]) addPeerChecks(peers map[enode.ID]*Peer[T, P], inboundCount int, c *conn[T, P]) error {
 	// Drop connections with no matching protocols.
 	if len(srv.Protocols) > 0 && countMatchingProtocols(srv.Protocols, c.caps) == 0 {
 		return DiscUselessPeer
@@ -967,7 +978,7 @@ func (srv *Server[T, P]) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.
 	return err
 }
 
-func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.Node[P]) error {
+func (srv *Server[T, P]) setupConn(c *conn[T, P], flags connFlag, dialDest *enode.Node[P]) error {
 	// Prevent leftover pending conns from entering the handshake.
 	srv.lock.Lock()
 	running := srv.running
@@ -979,7 +990,7 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 	// If dialing, figure out the remote public key.
 	var dialPubkey P
 	if dialDest != nil {
-		switch p:=any(&dialPubkey).(type){
+		switch p := any(&dialPubkey).(type) {
 		case *nist.PublicKey:
 			if err := dialDest.Load((*enode.Secp256k1)(p)); err != nil {
 				err = errors.New("dial destination doesn't have a secp256k1 public key")
@@ -988,6 +999,12 @@ func (srv *Server[T,P]) setupConn(c *conn[T,P], flags connFlag, dialDest *enode.
 			}
 		case *gost3410.PublicKey:
 			if err := dialDest.Load((*enode.Gost3410)(p)); err != nil {
+				err = errors.New("dial destination doesn't have a secp256k1 public key")
+				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+				return err
+			}
+		case *csp.PublicKey:
+			if err := dialDest.Load((*enode.Gost3410CSP)(p)); err != nil {
 				err = errors.New("dial destination doesn't have a secp256k1 public key")
 				srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 				return err
@@ -1099,7 +1116,7 @@ func nodeFromConn[P crypto.PublicKey](pubkey P, conn net.Conn) *enode.Node[P] {
 
 // checkpoint sends the conn to run, which performs the
 // post-handshake checks for the stage (posthandshake, addpeer).
-func (srv *Server[T,P]) checkpoint(c *conn[T,P], stage chan<- *conn[T,P]) error {
+func (srv *Server[T, P]) checkpoint(c *conn[T, P], stage chan<- *conn[T, P]) error {
 	select {
 	case stage <- c:
 	case <-srv.quit:
@@ -1108,7 +1125,7 @@ func (srv *Server[T,P]) checkpoint(c *conn[T,P], stage chan<- *conn[T,P]) error 
 	return <-c.cont
 }
 
-func (srv *Server[T,P]) launchPeer(c *conn[T,P]) *Peer[T,P] {
+func (srv *Server[T, P]) launchPeer(c *conn[T, P]) *Peer[T, P] {
 	p := newPeer(srv.log, c, srv.Protocols)
 	if srv.EnableMsgEvents {
 		// If message events are enabled, pass the peerFeed
@@ -1120,7 +1137,7 @@ func (srv *Server[T,P]) launchPeer(c *conn[T,P]) *Peer[T,P] {
 }
 
 // runPeer runs in its own goroutine for each peer.
-func (srv *Server[T,P]) runPeer(p *Peer[T,P]) {
+func (srv *Server[T, P]) runPeer(p *Peer[T, P]) {
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
 	}
@@ -1137,7 +1154,7 @@ func (srv *Server[T,P]) runPeer(p *Peer[T,P]) {
 	// Announce disconnect on the main loop to update the peer set.
 	// The main loop waits for existing peers to be sent on srv.delpeer
 	// before returning, so this send should not select on srv.quit.
-	srv.delpeer <- peerDrop[T,P]{p, err, remoteRequested}
+	srv.delpeer <- peerDrop[T, P]{p, err, remoteRequested}
 
 	// Broadcast peer drop to external subscribers. This needs to be
 	// after the send to delpeer so subscribers have a consistent view of
@@ -1168,7 +1185,7 @@ type NodeInfo struct {
 }
 
 // NodeInfo gathers and returns a collection of metadata known about the host.
-func (srv *Server[T,P]) NodeInfo() *NodeInfo {
+func (srv *Server[T, P]) NodeInfo() *NodeInfo {
 	// Gather and assemble the generic node infos
 	node := srv.Self()
 	info := &NodeInfo{
@@ -1197,7 +1214,7 @@ func (srv *Server[T,P]) NodeInfo() *NodeInfo {
 }
 
 // PeersInfo returns an array of metadata objects describing connected peers.
-func (srv *Server[T,P]) PeersInfo() []*PeerInfo {
+func (srv *Server[T, P]) PeersInfo() []*PeerInfo {
 	// Gather all the generic and sub-protocol specific infos
 	infos := make([]*PeerInfo, 0, srv.PeerCount())
 	for _, peer := range srv.Peers() {
@@ -1216,16 +1233,16 @@ func (srv *Server[T,P]) PeersInfo() []*PeerInfo {
 	return infos
 }
 
-func (srv *Server[T,P]) SetCheckPeerInRaft(f func(*enode.Node[P]) bool) {
+func (srv *Server[T, P]) SetCheckPeerInRaft(f func(*enode.Node[P]) bool) {
 	srv.checkPeerInRaft = f
 }
 
-func (srv *Server[T,P]) SetIsNodePermissioned(f func(*enode.Node[P], string, string, string, string) bool) {
+func (srv *Server[T, P]) SetIsNodePermissioned(f func(*enode.Node[P], string, string, string, string) bool) {
 	if srv.isNodePermissionedFunc == nil {
 		srv.isNodePermissionedFunc = f
 	}
 }
 
-func (srv *Server[T,P]) SetNewTransportFunc(f func(net.Conn, P) transport[T,P]) {
+func (srv *Server[T, P]) SetNewTransportFunc(f func(net.Conn, P) transport[T, P]) {
 	srv.newTransport = f
 }

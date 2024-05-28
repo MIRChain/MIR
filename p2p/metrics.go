@@ -21,7 +21,7 @@ package p2p
 import (
 	"net"
 
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 const (

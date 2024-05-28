@@ -26,17 +26,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var (
-	EmptyRootHash  = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	EmptyRootHash = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
-func EmptyUncleHash[P crypto.PublicKey]() common.Hash {return rlpHash[P]([]*Header[P](nil))}
+func EmptyUncleHash[P crypto.PublicKey]() common.Hash { return rlpHash[P]([]*Header[P](nil)) }
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
@@ -68,7 +68,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
 // Header represents a block header in the Ethereum blockchain.
-type Header [P crypto.PublicKey] struct {
+type Header[P crypto.PublicKey] struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
@@ -146,7 +146,7 @@ func (h *Header[P]) QBFTHashWithRoundNumber(round uint32) common.Hash {
 // EmptyBody returns true if there is no additional 'body' to complete the header
 // that is: no transactions and no uncles.
 func (h *Header[P]) EmptyBody() bool {
-	return h.TxHash == EmptyRootHash && h.UncleHash ==  rlpHash[P]([]*Header[P](nil))
+	return h.TxHash == EmptyRootHash && h.UncleHash == rlpHash[P]([]*Header[P](nil))
 }
 
 // EmptyReceipts returns true if there are no receipts for this header/block.
@@ -156,13 +156,13 @@ func (h *Header[P]) EmptyReceipts() bool {
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
-type Body [P crypto.PublicKey]struct {
+type Body[P crypto.PublicKey] struct {
 	Transactions []*Transaction[P]
 	Uncles       []*Header[P]
 }
 
 // Block represents an entire block in the Ethereum blockchain.
-type Block [P crypto.PublicKey] struct {
+type Block[P crypto.PublicKey] struct {
 	header       *Header[P]
 	uncles       []*Header[P]
 	transactions Transactions[P]
@@ -186,7 +186,7 @@ func (b *Block[P]) String() string {
 }
 
 // "external" block encoding. used for eth protocol, etc.
-type extblock [P crypto.PublicKey] struct {
+type extblock[P crypto.PublicKey] struct {
 	Header *Header[P]
 	Txs    []*Transaction[P]
 	Uncles []*Header[P]
@@ -219,7 +219,7 @@ func NewBlock[P crypto.PublicKey](header *Header[P], txs []*Transaction[P], uncl
 	}
 
 	if len(uncles) == 0 {
-		b.header.UncleHash =  rlpHash[P]([]*Header[P](nil))
+		b.header.UncleHash = rlpHash[P]([]*Header[P](nil))
 	} else {
 		b.header.UncleHash = CalcUncleHash(uncles)
 		b.uncles = make([]*Header[P], len(uncles))
@@ -299,7 +299,7 @@ func (b *Block[P]) Time() uint64         { return b.header.Time }
 func (b *Block[P]) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *Block[P]) MixDigest() common.Hash   { return b.header.MixDigest }
 func (b *Block[P]) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *Block[P]) Bloom() Bloom[P]             { return b.header.Bloom }
+func (b *Block[P]) Bloom() Bloom[P]          { return b.header.Bloom }
 func (b *Block[P]) Coinbase() common.Address { return b.header.Coinbase }
 func (b *Block[P]) Root() common.Hash        { return b.header.Root }
 func (b *Block[P]) ParentHash() common.Hash  { return b.header.ParentHash }
@@ -340,7 +340,7 @@ func (c *writeCounter) Write(b []byte) (int, error) {
 
 func CalcUncleHash[P crypto.PublicKey](uncles []*Header[P]) common.Hash {
 	if len(uncles) == 0 {
-		return  rlpHash[P]([]*Header[P](nil))
+		return rlpHash[P]([]*Header[P](nil))
 	}
 	return rlpHash[P](uncles)
 }

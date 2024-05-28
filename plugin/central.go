@@ -15,7 +15,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Central https centralClient communicating with Plugin Central

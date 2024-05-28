@@ -1,12 +1,12 @@
 package qbfttypes
 
 import (
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
-func Decode[P crypto.PublicKey] (code uint64, data []byte) (QBFTMessage, error) {
+func Decode[P crypto.PublicKey](code uint64, data []byte) (QBFTMessage, error) {
 	switch code {
 	case PreprepareCode:
 		var preprepare Preprepare[P]

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // In this example, our client wishes to track the latest 'block number'

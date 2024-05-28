@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 // Load Root CA certificate(s).

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
 )
 
 func init() {
@@ -51,7 +51,7 @@ var parseNodeTests = []struct {
 			r.Set(enr.IP{127, 0, 0, 1})
 			r.Set(enr.UDP(30303))
 			r.SetSeq(99)
-			SignV4[nist.PrivateKey,nist.PublicKey](&r, testKey)
+			SignV4[nist.PrivateKey, nist.PublicKey](&r, testKey)
 			n, _ := New[nist.PublicKey](enr.SchemeMap{"v4": V4ID[nist.PublicKey]{}}, &r)
 			return n
 		}(),

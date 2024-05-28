@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
 	"github.com/karalabe/usb"
 )
 
@@ -44,7 +44,7 @@ const selfDeriveThrottling = time.Second
 
 // driver defines the vendor specific functionality hardware wallets instances
 // must implement to allow using them with the wallet lifecycle management.
-type driver [P crypto.PublicKey] interface {
+type driver[P crypto.PublicKey] interface {
 	// Status returns a textual status to aid the user in the current state of the
 	// wallet. It also returns an error indicating any failure the wallet might have
 	// encountered.
@@ -75,9 +75,9 @@ type driver [P crypto.PublicKey] interface {
 // wallet represents the common functionality shared by all USB hardware
 // wallets to prevent reimplementing the same complex maintenance mechanisms
 // for different vendors.
-type wallet [P crypto.PublicKey] struct {
-	hub    *Hub[P]          // USB hub scanning
-	driver driver[P]        // Hardware implementation of the low level device operations
+type wallet[P crypto.PublicKey] struct {
+	hub    *Hub[P]       // USB hub scanning
+	driver driver[P]     // Hardware implementation of the low level device operations
 	url    *accounts.URL // Textual URL uniquely identifying this wallet
 
 	info   usb.DeviceInfo // Known USB device infos about the wallet

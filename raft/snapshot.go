@@ -9,18 +9,18 @@ import (
 	"sort"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/coreos/etcd/snap"
 	"github.com/coreos/etcd/wal/walpb"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	// "github.com/pavelkrolevets/MIR-pro/permission/core"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	// "github.com/MIRChain/MIR/permission/core"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 type SnapshotWithHostnames struct {
@@ -49,7 +49,7 @@ func (a ByRaftId) Len() int           { return len(a) }
 func (a ByRaftId) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByRaftId) Less(i, j int) bool { return a[i].RaftId < a[j].RaftId }
 
-func (pm *ProtocolManager[T,P]) buildSnapshot() *SnapshotWithHostnames {
+func (pm *ProtocolManager[T, P]) buildSnapshot() *SnapshotWithHostnames {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
@@ -88,7 +88,7 @@ func (pm *ProtocolManager[T,P]) buildSnapshot() *SnapshotWithHostnames {
 // parameter instead. This is because we need to support a scenario when we
 // snapshot for a future index that we have not yet recorded in LevelDB. See
 // comments around the use of `forceSnapshot`.
-func (pm *ProtocolManager[T,P]) triggerSnapshot(index uint64) {
+func (pm *ProtocolManager[T, P]) triggerSnapshot(index uint64) {
 	pm.mu.RLock()
 	snapshotIndex := pm.snapshotIndex
 	pm.mu.RUnlock()
@@ -124,7 +124,7 @@ func confStateIdSet(confState raftpb.ConfState) mapset.Set {
 	return set
 }
 
-func (pm *ProtocolManager[T,P]) updateClusterMembership(newConfState raftpb.ConfState, addresses []Address, removedRaftIds []uint16) {
+func (pm *ProtocolManager[T, P]) updateClusterMembership(newConfState raftpb.ConfState, addresses []Address, removedRaftIds []uint16) {
 	log.Info("updating cluster membership per raft snapshot")
 
 	prevConfState := pm.confState
@@ -180,7 +180,7 @@ func (pm *ProtocolManager[T,P]) updateClusterMembership(newConfState raftpb.Conf
 	log.Info("updated cluster membership")
 }
 
-func (pm *ProtocolManager[T,P]) maybeTriggerSnapshot() {
+func (pm *ProtocolManager[T, P]) maybeTriggerSnapshot() {
 	pm.mu.RLock()
 	appliedIndex := pm.appliedIndex
 	entriesSinceLastSnap := appliedIndex - pm.snapshotIndex
@@ -193,7 +193,7 @@ func (pm *ProtocolManager[T,P]) maybeTriggerSnapshot() {
 	pm.triggerSnapshot(appliedIndex)
 }
 
-func (pm *ProtocolManager[T,P]) loadSnapshot() *raftpb.Snapshot {
+func (pm *ProtocolManager[T, P]) loadSnapshot() *raftpb.Snapshot {
 	if raftSnapshot := pm.readRaftSnapshot(); raftSnapshot != nil {
 		log.Info("loading snapshot")
 		pm.applyRaftSnapshot(*raftSnapshot)
@@ -290,7 +290,7 @@ func (snapshot *SnapshotWithHostnames) EncodeRLP(w io.Writer) error {
 
 // Raft snapshot
 
-func (pm *ProtocolManager[T,P]) saveRaftSnapshot(snap raftpb.Snapshot) error {
+func (pm *ProtocolManager[T, P]) saveRaftSnapshot(snap raftpb.Snapshot) error {
 	if err := pm.snapshotter.SaveSnap(snap); err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (pm *ProtocolManager[T,P]) saveRaftSnapshot(snap raftpb.Snapshot) error {
 	return pm.wal.ReleaseLockTo(snap.Metadata.Index)
 }
 
-func (pm *ProtocolManager[T,P]) readRaftSnapshot() *raftpb.Snapshot {
+func (pm *ProtocolManager[T, P]) readRaftSnapshot() *raftpb.Snapshot {
 	snapshot, err := pm.snapshotter.Load()
 	if err != nil && err != snap.ErrNoSnapshot {
 		fatalf("error loading snapshot: %v", err)
@@ -316,7 +316,7 @@ func (pm *ProtocolManager[T,P]) readRaftSnapshot() *raftpb.Snapshot {
 	return snapshot
 }
 
-func (pm *ProtocolManager[T,P]) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) {
+func (pm *ProtocolManager[T, P]) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) {
 	log.Info("applying snapshot to raft storage")
 	if err := pm.raftStorage.ApplySnapshot(raftSnapshot); err != nil {
 		fatalf("failed to apply snapshot: %s", err)
@@ -347,7 +347,7 @@ func (pm *ProtocolManager[T,P]) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) 
 	pm.mu.Unlock()
 }
 
-func (pm *ProtocolManager[T,P]) syncBlockchainUntil(hash common.Hash) {
+func (pm *ProtocolManager[T, P]) syncBlockchainUntil(hash common.Hash) {
 	pm.mu.RLock()
 	peerMap := make(map[uint16]*Peer[P], len(pm.peers))
 	for raftId, peer := range pm.peers {
@@ -372,7 +372,7 @@ func (pm *ProtocolManager[T,P]) syncBlockchainUntil(hash common.Hash) {
 	}
 }
 
-func (pm *ProtocolManager[T,P]) logNewlyAcceptedTransactions(preSyncHead *types.Block[P]) {
+func (pm *ProtocolManager[T, P]) logNewlyAcceptedTransactions(preSyncHead *types.Block[P]) {
 	newHead := pm.blockchain.CurrentBlock()
 	numBlocks := newHead.NumberU64() - preSyncHead.NumberU64()
 	blocks := make([]*types.Block[P], numBlocks)

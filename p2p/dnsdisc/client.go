@@ -26,18 +26,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 )
 
 // Client discovers nodes by querying DNS servers.
-type Client [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type Client[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	cfg          Config[P]
 	clock        mclock.Clock
 	entries      *lru.Cache
@@ -46,7 +46,7 @@ type Client [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // Config holds configuration options for the client.
-type Config [P crypto.PublicKey]struct {
+type Config[P crypto.PublicKey] struct {
 	Timeout         time.Duration      // timeout used for DNS lookups (default 5s)
 	RecheckInterval time.Duration      // time between tree root update checks (default 30min)
 	CacheLimit      int                // maximum number of cached records (default 1000)
@@ -93,14 +93,14 @@ func (cfg Config[P]) withDefaults() Config[P] {
 }
 
 // NewClient creates a client.
-func NewClient[T crypto.PrivateKey, P crypto.PublicKey] (cfg Config[P]) *Client[T,P] {
+func NewClient[T crypto.PrivateKey, P crypto.PublicKey](cfg Config[P]) *Client[T, P] {
 	cfg = cfg.withDefaults()
 	cache, err := lru.New(cfg.CacheLimit)
 	if err != nil {
 		panic(err)
 	}
 	rlimit := rate.NewLimiter(rate.Limit(cfg.RateLimit), 10)
-	return &Client[T,P]{
+	return &Client[T, P]{
 		cfg:       cfg,
 		entries:   cache,
 		clock:     mclock.System{},
@@ -109,13 +109,13 @@ func NewClient[T crypto.PrivateKey, P crypto.PublicKey] (cfg Config[P]) *Client[
 }
 
 // SyncTree downloads the entire node tree at the given URL.
-func (c *Client[T,P]) SyncTree(url string) (*Tree[T,P], error) {
+func (c *Client[T, P]) SyncTree(url string) (*Tree[T, P], error) {
 	le, err := parseLink[P](url)
 	if err != nil {
 		return nil, fmt.Errorf("invalid enrtree URL: %v", err)
 	}
-	ct := newClientTree[T,P](c, new(linkCache), le)
-	t := &Tree[T,P]{entries: make(map[string]entry)}
+	ct := newClientTree[T, P](c, new(linkCache), le)
+	t := &Tree[T, P]{entries: make(map[string]entry)}
 	if err := ct.syncAll(t.entries); err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (c *Client[T,P]) SyncTree(url string) (*Tree[T,P], error) {
 
 // NewIterator creates an iterator that visits all nodes at the
 // given tree URLs.
-func (c *Client[T,P]) NewIterator(urls ...string) (enode.Iterator[P], error) {
+func (c *Client[T, P]) NewIterator(urls ...string) (enode.Iterator[P], error) {
 	it := c.newRandomIterator()
 	for _, url := range urls {
 		if err := it.addTree(url); err != nil {
@@ -136,7 +136,7 @@ func (c *Client[T,P]) NewIterator(urls ...string) (enode.Iterator[P], error) {
 }
 
 // resolveRoot retrieves a root entry via DNS.
-func (c *Client[T,P]) resolveRoot(ctx context.Context, loc *linkEntry[P]) (rootEntry[P], error) {
+func (c *Client[T, P]) resolveRoot(ctx context.Context, loc *linkEntry[P]) (rootEntry[P], error) {
 	e, err, _ := c.singleflight.Do(loc.str, func() (interface{}, error) {
 		txts, err := c.cfg.Resolver.LookupTXT(ctx, loc.domain)
 		c.cfg.Logger.Trace("Updating DNS discovery root", "tree", loc.domain, "err", err)
@@ -166,7 +166,7 @@ func parseAndVerifyRoot[P crypto.PublicKey](txt string, loc *linkEntry[P]) (root
 
 // resolveEntry retrieves an entry from the cache or fetches it from the network
 // if it isn't cached.
-func (c *Client[T,P]) resolveEntry(ctx context.Context, domain, hash string) (entry, error) {
+func (c *Client[T, P]) resolveEntry(ctx context.Context, domain, hash string) (entry, error) {
 	// The rate limit always applies, even when the result might be cached. This is
 	// important because it avoids hot-spinning in consumers of node iterators created on
 	// this client.
@@ -191,7 +191,7 @@ func (c *Client[T,P]) resolveEntry(ctx context.Context, domain, hash string) (en
 }
 
 // doResolveEntry fetches an entry via DNS.
-func (c *Client[T,P]) doResolveEntry(ctx context.Context, domain, hash string) (entry, error) {
+func (c *Client[T, P]) doResolveEntry(ctx context.Context, domain, hash string) (entry, error) {
 	wantHash, err := b32format.DecodeString(hash)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base32 hash")
@@ -218,37 +218,37 @@ func (c *Client[T,P]) doResolveEntry(ctx context.Context, domain, hash string) (
 }
 
 // randomIterator traverses a set of trees and returns nodes found in them.
-type randomIterator [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type randomIterator[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	cur      *enode.Node[P]
 	ctx      context.Context
 	cancelFn context.CancelFunc
-	c        *Client[T,P]
+	c        *Client[T, P]
 
 	mu    sync.Mutex
-	lc    linkCache              // tracks tree dependencies
-	trees map[string]*clientTree[T,P] // all trees
+	lc    linkCache                    // tracks tree dependencies
+	trees map[string]*clientTree[T, P] // all trees
 	// buffers for syncableTrees
-	syncableList []*clientTree[T,P]
-	disabledList []*clientTree[T,P]
+	syncableList []*clientTree[T, P]
+	disabledList []*clientTree[T, P]
 }
 
-func (c *Client[T,P]) newRandomIterator() *randomIterator[T,P] {
+func (c *Client[T, P]) newRandomIterator() *randomIterator[T, P] {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &randomIterator[T,P]{
+	return &randomIterator[T, P]{
 		c:        c,
 		ctx:      ctx,
 		cancelFn: cancel,
-		trees:    make(map[string]*clientTree[T,P]),
+		trees:    make(map[string]*clientTree[T, P]),
 	}
 }
 
 // Node returns the current node.
-func (it *randomIterator[T,P]) Node() *enode.Node[P] {
+func (it *randomIterator[T, P]) Node() *enode.Node[P] {
 	return it.cur
 }
 
 // Close closes the iterator.
-func (it *randomIterator[T,P]) Close() {
+func (it *randomIterator[T, P]) Close() {
 	it.cancelFn()
 
 	it.mu.Lock()
@@ -257,13 +257,13 @@ func (it *randomIterator[T,P]) Close() {
 }
 
 // Next moves the iterator to the next node.
-func (it *randomIterator[T,P]) Next() bool {
+func (it *randomIterator[T, P]) Next() bool {
 	it.cur = it.nextNode()
 	return it.cur != nil
 }
 
 // addTree adds an enrtree:// URL to the iterator.
-func (it *randomIterator[T,P]) addTree(url string) error {
+func (it *randomIterator[T, P]) addTree(url string) error {
 	le, err := parseLink[P](url)
 	if err != nil {
 		return fmt.Errorf("invalid enrtree URL: %v", err)
@@ -273,7 +273,7 @@ func (it *randomIterator[T,P]) addTree(url string) error {
 }
 
 // nextNode syncs random tree entries until it finds a node.
-func (it *randomIterator[T,P]) nextNode() *enode.Node[P] {
+func (it *randomIterator[T, P]) nextNode() *enode.Node[P] {
 	for {
 		ct := it.pickTree()
 		if ct == nil {
@@ -294,7 +294,7 @@ func (it *randomIterator[T,P]) nextNode() *enode.Node[P] {
 }
 
 // pickTree returns a random tree to sync from.
-func (it *randomIterator[T,P]) pickTree() *clientTree[T,P] {
+func (it *randomIterator[T, P]) pickTree() *clientTree[T, P] {
 	it.mu.Lock()
 	defer it.mu.Unlock()
 
@@ -325,7 +325,7 @@ func (it *randomIterator[T,P]) pickTree() *clientTree[T,P] {
 }
 
 // syncableTrees finds trees on which any meaningful sync action can be performed.
-func (it *randomIterator[T,P]) syncableTrees() (canSync bool, trees []*clientTree[T,P]) {
+func (it *randomIterator[T, P]) syncableTrees() (canSync bool, trees []*clientTree[T, P]) {
 	// Resize tree lists.
 	it.syncableList = it.syncableList[:0]
 	it.disabledList = it.disabledList[:0]
@@ -345,8 +345,8 @@ func (it *randomIterator[T,P]) syncableTrees() (canSync bool, trees []*clientTre
 }
 
 // waitForRootUpdates waits for the closest scheduled root check time on the given trees.
-func (it *randomIterator[T,P]) waitForRootUpdates(trees []*clientTree[T,P]) bool {
-	var minTree *clientTree[T,P]
+func (it *randomIterator[T, P]) waitForRootUpdates(trees []*clientTree[T, P]) bool {
+	var minTree *clientTree[T, P]
 	var nextCheck mclock.AbsTime
 	for _, ct := range trees {
 		check := ct.nextScheduledRootCheck()
@@ -369,7 +369,7 @@ func (it *randomIterator[T,P]) waitForRootUpdates(trees []*clientTree[T,P]) bool
 }
 
 // rebuildTrees rebuilds the 'trees' map.
-func (it *randomIterator[T,P]) rebuildTrees() {
+func (it *randomIterator[T, P]) rebuildTrees() {
 	// Delete removed trees.
 	for loc := range it.trees {
 		if !it.lc.isReferenced(loc) {
@@ -380,7 +380,7 @@ func (it *randomIterator[T,P]) rebuildTrees() {
 	for loc := range it.lc.backrefs {
 		if it.trees[loc] == nil {
 			link, _ := parseLink[P](linkPrefix + loc)
-			it.trees[loc] = newClientTree[T,P](it.c, &it.lc, link)
+			it.trees[loc] = newClientTree[T, P](it.c, &it.lc, link)
 		}
 	}
 }

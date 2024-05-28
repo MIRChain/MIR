@@ -6,21 +6,21 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/privatecache"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/privatecache"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,7 +41,7 @@ var (
 func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[nist.PublicKey], map[common.Hash]*types.Block[nist.PublicKey], *BlockChain[nist.PublicKey]) {
 	testdb := rawdb.NewMemoryDatabase()
 	genesis := GenesisBlockForTesting[nist.PublicKey](testdb, testAddress, big.NewInt(1000000000))
-	blocks, _ := GenerateChain[nist.PublicKey](config, genesis,  ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
+	blocks, _ := GenerateChain[nist.PublicKey](config, genesis, ethash.NewFaker[nist.PublicKey](), testdb, n, func(i int, block *BlockGen[nist.PublicKey]) {
 		block.SetCoinbase(common.Address{0})
 
 		signer := types.QuorumPrivateTxSigner[nist.PublicKey]{}
@@ -61,7 +61,7 @@ func buildTestChain(n int, config *params.ChainConfig) ([]*types.Block[nist.Publ
 		blockm[b.Hash()] = b
 	}
 
-	blockchain, _ := NewBlockChain[nist.PublicKey](testdb, nil, config,  ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
+	blockchain, _ := NewBlockChain[nist.PublicKey](testdb, nil, config, ethash.NewFaker[nist.PublicKey](), vm.Config[nist.PublicKey]{}, nil, nil, nil)
 	return blocks, blockm, blockchain
 }
 

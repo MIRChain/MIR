@@ -5,13 +5,13 @@
 package vm
 
 import (
-	common "github.com/pavelkrolevets/MIR-pro/common"
-	state "github.com/pavelkrolevets/MIR-pro/core/state"
-	types "github.com/pavelkrolevets/MIR-pro/core/types"
+	common "github.com/MIRChain/MIR/common"
+	state "github.com/MIRChain/MIR/core/state"
+	types "github.com/MIRChain/MIR/core/types"
 	gomock "github.com/golang/mock/gomock"
 	big "math/big"
 	reflect "reflect"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // MockAccountExtraDataStateGetter is a mock of AccountExtraDataStateGetter interface

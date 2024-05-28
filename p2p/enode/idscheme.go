@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -40,10 +41,10 @@ import (
 // }
 
 // v4ID is the "v4" identity scheme.
-type V4ID [P crypto.PublicKey] struct{}
+type V4ID[P crypto.PublicKey] struct{}
 
 // SignV4 signs a record using the v4 scheme.
-func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) error {
+func SignV4[T crypto.PrivateKey, P crypto.PublicKey](r *enr.Record, key T) error {
 	// Copy r to avoid modifying it if signing fails.
 	cpy := *r
 	cpy.Set(enr.ID("v4"))
@@ -66,6 +67,14 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 		if err != nil {
 			return err
 		}
+	case *csp.Cert:
+		cpy.Set(Gost3410CSP(*privkey.Public()))
+		h := sha3.NewLegacyKeccak256()
+		rlp.Encode(h, cpy.AppendElements(nil))
+		sig, err = crypto.Sign(h.Sum(nil), *privkey)
+		if err != nil {
+			return err
+		}
 	}
 	sig = sig[:len(sig)-1] // remove v
 	if err = cpy.SetSig(V4ID[P]{}, sig); err == nil {
@@ -76,7 +85,7 @@ func SignV4[T crypto.PrivateKey, P crypto.PublicKey] (r *enr.Record, key T) erro
 
 func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var entry s256raw
 		if err := r.Load(&entry); err != nil {
@@ -84,7 +93,7 @@ func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 		} else if len(entry) != 33 {
 			return fmt.Errorf("invalid public key")
 		}
-	
+
 		h := sha3.NewLegacyKeccak256()
 		rlp.Encode(h, r.AppendElements(nil))
 		if !crypto.VerifySignature[P](entry, h.Sum(nil), sig) {
@@ -108,7 +117,7 @@ func (V4ID[P]) Verify(r *enr.Record, sig []byte) error {
 
 func (V4ID[P]) NodeAddr(r *enr.Record) []byte {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var pubkey Secp256k1
 		err := r.Load(&pubkey)
@@ -185,6 +194,29 @@ func (v *Gost3410) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+type Gost3410CSP csp.PublicKey
+
+func (v Gost3410CSP) ENRKey() string { return "gost3410" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v Gost3410CSP) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, (*csp.PublicKey)(&v).Raw())
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *Gost3410CSP) DecodeRLP(s *rlp.Stream) error {
+	buf, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	pk, err := csp.NewPublicKey(buf)
+	if err != nil {
+		return err
+	}
+	*v = (Gost3410CSP)(*pk)
+	return nil
+}
+
 // s256raw is an unparsed secp256k1 public key entry.
 type s256raw []byte
 
@@ -192,18 +224,18 @@ func (s256raw) ENRKey() string { return "secp256k1" }
 
 // gost3410raw is an unparsed gost3410 public key entry.
 type gost3410raw []byte
-func (gost3410raw) ENRKey() string { return "gost3410" }
 
+func (gost3410raw) ENRKey() string { return "gost3410" }
 
 // v4CompatID is a weaker and insecure version of the "v4" scheme which only checks for the
 // presence of a secp256k1 public key, but doesn't verify the signature.
-type v4CompatID [P crypto.PublicKey] struct {
+type v4CompatID[P crypto.PublicKey] struct {
 	V4ID[P]
 }
 
 func (v4CompatID[P]) Verify(r *enr.Record, sig []byte) error {
 	var pub P
-	switch any(&pub).(type){
+	switch any(&pub).(type) {
 	case *nist.PublicKey:
 		var pubkey Secp256k1
 		return r.Load(&pubkey)
@@ -224,6 +256,11 @@ func signV4Compat[P crypto.PublicKey](r *enr.Record, key P) {
 		}
 	case *gost3410.PublicKey:
 		r.Set((*Gost3410)(pubkey))
+		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
+			panic(err)
+		}
+	case *csp.PublicKey:
+		r.Set((*Gost3410CSP)(pubkey))
 		if err := r.SetSig(v4CompatID[P]{}, []byte{}); err != nil {
 			panic(err)
 		}

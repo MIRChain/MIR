@@ -7,20 +7,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts/abi/bind"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/backend/contract"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/accounts/abi/bind"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	"github.com/MIRChain/MIR/consensus/istanbul/backend/contract"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	"github.com/MIRChain/MIR/consensus/istanbul/validator"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // var (
@@ -29,7 +30,7 @@ import (
 
 type SignerFn func(data []byte) ([]byte, error)
 
-type Engine [P crypto.PublicKey] struct {
+type Engine[P crypto.PublicKey] struct {
 	cfg *istanbul.Config
 
 	signer common.Address // Ethereum address of the signing key
@@ -468,7 +469,13 @@ func (e *Engine[P]) Address() common.Address {
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
 func sigHash[P crypto.PublicKey](header *types.Header[P]) (hash common.Hash) {
-	hasher := crypto.NewKeccakState[P]()
+	// hasher := sha3.NewLegacyKeccak256()
+
+	// Mir - Gost hash 34.11
+	hasher, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		panic(err)
+	}
 
 	rlp.Encode(hasher, types.QBFTFilteredHeader(header))
 	hasher.Sum(hash[:0])

@@ -21,26 +21,26 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
 
 	// Quorum
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/private"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/private"
 )
 
 // statePrefetcher is a basic Prefetcher, which blindly executes a block on top
 // of an arbitrary state with the goal of prefetching potentially useful state
 // data from disk before the main block processor start executing.
-type statePrefetcher [P crypto.PublicKey] struct {
+type statePrefetcher[P crypto.PublicKey] struct {
 	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain[P]         // Canonical block chain
-	engine consensus.Engine[P]    // Consensus engine used for block rewards
+	bc     *BlockChain[P]      // Canonical block chain
+	engine consensus.Engine[P] // Consensus engine used for block rewards
 
 	pend sync.WaitGroup // Quorum: wait for MPS prefetching
 }

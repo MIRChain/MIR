@@ -19,7 +19,7 @@ package types
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 )
 
 //go:generate gencodec -type AccessTuple -out gen_access_tuple.go

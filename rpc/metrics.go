@@ -19,7 +19,7 @@ package rpc
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 var (

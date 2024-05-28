@@ -28,12 +28,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/plugin"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/plugin"
+	"github.com/MIRChain/MIR/rpc"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -600,7 +600,7 @@ func createNode(t *testing.T, httpPort, wsPort int) *Node[nist.PrivateKey, nist.
 		WSPort:   wsPort,
 	}
 	node, err := New(conf)
-	node.pluginManager = plugin.NewEmptyPluginManager[nist.PrivateKey,nist.PublicKey]()
+	node.pluginManager = plugin.NewEmptyPluginManager[nist.PrivateKey, nist.PublicKey]()
 	if err != nil {
 		t.Fatalf("could not create a new node: %v", err)
 	}

@@ -20,11 +20,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
 )
 
 func TestParseRoot(t *testing.T) {
@@ -135,7 +135,7 @@ func TestParseEntry(t *testing.T) {
 
 func TestMakeTree(t *testing.T) {
 	nodes := testNodes(nodesSeed2, 50)
-	tree, err := MakeTree[nist.PrivateKey ,nist.PublicKey](2, nodes, nil)
+	tree, err := MakeTree[nist.PrivateKey, nist.PublicKey](2, nodes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

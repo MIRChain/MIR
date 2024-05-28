@@ -19,9 +19,9 @@ package ethash
 import (
 	"math/big"
 
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 	"github.com/holiman/uint256"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
 )
 
 const (

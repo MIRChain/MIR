@@ -1,0 +1,27 @@
+FROM centos:7
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+RUN yum update -y
+RUN yum install -y yum-utils deltarpm
+RUN yum install -y gcc-c++ golang wget git kernel-devel kernel-headers jemalloc-devel gmp-devel redhat-lsb-core rsyslog xerces-c-devel lsb-core-noarch gcc gtk2 jq vim htop rsyslog
+
+#setting up CSP
+ENV TZ="Asia/Tokyo"
+COPY ./install/linux-amd64_rpm.tgz  /linux-amd64_rpm.tgz
+COPY ./install/cades_linux_amd64.tar.gz /cades_linux_amd64.tar.gz
+COPY ./install/install_csp.sh /install_csp.sh
+COPY ./install/install_cades.sh /install_cades.sh
+COPY kis_1 /kis_1
+COPY cacerts.p7b /cacerts.p7b
+
+RUN chmod +x /install_csp.sh
+RUN chmod +x /install_cades.sh
+RUN /install_csp.sh
+RUN /install_cades.sh
+
+COPY req_user.sh /req_user.sh
+RUN chmod +x /req_user.sh
+COPY issue_cert.sh /issue_cert.sh
+RUN chmod +x /issue_cert.sh
+
+
+ENTRYPOINT ["bash", "issue_cert.sh"]

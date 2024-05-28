@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/plugin"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/plugin"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -26,10 +26,10 @@ func newAccountPluginCLIContext(args []string) *cli.Context {
 }
 
 type mockConfigNodeMaker struct {
-	do func(ctx *cli.Context) (*node.Node[nist.PrivateKey,nist.PublicKey], gethConfig[nist.PrivateKey,nist.PublicKey])
+	do func(ctx *cli.Context) (*node.Node[nist.PrivateKey, nist.PublicKey], gethConfig[nist.PrivateKey, nist.PublicKey])
 }
 
-func (m *mockConfigNodeMaker) makeConfigNode(ctx *cli.Context) (*node.Node[nist.PrivateKey,nist.PublicKey], gethConfig[nist.PrivateKey,nist.PublicKey]) {
+func (m *mockConfigNodeMaker) makeConfigNode(ctx *cli.Context) (*node.Node[nist.PrivateKey, nist.PublicKey], gethConfig[nist.PrivateKey, nist.PublicKey]) {
 	return m.do(ctx)
 }
 
@@ -37,7 +37,7 @@ func TestListPluginAccounts_ErrIfCLIFlagNotSet(t *testing.T) {
 	var args []string
 	ctx := newAccountPluginCLIContext(args)
 
-	_, err := listPluginAccounts[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err := listPluginAccounts[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "--plugins required")
 }
 
@@ -55,16 +55,16 @@ func TestListPluginAccounts_ErrIfUnsupportedPluginInConfig(t *testing.T) {
 	ctx := newAccountPluginCLIContext(args)
 
 	makeConfigNodeDelegate = &mockConfigNodeMaker{
-		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey,nist.PublicKey], gethConfig[nist.PrivateKey,nist.PublicKey]) {
-			return nil, gethConfig[nist.PrivateKey,nist.PublicKey]{
-				Node: node.Config[nist.PrivateKey,nist.PublicKey]{
+		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey, nist.PublicKey], gethConfig[nist.PrivateKey, nist.PublicKey]) {
+			return nil, gethConfig[nist.PrivateKey, nist.PublicKey]{
+				Node: node.Config[nist.PrivateKey, nist.PublicKey]{
 					Plugins: &pluginSettings,
 				},
 			}
 		},
 	}
 
-	_, err := listPluginAccounts[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err := listPluginAccounts[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "unsupported plugins configured: [somename]")
 }
 
@@ -91,7 +91,7 @@ func TestCreatePluginAccount_ErrIfCLIFlagsNotSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := newAccountPluginCLIContext(tt.args)
 
-			_, err := createPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+			_, err := createPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 			require.EqualError(t, err, "--plugins and --plugins.account.config flags must be set")
 		})
 	}
@@ -127,7 +127,7 @@ func TestCreatePluginAccount_ErrIfInvalidNewAccountConfig(t *testing.T) {
 				"--plugins.account.config", tt.flagValue,
 			}
 			ctx := newAccountPluginCLIContext(args)
-			_, err := createPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+			_, err := createPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 			require.EqualError(t, err, tt.wantErrMsg)
 		})
 	}
@@ -148,16 +148,16 @@ func TestCreatePluginAccount_ErrIfUnsupportedPluginInConfig(t *testing.T) {
 	ctx := newAccountPluginCLIContext(args)
 
 	makeConfigNodeDelegate = &mockConfigNodeMaker{
-		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey,nist.PublicKey], gethConfig[nist.PrivateKey,nist.PublicKey]) {
-			return nil, gethConfig[nist.PrivateKey,nist.PublicKey]{
-				Node: node.Config[nist.PrivateKey,nist.PublicKey]{
+		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey, nist.PublicKey], gethConfig[nist.PrivateKey, nist.PublicKey]) {
+			return nil, gethConfig[nist.PrivateKey, nist.PublicKey]{
+				Node: node.Config[nist.PrivateKey, nist.PublicKey]{
 					Plugins: &pluginSettings,
 				},
 			}
 		},
 	}
 
-	_, err := createPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err := createPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "unsupported plugins configured: [somename]")
 }
 
@@ -165,7 +165,7 @@ func TestImportPluginAccount_ErrIfNoArg(t *testing.T) {
 	var args []string
 	ctx := newAccountPluginCLIContext(args)
 
-	_, err := importPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err := importPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "keyfile must be given as argument")
 }
 
@@ -173,7 +173,7 @@ func TestImportPluginAccount_ErrIfInvalidRawkey(t *testing.T) {
 	args := []string{"/incorrect/path/to/file.key"}
 	ctx := newAccountPluginCLIContext(args)
 
-	_, err := importPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err := importPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "Failed to load the private key: open /incorrect/path/to/file.key: no such file or directory")
 }
 
@@ -209,7 +209,7 @@ func TestImportPluginAccount_ErrIfCLIFlagsNotSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := newAccountPluginCLIContext(tt.args)
 
-			_, err := importPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+			_, err := importPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 			require.EqualError(t, err, "--plugins and --plugins.account.config flags must be set")
 		})
 	}
@@ -255,7 +255,7 @@ func TestImportPluginAccount_ErrIfInvalidNewAccountConfig(t *testing.T) {
 				tmpfile.Name(),
 			}
 			ctx := newAccountPluginCLIContext(args)
-			_, err := importPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+			_, err := importPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 			require.EqualError(t, err, tt.wantErrMsg)
 		})
 	}
@@ -286,15 +286,15 @@ func TestImportPluginAccount_ErrIfUnsupportedPluginInConfig(t *testing.T) {
 	ctx := newAccountPluginCLIContext(args)
 
 	makeConfigNodeDelegate = &mockConfigNodeMaker{
-		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey,nist.PublicKey], gethConfig[nist.PrivateKey,nist.PublicKey]) {
-			return nil, gethConfig[nist.PrivateKey,nist.PublicKey]{
-				Node: node.Config[nist.PrivateKey,nist.PublicKey]{
+		do: func(ctx *cli.Context) (*node.Node[nist.PrivateKey, nist.PublicKey], gethConfig[nist.PrivateKey, nist.PublicKey]) {
+			return nil, gethConfig[nist.PrivateKey, nist.PublicKey]{
+				Node: node.Config[nist.PrivateKey, nist.PublicKey]{
 					Plugins: &pluginSettings,
 				},
 			}
 		},
 	}
 
-	_, err = importPluginAccount[nist.PrivateKey,nist.PublicKey](ctx)
+	_, err = importPluginAccount[nist.PrivateKey, nist.PublicKey](ctx)
 	require.EqualError(t, err, "unsupported plugins configured: [somename]")
 }

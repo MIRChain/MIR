@@ -25,18 +25,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/prque"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	// pcore "github.com/pavelkrolevets/MIR-pro/permission/core"
-	"github.com/pavelkrolevets/MIR-pro/private"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/prque"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/params"
+
+	// pcore "github.com/MIRChain/MIR/permission/core"
+	"github.com/MIRChain/MIR/private"
 )
 
 const (
@@ -143,7 +144,7 @@ const (
 
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
-type blockChain [P crypto.PublicKey] interface {
+type blockChain[P crypto.PublicKey] interface {
 	CurrentBlock() *types.Block[P]
 	GetBlock(hash common.Hash, number uint64) *types.Block[P]
 	StateAt(root common.Hash) (*state.StateDB[P], mps.PrivateStateRepository[P], error)
@@ -233,7 +234,7 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 // The pool separates processable transactions (which can be applied to the
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
-type TxPool [P crypto.PublicKey] struct {
+type TxPool[P crypto.PublicKey] struct {
 	config      TxPoolConfig
 	chainconfig *params.ChainConfig
 	chain       blockChain[P]
@@ -248,16 +249,16 @@ type TxPool [P crypto.PublicKey] struct {
 
 	currentState  *state.StateDB[P] // Current state in the blockchain head
 	pendingNonces *txNoncer[P]      // Pending state tracking virtual nonces
-	currentMaxGas uint64         // Current gas limit for transaction caps
+	currentMaxGas uint64            // Current gas limit for transaction caps
 
 	locals  *accountSet[P] // Set of local transaction to exempt from eviction rules
 	journal *txJournal[P]  // Journal of local transaction to back up to disk
 
-	pending map[common.Address]*txList[P]   // All currently processable transactions
-	queue   map[common.Address]*txList[P]   // Queued but non-processable transactions
-	beats   map[common.Address]time.Time // Last heartbeat from each known account
-	all     *txLookup[P]                    // All transactions to allow lookups
-	priced  *txPricedList[P]                // All transactions sorted by price
+	pending map[common.Address]*txList[P] // All currently processable transactions
+	queue   map[common.Address]*txList[P] // Queued but non-processable transactions
+	beats   map[common.Address]time.Time  // Last heartbeat from each known account
+	all     *txLookup[P]                  // All transactions to allow lookups
+	priced  *txPricedList[P]              // All transactions sorted by price
 
 	chainHeadCh     chan ChainHeadEvent[P]
 	chainHeadSub    event.Subscription
@@ -269,7 +270,7 @@ type TxPool [P crypto.PublicKey] struct {
 	wg              sync.WaitGroup // tracks loop, scheduleReorgLoop
 }
 
-type txpoolResetRequest [P crypto.PublicKey] struct {
+type txpoolResetRequest[P crypto.PublicKey] struct {
 	oldHead, newHead *types.Header[P]
 }
 
@@ -1542,7 +1543,7 @@ func (a addressesByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // accountSet is simply a set of addresses to check for existence, and a signer
 // capable of deriving addresses from transactions.
-type accountSet [P crypto.PublicKey] struct {
+type accountSet[P crypto.PublicKey] struct {
 	accounts map[common.Address]struct{}
 	signer   types.Signer[P]
 	cache    *[]common.Address
@@ -1626,7 +1627,7 @@ func (as *accountSet[P]) merge(other *accountSet[P]) {
 //
 // This lookup set combines the notion of "local transactions", which is useful
 // to build upper-level structure.
-type txLookup [P crypto.PublicKey] struct {
+type txLookup[P crypto.PublicKey] struct {
 	slots   int
 	lock    sync.RWMutex
 	locals  map[common.Hash]*types.Transaction[P]

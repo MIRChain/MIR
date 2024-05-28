@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/params"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +18,7 @@ func Test_New_RegistersEthServicePendingLogsFeed(t *testing.T) {
 	conf := &ethconfig.Config[nist.PublicKey]{
 		RaftMode: true,
 	}
-	stack, err := node.New(&node.Config[nist.PrivateKey,nist.PublicKey]{})
+	stack, err := node.New(&node.Config[nist.PrivateKey, nist.PublicKey]{})
 	if err != nil {
 		t.Fatalf("failed to create node, err = %v", err)
 	}

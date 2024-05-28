@@ -27,18 +27,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/tests"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/tests"
 )
 
 // To generate a new callTracer test, copy paste the makeTest method below into
@@ -114,11 +114,11 @@ type callContext struct {
 }
 
 // callTracerTest defines a single test to check the call tracer against.
-type callTracerTest [P crypto.PublicKey] struct {
+type callTracerTest[P crypto.PublicKey] struct {
 	Genesis *core.Genesis[P] `json:"genesis"`
-	Context *callContext  `json:"context"`
-	Input   string        `json:"input"`
-	Result  *callTrace    `json:"result"`
+	Context *callContext     `json:"context"`
+	Input   string           `json:"input"`
+	Result  *callTrace       `json:"result"`
 }
 
 func TestPrestateTracerCreate2(t *testing.T) {
@@ -130,7 +130,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 	signer := types.NewEIP155Signer[nist.PublicKey](big.NewInt(1))
-	tx, err := types.SignTx[nist.PrivateKey,nist.PublicKey](unsignedTx, signer, nist.PrivateKey{privateKeyECDSA})
+	tx, err := types.SignTx[nist.PrivateKey, nist.PublicKey](unsignedTx, signer, nist.PrivateKey{privateKeyECDSA})
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}

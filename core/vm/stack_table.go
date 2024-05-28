@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/params"
 )
 
 func minSwapStack(n int) int {

@@ -4,8 +4,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // A QBFT COMMIT message.

@@ -20,15 +20,15 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // NodeSet stores a set of trie nodes. It implements trie.Database and can also
 // act as a cache for another trie.Database.
-type NodeSet [P crypto.PublicKey] struct {
+type NodeSet[P crypto.PublicKey] struct {
 	nodes map[string][]byte
 	order []string
 
@@ -37,7 +37,7 @@ type NodeSet [P crypto.PublicKey] struct {
 }
 
 // NewNodeSet creates an empty node set
-func NewNodeSet[P crypto.PublicKey] () *NodeSet[P] {
+func NewNodeSet[P crypto.PublicKey]() *NodeSet[P] {
 	return &NodeSet[P]{
 		nodes: make(map[string][]byte),
 	}
@@ -125,7 +125,7 @@ func (db *NodeSet[P]) Store(target ethdb.KeyValueWriter) {
 }
 
 // NodeList stores an ordered list of trie nodes. It implements ethdb.KeyValueWriter.
-type NodeList [P crypto.PublicKey] []rlp.RawValue
+type NodeList[P crypto.PublicKey] []rlp.RawValue
 
 // Store writes the contents of the list to the given database
 func (n NodeList[P]) Store(db ethdb.KeyValueWriter) {

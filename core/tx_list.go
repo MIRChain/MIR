@@ -22,9 +22,9 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -49,10 +49,10 @@ func (h *nonceHeap) Pop() interface{} {
 
 // txSortedMap is a nonce->transaction hash map with a heap based index to allow
 // iterating over the contents in a nonce-incrementing way.
-type txSortedMap [P crypto.PublicKey] struct {
+type txSortedMap[P crypto.PublicKey] struct {
 	items map[uint64]*types.Transaction[P] // Hash map storing the transaction data
-	index *nonceHeap                    // Heap of nonces of all the stored transactions (non-strict mode)
-	cache types.Transactions[P]          // Cache of the transactions already sorted
+	index *nonceHeap                       // Heap of nonces of all the stored transactions (non-strict mode)
+	cache types.Transactions[P]            // Cache of the transactions already sorted
 }
 
 // newTxSortedMap creates a new nonce-sorted transaction map.
@@ -191,7 +191,7 @@ func (m *txSortedMap[P]) Remove(nonce uint64) bool {
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
-func (m *txSortedMap[P]) Ready(start uint64) types.Transactions[P]{
+func (m *txSortedMap[P]) Ready(start uint64) types.Transactions[P] {
 	// Short circuit if no transactions are available
 	if m.index.Len() == 0 || (*m.index)[0] > start {
 		return nil
@@ -213,7 +213,7 @@ func (m *txSortedMap[P]) Len() int {
 	return len(m.items)
 }
 
-func (m *txSortedMap[P]) flatten() types.Transactions[P]{
+func (m *txSortedMap[P]) flatten() types.Transactions[P] {
 	// If the sorting was not cached yet, create and cache it
 	if m.cache == nil {
 		m.cache = make(types.Transactions[P], 0, len(m.items))
@@ -228,7 +228,7 @@ func (m *txSortedMap[P]) flatten() types.Transactions[P]{
 // Flatten creates a nonce-sorted slice of transactions based on the loosely
 // sorted internal representation. The result of the sorting is cached in case
 // it's requested again before any modifications are made to the contents.
-func (m *txSortedMap[P]) Flatten() types.Transactions[P]{
+func (m *txSortedMap[P]) Flatten() types.Transactions[P] {
 	// Copy the cache to prevent accidental modifications
 	cache := m.flatten()
 	txs := make(types.Transactions[P], len(cache))
@@ -247,8 +247,8 @@ func (m *txSortedMap[P]) LastElement() *types.Transaction[P] {
 // nonce. The same type can be used both for storing contiguous transactions for
 // the executable/pending queue; and for storing gapped transactions for the non-
 // executable/future queue, with minor behavioral changes.
-type txList [P crypto.PublicKey] struct {
-	strict bool         // Whether nonces are strictly continuous or not
+type txList[P crypto.PublicKey] struct {
+	strict bool            // Whether nonces are strictly continuous or not
 	txs    *txSortedMap[P] // Heap indexed sorted hash map of the transactions
 
 	costcap *big.Int // Price of the highest costing transaction (reset only if exceeds balance)
@@ -257,7 +257,7 @@ type txList [P crypto.PublicKey] struct {
 
 // newTxList create a new transaction list for maintaining nonce-indexable fast,
 // gapped, sortable transaction lists.
-func newTxList [P crypto.PublicKey](strict bool) *txList[P] {
+func newTxList[P crypto.PublicKey](strict bool) *txList[P] {
 	return &txList[P]{
 		strict:  strict,
 		txs:     newTxSortedMap[P](),
@@ -306,7 +306,7 @@ func (l *txList[P]) Add(tx *types.Transaction[P], priceBump uint64) (bool, *type
 // Forward removes all transactions from the list with a nonce lower than the
 // provided threshold. Every removed transaction is returned for any post-removal
 // maintenance.
-func (l *txList[P]) Forward(threshold uint64) types.Transactions[P]{
+func (l *txList[P]) Forward(threshold uint64) types.Transactions[P] {
 	return l.txs.Forward(threshold)
 }
 
@@ -352,7 +352,7 @@ func (l *txList[P]) Filter(costLimit *big.Int, gasLimit uint64) (types.Transacti
 
 // Cap places a hard limit on the number of items, returning all transactions
 // exceeding that limit.
-func (l *txList[P]) Cap(threshold int) types.Transactions[P]{
+func (l *txList[P]) Cap(threshold int) types.Transactions[P] {
 	return l.txs.Cap(threshold)
 }
 
@@ -379,7 +379,7 @@ func (l *txList[P]) Remove(tx *types.Transaction[P]) (bool, types.Transactions[P
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
-func (l *txList[P]) Ready(start uint64) types.Transactions[P]{
+func (l *txList[P]) Ready(start uint64) types.Transactions[P] {
 	return l.txs.Ready(start)
 }
 
@@ -396,7 +396,7 @@ func (l *txList[P]) Empty() bool {
 // Flatten creates a nonce-sorted slice of transactions based on the loosely
 // sorted internal representation. The result of the sorting is cached in case
 // it's requested again before any modifications are made to the contents.
-func (l *txList[P]) Flatten() types.Transactions[P]{
+func (l *txList[P]) Flatten() types.Transactions[P] {
 	return l.txs.Flatten()
 }
 
@@ -442,10 +442,10 @@ func (h *priceHeap[P]) Pop() interface{} {
 // contents in a price-incrementing way. It's built opon the all transactions
 // in txpool but only interested in the remote part. It means only remote transactions
 // will be considered for tracking, sorting, eviction, etc.
-type txPricedList [P crypto.PublicKey] struct {
+type txPricedList[P crypto.PublicKey] struct {
 	all     *txLookup[P]  // Pointer to the map of all transactions
 	remotes *priceHeap[P] // Heap of prices of all the stored **remote** transactions
-	stales  int        // Number of stale price points to (re-heap trigger)
+	stales  int           // Number of stale price points to (re-heap trigger)
 }
 
 // newTxPricedList creates a new price-sorted transaction heap.
@@ -481,7 +481,7 @@ func (l *txPricedList[P]) Removed(count int) {
 // from the priced list and returns them for further removal from the entire pool.
 //
 // Note: only remote transactions will be considered for eviction.
-func (l *txPricedList[P]) Cap(threshold *big.Int) types.Transactions[P]{
+func (l *txPricedList[P]) Cap(threshold *big.Int) types.Transactions[P] {
 	drop := make(types.Transactions[P], 0, 128) // Remote underpriced transactions to drop
 	for len(*l.remotes) > 0 {
 		// Discard stale transactions if found during cleanup

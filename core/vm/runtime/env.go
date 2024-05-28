@@ -17,9 +17,9 @@
 package runtime
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 func NewEnv[P crypto.PublicKey](cfg *Config[P]) *vm.EVM[P] {

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 func newTestFullNode(v []byte) []interface{} {

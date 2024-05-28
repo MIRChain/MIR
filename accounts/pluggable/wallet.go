@@ -6,15 +6,15 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	plugin "github.com/pavelkrolevets/MIR-pro/plugin/account"
+	ethereum "github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	plugin "github.com/MIRChain/MIR/plugin/account"
 )
 
-type wallet [P crypto.PublicKey] struct {
+type wallet[P crypto.PublicKey] struct {
 	url           accounts.URL
 	mu            sync.Mutex
 	pluginService plugin.Service

@@ -21,18 +21,18 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/params"
 )
 
 var (
@@ -46,7 +46,7 @@ var (
 // testTxPool is a mock transaction pool that blindly accepts all transactions.
 // Its goal is to get around setting up a valid statedb for the balance and nonce
 // checks.
-type testTxPool [P crypto.PublicKey] struct {
+type testTxPool[P crypto.PublicKey] struct {
 	pool map[common.Hash]*types.Transaction[P] // Hash map of collected transactions
 
 	txFeed event.Feed   // Notification feed to allow waiting for inclusion
@@ -116,21 +116,21 @@ func (p *testTxPool[P]) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent[P]) even
 // testHandler is a live implementation of the Ethereum protocol handler, just
 // preinitialized with some sane testing defaults and the transaction pool mocked
 // out.
-type testHandler [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type testHandler[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db      ethdb.Database
 	chain   *core.BlockChain[P]
 	txpool  *testTxPool[P]
-	handler *handler[T,P]
+	handler *handler[T, P]
 }
 
 // newTestHandler creates a new handler for testing purposes with no blocks.
-func newTestHandler[T crypto.PrivateKey, P crypto.PublicKey]() *testHandler[T,P] {
-	return newTestHandlerWithBlocks[T,P](0)
+func newTestHandler[T crypto.PrivateKey, P crypto.PublicKey]() *testHandler[T, P] {
+	return newTestHandlerWithBlocks[T, P](0)
 }
 
 // newTestHandlerWithBlocks creates a new handler for testing purposes, with a
 // given number of initial blocks.
-func newTestHandlerWithBlocks[T crypto.PrivateKey, P crypto.PublicKey](blocks int) *testHandler[T,P] {
+func newTestHandlerWithBlocks[T crypto.PrivateKey, P crypto.PublicKey](blocks int) *testHandler[T, P] {
 	// Create a database pre-initialize with a genesis block
 	db := rawdb.NewMemoryDatabase()
 	(&core.Genesis[P]{
@@ -138,15 +138,15 @@ func newTestHandlerWithBlocks[T crypto.PrivateKey, P crypto.PublicKey](blocks in
 		Alloc:  core.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
 	}).MustCommit(db)
 
-	chain, _ := core.NewBlockChain[P](db, nil, params.TestChainConfig,  ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
+	chain, _ := core.NewBlockChain[P](db, nil, params.TestChainConfig, ethash.NewFaker[P](), vm.Config[P]{}, nil, nil, nil)
 
-	bs, _ := core.GenerateChain[P](params.TestChainConfig, chain.Genesis(),  ethash.NewFaker[P](), db, blocks, nil)
+	bs, _ := core.GenerateChain[P](params.TestChainConfig, chain.Genesis(), ethash.NewFaker[P](), db, blocks, nil)
 	if _, err := chain.InsertChain(bs); err != nil {
 		panic(err)
 	}
 	txpool := newTestTxPool[P]()
 
-	handler, _ := newHandler(&handlerConfig[T,P]{
+	handler, _ := newHandler(&handlerConfig[T, P]{
 		Database:   db,
 		Chain:      chain,
 		TxPool:     txpool,
@@ -156,7 +156,7 @@ func newTestHandlerWithBlocks[T crypto.PrivateKey, P crypto.PublicKey](blocks in
 	})
 	handler.Start(1000)
 
-	return &testHandler[T,P]{
+	return &testHandler[T, P]{
 		db:      db,
 		chain:   chain,
 		txpool:  txpool,
@@ -165,7 +165,7 @@ func newTestHandlerWithBlocks[T crypto.PrivateKey, P crypto.PublicKey](blocks in
 }
 
 // close tears down the handler and all its internal constructs.
-func (b *testHandler[T,P]) close() {
+func (b *testHandler[T, P]) close() {
 	b.handler.Stop()
 	b.chain.Stop()
 }

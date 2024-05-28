@@ -3,9 +3,9 @@ InstallDir "$InstDir"
 OutFile "${OUTPUTFILE}" # set through command line arguments
 
 # Links for "Add/Remove Programs"
-!define HELPURL "https://github.com/pavelkrolevets/MIR-pro/issues"
-!define UPDATEURL "https://github.com/pavelkrolevets/MIR-pro/releases"
-!define ABOUTURL "https://github.com/pavelkrolevets/MIR-pro#ethereum-go"
+!define HELPURL "https://github.com/MIRChain/MIR/issues"
+!define UPDATEURL "https://github.com/MIRChain/MIR/releases"
+!define ABOUTURL "https://github.com/MIRChain/MIR#ethereum-go"
 !define /date NOW "%Y%m%d"
 
 PageEx license

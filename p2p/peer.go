@@ -25,14 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common/mclock"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enr"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common/mclock"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/p2p/enr"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var (
@@ -104,9 +104,9 @@ type PeerEvent struct {
 }
 
 // Peer represents a connected remote node.
-type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	rw      *conn[T,P]
-	running map[string]*protoRW[T,P]
+type Peer[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	rw      *conn[T, P]
+	running map[string]*protoRW[T, P]
 	log     log.Logger
 	created mclock.AbsTime
 
@@ -125,27 +125,27 @@ type Peer [T crypto.PrivateKey, P crypto.PublicKey] struct {
 }
 
 // NewPeer returns a peer for testing purposes.
-func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](id enode.ID, name string, caps []Cap) *Peer[T,P] {
+func NewPeer[T crypto.PrivateKey, P crypto.PublicKey](id enode.ID, name string, caps []Cap) *Peer[T, P] {
 	pipe, _ := net.Pipe()
-	node := enode.SignNull[T,P](new(enr.Record), id)
-	conn := &conn[T,P]{fd: pipe, transport: nil, node: node, caps: caps, name: name}
+	node := enode.SignNull[T, P](new(enr.Record), id)
+	conn := &conn[T, P]{fd: pipe, transport: nil, node: node, caps: caps, name: name}
 	peer := newPeer(log.Root(), conn, nil)
 	close(peer.closed) // ensures Disconnect doesn't block
 	return peer
 }
 
 // ID returns the node's public key.
-func (p *Peer[T,P]) ID() enode.ID {
+func (p *Peer[T, P]) ID() enode.ID {
 	return p.rw.node.ID()
 }
 
 // Node returns the peer's node descriptor.
-func (p *Peer[T,P]) Node() *enode.Node[P] {
+func (p *Peer[T, P]) Node() *enode.Node[P] {
 	return p.rw.node
 }
 
 // Name returns an abbreviated form of the name
-func (p *Peer[T,P]) Name() string {
+func (p *Peer[T, P]) Name() string {
 	s := p.rw.name
 	if len(s) > 20 {
 		return s[:20] + "..."
@@ -154,12 +154,12 @@ func (p *Peer[T,P]) Name() string {
 }
 
 // Fullname returns the node name that the remote node advertised.
-func (p *Peer[T,P]) Fullname() string {
+func (p *Peer[T, P]) Fullname() string {
 	return p.rw.name
 }
 
 // Caps returns the capabilities (supported subprotocols) of the remote peer.
-func (p *Peer[T,P]) Caps() []Cap {
+func (p *Peer[T, P]) Caps() []Cap {
 	// TODO: maybe return copy
 	return p.rw.caps
 }
@@ -167,7 +167,7 @@ func (p *Peer[T,P]) Caps() []Cap {
 // RunningCap returns true if the peer is actively connected using any of the
 // enumerated versions of a specific protocol, meaning that at least one of the
 // versions is supported by both this node and the peer p.
-func (p *Peer[T,P]) RunningCap(protocol string, versions []uint) bool {
+func (p *Peer[T, P]) RunningCap(protocol string, versions []uint) bool {
 	if proto, ok := p.running[protocol]; ok {
 		for _, ver := range versions {
 			if proto.Version == ver {
@@ -179,18 +179,18 @@ func (p *Peer[T,P]) RunningCap(protocol string, versions []uint) bool {
 }
 
 // RemoteAddr returns the remote address of the network connection.
-func (p *Peer[T,P]) RemoteAddr() net.Addr {
+func (p *Peer[T, P]) RemoteAddr() net.Addr {
 	return p.rw.fd.RemoteAddr()
 }
 
 // LocalAddr returns the local address of the network connection.
-func (p *Peer[T,P]) LocalAddr() net.Addr {
+func (p *Peer[T, P]) LocalAddr() net.Addr {
 	return p.rw.fd.LocalAddr()
 }
 
 // Disconnect terminates the peer connection with the given reason.
 // It returns immediately and does not wait until the connection is closed.
-func (p *Peer[T,P]) Disconnect(reason DiscReason) {
+func (p *Peer[T, P]) Disconnect(reason DiscReason) {
 	if p.testPipe != nil {
 		p.testPipe.Close()
 	}
@@ -210,19 +210,19 @@ func (p *Peer[T,P]) Disconnect(reason DiscReason) {
 }
 
 // String implements fmt.Stringer.
-func (p *Peer[T,P]) String() string {
+func (p *Peer[T, P]) String() string {
 	id := p.ID()
 	return fmt.Sprintf("Peer %x %v", id[:8], p.RemoteAddr())
 }
 
 // Inbound returns true if the peer is an inbound connection
-func (p *Peer[T,P]) Inbound() bool {
+func (p *Peer[T, P]) Inbound() bool {
 	return p.rw.is(inboundConn)
 }
 
-func newPeer[T crypto.PrivateKey, P crypto.PublicKey] (log log.Logger, conn *conn[T,P], protocols []Protocol[T,P]) *Peer[T,P] {
+func newPeer[T crypto.PrivateKey, P crypto.PublicKey](log log.Logger, conn *conn[T, P], protocols []Protocol[T, P]) *Peer[T, P] {
 	protomap := matchProtocols(protocols, conn.caps, conn)
-	p := &Peer[T,P]{
+	p := &Peer[T, P]{
 		rw:       conn,
 		running:  protomap,
 		created:  mclock.Now(),
@@ -237,11 +237,11 @@ func newPeer[T crypto.PrivateKey, P crypto.PublicKey] (log log.Logger, conn *con
 	return p
 }
 
-func (p *Peer[T,P]) Log() log.Logger {
+func (p *Peer[T, P]) Log() log.Logger {
 	return p.log
 }
 
-func (p *Peer[T,P]) run() (remoteRequested bool, err error) {
+func (p *Peer[T, P]) run() (remoteRequested bool, err error) {
 	var (
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
@@ -291,7 +291,7 @@ loop:
 	return remoteRequested, err
 }
 
-func (p *Peer[T,P]) pingLoop() {
+func (p *Peer[T, P]) pingLoop() {
 	ping := time.NewTimer(pingInterval)
 	defer p.wg.Done()
 	defer ping.Stop()
@@ -309,7 +309,7 @@ func (p *Peer[T,P]) pingLoop() {
 	}
 }
 
-func (p *Peer[T,P]) readLoop(errc chan<- error) {
+func (p *Peer[T, P]) readLoop(errc chan<- error) {
 	defer p.wg.Done()
 	for {
 		msg, err := p.rw.ReadMsg()
@@ -325,7 +325,7 @@ func (p *Peer[T,P]) readLoop(errc chan<- error) {
 	}
 }
 
-func (p *Peer[T,P]) handle(msg Msg) error {
+func (p *Peer[T, P]) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
 		msg.Discard()
@@ -360,7 +360,7 @@ func (p *Peer[T,P]) handle(msg Msg) error {
 	return nil
 }
 
-func countMatchingProtocols[T crypto.PrivateKey, P crypto.PublicKey](protocols []Protocol[T,P], caps []Cap) int {
+func countMatchingProtocols[T crypto.PrivateKey, P crypto.PublicKey](protocols []Protocol[T, P], caps []Cap) int {
 	n := 0
 	for _, cap := range caps {
 		for _, proto := range protocols {
@@ -373,10 +373,10 @@ func countMatchingProtocols[T crypto.PrivateKey, P crypto.PublicKey](protocols [
 }
 
 // matchProtocols creates structures for matching named subprotocols.
-func matchProtocols[T crypto.PrivateKey, P crypto.PublicKey](protocols []Protocol[T,P], caps []Cap, rw MsgReadWriter) map[string]*protoRW[T,P] {
+func matchProtocols[T crypto.PrivateKey, P crypto.PublicKey](protocols []Protocol[T, P], caps []Cap, rw MsgReadWriter) map[string]*protoRW[T, P] {
 	sort.Sort(capsByNameAndVersion(caps))
 	offset := baseProtocolLength
-	result := make(map[string]*protoRW[T,P])
+	result := make(map[string]*protoRW[T, P])
 
 outer:
 	for _, cap := range caps {
@@ -387,7 +387,7 @@ outer:
 					offset -= old.Length
 				}
 				// Assign the new match
-				result[cap.Name] = &protoRW[T,P]{Protocol: proto, offset: offset, in: make(chan Msg), w: rw}
+				result[cap.Name] = &protoRW[T, P]{Protocol: proto, offset: offset, in: make(chan Msg), w: rw}
 				offset += proto.Length
 
 				continue outer
@@ -397,7 +397,7 @@ outer:
 	return result
 }
 
-func (p *Peer[T,P]) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
+func (p *Peer[T, P]) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	p.wg.Add(len(p.running))
 	for _, proto := range p.running {
 		proto := proto
@@ -425,7 +425,7 @@ func (p *Peer[T,P]) startProtocols(writeStart <-chan struct{}, writeErr chan<- e
 
 // getProto finds the protocol responsible for handling
 // the given message code.
-func (p *Peer[T,P]) getProto(code uint64) (*protoRW[T,P], error) {
+func (p *Peer[T, P]) getProto(code uint64) (*protoRW[T, P], error) {
 	for _, proto := range p.running {
 		if code >= proto.offset && code < proto.offset+proto.Length {
 			return proto, nil
@@ -434,8 +434,8 @@ func (p *Peer[T,P]) getProto(code uint64) (*protoRW[T,P], error) {
 	return nil, newPeerError(errInvalidMsgCode, "%d", code)
 }
 
-type protoRW [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	Protocol[T,P]
+type protoRW[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	Protocol[T, P]
 	in     chan Msg        // receives read messages
 	closed <-chan struct{} // receives when peer is shutting down
 	wstart <-chan struct{} // receives when write may start
@@ -444,7 +444,7 @@ type protoRW [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	w      MsgWriter
 }
 
-func (rw *protoRW[T,P]) WriteMsg(msg Msg) (err error) {
+func (rw *protoRW[T, P]) WriteMsg(msg Msg) (err error) {
 	if msg.Code >= rw.Length {
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
@@ -467,7 +467,7 @@ func (rw *protoRW[T,P]) WriteMsg(msg Msg) (err error) {
 	return err
 }
 
-func (rw *protoRW[T,P]) ReadMsg() (Msg, error) {
+func (rw *protoRW[T, P]) ReadMsg() (Msg, error) {
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset
@@ -497,7 +497,7 @@ type PeerInfo struct {
 }
 
 // Info gathers and returns a collection of metadata known about a peer.
-func (p *Peer[T,P]) Info() *PeerInfo {
+func (p *Peer[T, P]) Info() *PeerInfo {
 	// Gather the protocol capabilities
 	var caps []string
 	for _, cap := range p.Caps() {
@@ -540,8 +540,8 @@ func (p *Peer[T,P]) Info() *PeerInfo {
 // NewPeerPipe creates a peer for testing purposes.
 // The message pipe given as the last parameter is closed when
 // Disconnect is called on the peer.
-func NewPeerPipe[T crypto.PrivateKey, P crypto.PublicKey](id enode.ID, name string, caps []Cap, pipe *MsgPipeRW) *Peer[T,P] {
-	p := NewPeer[T,P](id, name, caps)
+func NewPeerPipe[T crypto.PrivateKey, P crypto.PublicKey](id enode.ID, name string, caps []Cap, pipe *MsgPipeRW) *Peer[T, P] {
+	p := NewPeer[T, P](id, name, caps)
 	p.testPipe = pipe
 	return p
 }

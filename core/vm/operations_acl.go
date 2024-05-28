@@ -19,10 +19,10 @@ package vm
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/params"
 )
 
 const (
@@ -41,7 +41,7 @@ const (
 // SLOAD_GAS 	800 	= WARM_STORAGE_READ_COST
 // SSTORE_RESET_GAS 	5000 	5000 - COLD_SLOAD_COST
 //
-//The other parameters defined in EIP 2200 are unchanged.
+// The other parameters defined in EIP 2200 are unchanged.
 // see gasSStoreEIP2200(...) in core/vm/gas_table.go for more info about how EIP 2200 is specified
 func gasSStoreEIP2929[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	// If we fail the minimum gas availability invariant, fail (0)
@@ -209,10 +209,10 @@ func makeCallVariantGasCallEIP2929[P crypto.PublicKey](oldCalculator gasFunc[P])
 }
 
 // var (
-	// gasCallEIP2929         = makeCallVariantGasCallEIP2929(gasCall)
-	// gasDelegateCallEIP2929 = makeCallVariantGasCallEIP2929(gasDelegateCall)
-	// gasStaticCallEIP2929   = makeCallVariantGasCallEIP2929(gasStaticCall)
-	// gasCallCodeEIP2929     = makeCallVariantGasCallEIP2929(gasCallCode)
+// gasCallEIP2929         = makeCallVariantGasCallEIP2929(gasCall)
+// gasDelegateCallEIP2929 = makeCallVariantGasCallEIP2929(gasDelegateCall)
+// gasStaticCallEIP2929   = makeCallVariantGasCallEIP2929(gasStaticCall)
+// gasCallCodeEIP2929     = makeCallVariantGasCallEIP2929(gasCallCode)
 // )
 
 func gasSelfdestructEIP2929[P crypto.PublicKey](evm *EVM[P], contract *Contract[P], stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {

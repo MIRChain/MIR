@@ -24,16 +24,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/trie"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -176,7 +176,7 @@ WARNING: This is a low-level operation which may cause database corruption!`,
 )
 
 func removeDB[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, config := makeConfigNode[T,P](ctx)
+	stack, config := makeConfigNode[T, P](ctx)
 
 	// Remove the full node state database
 	path := stack.ResolvePath("chaindata")
@@ -257,7 +257,7 @@ func inspect[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 			start = d
 		}
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -280,7 +280,7 @@ func showLeveldbStats(db ethdb.Stater) {
 }
 
 func dbStats[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -291,7 +291,7 @@ func dbStats[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 }
 
 func dbCompact[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -315,7 +315,7 @@ func dbGet[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -340,7 +340,7 @@ func dbDelete[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -367,7 +367,7 @@ func dbPut[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error {
 	if ctx.NArg() != 2 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, false)
@@ -401,7 +401,7 @@ func dbDumpTrie[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) error
 	if ctx.NArg() < 1 {
 		return fmt.Errorf("required arguments: %v", ctx.Command.ArgsUsage)
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack, true)
@@ -474,7 +474,7 @@ func freezerInspect[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context) e
 		log.Info("Could read count param", "error", err)
 		return err
 	}
-	stack, _ := makeConfigNode[T,P](ctx)
+	stack, _ := makeConfigNode[T, P](ctx)
 	defer stack.Close()
 	path := filepath.Join(stack.ResolvePath("chaindata"), "ancient")
 	log.Info("Opening freezer", "location", path, "name", kind)

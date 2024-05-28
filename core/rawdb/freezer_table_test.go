@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/metrics"
+	"github.com/MIRChain/MIR/metrics"
 )
 
 func init() {

@@ -22,12 +22,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
 )
 
-type JSONLogger [P crypto.PublicKey] struct {
+type JSONLogger[P crypto.PublicKey] struct {
 	encoder *json.Encoder
 	cfg     *LogConfig
 }
@@ -47,7 +47,8 @@ func NewJSONLogger[P crypto.PublicKey](cfg *LogConfig, writer io.Writer) *JSONLo
 func (l *JSONLogger[P]) CaptureStart(env *EVM[P], from, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
-func (l *JSONLogger[P]) CaptureFault(*EVM[P], uint64, OpCode, uint64, uint64, *ScopeContext[P], int, error) {}
+func (l *JSONLogger[P]) CaptureFault(*EVM[P], uint64, OpCode, uint64, uint64, *ScopeContext[P], int, error) {
+}
 
 // CaptureState outputs state information on the logger.
 func (l *JSONLogger[P]) CaptureState(env *EVM[P], pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext[P], rData []byte, depth int, err error) {

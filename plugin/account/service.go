@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
+	"github.com/MIRChain/MIR/accounts"
 )
 
 type Service interface {

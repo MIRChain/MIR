@@ -21,10 +21,10 @@ import (
 	"container/heap"
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.
@@ -121,7 +121,7 @@ type NodeIterator interface {
 
 // nodeIteratorState represents the iteration state at one particular node of the
 // trie, which can be resumed at a later invocation.
-type nodeIteratorState [P crypto.PublicKey] struct {
+type nodeIteratorState[P crypto.PublicKey] struct {
 	hash    common.Hash // Hash of the node being iterated (nil if not standalone)
 	node    node        // Trie node being iterated
 	parent  common.Hash // Hash of the first full ancestor node (nil if current is the root)
@@ -129,11 +129,11 @@ type nodeIteratorState [P crypto.PublicKey] struct {
 	pathlen int         // Length of the path to this node
 }
 
-type nodeIterator [P crypto.PublicKey] struct {
+type nodeIterator[P crypto.PublicKey] struct {
 	trie  *Trie[P]                // Trie being iterated
 	stack []*nodeIteratorState[P] // Hierarchy of trie nodes persisting the iteration state
-	path  []byte               // Path to the current node
-	err   error                // Failure set in case of an internal error in the iterator
+	path  []byte                  // Path to the current node
+	err   error                   // Failure set in case of an internal error in the iterator
 
 	resolver ethdb.KeyValueStore // Optional intermediate resolver above the disk layer
 }

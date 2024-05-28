@@ -26,15 +26,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/params"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 const (
@@ -56,7 +56,7 @@ const (
 //
 // It is not thread safe either, the encapsulating chain structures should do
 // the necessary mutex locking/unlocking.
-type HeaderChain [P crypto.PublicKey]struct {
+type HeaderChain[P crypto.PublicKey] struct {
 	config *params.ChainConfig
 
 	chainDb       ethdb.Database
@@ -130,7 +130,7 @@ func (hc *HeaderChain[P]) GetBlockNumber(hash common.Hash) *uint64 {
 	return number
 }
 
-type headerWriteResult [P crypto.PublicKey] struct {
+type headerWriteResult[P crypto.PublicKey] struct {
 	status     WriteStatus
 	ignored    int
 	imported   int
@@ -481,7 +481,7 @@ func (hc *HeaderChain[P]) GetTdByHash(hash common.Hash) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P]{
+func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Header[P] {
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := hc.headerCache.Get(hash); ok {
 		return header.(*types.Header[P])
@@ -497,7 +497,7 @@ func (hc *HeaderChain[P]) GetHeader(hash common.Hash, number uint64) *types.Head
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (hc *HeaderChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P]{
+func (hc *HeaderChain[P]) GetHeaderByHash(hash common.Hash) *types.Header[P] {
 	number := hc.GetBlockNumber(hash)
 	if number == nil {
 		return nil

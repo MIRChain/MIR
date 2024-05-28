@@ -23,22 +23,22 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	chainParams "github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/node"
+	chainParams "github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rpc"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // Register adds catalyst APIs to the node.
-func Register[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], backend *eth.Ethereum[T,P]) error {
+func Register[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T, P], backend *eth.Ethereum[T, P]) error {
 	chainconfig := backend.BlockChain().Config()
 	if chainconfig.CatalystBlock == nil {
 		return errors.New("catalystBlock is not set in genesis config")
@@ -58,17 +58,17 @@ func Register[T crypto.PrivateKey, P crypto.PublicKey](stack *node.Node[T,P], ba
 	return nil
 }
 
-type consensusAPI [T crypto.PrivateKey, P crypto.PublicKey] struct {
-	eth *eth.Ethereum[T,P]
+type consensusAPI[T crypto.PrivateKey, P crypto.PublicKey] struct {
+	eth *eth.Ethereum[T, P]
 }
 
-func newConsensusAPI[T crypto.PrivateKey, P crypto.PublicKey](eth *eth.Ethereum[T,P]) *consensusAPI[T,P] {
-	return &consensusAPI[T,P]{eth: eth}
+func newConsensusAPI[T crypto.PrivateKey, P crypto.PublicKey](eth *eth.Ethereum[T, P]) *consensusAPI[T, P] {
+	return &consensusAPI[T, P]{eth: eth}
 }
 
 // blockExecutionEnv gathers all the data required to execute
 // a block, either when assembling it or when inserting it.
-type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type blockExecutionEnv[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	chain   *core.BlockChain[P]
 	state   *state.StateDB[P]
 	tcount  int
@@ -86,7 +86,7 @@ type blockExecutionEnv [T crypto.PrivateKey, P crypto.PublicKey] struct {
 	privateReceipts   []*types.Receipt[P]
 }
 
-func (env *blockExecutionEnv[T,P]) commitTransaction(tx *types.Transaction[P], coinbase common.Address) error {
+func (env *blockExecutionEnv[T, P]) commitTransaction(tx *types.Transaction[P], coinbase common.Address) error {
 	vmconfig := *env.chain.GetVMConfig()
 	receipt, privateReceipt, err := core.ApplyTransaction[P](env.chain.Config(), env.chain, &coinbase, env.gasPool, env.state, env.privateState, env.header, tx, &env.header.GasUsed, vmconfig, env.forceNonParty, env.privateStateRepo, env.isInnerPrivateTxn)
 	if err != nil {
@@ -98,7 +98,7 @@ func (env *blockExecutionEnv[T,P]) commitTransaction(tx *types.Transaction[P], c
 	return nil
 }
 
-func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Header[P]) (*blockExecutionEnv[T,P], error) {
+func (api *consensusAPI[T, P]) makeEnv(parent *types.Block[P], header *types.Header[P]) (*blockExecutionEnv[T, P], error) {
 	state, mpsr, err := api.eth.BlockChain().StateAt(parent.Root())
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Head
 	if err != nil {
 		return nil, err
 	}
-	env := &blockExecutionEnv[T,P]{
+	env := &blockExecutionEnv[T, P]{
 		chain:   api.eth.BlockChain(),
 		state:   state,
 		header:  header,
@@ -120,7 +120,7 @@ func (api *consensusAPI[T,P]) makeEnv(parent *types.Block[P], header *types.Head
 
 // AssembleBlock creates a new block, inserts it into the chain, and returns the "execution
 // data" required for eth2 clients to process the new block.
-func (api *consensusAPI[T,P]) AssembleBlock(params assembleBlockParams) (*executableData, error) {
+func (api *consensusAPI[T, P]) AssembleBlock(params assembleBlockParams) (*executableData, error) {
 	log.Info("Producing block", "parentHash", params.ParentHash)
 
 	bc := api.eth.BlockChain()
@@ -289,7 +289,7 @@ func insertBlockParamsToBlock[P crypto.PublicKey](params executableData) (*types
 // NewBlock creates an Eth1 block, inserts it in the chain, and either returns true,
 // or false + an error. This is a bit redundant for go, but simplifies things on the
 // eth2 side.
-func (api *consensusAPI[T,P]) NewBlock(params executableData) (*newBlockResponse, error) {
+func (api *consensusAPI[T, P]) NewBlock(params executableData) (*newBlockResponse, error) {
 	parent := api.eth.BlockChain().GetBlockByHash(params.ParentHash)
 	if parent == nil {
 		return &newBlockResponse{false}, fmt.Errorf("could not find parent %x", params.ParentHash)
@@ -304,7 +304,7 @@ func (api *consensusAPI[T,P]) NewBlock(params executableData) (*newBlockResponse
 }
 
 // Used in tests to add a the list of transactions from a block to the tx pool.
-func (api *consensusAPI[T,P]) addBlockTxs(block *types.Block[P]) error {
+func (api *consensusAPI[T, P]) addBlockTxs(block *types.Block[P]) error {
 	for _, tx := range block.Transactions() {
 		api.eth.TxPool().AddLocal(tx)
 	}
@@ -313,11 +313,11 @@ func (api *consensusAPI[T,P]) addBlockTxs(block *types.Block[P]) error {
 
 // FinalizeBlock is called to mark a block as synchronized, so
 // that data that is no longer needed can be removed.
-func (api *consensusAPI[T,P]) FinalizeBlock(blockHash common.Hash) (*genericResponse, error) {
+func (api *consensusAPI[T, P]) FinalizeBlock(blockHash common.Hash) (*genericResponse, error) {
 	return &genericResponse{true}, nil
 }
 
 // SetHead is called to perform a force choice.
-func (api *consensusAPI[T,P]) SetHead(newHead common.Hash) (*genericResponse, error) {
+func (api *consensusAPI[T, P]) SetHead(newHead common.Hash) (*genericResponse, error) {
 	return &genericResponse{true}, nil
 }

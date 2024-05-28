@@ -21,7 +21,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Entry is implemented by known node record entry types.

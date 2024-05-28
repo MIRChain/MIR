@@ -19,13 +19,13 @@ package types
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // Signs with Homestead
 // obtains sender from EIP55Signer
-type QuorumPrivateTxSigner [P crypto.PublicKey]struct{ HomesteadSigner[P] }
+type QuorumPrivateTxSigner[P crypto.PublicKey] struct{ HomesteadSigner[P] }
 
 func (s QuorumPrivateTxSigner[P]) Sender(tx *Transaction[P]) (common.Address, error) {
 	return HomesteadSigner[P]{}.Sender(tx)

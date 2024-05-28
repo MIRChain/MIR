@@ -22,16 +22,16 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul"
-	istanbulcommon "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/common"
-	qbftengine "github.com/pavelkrolevets/MIR-pro/consensus/istanbul/qbft/engine"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/testutils"
-	"github.com/pavelkrolevets/MIR-pro/consensus/istanbul/validator"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/istanbul"
+	istanbulcommon "github.com/MIRChain/MIR/consensus/istanbul/common"
+	qbftengine "github.com/MIRChain/MIR/consensus/istanbul/qbft/engine"
+	"github.com/MIRChain/MIR/consensus/istanbul/testutils"
+	"github.com/MIRChain/MIR/consensus/istanbul/validator"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
 )
 
 type testerVote struct {
@@ -43,24 +43,24 @@ type testerVote struct {
 // testerAccountPool is a pool to maintain currently active tester accounts,
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
-type testerAccountPool [T crypto.PrivateKey,P crypto.PublicKey]struct {
+type testerAccountPool[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	accounts map[string]nist.PrivateKey
 }
 
-func newTesterAccountPool[T crypto.PrivateKey,P crypto.PublicKey]() *testerAccountPool[T,P] {
-	return &testerAccountPool[T,P]{
+func newTesterAccountPool[T crypto.PrivateKey, P crypto.PublicKey]() *testerAccountPool[T, P] {
+	return &testerAccountPool[T, P]{
 		accounts: make(map[string]nist.PrivateKey),
 	}
 }
 
-func (ap *testerAccountPool[T,P]) writeValidatorVote(header *types.Header[P], validator string, recipientAddress string, authorize bool) error {
+func (ap *testerAccountPool[T, P]) writeValidatorVote(header *types.Header[P], validator string, recipientAddress string, authorize bool) error {
 	return qbftengine.ApplyHeaderQBFTExtra(
 		header,
 		qbftengine.WriteVote(ap.address(recipientAddress), authorize),
 	)
 }
 
-func (ap *testerAccountPool[T,P]) address(account string) common.Address {
+func (ap *testerAccountPool[T, P]) address(account string) common.Address {
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == crypto.ZeroPrivateKey[nist.PrivateKey]() {
 		ap.accounts[account], _ = crypto.GenerateKey[nist.PrivateKey]()
@@ -314,7 +314,7 @@ func TestVoting(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of validators
-		accounts := newTesterAccountPool[nist.PrivateKey,nist.PublicKey]()
+		accounts := newTesterAccountPool[nist.PrivateKey, nist.PublicKey]()
 
 		validators := make([]common.Address, len(tt.validators))
 		for j, validator := range tt.validators {

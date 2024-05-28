@@ -24,25 +24,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus"
+	"github.com/MIRChain/MIR/consensus/clique"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/private"
+	"github.com/MIRChain/MIR/private/engine"
 	"github.com/golang/mock/gomock"
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus"
-	"github.com/pavelkrolevets/MIR-pro/consensus/clique"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/private"
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -112,7 +112,7 @@ func init() {
 }
 
 // testWorkerBackend implements worker.Backend interfaces and wraps all information needed during the testing.
-type testWorkerBackend [T crypto.PrivateKey,P crypto.PublicKey] struct {
+type testWorkerBackend[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	db         ethdb.Database
 	txPool     *core.TxPool[P]
 	chain      *core.BlockChain[P]
@@ -121,7 +121,7 @@ type testWorkerBackend [T crypto.PrivateKey,P crypto.PublicKey] struct {
 	uncleBlock *types.Block[P]
 }
 
-func newTestWorkerBackend[T crypto.PrivateKey,P crypto.PublicKey](t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine[P], db ethdb.Database, n int) *testWorkerBackend[T,P] {
+func newTestWorkerBackend[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine[P], db ethdb.Database, n int) *testWorkerBackend[T, P] {
 	var gspec = core.Genesis[P]{
 		Config: chainConfig,
 		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
@@ -160,7 +160,7 @@ func newTestWorkerBackend[T crypto.PrivateKey,P crypto.PublicKey](t *testing.T, 
 		gen.SetCoinbase(testUserAddress)
 	})
 
-	return &testWorkerBackend[T,P]{
+	return &testWorkerBackend[T, P]{
 		db:         db,
 		chain:      chain,
 		txPool:     txpool,
@@ -169,11 +169,11 @@ func newTestWorkerBackend[T crypto.PrivateKey,P crypto.PublicKey](t *testing.T, 
 	}
 }
 
-func (b *testWorkerBackend[T,P]) ChainDb() ethdb.Database      { return b.db }
-func (b *testWorkerBackend[T,P]) BlockChain() *core.BlockChain[P] { return b.chain }
-func (b *testWorkerBackend[T,P]) TxPool() *core.TxPool[P]         { return b.txPool }
+func (b *testWorkerBackend[T, P]) ChainDb() ethdb.Database         { return b.db }
+func (b *testWorkerBackend[T, P]) BlockChain() *core.BlockChain[P] { return b.chain }
+func (b *testWorkerBackend[T, P]) TxPool() *core.TxPool[P]         { return b.txPool }
 
-func (b *testWorkerBackend[T,P]) newRandomUncle() *types.Block[P] {
+func (b *testWorkerBackend[T, P]) newRandomUncle() *types.Block[P] {
 	var parent *types.Block[P]
 	cur := b.chain.CurrentBlock()
 	if cur.NumberU64() == 0 {
@@ -189,7 +189,7 @@ func (b *testWorkerBackend[T,P]) newRandomUncle() *types.Block[P] {
 	return blocks[0]
 }
 
-func (b *testWorkerBackend[T,P]) newRandomTx(creation bool, private bool) *types.Transaction[P] {
+func (b *testWorkerBackend[T, P]) newRandomTx(creation bool, private bool) *types.Transaction[P] {
 	var signer types.Signer[P]
 	signer = types.HomesteadSigner[P]{}
 	if private {
@@ -197,26 +197,26 @@ func (b *testWorkerBackend[T,P]) newRandomTx(creation bool, private bool) *types
 	}
 	var tx *types.Transaction[P]
 	var key T
-	switch t:=any(&testBankKey).(type){
+	switch t := any(&testBankKey).(type) {
 	case *nist.PrivateKey:
-		tt:=any(&key).(*nist.PrivateKey)
-		*tt=*t
+		tt := any(&key).(*nist.PrivateKey)
+		*tt = *t
 	case *gost3410.PrivateKey:
-		tt:=any(&key).(*gost3410.PrivateKey)
-		*tt=*t
+		tt := any(&key).(*gost3410.PrivateKey)
+		*tt = *t
 	}
 	if creation {
-		tx, _ = types.SignTx[T,P](types.NewContractCreation[P](b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, key)
+		tx, _ = types.SignTx[T, P](types.NewContractCreation[P](b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), signer, key)
 	} else {
-		tx, _ = types.SignTx[T,P](types.NewTransaction[P](b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+		tx, _ = types.SignTx[T, P](types.NewTransaction[P](b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
 	}
 	return tx
 }
 
-func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine[nist.PublicKey], db ethdb.Database, blocks int) (*worker[nist.PrivateKey,nist.PublicKey], *testWorkerBackend[nist.PrivateKey,nist.PublicKey]) {
-	backend := newTestWorkerBackend[nist.PrivateKey,nist.PublicKey](t, chainConfig, engine, db, blocks)
+func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine[nist.PublicKey], db ethdb.Database, blocks int) (*worker[nist.PrivateKey, nist.PublicKey], *testWorkerBackend[nist.PrivateKey, nist.PublicKey]) {
+	backend := newTestWorkerBackend[nist.PrivateKey, nist.PublicKey](t, chainConfig, engine, db, blocks)
 	backend.txPool.AddLocals(pendingTxs)
-	w := newWorker[nist.PrivateKey,nist.PublicKey](testConfig, chainConfig, engine, backend, new(event.TypeMux), nil, false)
+	w := newWorker[nist.PrivateKey, nist.PublicKey](testConfig, chainConfig, engine, backend, new(event.TypeMux), nil, false)
 	w.setEtherbase(testBankAddress)
 	return w, backend
 }
@@ -241,7 +241,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 		engine = clique.New[nist.PublicKey](chainConfig.Clique, db)
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
-		engine =  ethash.NewFaker[nist.PublicKey]()
+		engine = ethash.NewFaker[nist.PublicKey]()
 	}
 
 	w, b := newTestWorker(t, chainConfig, engine, db, 0)
@@ -284,7 +284,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 }
 
 func TestEmptyWorkEthash(t *testing.T) {
-	testEmptyWork(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
+	testEmptyWork(t, ethashChainConfig, ethash.NewFaker[nist.PublicKey]())
 }
 func TestEmptyWorkClique(t *testing.T) {
 	testEmptyWork(t, cliqueChainConfig, clique.New[nist.PublicKey](cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
@@ -336,7 +336,7 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 }
 
 func TestStreamUncleBlock(t *testing.T) {
-	ethash :=  ethash.NewFaker[nist.PublicKey]()
+	ethash := ethash.NewFaker[nist.PublicKey]()
 	defer ethash.Close()
 
 	w, b := newTestWorker(t, ethashChainConfig, ethash, rawdb.NewMemoryDatabase(), 1)
@@ -387,7 +387,7 @@ func TestStreamUncleBlock(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockEthash(t *testing.T) {
-	testRegenerateMiningBlock(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
+	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker[nist.PublicKey]())
 }
 
 func TestRegenerateMiningBlockClique(t *testing.T) {
@@ -447,7 +447,7 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 }
 
 func TestAdjustIntervalEthash(t *testing.T) {
-	testAdjustInterval(t, ethashChainConfig,  ethash.NewFaker[nist.PublicKey]())
+	testAdjustInterval(t, ethashChainConfig, ethash.NewFaker[nist.PublicKey]())
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
@@ -672,7 +672,7 @@ func TestPrivatePSMRStateCreated(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	logsContractData := "6080604052348015600f57600080fd5b507f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405160405180910390a1603e8060496000396000f3fe6080604052600080fdfea265627a7a72315820937805cb4f2481262ad95d420ab93220f11ceaea518c7ccf119fc2c58f58050d64736f6c63430005110032"
-	tx, _ := types.SignTx[nist.PrivateKey,nist.PublicKey](types.NewContractCreation[nist.PublicKey](b.txPool.Nonce(testBankAddress), big.NewInt(0), 470000, nil, common.FromHex(logsContractData)), types.QuorumPrivateTxSigner[nist.PublicKey]{}, testBankKey)
+	tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewContractCreation[nist.PublicKey](b.txPool.Nonce(testBankAddress), big.NewInt(0), 470000, nil, common.FromHex(logsContractData)), types.QuorumPrivateTxSigner[nist.PublicKey]{}, testBankKey)
 
 	mockptm.EXPECT().Receive(common.BytesToEncryptedPayloadHash(tx.Data())).Return("", []string{"psi1", "psi2"}, common.FromHex(logsContractData), nil, nil).AnyTimes()
 

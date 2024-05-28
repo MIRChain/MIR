@@ -25,11 +25,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 var ErrCommitDisabled = errors.New("no database for committing")
@@ -50,12 +50,12 @@ func returnToPool[P crypto.PublicKey](st *StackTrie[P]) {
 // StackTrie is a trie implementation that expects keys to be inserted
 // in order. Once it determines that a subtree will no longer be inserted
 // into, it will hash it and free up the memory it uses.
-type StackTrie [P crypto.PublicKey] struct {
+type StackTrie[P crypto.PublicKey] struct {
 	nodeType  uint8                // node type (as in branch, ext, leaf)
 	val       []byte               // value contained by this node if it's a leaf
 	key       []byte               // key chunk covered by this (full|ext) node
 	keyOffset int                  // offset of the key chunk inside a full key
-	children  [16]*StackTrie[P]       // list of children (for fullnodes and exts)
+	children  [16]*StackTrie[P]    // list of children (for fullnodes and exts)
 	db        ethdb.KeyValueWriter // Pointer to the commit db, can be nil
 }
 
@@ -365,11 +365,12 @@ func (st *StackTrie[P]) insert(key, value []byte) {
 // hash() hashes the node 'st' and converts it into 'hashedNode', if possible.
 // Possible outcomes:
 // 1. The rlp-encoded value was >= 32 bytes:
-//  - Then the 32-byte `hash` will be accessible in `st.val`.
-//  - And the 'st.type' will be 'hashedNode'
+//   - Then the 32-byte `hash` will be accessible in `st.val`.
+//   - And the 'st.type' will be 'hashedNode'
+//
 // 2. The rlp-encoded value was < 32 bytes
-//  - Then the <32 byte rlp-encoded value will be accessible in 'st.val'.
-//  - And the 'st.type' will be 'hashedNode' AGAIN
+//   - Then the <32 byte rlp-encoded value will be accessible in 'st.val'.
+//   - And the 'st.type' will be 'hashedNode' AGAIN
 //
 // This method will also:
 // set 'st.type' to hashedNode

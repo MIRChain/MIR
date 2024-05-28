@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
+	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +21,7 @@ func TestNewVerifier_whenResolvingDefaultPublicKeyLocation(t *testing.T) {
 	if err := ioutil.WriteFile(path.Join(tmpDir, DefaultPublicKeyFile), []byte("foo"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	arbitraryPM := &PluginManager[nist.PrivateKey,nist.PublicKey]{
+	arbitraryPM := &PluginManager[nist.PrivateKey, nist.PublicKey]{
 		pluginBaseDir: tmpDir,
 	}
 
@@ -32,7 +32,7 @@ func TestNewVerifier_whenResolvingDefaultPublicKeyLocation(t *testing.T) {
 }
 
 func TestNewVerifier_whenUsingOnlineVerifier(t *testing.T) {
-	arbitraryPM := &PluginManager[nist.PrivateKey,nist.PublicKey]{}
+	arbitraryPM := &PluginManager[nist.PrivateKey, nist.PublicKey]{}
 
 	testObject, err := NewVerifier(arbitraryPM, false, "")
 

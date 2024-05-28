@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/rlp"
 	"github.com/coreos/etcd/raft/raftpb"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 const TEST_URL = "enode://3d9ca5956b38557aba991e31cf510d4df641dce9cc26bfeb7de082f0c07abb6ede3a58410c8f249dabeecee4ad3979929ac4c7c496ad20b8cfdd061b7401b4f5@127.0.0.1:21003?discport=0&raftport=50404"
@@ -26,12 +26,12 @@ const TEST_URL = "enode://3d9ca5956b38557aba991e31cf510d4df641dce9cc26bfeb7de082
 func TestSignHeader(t *testing.T) {
 	//create only what we need to test the seal
 	var testRaftId uint16 = 5
-	config := &node.Config[nist.PrivateKey,nist.PublicKey]{Name: "unit-test", DataDir: ""}
+	config := &node.Config[nist.PrivateKey, nist.PublicKey]{Name: "unit-test", DataDir: ""}
 	nodeKey := config.NodeKey()
 
-	raftProtocolManager := &ProtocolManager[nist.PrivateKey,nist.PublicKey]{raftId: testRaftId}
-	raftService := &RaftService[nist.PrivateKey,nist.PublicKey]{nodeKey: nodeKey, raftProtocolManager: raftProtocolManager}
-	minter := minter[nist.PrivateKey,nist.PublicKey]{eth: raftService}
+	raftProtocolManager := &ProtocolManager[nist.PrivateKey, nist.PublicKey]{raftId: testRaftId}
+	raftService := &RaftService[nist.PrivateKey, nist.PublicKey]{nodeKey: nodeKey, raftProtocolManager: raftProtocolManager}
+	minter := minter[nist.PrivateKey, nist.PublicKey]{eth: raftService}
 
 	//create some fake header to sign
 	fakeParentHash := common.HexToHash("0xc2c1dc1be8054808c69e06137429899d")
@@ -145,7 +145,7 @@ func TestSignHeader(t *testing.T) {
 
 func TestAddLearner_whenTypical(t *testing.T) {
 
-	raftService := newTestRaftService[nist.PrivateKey,nist.PublicKey](t, 1, []uint64{1}, []uint64{})
+	raftService := newTestRaftService[nist.PrivateKey, nist.PublicKey](t, 1, []uint64{1}, []uint64{})
 
 	propPeer := func() {
 		raftid, err := raftService.raftProtocolManager.ProposeNewPeer(TEST_URL, true)
@@ -172,7 +172,7 @@ func TestAddLearner_whenTypical(t *testing.T) {
 
 func TestPromoteLearnerToPeer_whenTypical(t *testing.T) {
 	learnerRaftId := uint16(3)
-	raftService := newTestRaftService[nist.PrivateKey,nist.PublicKey](t, 2, []uint64{2}, []uint64{uint64(learnerRaftId)})
+	raftService := newTestRaftService[nist.PrivateKey, nist.PublicKey](t, 2, []uint64{2}, []uint64{uint64(learnerRaftId)})
 	promoteToPeer := func() {
 		ok, err := raftService.raftProtocolManager.PromoteToPeer(learnerRaftId)
 		if err != nil || !ok {
@@ -195,7 +195,7 @@ func TestPromoteLearnerToPeer_whenTypical(t *testing.T) {
 
 func TestAddLearnerOrPeer_fromLearner(t *testing.T) {
 
-	raftService := newTestRaftService[nist.PrivateKey,nist.PublicKey](t, 3, []uint64{2}, []uint64{3})
+	raftService := newTestRaftService[nist.PrivateKey, nist.PublicKey](t, 3, []uint64{2}, []uint64{3})
 
 	_, err := raftService.raftProtocolManager.ProposeNewPeer(TEST_URL, true)
 
@@ -221,7 +221,7 @@ func TestAddLearnerOrPeer_fromLearner(t *testing.T) {
 
 func TestPromoteLearnerToPeer_fromLearner(t *testing.T) {
 	learnerRaftId := uint16(3)
-	raftService := newTestRaftService[nist.PrivateKey,nist.PublicKey](t, 2, []uint64{1}, []uint64{2, uint64(learnerRaftId)})
+	raftService := newTestRaftService[nist.PrivateKey, nist.PublicKey](t, 2, []uint64{1}, []uint64{2, uint64(learnerRaftId)})
 
 	_, err := raftService.raftProtocolManager.PromoteToPeer(learnerRaftId)
 
@@ -249,21 +249,21 @@ func peerList[P crypto.PublicKey](url string) (error, []*enode.Node[P]) {
 	return nil, nodes
 }
 
-func newTestRaftService[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, raftId uint16, nodes []uint64, learners []uint64) *RaftService[T,P] {
+func newTestRaftService[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, raftId uint16, nodes []uint64, learners []uint64) *RaftService[T, P] {
 	//create only what we need to test add learner node
-	config := &node.Config[T,P]{Name: "unit-test", DataDir: ""}
+	config := &node.Config[T, P]{Name: "unit-test", DataDir: ""}
 	// This will create a new node key, which is needed to set a stub p2p.Server and avoid `nil pointer dereference` when testing.
 	nodeKey := config.NodeKey()
-	mockp2pConfig := p2p.Config[T,P]{Name: "unit-test", ListenAddr: "30303", PrivateKey: nodeKey}
-	mockp2p := &p2p.Server[T,P]{Config: mockp2pConfig}
+	mockp2pConfig := p2p.Config[T, P]{Name: "unit-test", ListenAddr: "30303", PrivateKey: nodeKey}
+	mockp2p := &p2p.Server[T, P]{Config: mockp2pConfig}
 	var pub P
-	switch t:=any(&nodeKey).(type){
+	switch t := any(&nodeKey).(type) {
 	case *nist.PrivateKey:
-		p:= any(&pub).(*nist.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*nist.PublicKey)
+		*p = *t.Public()
 	case *gost3410.PrivateKey:
-		p:= any(&pub).(*gost3410.PublicKey)
-		*p=*t.Public()
+		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
 	}
 	enodeIdStr := fmt.Sprintf("%x", crypto.FromECDSAPub[P](pub)[1:])
 	url := enodeId(enodeIdStr, "127.0.0.1:21001", 50401)
@@ -271,7 +271,7 @@ func newTestRaftService[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, r
 	if err != nil {
 		t.Errorf("getting peers failed %v", err)
 	}
-	raftProtocolManager := &ProtocolManager[T,P]{
+	raftProtocolManager := &ProtocolManager[T, P]{
 		raftId:              raftId,
 		bootstrapNodes:      peers,
 		confChangeProposalC: make(chan raftpb.ConfChange),
@@ -279,6 +279,6 @@ func newTestRaftService[T crypto.PrivateKey, P crypto.PublicKey](t *testing.T, r
 		confState:           raftpb.ConfState{Nodes: nodes, Learners: learners},
 		p2pServer:           mockp2p,
 	}
-	raftService := &RaftService[T,P]{nodeKey: nodeKey, raftProtocolManager: raftProtocolManager}
+	raftService := &RaftService[T, P]{nodeKey: nodeKey, raftProtocolManager: raftProtocolManager}
 	return raftService
 }

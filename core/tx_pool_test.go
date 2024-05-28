@@ -27,16 +27,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/mps"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/mps"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/trie"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk
@@ -48,7 +49,7 @@ func init() {
 	testTxPoolConfig.Journal = ""
 }
 
-type testBlockChain [P crypto.PublicKey]  struct {
+type testBlockChain[P crypto.PublicKey] struct {
 	statedb       *state.StateDB[P]
 	psManager     mps.PrivateStateRepository[P]
 	gasLimit      uint64
@@ -73,20 +74,20 @@ func (bc *testBlockChain[P]) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent[P]
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
-func transaction[T crypto.PrivateKey,P crypto.PublicKey](nonce uint64, gaslimit uint64, key T) *types.Transaction[P] {
-	return pricedTransaction[T,P](nonce, gaslimit, big.NewInt(1), key)
+func transaction[T crypto.PrivateKey, P crypto.PublicKey](nonce uint64, gaslimit uint64, key T) *types.Transaction[P] {
+	return pricedTransaction[T, P](nonce, gaslimit, big.NewInt(1), key)
 }
 
-func pricedTransaction[T crypto.PrivateKey,P crypto.PublicKey](nonce uint64, gaslimit uint64, gasprice *big.Int, key T) *types.Transaction[P] {
-	tx, _ := types.SignTx[T,P](types.NewTransaction[P](nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner[P]{}, key)
+func pricedTransaction[T crypto.PrivateKey, P crypto.PublicKey](nonce uint64, gaslimit uint64, gasprice *big.Int, key T) *types.Transaction[P] {
+	tx, _ := types.SignTx[T, P](types.NewTransaction[P](nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner[P]{}, key)
 	return tx
 }
 
-func pricedDataTransaction[T crypto.PrivateKey,P crypto.PublicKey](nonce uint64, gaslimit uint64, gasprice *big.Int, key T, bytes uint64) *types.Transaction[P] {
+func pricedDataTransaction[T crypto.PrivateKey, P crypto.PublicKey](nonce uint64, gaslimit uint64, gasprice *big.Int, key T, bytes uint64) *types.Transaction[P] {
 	data := make([]byte, bytes)
 	rand.Read(data)
 
-	tx, _ := types.SignTx[T,P](types.NewTransaction[P](nonce, common.Address{}, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner[P]{}, key)
+	tx, _ := types.SignTx[T, P](types.NewTransaction[P](nonce, common.Address{}, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner[P]{}, key)
 	return tx
 }
 
@@ -102,11 +103,11 @@ func setupTxPoolWithConfig[T crypto.PrivateKey, P crypto.PublicKey](config *para
 }
 
 func setupTxPool[T crypto.PrivateKey, P crypto.PublicKey]() (*TxPool[P], T) {
-	return setupTxPoolWithConfig[T,P](params.TestChainConfig)
+	return setupTxPoolWithConfig[T, P](params.TestChainConfig)
 }
 
 func setupQuorumTxPool[T crypto.PrivateKey, P crypto.PublicKey]() (*TxPool[P], T) {
-	return setupTxPoolWithConfig[T,P](params.QuorumTestChainConfig)
+	return setupTxPoolWithConfig[T, P](params.QuorumTestChainConfig)
 }
 
 // validateTxPoolInternals checks various consistency invariants within the pool.
@@ -169,10 +170,10 @@ func validateEvents(events chan NewTxsEvent[nist.PublicKey], count int) error {
 }
 
 func deriveSender[P crypto.PublicKey](tx *types.Transaction[P]) (common.Address, error) {
-	return  types.Sender[P](types.HomesteadSigner[P]{}, tx)
+	return types.Sender[P](types.HomesteadSigner[P]{}, tx)
 }
 
-type testChain [P crypto.PublicKey] struct {
+type testChain[P crypto.PublicKey] struct {
 	*testBlockChain[P]
 	address common.Address
 	trigger *bool
@@ -213,8 +214,8 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 	statedb.SetBalance(address, new(big.Int).SetUint64(params.Ether))
 	blockchain := &testChain[nist.PublicKey]{&testBlockChain[nist.PublicKey]{statedb, nil, 1000000000, new(event.Feed)}, address, &trigger}
 
-	tx0 := transaction[nist.PrivateKey,nist.PublicKey](0, 100000, key)
-	tx1 := transaction[nist.PrivateKey,nist.PublicKey](1, 100000, key)
+	tx0 := transaction[nist.PrivateKey, nist.PublicKey](0, 100000, key)
+	tx1 := transaction[nist.PrivateKey, nist.PublicKey](1, 100000, key)
 
 	pool := NewTxPool[nist.PublicKey](testTxPoolConfig, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -252,7 +253,7 @@ func TestInvalidTransactions(t *testing.T) {
 	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
-	tx := transaction[nist.PrivateKey,nist.PublicKey](0, 100, key)
+	tx := transaction[nist.PrivateKey, nist.PublicKey](0, 100, key)
 	from, _ := deriveSender(tx)
 
 	pool.currentState.AddBalance(from, big.NewInt(1))
@@ -268,12 +269,12 @@ func TestInvalidTransactions(t *testing.T) {
 
 	pool.currentState.SetNonce(from, 1)
 	pool.currentState.AddBalance(from, big.NewInt(0xffffffffffffff))
-	tx = transaction[nist.PrivateKey,nist.PublicKey](0, 100000, key)
+	tx = transaction[nist.PrivateKey, nist.PublicKey](0, 100000, key)
 	if err := pool.AddRemote(tx); !errors.Is(err, ErrNonceTooLow) {
 		t.Error("expected", ErrNonceTooLow, "; got", err)
 	}
 
-	tx = transaction[nist.PrivateKey,nist.PublicKey](1, 100000, key)
+	tx = transaction[nist.PrivateKey, nist.PublicKey](1, 100000, key)
 	pool.gasPrice = big.NewInt(1000)
 	if err := pool.AddRemote(tx); err != ErrUnderpriced {
 		t.Error("expected", ErrUnderpriced, "; got", err)
@@ -283,7 +284,7 @@ func TestInvalidTransactions(t *testing.T) {
 	}
 
 	tooMuchGas := pool.currentMaxGas + 1
-	tx1 := transaction[nist.PrivateKey,nist.PublicKey](2, tooMuchGas, key)
+	tx1 := transaction[nist.PrivateKey, nist.PublicKey](2, tooMuchGas, key)
 	if err := pool.AddRemote(tx1); err != ErrGasLimit {
 		t.Error("expected", ErrGasLimit, "; got", err)
 	}
@@ -325,9 +326,9 @@ func TestInvalidTransactions(t *testing.T) {
 	}
 }
 
-//Test for transactions that are only invalid on Quorum
+// Test for transactions that are only invalid on Quorum
 func TestQuorumInvalidTransactions(t *testing.T) {
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	tx := transaction[nist.PrivateKey, nist.PublicKey](0, 0, key)
@@ -337,9 +338,9 @@ func TestQuorumInvalidTransactions(t *testing.T) {
 
 }
 
-//Test for transactions that are only invalid on Quorum
+// Test for transactions that are only invalid on Quorum
 func TestQuorumTransactionSizeLimitTransition(t *testing.T) {
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	data := make([]byte, (64*1024)+1)
@@ -360,7 +361,7 @@ func TestQuorumTransactionSizeLimitTransition(t *testing.T) {
 }
 
 func TestValidateTx_whenValueZeroTransferForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 	zeroValue := common.Big0
 	zeroGasPrice := common.Big0
@@ -374,7 +375,7 @@ func TestValidateTx_whenValueZeroTransferForPrivateTransaction(t *testing.T) {
 }
 
 func TestValidateTx_whenValueNonZeroTransferForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 	arbitraryValue := common.Big3
 	arbitraryTx, balance, from := newPrivateTransaction(arbitraryValue, nil, key)
@@ -396,7 +397,7 @@ func newPrivateTransaction(value *big.Int, data []byte, key nist.PrivateKey) (*t
 }
 
 func TestValidateTx_whenValueNonZeroWithSmartContractForPrivateTransaction(t *testing.T) {
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 	arbitraryValue := common.Big3
 	arbitraryTx, balance, from := newPrivateTransaction(arbitraryValue, []byte("arbitrary bytecode"), key)
@@ -410,7 +411,7 @@ func TestValidateTx_whenValueNonZeroWithSmartContractForPrivateTransaction(t *te
 func TestTransactionQueue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	tx := transaction[nist.PrivateKey, nist.PublicKey](0, 100, key)
@@ -439,10 +440,55 @@ func TestTransactionQueue(t *testing.T) {
 	}
 }
 
+func TestTransactionQueueCSP(t *testing.T) {
+	t.Parallel()
+
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	defer crt.Close()
+
+	params.SignerCert = &crt
+	pool, key := setupTxPool[csp.Cert, csp.PublicKey]()
+	defer pool.Stop()
+	skid, err := key.SubjectID()
+	t.Logf("Cert skid %s", skid)
+	tx := transaction[csp.Cert, csp.PublicKey](0, 100, key)
+	from, _ := deriveSender(tx)
+	t.Logf("From %s", from.Hex())
+	pool.currentState.AddBalance(from, big.NewInt(1000))
+	<-pool.requestReset(nil, nil)
+
+	pool.enqueueTx(tx.Hash(), tx, false, true)
+	<-pool.requestPromoteExecutables(newAccountSet[csp.PublicKey](pool.signer, from))
+	if len(pool.pending) != 1 {
+		t.Error("expected valid txs to be 1 is", len(pool.pending))
+	}
+	// tx = transaction[csp.Cert, csp.PublicKey](1, 100, key)
+	// from, _ = deriveSender(tx)
+	// pool.currentState.SetNonce(from, 2)
+	// pool.enqueueTx(tx.Hash(), tx, false, true)
+
+	// <-pool.requestPromoteExecutables(newAccountSet[csp.PublicKey](pool.signer, from))
+	// if _, ok := pool.pending[from].txs.items[tx.Nonce()]; ok {
+	// 	t.Error("expected transaction to be in tx pool")
+	// }
+	// if len(pool.queue) > 0 {
+	// 	t.Error("expected transaction queue to be empty. is", len(pool.queue))
+	// }
+}
+
 func TestTransactionQueue2(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	tx1 := transaction[nist.PrivateKey, nist.PublicKey](0, 100, key)
@@ -468,7 +514,7 @@ func TestTransactionQueue2(t *testing.T) {
 func TestTransactionNegativeValue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	tx, _ := types.SignTx[nist.PrivateKey, nist.PublicKey](types.NewTransaction[nist.PublicKey](0, common.Address{}, big.NewInt(-1), 100, big.NewInt(1), nil), types.HomesteadSigner[nist.PublicKey]{}, key)
@@ -482,7 +528,7 @@ func TestTransactionNegativeValue(t *testing.T) {
 func TestTransactionChainFork(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -508,10 +554,51 @@ func TestTransactionChainFork(t *testing.T) {
 	}
 }
 
+func TestTransactionChainForkCSP(t *testing.T) {
+	t.Parallel()
+	store, err := csp.SystemStore("My")
+	if err != nil {
+		t.Fatalf("Store error: %s", err)
+	}
+	defer store.Close()
+	// Cert should be without set pin
+	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	if err != nil {
+		t.Fatalf("Get cert error: %s", err)
+	}
+	defer crt.Close()
+
+	params.SignerCert = &crt
+
+	pool, key := setupTxPool[csp.Cert, csp.PublicKey]()
+	defer pool.Stop()
+	addr := crypto.PubkeyToAddress[csp.PublicKey](*key.Public())
+	resetState := func() {
+		statedb, _ := state.New[csp.PublicKey](common.Hash{}, state.NewDatabase[csp.PublicKey](rawdb.NewMemoryDatabase()), nil)
+		statedb.AddBalance(addr, big.NewInt(100000000000000))
+
+		pool.chain = &testBlockChain[csp.PublicKey]{statedb, nil, 1000000, new(event.Feed)}
+		<-pool.requestReset(nil, nil)
+	}
+	resetState()
+
+	tx := transaction[csp.Cert, csp.PublicKey](0, 100000, key)
+	if _, err := pool.add(tx, false); err != nil {
+		t.Error("didn't expect error", err)
+	}
+	pool.removeTx(tx.Hash(), true)
+
+	// reset the pool's internal state
+	resetState()
+	if _, err := pool.add(tx, false); err != nil {
+		t.Error("didn't expect error", err)
+	}
+}
+
 func TestTransactionDoubleNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -562,7 +649,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 func TestTransactionMissingNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -586,7 +673,7 @@ func TestTransactionNonceRecovery(t *testing.T) {
 	t.Parallel()
 
 	const n = 10
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	addr := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -612,7 +699,7 @@ func TestTransactionDropping(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -830,7 +917,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -884,7 +971,7 @@ func TestTransactionQueueAccountLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -1165,7 +1252,7 @@ func TestTransactionPendingLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -1254,7 +1341,7 @@ func TestTransactionAllowedTxSize(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupQuorumTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupQuorumTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	pool.chainconfig.Transitions = []params.Transition{}
@@ -2083,7 +2170,7 @@ func BenchmarkPendingDemotion10000(b *testing.B) { benchmarkPendingDemotion(b, 1
 
 func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2108,7 +2195,7 @@ func BenchmarkFuturePromotion10000(b *testing.B) { benchmarkFuturePromotion(b, 1
 
 func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2136,7 +2223,7 @@ func BenchmarkPoolBatchLocalInsert10000(b *testing.B) { benchmarkPoolBatchInsert
 
 func benchmarkPoolBatchInsert(b *testing.B, size int, local bool) {
 	// Generate a batch of transactions to enqueue into the pool
-	pool, key := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+	pool, key := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress[nist.PublicKey](*key.Public())
@@ -2180,7 +2267,7 @@ func BenchmarkInsertRemoteWithAllLocals(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		pool, _ := setupTxPool[nist.PrivateKey,nist.PublicKey]()
+		pool, _ := setupTxPool[nist.PrivateKey, nist.PublicKey]()
 		pool.currentState.AddBalance(account, big.NewInt(100000000))
 		for _, local := range locals {
 			pool.AddLocal(local)
@@ -2218,7 +2305,7 @@ func setupNewTxPool[P crypto.PublicKey](tt testPoolConfig) *TxPool[P] {
 	return NewTxPool[P](testTxPoolConfig, chainConfig, blockchain)
 }
 
-//Checks that the EIP155 signer is assigned to the TxPool when eip155Block is different then null, even invalid config
+// Checks that the EIP155 signer is assigned to the TxPool when eip155Block is different then null, even invalid config
 func TestEIP155SignerOnTxPool(t *testing.T) {
 	var flagtests = []testPoolConfig{
 		{"hsnileip1550", nil, big.NewInt(0)},

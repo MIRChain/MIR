@@ -24,15 +24,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/event"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/event"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 // Type determines the kind of filter and is used to put the filter in to
@@ -69,7 +69,7 @@ const (
 	chainEvChanSize = 10
 )
 
-type subscription [P crypto.PublicKey] struct {
+type subscription[P crypto.PublicKey] struct {
 	id        rpc.ID
 	typ       Type
 	created   time.Time
@@ -83,7 +83,7 @@ type subscription [P crypto.PublicKey] struct {
 
 // EventSystem creates subscriptions, processes events and broadcasts them to the
 // subscription which match the subscription criteria.
-type EventSystem [P crypto.PublicKey] struct {
+type EventSystem[P crypto.PublicKey] struct {
 	backend   Backend[P]
 	lightMode bool
 	lastHead  *types.Header[P]
@@ -99,8 +99,8 @@ type EventSystem [P crypto.PublicKey] struct {
 	install       chan *subscription[P]         // install filter for event notification
 	uninstall     chan *subscription[P]         // remove filter for event notification
 	txsCh         chan core.NewTxsEvent[P]      // Channel to receive new transactions event
-	logsCh        chan []*types.Log          // Channel to receive new log event
-	pendingLogsCh chan []*types.Log          // Channel to receive new log event
+	logsCh        chan []*types.Log             // Channel to receive new log event
+	pendingLogsCh chan []*types.Log             // Channel to receive new log event
 	rmLogsCh      chan core.RemovedLogsEvent[P] // Channel to receive removed log event
 	chainCh       chan core.ChainEvent[P]       // Channel to receive new chain event
 }
@@ -141,7 +141,7 @@ func NewEventSystem[P crypto.PublicKey](backend Backend[P], lightMode bool) *Eve
 }
 
 // Subscription is created when the client registers itself for a particular event.
-type Subscription [P crypto.PublicKey] struct {
+type Subscription[P crypto.PublicKey] struct {
 	ID        rpc.ID
 	f         *subscription[P]
 	es        *EventSystem[P]

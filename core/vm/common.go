@@ -17,8 +17,8 @@
 package vm
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
 	"github.com/holiman/uint256"
 )
 

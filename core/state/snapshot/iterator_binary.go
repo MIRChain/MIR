@@ -19,14 +19,14 @@ package snapshot
 import (
 	"bytes"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // binaryIterator is a simplistic iterator to step over the accounts or storage
 // in a snapshot, which may or may not be composed of multiple layers. Performance
 // wise this iterator is slow, it's meant for cross validating the fast one,
-type binaryIterator [P crypto.PublicKey] struct {
+type binaryIterator[P crypto.PublicKey] struct {
 	a               Iterator
 	b               Iterator
 	aDone           bool

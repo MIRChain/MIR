@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	common "github.com/pavelkrolevets/MIR-pro/common"
-	types "github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	qlightptm "github.com/pavelkrolevets/MIR-pro/private/engine/qlightptm"
-	qlight "github.com/pavelkrolevets/MIR-pro/qlight"
+	common "github.com/MIRChain/MIR/common"
+	types "github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto/nist"
+	qlightptm "github.com/MIRChain/MIR/private/engine/qlightptm"
+	qlight "github.com/MIRChain/MIR/qlight"
 )
 
 // MockPrivateStateRootHashValidator is a mock of PrivateStateRootHashValidator interface.

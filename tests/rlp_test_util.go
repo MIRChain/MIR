@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // RLPTest is the JSON structure of a single RLP test.

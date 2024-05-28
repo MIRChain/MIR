@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/ethconfig"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/miner"
+	"github.com/MIRChain/MIR/node"
+	"github.com/MIRChain/MIR/p2p"
+	"github.com/MIRChain/MIR/p2p/enode"
+	"github.com/MIRChain/MIR/params"
 	"github.com/coreos/etcd/wal"
 	"github.com/coreos/etcd/wal/walpb"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/ethconfig"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/miner"
-	"github.com/pavelkrolevets/MIR-pro/node"
-	"github.com/pavelkrolevets/MIR-pro/p2p"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
-	"github.com/pavelkrolevets/MIR-pro/params"
 )
 
 // pm.advanceAppliedIndex() and state updates are in different
@@ -47,7 +47,7 @@ func TestProtocolManager_whenAppliedIndexOutOfSync(t *testing.T) {
 		nodeKeys[i] = mustNewNodeKey(t)
 		peers[i] = enode.NewV4Hostname[nist.PublicKey](*nodeKeys[i].Public(), net.IPv4(127, 0, 0, 1).String(), 0, 0, int(ports[i]))
 	}
-	raftNodes := make([]*RaftService[nist.PrivateKey,nist.PublicKey], count)
+	raftNodes := make([]*RaftService[nist.PrivateKey, nist.PublicKey], count)
 	for i := 0; i < count; i++ {
 		if s, err := startRaftNode(uint16(i+1), ports[i], tmpWorkingDir, nodeKeys[i], peers); err != nil {
 			t.Fatal(err)
@@ -137,7 +137,7 @@ func nextPort(t *testing.T) uint16 {
 	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
-func prepareServiceContext(key nist.PrivateKey) (stack *node.Node[nist.PrivateKey,nist.PublicKey], cfg *node.Config[nist.PrivateKey,nist.PublicKey], err error) {
+func prepareServiceContext(key nist.PrivateKey) (stack *node.Node[nist.PrivateKey, nist.PublicKey], cfg *node.Config[nist.PrivateKey, nist.PublicKey], err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s", r)
@@ -145,8 +145,8 @@ func prepareServiceContext(key nist.PrivateKey) (stack *node.Node[nist.PrivateKe
 			cfg = nil
 		}
 	}()
-	cfg = &node.Config[nist.PrivateKey,nist.PublicKey]{
-		P2P: p2p.Config[nist.PrivateKey,nist.PublicKey]{
+	cfg = &node.Config[nist.PrivateKey, nist.PublicKey]{
+		P2P: p2p.Config[nist.PrivateKey, nist.PublicKey]{
 			PrivateKey: key,
 		},
 	}
@@ -154,7 +154,7 @@ func prepareServiceContext(key nist.PrivateKey) (stack *node.Node[nist.PrivateKe
 	return
 }
 
-func startRaftNode(id, port uint16, tmpWorkingDir string, key nist.PrivateKey, nodes []*enode.Node[nist.PublicKey]) (*RaftService[nist.PrivateKey,nist.PublicKey], error) {
+func startRaftNode(id, port uint16, tmpWorkingDir string, key nist.PrivateKey, nodes []*enode.Node[nist.PublicKey]) (*RaftService[nist.PrivateKey, nist.PublicKey], error) {
 	raftlogdir := fmt.Sprintf("%s/node%d", tmpWorkingDir, id)
 
 	stack, _, err := prepareServiceContext(key)

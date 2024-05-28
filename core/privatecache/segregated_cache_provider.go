@@ -1,14 +1,14 @@
 package privatecache
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/trie"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/trie"
 )
 
-type segregatedCacheProvider [P crypto.PublicKey] struct {
+type segregatedCacheProvider[P crypto.PublicKey] struct {
 	db     ethdb.Database
 	config *trie.Config
 }

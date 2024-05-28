@@ -19,7 +19,7 @@ package snap
 import (
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
+	"github.com/MIRChain/MIR/common"
 	"github.com/holiman/uint256"
 )
 

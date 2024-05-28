@@ -3,14 +3,14 @@ package qlight
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/eth/protocols/eth"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/trie"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/eth/protocols/eth"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/trie"
 )
 
-func qlightClientHandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg eth.Decoder, peer *Peer[T,P]) error {
+func qlightClientHandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], msg eth.Decoder, peer *Peer[T, P]) error {
 	ann := new(eth.NewBlockPacket[P])
 	if err := msg.Decode(ann); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
@@ -41,7 +41,7 @@ func qlightClientHandleNewBlock[T crypto.PrivateKey, P crypto.PublicKey](backend
 	return backend.QHandle(peer, ann)
 }
 
-func qlightClientHandleNewBlockPrivateData[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg eth.Decoder, peer *Peer[T,P]) error {
+func qlightClientHandleNewBlockPrivateData[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], msg eth.Decoder, peer *Peer[T, P]) error {
 	res := new(BlockPrivateDataPacket)
 	if err := msg.Decode(res); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
@@ -49,7 +49,7 @@ func qlightClientHandleNewBlockPrivateData[T crypto.PrivateKey, P crypto.PublicK
 	return backend.QHandle(peer, res)
 }
 
-func qlightClientHandleTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T,P], msg eth.Decoder, peer *Peer[T,P]) error {
+func qlightClientHandleTransactions[T crypto.PrivateKey, P crypto.PublicKey](backend Backend[T, P], msg eth.Decoder, peer *Peer[T, P]) error {
 	// Transactions arrived, make sure we have a valid and fresh chain to handle them
 	if !backend.AcceptTxs() {
 		return nil

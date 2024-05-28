@@ -28,14 +28,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/consensus/ethash"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/core/vm"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/consensus/ethash"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/core/vm"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
 )
 
 // rewindTest is a test case for chain rollback upon user request.
@@ -1654,8 +1654,12 @@ func testLongNewerForkedFastSyncingDeepSetHead[P crypto.PublicKey](t *testing.T,
 // chain, where a recent block - newer than the ancient limit - was already committed
 // to disk and then sethead was called. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongShallowSetHead.
-func TestLongReorgedShallowSetHead(t *testing.T)              { testLongReorgedShallowSetHead[nist.PublicKey](t, false) }
-func TestLongReorgedShallowSetHeadWithSnapshots(t *testing.T) { testLongReorgedShallowSetHead[nist.PublicKey](t, true) }
+func TestLongReorgedShallowSetHead(t *testing.T) {
+	testLongReorgedShallowSetHead[nist.PublicKey](t, false)
+}
+func TestLongReorgedShallowSetHeadWithSnapshots(t *testing.T) {
+	testLongReorgedShallowSetHead[nist.PublicKey](t, true)
+}
 
 func testLongReorgedShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:
@@ -1701,8 +1705,10 @@ func testLongReorgedShallowSetHead[P crypto.PublicKey](t *testing.T, snapshots b
 // chain, where a recent block - older than the ancient limit - was already committed
 // to disk and then sethead was called. In this case the freezer will delete the
 // sidechain since it's dangling, reverting to TestLongDeepSetHead.
-func TestLongReorgedDeepSetHead(t *testing.T)              { testLongReorgedDeepSetHead[nist.PublicKey](t, false) }
-func TestLongReorgedDeepSetHeadWithSnapshots(t *testing.T) { testLongReorgedDeepSetHead[nist.PublicKey](t, true) }
+func TestLongReorgedDeepSetHead(t *testing.T) { testLongReorgedDeepSetHead[nist.PublicKey](t, false) }
+func TestLongReorgedDeepSetHeadWithSnapshots(t *testing.T) {
+	testLongReorgedDeepSetHead[nist.PublicKey](t, true)
+}
 
 func testLongReorgedDeepSetHead[P crypto.PublicKey](t *testing.T, snapshots bool) {
 	// Chain:

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
+	"github.com/MIRChain/MIR/common/hexutil"
 )
 
 func TestTextHash(t *testing.T) {

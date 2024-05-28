@@ -20,14 +20,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/p2p/enode"
 )
 
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
-type lookup [P crypto.PublicKey] struct {
+type lookup[P crypto.PublicKey] struct {
 	tab         *Table[P]
 	queryfunc   func(*node[P]) ([]*node[P], error)
 	replyCh     chan []*node[P]
@@ -38,7 +38,7 @@ type lookup [P crypto.PublicKey] struct {
 	queries     int
 }
 
-type queryFunc [P crypto.PublicKey] func(*node[P]) ([]*node[P], error)
+type queryFunc[P crypto.PublicKey] func(*node[P]) ([]*node[P], error)
 
 func newLookup[P crypto.PublicKey](ctx context.Context, tab *Table[P], target enode.ID, q queryFunc[P]) *lookup[P] {
 	it := &lookup[P]{
@@ -172,7 +172,7 @@ func (it *lookup[P]) query(n *node[P], reply chan<- []*node[P]) {
 
 // lookupIterator performs lookup operations and iterates over all seen nodes.
 // When a lookup finishes, a new one is created through nextLookup.
-type lookupIterator [P crypto.PublicKey] struct {
+type lookupIterator[P crypto.PublicKey] struct {
 	buffer     []*node[P]
 	nextLookup lookupFunc[P]
 	ctx        context.Context
@@ -180,7 +180,7 @@ type lookupIterator [P crypto.PublicKey] struct {
 	lookup     *lookup[P]
 }
 
-type lookupFunc [P crypto.PublicKey] func(ctx context.Context) *lookup[P]
+type lookupFunc[P crypto.PublicKey] func(ctx context.Context) *lookup[P]
 
 func newLookupIterator[P crypto.PublicKey](ctx context.Context, next lookupFunc[P]) *lookupIterator[P] {
 	ctx, cancel := context.WithCancel(ctx)

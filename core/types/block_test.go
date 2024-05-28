@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/params"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/params"
+	"github.com/MIRChain/MIR/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -198,7 +198,7 @@ func makeBenchBlock() *Block[nist.PublicKey] {
 		price := big.NewInt(300000)
 		data := make([]byte, 100)
 		tx := NewTransaction[nist.PublicKey](uint64(i), common.Address{}, amount, 123457, price, data)
-		signedTx, err := SignTx[nist.PrivateKey,nist.PublicKey](tx, signer, key)
+		signedTx, err := SignTx[nist.PrivateKey, nist.PublicKey](tx, signer, key)
 		if err != nil {
 			panic(err)
 		}

@@ -22,10 +22,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/simulations/pipes"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/simulations/pipes"
 )
 
 func TestProtocolHandshake(t *testing.T) {
@@ -50,7 +50,7 @@ func TestProtocolHandshake(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd0.Close()
-		frame := newRLPX[nist.PrivateKey,nist.PublicKey](fd0, *prv1.Public())
+		frame := newRLPX[nist.PrivateKey, nist.PublicKey](fd0, *prv1.Public())
 		rpubkey, err := frame.doEncHandshake(prv0)
 		if err != nil {
 			t.Errorf("dial side enc handshake failed: %v", err)
@@ -76,7 +76,7 @@ func TestProtocolHandshake(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd1.Close()
-		rlpx := newRLPX[nist.PrivateKey,nist.PublicKey](fd1, nist.PublicKey{})
+		rlpx := newRLPX[nist.PrivateKey, nist.PublicKey](fd1, nist.PublicKey{})
 		rpubkey, err := rlpx.doEncHandshake(prv1)
 		if err != nil {
 			t.Errorf("listen side enc handshake failed: %v", err)

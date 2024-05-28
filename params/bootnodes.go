@@ -16,7 +16,7 @@
 
 package params
 
-import "github.com/pavelkrolevets/MIR-pro/common"
+import "github.com/MIRChain/MIR/common"
 
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Mir network.

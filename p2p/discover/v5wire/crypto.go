@@ -24,11 +24,12 @@ import (
 	"hash"
 	"math/big"
 
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/p2p/enode"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/p2p/enode"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -45,7 +46,7 @@ type Nonce [gcmNonceSize]byte
 func EncodePubkey[P crypto.PublicKey](key P) []byte {
 	// switch key.Curve {
 	// case crypto.S256():
-	// 	return 
+	// 	return
 	// default:
 	// 	panic("unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
 	// }
@@ -60,9 +61,9 @@ func DecodePubkey[P crypto.PublicKey](e []byte) (P, error) {
 	// 	if len(e) != 33 {
 	// 		return nil, errors.New("wrong size public key data")
 	// 	}
-	// 	return 
+	// 	return
 	// default:
-	// 	
+	//
 	// }
 	pub, err := crypto.DecompressPubkey[P](e)
 	if err != nil {
@@ -134,7 +135,7 @@ func deriveKeys[T crypto.PrivateKey, P crypto.PublicKey](hash hashFn, priv T, pu
 	info = append(info, n1[:]...)
 	info = append(info, n2[:]...)
 
-	eph := ecdh[T,P](priv, pub)
+	eph := ecdh[T, P](priv, pub)
 	if eph == nil {
 		return nil
 	}
@@ -150,10 +151,10 @@ func deriveKeys[T crypto.PrivateKey, P crypto.PublicKey](hash hashFn, priv T, pu
 
 // ecdh creates a shared secret.
 func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
-	var secX, secY *big.Int 
-	switch p:=any(&privkey).(type) {
+	var secX, secY *big.Int
+	switch p := any(&privkey).(type) {
 	case *nist.PrivateKey:
-		pub := any(&pubkey).(*nist.PublicKey) 
+		pub := any(&pubkey).(*nist.PublicKey)
 		secX, secY = pub.ScalarMult(pub.X, pub.Y, p.D.Bytes())
 		if secX == nil {
 			return nil
@@ -165,6 +166,8 @@ func ecdh[T crypto.PrivateKey, P crypto.PublicKey](privkey T, pubkey P) []byte {
 		sec[0] = 0x02 | byte(secY.Bit(0))
 		math.ReadBits(secX, sec[1:])
 		return sec
+	case *csp.Cert:
+		// TODO
 	default:
 		panic("cant infer priv key")
 	}

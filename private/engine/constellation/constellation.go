@@ -3,10 +3,10 @@ package constellation
 import (
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/private/engine"
+	"github.com/MIRChain/MIR/private/engine"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/private/cache"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/private/cache"
 
 	gocache "github.com/patrickmn/go-cache"
 )

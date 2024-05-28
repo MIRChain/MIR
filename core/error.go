@@ -19,7 +19,7 @@ package core
 import (
 	"errors"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/MIRChain/MIR/core/types"
 )
 
 var (

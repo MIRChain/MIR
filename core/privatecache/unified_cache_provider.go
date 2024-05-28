@@ -1,8 +1,8 @@
 package privatecache
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state"
 )
 
 type unifiedCacheProvider struct {

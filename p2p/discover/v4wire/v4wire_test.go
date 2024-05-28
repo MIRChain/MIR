@@ -22,11 +22,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/rlp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
 )
 
 // EIP-8 test vectors.
@@ -140,7 +140,7 @@ func TestForwardCompatibility(t *testing.T) {
 	}
 }
 
-func hexPubkey[P crypto.PublicKey] (h string) (ret Pubkey[P]) {
+func hexPubkey[P crypto.PublicKey](h string) (ret Pubkey[P]) {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)

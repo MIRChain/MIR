@@ -26,29 +26,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/accounts/pluggable"
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/console/prompt"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/eth"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/accounts/pluggable"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/console/prompt"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/eth"
 
-	// "github.com/pavelkrolevets/MIR-pro/eth"
-	"github.com/pavelkrolevets/MIR-pro/eth/downloader"
-	"github.com/pavelkrolevets/MIR-pro/ethclient"
-	"github.com/pavelkrolevets/MIR-pro/internal/debug"
-	"github.com/pavelkrolevets/MIR-pro/internal/ethapi"
-	"github.com/pavelkrolevets/MIR-pro/internal/flags"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/node"
+	// "github.com/MIRChain/MIR/eth"
+	"github.com/MIRChain/MIR/eth/downloader"
+	"github.com/MIRChain/MIR/ethclient"
+	"github.com/MIRChain/MIR/internal/debug"
+	"github.com/MIRChain/MIR/internal/ethapi"
+	"github.com/MIRChain/MIR/internal/flags"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/node"
 
-	// "github.com/pavelkrolevets/MIR-pro/permission"
-	"github.com/pavelkrolevets/MIR-pro/plugin"
+	// "github.com/MIRChain/MIR/permission"
+	"github.com/MIRChain/MIR/plugin"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -57,6 +58,10 @@ const (
 )
 
 var (
+	// AppName is the application name
+	AppName = "ssv-dkg"
+	// Version is the app version
+	Version = "latest"
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
 	gitDate   = ""
@@ -220,7 +225,7 @@ var (
 		utils.QuorumLightTLSClientAuthFlag,
 		utils.QuorumLightTLSCipherSuitesFlag,
 		// End-Quorum
-		
+
 		//Mir
 		utils.SignerCertFlag,
 		utils.CryptoSwitchFlag,
@@ -409,22 +414,27 @@ func mir(ctx *cli.Context) error {
 			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
 				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 			}
-			stack, backend := makeFullNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
-			defer stack.Close()		
+			stack, backend := makeFullNode[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			defer stack.Close()
 			startNode(ctx, stack, backend)
 			stack.Wait()
-		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "csp" {
 			crypto.CryptoAlg = crypto.GOST_CSP
 			// Mir - check if signer cert is loaded
-			// if stack.Config().SignerCert.Bytes() == nil {
-			// 	return fmt.Errorf("signer cert cant be nil")
-			// }
+			stack, backend := makeFullNode[csp.Cert, csp.PublicKey](ctx)
+			if stack.Config().SignerCert.Bytes() == nil {
+				return fmt.Errorf("signer cert cant be nil")
+			}
+			defer stack.Close()
+			startNode(ctx, stack, backend)
+			stack.Wait()
+
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
 			fmt.Println(`
 			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
 			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
 			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
-			stack, backend := makeFullNode[nist.PrivateKey,nist.PublicKey](ctx)
+			stack, backend := makeFullNode[nist.PrivateKey, nist.PublicKey](ctx)
 			defer stack.Close()
 			startNode(ctx, stack, backend)
 			stack.Wait()
@@ -442,7 +452,7 @@ func mir(ctx *cli.Context) error {
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
-func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P], backend ethapi.Backend[T,P]) {
+func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T, P], backend ethapi.Backend[T, P]) {
 	log.DoEmitCheckpoints = ctx.GlobalBool(utils.EmitCheckpointsFlag.Name)
 	debug.Memsize.Add("node", stack)
 
@@ -561,7 +571,7 @@ func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
-		ethBackend, ok := backend.(*eth.EthAPIBackend[T,P])
+		ethBackend, ok := backend.(*eth.EthAPIBackend[T, P])
 		if !ok {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
@@ -580,7 +590,7 @@ func startNode[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack 
 }
 
 // unlockAccounts unlocks any account specifically requested.
-func unlockAccounts[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T,P]) {
+func unlockAccounts[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, stack *node.Node[T, P]) {
 	var unlocks []string
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	for _, input := range inputs {
@@ -597,7 +607,7 @@ func unlockAccounts[T crypto.PrivateKey, P crypto.PublicKey](ctx *cli.Context, s
 	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
 		utils.Fatalf("Account unlock with HTTP access is forbidden!")
 	}
-	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T,P]{}))[0].(*keystore.KeyStore[T,P])
+	ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[T, P]{}))[0].(*keystore.KeyStore[T, P])
 	passwords := utils.MakePasswordList(ctx)
 	for i, account := range unlocks {
 		unlockAccount(ks, account, i, passwords)

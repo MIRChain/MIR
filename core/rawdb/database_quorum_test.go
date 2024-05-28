@@ -19,8 +19,8 @@ package rawdb
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
 	"github.com/stretchr/testify/assert"
 )
 

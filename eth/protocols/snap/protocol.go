@@ -20,10 +20,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/state/snapshot"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/state/snapshot"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -80,7 +80,7 @@ type GetAccountRangePacket struct {
 }
 
 // AccountRangePacket represents an account query response.
-type AccountRangePacket [P crypto.PublicKey] struct {
+type AccountRangePacket[P crypto.PublicKey] struct {
 	ID       uint64         // ID of the request this is a response for
 	Accounts []*AccountData // List of consecutive accounts from the trie
 	Proof    [][]byte       // List of trie nodes proving the account range

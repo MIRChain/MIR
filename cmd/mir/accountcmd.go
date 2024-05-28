@@ -21,13 +21,13 @@ import (
 	"io/ioutil"
 	"reflect"
 
-	"github.com/pavelkrolevets/MIR-pro/accounts"
-	"github.com/pavelkrolevets/MIR-pro/accounts/keystore"
-	"github.com/pavelkrolevets/MIR-pro/cmd/utils"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/crypto/gost3410"
-	"github.com/pavelkrolevets/MIR-pro/crypto/nist"
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/accounts"
+	"github.com/MIRChain/MIR/accounts/keystore"
+	"github.com/MIRChain/MIR/cmd/utils"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/crypto/nist"
+	"github.com/MIRChain/MIR/log"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -247,7 +247,7 @@ func accountList(ctx *cli.Context) error {
 }
 
 // tries unlocking the specified account a few times.
-func unlockAccount[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T,P], address string, i int, passwords []string) (accounts.Account, string) {
+func unlockAccount[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T, P], address string, i int, passwords []string) (accounts.Account, string) {
 	account, err := utils.MakeAddress(ks, address)
 	if err != nil {
 		utils.Fatalf("Could not list accounts: %v", err)
@@ -275,7 +275,7 @@ func unlockAccount[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStor
 	return accounts.Account{}, ""
 }
 
-func ambiguousAddrRecovery[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T,P], err *keystore.AmbiguousAddrError, auth string) accounts.Account {
+func ambiguousAddrRecovery[T crypto.PrivateKey, P crypto.PublicKey](ks *keystore.KeyStore[T, P], err *keystore.AmbiguousAddrError, auth string) accounts.Account {
 	fmt.Printf("Multiple key files exist for address %x:\n", err.Addr)
 	for _, a := range err.Matches {
 		fmt.Println("  ", a.URL)
@@ -318,8 +318,8 @@ func accountCreate(ctx *cli.Context) error {
 			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
 				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 			}
-			cfg := gethConfig[gost3410.PrivateKey,gost3410.PublicKey]{Node: defaultNodeConfig[gost3410.PrivateKey,gost3410.PublicKey]()}
-				// Load config file.
+			cfg := gethConfig[gost3410.PrivateKey, gost3410.PublicKey]{Node: defaultNodeConfig[gost3410.PrivateKey, gost3410.PublicKey]()}
+			// Load config file.
 			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 				if err := loadConfig(file, &cfg); err != nil {
 					utils.Fatalf("%v", err)
@@ -332,7 +332,7 @@ func accountCreate(ctx *cli.Context) error {
 				utils.Fatalf("Failed to read configuration: %v", err)
 			}
 			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
-			account, err := keystore.StoreKey[gost3410.PrivateKey,gost3410.PublicKey](keydir, password, scryptN, scryptP)
+			account, err := keystore.StoreKey[gost3410.PrivateKey, gost3410.PublicKey](keydir, password, scryptN, scryptP)
 			fmt.Printf("\nYour new key was generated\n\n")
 			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
 			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
@@ -342,8 +342,8 @@ func accountCreate(ctx *cli.Context) error {
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
 			//TODO
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
-			cfg := gethConfig[nist.PrivateKey,nist.PublicKey]{Node: defaultNodeConfig[nist.PrivateKey,nist.PublicKey]()}
-				// Load config file.
+			cfg := gethConfig[nist.PrivateKey, nist.PublicKey]{Node: defaultNodeConfig[nist.PrivateKey, nist.PublicKey]()}
+			// Load config file.
 			if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 				if err := loadConfig(file, &cfg); err != nil {
 					utils.Fatalf("%v", err)
@@ -356,7 +356,7 @@ func accountCreate(ctx *cli.Context) error {
 				utils.Fatalf("Failed to read configuration: %v", err)
 			}
 			password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
-			account, err := keystore.StoreKey[nist.PrivateKey,nist.PublicKey](keydir, password, scryptN, scryptP)
+			account, err := keystore.StoreKey[nist.PrivateKey, nist.PublicKey](keydir, password, scryptN, scryptP)
 			fmt.Printf("\nYour new key was generated\n\n")
 			fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
 			fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
@@ -396,9 +396,9 @@ func accountUpdate(ctx *cli.Context) error {
 			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
 				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 			}
-			stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
-			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
-		
+			stack, _ := makeConfigNode[gost3410.PrivateKey, gost3410.PublicKey](ctx)
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey])
+
 			for _, addr := range ctx.Args() {
 				account, oldPassword := unlockAccount(ks, addr, 0, nil)
 				newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
@@ -409,9 +409,9 @@ func accountUpdate(ctx *cli.Context) error {
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
 			//TODO
 		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
-			stack, _ := makeConfigNode[nist.PrivateKey,nist.PublicKey](ctx)
-			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey,nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey,nist.PublicKey])
-		
+			stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey, nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey, nist.PublicKey])
+
 			for _, addr := range ctx.Args() {
 				account, oldPassword := unlockAccount(ks, addr, 0, nil)
 				newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
@@ -429,44 +429,24 @@ func accountUpdate(ctx *cli.Context) error {
 }
 
 func importWallet(ctx *cli.Context) error {
-		keyfile := ctx.Args().First()
-		if len(keyfile) == 0 {
-			utils.Fatalf("keyfile must be given as argument")
-		}
-		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
-			if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
-					gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
-				}
-				if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
-					gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
-				}
-				keyfile := ctx.Args().First()
-				if len(keyfile) == 0 {
-					utils.Fatalf("keyfile must be given as argument")
-				}
-				keyJSON, err := ioutil.ReadFile(keyfile)
-				if err != nil {
-					utils.Fatalf("Could not read wallet file: %v", err)
-				}
-		
-				stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
-				passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
-		
-				ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
-				acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
-				if err != nil {
-					utils.Fatalf("%v", err)
-				}
-				fmt.Printf("Address: {%x}\n", acct.Address)
+	keyfile := ctx.Args().First()
+	if len(keyfile) == 0 {
+		utils.Fatalf("keyfile must be given as argument")
+	}
+	if ctx.GlobalString(utils.CryptoSwitchFlag.Name) != "" {
+		if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
 			}
-		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" { 
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if ctx.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
 			keyfile := ctx.Args().First()
 			if len(keyfile) == 0 {
 				utils.Fatalf("keyfile must be given as argument")
@@ -476,22 +456,42 @@ func importWallet(ctx *cli.Context) error {
 				utils.Fatalf("Could not read wallet file: %v", err)
 			}
 
-			stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
+			stack, _ := makeConfigNode[gost3410.PrivateKey, gost3410.PublicKey](ctx)
 			passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
 
-			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey, nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey, nist.PublicKey])
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey])
 			acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
 			if err != nil {
 				utils.Fatalf("%v", err)
 			}
 			fmt.Printf("Address: {%x}\n", acct.Address)
-		}  else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
-			//TODO
-		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
-			//TODO
-		} else {
-			fmt.Errorf("wrong crypto flag")
 		}
+	} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+		keyfile := ctx.Args().First()
+		if len(keyfile) == 0 {
+			utils.Fatalf("keyfile must be given as argument")
+		}
+		keyJSON, err := ioutil.ReadFile(keyfile)
+		if err != nil {
+			utils.Fatalf("Could not read wallet file: %v", err)
+		}
+
+		stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
+		passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
+
+		ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey, nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey, nist.PublicKey])
+		acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
+		if err != nil {
+			utils.Fatalf("%v", err)
+		}
+		fmt.Printf("Address: {%x}\n", acct.Address)
+	} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
+		//TODO
+	} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+		//TODO
+	} else {
+		fmt.Errorf("wrong crypto flag")
+	}
 	return nil
 }
 
@@ -519,32 +519,32 @@ func accountImport(ctx *cli.Context) error {
 			if err != nil {
 				utils.Fatalf("Failed to load the private key: %v", err)
 			}
-			stack, _ := makeConfigNode[gost3410.PrivateKey,gost3410.PublicKey](ctx)
+			stack, _ := makeConfigNode[gost3410.PrivateKey, gost3410.PublicKey](ctx)
 			passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey,gost3410.PublicKey])
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey]{}))[0].(*keystore.KeyStore[gost3410.PrivateKey, gost3410.PublicKey])
 			acct, err := ks.ImportECDSA(key, passphrase)
 			if err != nil {
 				utils.Fatalf("Could not create the account: %v", err)
 			}
 			fmt.Printf("Address: {%x}\n", acct.Address)
-		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" { 
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
 			key, err := crypto.LoadECDSA[nist.PrivateKey](keyfile)
 			if err != nil {
 				utils.Fatalf("Failed to load the private key: %v", err)
 			}
-			stack, _ := makeConfigNode[nist.PrivateKey,nist.PublicKey](ctx)
+			stack, _ := makeConfigNode[nist.PrivateKey, nist.PublicKey](ctx)
 			passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey,nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey,nist.PublicKey])
+			ks := stack.AccountManager().Backends(reflect.TypeOf(&keystore.KeyStore[nist.PrivateKey, nist.PublicKey]{}))[0].(*keystore.KeyStore[nist.PrivateKey, nist.PublicKey])
 			acct, err := ks.ImportECDSA(key, passphrase)
 			if err != nil {
 				utils.Fatalf("Could not create the account: %v", err)
 			}
 			fmt.Printf("Address: {%x}\n", acct.Address)
-		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" { 
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "gost_csp" {
 			//TODO
-		}else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+		} else if ctx.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
 			//TODO
 		} else {
 			fmt.Errorf("wrong crypto flag")

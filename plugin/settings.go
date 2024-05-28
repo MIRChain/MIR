@@ -11,14 +11,14 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/MIRChain/MIR/crypto"
 	"github.com/hashicorp/go-plugin"
 	"github.com/naoina/toml"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	// "github.com/pavelkrolevets/MIR-pro/plugin/account"
-	// "github.com/pavelkrolevets/MIR-pro/plugin/helloworld"
-	// "github.com/pavelkrolevets/MIR-pro/plugin/qlight"
-	// "github.com/pavelkrolevets/MIR-pro/plugin/security"
-	"github.com/pavelkrolevets/MIR-pro/rpc"
+	// "github.com/MIRChain/MIR/plugin/account"
+	// "github.com/MIRChain/MIR/plugin/helloworld"
+	// "github.com/MIRChain/MIR/plugin/qlight"
+	// "github.com/MIRChain/MIR/plugin/security"
+	"github.com/MIRChain/MIR/rpc"
 )
 
 const (
@@ -97,15 +97,15 @@ var (
 	}
 )
 
-type pluginProvider [T crypto.PrivateKey, P crypto.PublicKey] struct {
+type pluginProvider[T crypto.PrivateKey, P crypto.PublicKey] struct {
 	// this allows exposing plugin interfaces to geth RPC API automatically.
 	// nil value implies that plugin won't expose its methods to geth RPC API
-	apiProviderFunc rpcAPIProviderFunc[T,P]
+	apiProviderFunc rpcAPIProviderFunc[T, P]
 	// contains connectors being registered to the plugin library
 	pluginSet plugin.PluginSet
 }
 
-type rpcAPIProviderFunc[T crypto.PrivateKey, P crypto.PublicKey] func(ns string, pm *PluginManager[T,P]) ([]rpc.API, error)
+type rpcAPIProviderFunc[T crypto.PrivateKey, P crypto.PublicKey] func(ns string, pm *PluginManager[T, P]) ([]rpc.API, error)
 type Version string
 
 // This is to describe a plugin

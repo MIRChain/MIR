@@ -24,18 +24,18 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/common/hexutil"
+	"github.com/MIRChain/MIR/common/math"
+	"github.com/MIRChain/MIR/core/rawdb"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/ethdb"
+	"github.com/MIRChain/MIR/ethdb/memorydb"
+	"github.com/MIRChain/MIR/log"
+	"github.com/MIRChain/MIR/metrics"
+	"github.com/MIRChain/MIR/rlp"
+	"github.com/MIRChain/MIR/trie"
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/common/hexutil"
-	"github.com/pavelkrolevets/MIR-pro/common/math"
-	"github.com/pavelkrolevets/MIR-pro/core/rawdb"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
-	"github.com/pavelkrolevets/MIR-pro/ethdb"
-	"github.com/pavelkrolevets/MIR-pro/ethdb/memorydb"
-	"github.com/pavelkrolevets/MIR-pro/log"
-	"github.com/pavelkrolevets/MIR-pro/metrics"
-	"github.com/pavelkrolevets/MIR-pro/rlp"
-	"github.com/pavelkrolevets/MIR-pro/trie"
 )
 
 var (
@@ -205,12 +205,12 @@ func journalProgress(db ethdb.KeyValueWriter, marker []byte, stats *generatorSta
 
 // proofResult contains the output of range proving which can be used
 // for further processing regardless if it is successful or not.
-type proofResult [P crypto.PublicKey] struct {
-	keys     [][]byte   // The key set of all elements being iterated, even proving is failed
-	vals     [][]byte   // The val set of all elements being iterated, even proving is failed
-	diskMore bool       // Set when the database has extra snapshot states since last iteration
-	trieMore bool       // Set when the trie has extra snapshot states(only meaningful for successful proving)
-	proofErr error      // Indicator whether the given state range is valid or not
+type proofResult[P crypto.PublicKey] struct {
+	keys     [][]byte      // The key set of all elements being iterated, even proving is failed
+	vals     [][]byte      // The val set of all elements being iterated, even proving is failed
+	diskMore bool          // Set when the database has extra snapshot states since last iteration
+	trieMore bool          // Set when the trie has extra snapshot states(only meaningful for successful proving)
+	proofErr error         // Indicator whether the given state range is valid or not
 	tr       *trie.Trie[P] // The trie, in case the trie was resolved by the prover (may be nil)
 }
 

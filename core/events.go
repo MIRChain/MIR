@@ -17,31 +17,31 @@
 package core
 
 import (
-	"github.com/pavelkrolevets/MIR-pro/common"
-	"github.com/pavelkrolevets/MIR-pro/core/types"
-	"github.com/pavelkrolevets/MIR-pro/crypto"
+	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/core/types"
+	"github.com/MIRChain/MIR/crypto"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
-type NewTxsEvent [P crypto.PublicKey]struct{ Txs []*types.Transaction[P] }
+type NewTxsEvent[P crypto.PublicKey] struct{ Txs []*types.Transaction[P] }
 
 // PendingStateEvent is posted pre mining and notifies of pending state changes.
 type PendingStateEvent struct{}
 
 // NewMinedBlockEvent is posted when a block has been imported.
-type NewMinedBlockEvent [P crypto.PublicKey] struct{ Block *types.Block[P] }
+type NewMinedBlockEvent[P crypto.PublicKey] struct{ Block *types.Block[P] }
 
 // RemovedLogsEvent is posted when a reorg happens
-type RemovedLogsEvent [P crypto.PublicKey] struct{ Logs []*types.Log }
+type RemovedLogsEvent[P crypto.PublicKey] struct{ Logs []*types.Log }
 
-type ChainEvent [P crypto.PublicKey] struct {
+type ChainEvent[P crypto.PublicKey] struct {
 	Block *types.Block[P]
 	Hash  common.Hash
 	Logs  []*types.Log
 }
 
-type ChainSideEvent [P crypto.PublicKey] struct {
+type ChainSideEvent[P crypto.PublicKey] struct {
 	Block *types.Block[P]
 }
 
-type ChainHeadEvent [P crypto.PublicKey] struct{ Block *types.Block[P] }
+type ChainHeadEvent[P crypto.PublicKey] struct{ Block *types.Block[P] }

@@ -20,7 +20,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/pavelkrolevets/MIR-pro/log"
+	"github.com/MIRChain/MIR/log"
 )
 
 // StartIPCEndpoint starts an IPC endpoint.

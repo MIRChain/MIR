@@ -3,7 +3,7 @@ package mps
 import (
 	"testing"
 
-	"github.com/pavelkrolevets/MIR-pro/core/types"
+	"github.com/MIRChain/MIR/core/types"
 	"github.com/stretchr/testify/assert"
 )
 
