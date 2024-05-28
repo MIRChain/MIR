@@ -5,7 +5,7 @@ WORKDIR /mir
 ENV GO_VERSION 1.22.3
 ENV PATH ${PATH}:/usr/local/go/bin
 
-COPY ["linux-amd64_rpm.tgz", "cades_linux_amd64.tar.gz", "kis_1", "cacerts.p7b","."]
+COPY ["linux-amd64_rpm.tgz", "cades_linux_amd64.tar.gz", "kis_1", "cacerts.p7b","entry-point.sh","."]
 
 RUN echo "Installing GO v${GO_VERSION}..." \
     && rm -rf /usr/local/go \
@@ -17,13 +17,13 @@ RUN echo "Installing system packages..." \
     && yum update -y \
     && yum install -y  lsb-core-noarch jq vim htop rsyslog net-tools git gcc gcc-c++ redhat-lsb-core jemalloc-devel gmp-devel  
 
-RUN echo "Installing CSP..." \
+RUN echo "Installing CryptoPro..." \
     && tar -xzf linux-amd64_rpm.tgz -C /tmp \
     && /tmp/linux*/install.sh kc1 cprocsp-stunnel-msspi lsb-cprocsp-devel \
     && mkdir /etc/opt/cprocsp/stunnel \
     && rm -rf /tmp/* linux-amd64_rpm.tgz
 
-RUN echo "Installing cades..." \
+RUN echo "Installing CryptoPro Cades..." \
     && tar -xzf cades_linux_amd64.tar.gz -C /tmp \
     && cd /tmp/cades* && rpm -Uvh cprocsp-pki-cades*.rpm \
     && cd - && rm -rf /tmp/* cades_linux_amd64.tar.gz
@@ -40,7 +40,8 @@ COPY . .
 
 RUN echo "Postintall & validation..." \
     && rpm -qa | grep csp \
-    && /opt/cprocsp/bin/amd64/csptestf -enum -info
+    && /opt/cprocsp/bin/amd64/csptestf -enum -info \
+    && chmod +x entry-point.sh
 
 # Build the binary with caching
 ENV CGO_ENABLED=1
@@ -48,14 +49,4 @@ ENV GOOS=linux
 
 RUN env GO111MODULE=on go run build/ci.go install ./cmd/mir
 
-
-FROM centos:7 
-
-# Copy the built binary and entry-point script from the previous stage/build context
-COPY --from=builder /mir/build/bin/mir /bin/mir
-COPY entry-point.sh /entry-point.sh
-
-# Ensure the entry-point script is executable
-RUN chmod +x /entry-point.sh
-
-ENTRYPOINT ["/entry-point.sh"]
+ENTRYPOINT ["./entry-point.sh"]
