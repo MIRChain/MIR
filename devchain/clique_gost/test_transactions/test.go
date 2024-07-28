@@ -6,6 +6,8 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/google/uuid"
+
 	"github.com/MIRChain/MIR/accounts/abi/bind"
 	"github.com/MIRChain/MIR/accounts/keystore"
 	"github.com/MIRChain/MIR/common"
@@ -15,13 +17,12 @@ import (
 	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/devchain/clique/test_transactions/simple"
 	"github.com/MIRChain/MIR/ethclient"
-	"github.com/google/uuid"
 )
 
 func main() {
 	// TestTransfer()
-	// DeploySipmleContract()
-	TestTransferFromCSPtoGost()
+	DeploySipmleContract()
+	// TestTransferFromCSPtoGost()
 }
 
 func TestTransfer() {
@@ -220,6 +221,9 @@ func DeploySipmleContract() {
 	log.Println("Tx hash ", tx.Hash().Hex())
 
 	receipt, err := bind.WaitMined[gost3410.PublicKey](ctx, back, tx)
+	if err != nil {
+		panic(err)
+	}
 	log.Println("Contract receipt block num : ", receipt.BlockNumber.String())
 
 	contract, err := simple.NewSimple[gost3410.PublicKey](address, back)
@@ -227,11 +231,11 @@ func DeploySipmleContract() {
 		panic(err)
 	}
 
-	value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
-	if err != nil {
-		panic(err)
-	}
-	log.Println("Value get: ", value[:])
+	// value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// log.Println("Value get: ", value[:])
 
 	tx, err = contract.SetValue(auth, uuid.New())
 	if err != nil {

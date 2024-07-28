@@ -65,6 +65,9 @@ func TestSolidityCompiler(t *testing.T) {
 	if c.Info.CompilerVersion == "" {
 		t.Error("empty version")
 	}
+	if c.Hashes != nil {
+		t.Log(c.Hashes)
+	}
 }
 
 func TestSolidityCompileError(t *testing.T) {

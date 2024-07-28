@@ -25,15 +25,18 @@ import (
 	"regexp"
 	"strings"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/MIRChain/MIR/accounts/abi"
 	"github.com/MIRChain/MIR/accounts/abi/bind"
 	"github.com/MIRChain/MIR/cmd/utils"
 	"github.com/MIRChain/MIR/common/compiler"
 	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/MIRChain/MIR/internal/flags"
 	"github.com/MIRChain/MIR/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -99,6 +102,21 @@ var (
 		Name:  "alias",
 		Usage: "Comma separated aliases for function and event renaming, e.g. original1=alias1, original2=alias2",
 	}
+	// Mir flags
+	SignerCertFlag = cli.StringFlag{
+		Name:  "signercert",
+		Usage: "Certificate to use for sining blocks",
+	}
+	CryptoSwitchFlag = cli.StringFlag{
+		Name:  "crypto",
+		Usage: "Switch between differet tyoes of cryptography - NIST, GOST, PostQuantum",
+		Value: "nist",
+	}
+	CryptoGostCurveFlag = cli.StringFlag{
+		Name:  "gostcurve",
+		Usage: "GOST ECDSA curve parameters",
+		Value: "id-GostR3410-2001-CryptoPro-A-ParamSet",
+	}
 )
 
 func init() {
@@ -117,6 +135,9 @@ func init() {
 		outFlag,
 		langFlag,
 		aliasFlag,
+		SignerCertFlag,
+		CryptoSwitchFlag,
+		CryptoGostCurveFlag,
 	}
 	app.Action = utils.MigrateFlags(abigen)
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
@@ -127,6 +148,50 @@ func abigen(c *cli.Context) error {
 	if c.GlobalString(pkgFlag.Name) == "" {
 		utils.Fatalf("No destination package specified (--pkg)")
 	}
+	// Mir - set crypto before the start of services
+	switch {
+	case c.GlobalIsSet(utils.CryptoSwitchFlag.Name):
+		if c.GlobalString(utils.CryptoSwitchFlag.Name) == "gost" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔═╗╔═╗╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║ ╦║ ║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╚═╝╚═╝╚═╝ ╩ `)
+			if c.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetA" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetA()
+			}
+			if c.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetB" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetB()
+			}
+			if c.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-tc26-gost-3410-12-256-paramSetC" {
+				gost3410.GostCurve = gost3410.CurveIdtc26gost341012256paramSetC()
+			}
+			if c.GlobalString(utils.CryptoGostCurveFlag.Name) == "id-GostR3410-2001-CryptoPro-A-ParamSet" {
+				gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+			}
+			return runAbigen[gost3410.PublicKey](c)
+
+		} else if c.GlobalString(utils.CryptoSwitchFlag.Name) == "csp" {
+			crypto.CryptoAlg = crypto.GOST_CSP
+			// Mir - check if signer cert is loaded
+			return runAbigen[csp.PublicKey](c)
+		} else if c.GlobalString(utils.CryptoSwitchFlag.Name) == "nist" {
+			fmt.Println(`
+			╔═╗┬─┐┬ ┬┌─┐┌┬┐┌─┐  ╔╗╔╦╔═╗╔╦╗
+			║  ├┬┘└┬┘├─┘ │ │ │  ║║║║╚═╗ ║ 
+			╚═╝┴└─ ┴ ┴   ┴ └─┘  ╝╚╝╩╚═╝ ╩ `)
+			return runAbigen[nist.PublicKey](c)
+		} else if c.GlobalString(utils.CryptoSwitchFlag.Name) == "pqc" {
+			crypto.CryptoAlg = crypto.PQC
+			return fmt.Errorf("implement me")
+		} else {
+			return fmt.Errorf("wrong crypto flag")
+		}
+	default:
+		return fmt.Errorf("crypto flag not set")
+	}
+}
+
+func runAbigen[P crypto.PublicKey](c *cli.Context) error {
 	var lang bind.Lang
 	switch c.GlobalString(langFlag.Name) {
 	case "go":
@@ -238,7 +303,7 @@ func abigen(c *cli.Context) error {
 			nameParts := strings.Split(name, ":")
 			types = append(types, nameParts[len(nameParts)-1])
 
-			libPattern := crypto.Keccak256Hash[nist.PublicKey]([]byte(name)).String()[2:36]
+			libPattern := crypto.Keccak256Hash[P]([]byte(name)).String()[2:36]
 			libs[libPattern] = nameParts[len(nameParts)-1]
 		}
 	}
@@ -255,7 +320,7 @@ func abigen(c *cli.Context) error {
 		}
 	}
 	// Generate the contract binding
-	code, err := bind.Bind[nist.PublicKey](types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases)
+	code, err := bind.Bind[P](types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases)
 	if err != nil {
 		utils.Fatalf("Failed to generate ABI binding: %v", err)
 	}
