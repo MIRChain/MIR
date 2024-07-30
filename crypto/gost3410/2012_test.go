@@ -56,22 +56,26 @@ func TestStdVector1(t *testing.T) {
 		0xBC, 0xD6, 0xD3, 0xF7, 0x46, 0xB6, 0x31, 0xDF,
 		0x92, 0x80, 0x14, 0xF6, 0xC5, 0xBF, 0x9C, 0x40,
 	}
+	c := CurveIdGostR34102001TestParamSet()
 	reverse(prvRaw)
-	prv, err := NewPrivateKey(CurveIdGostR34102001TestParamSet(), prvRaw)
+	prv, err := NewPrivateKey(c, prvRaw)
 	if err != nil {
-		t.FailNow()
+		t.Fatal(err)
 	}
 	sign, err := prv.SignDigest(dgst, bytes.NewBuffer(rnd))
 	if err != nil {
-		t.FailNow()
+		t.Fatal(err)
 	}
-	if bytes.Compare(sign, append(r, s...)) != 0 {
-		t.FailNow()
+	if !bytes.Equal(sign, append(r, s...)) {
+		t.Fatal("sig is not equal")
 	}
 	pubKey := prv.Public()
 	_r := new(big.Int).SetBytes(r)
 	_s := new(big.Int).SetBytes(s)
 	recovPubX, recovPubY, err := RecoverCompact(*prv.C, dgst, _r, _s, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	isOnCurve := prv.C.IsOnCurve(recovPubX, recovPubY)
 	if !isOnCurve {
 		t.Fatal("Recovered point is not on Curve ")
@@ -79,7 +83,7 @@ func TestStdVector1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(pubKey.X.Bytes(), recovPubX.Bytes()) != 0 {
+	if !bytes.Equal(pubKey.X.Bytes(), recovPubX.Bytes()) {
 		t.FailNow()
 	}
 	if bytes.Compare(pubKey.Y.Bytes(), recovPubY.Bytes()) != 0 {

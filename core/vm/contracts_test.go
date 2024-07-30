@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/MIRChain/MIR/common"
+	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/crypto/nist"
 )
 
@@ -46,26 +48,28 @@ type precompiledFailureTest struct {
 
 // allPrecompiles does not map to the actual set of precompiles, as it also contains
 // repriced versions of precompiles at certain slots
-var allPrecompiles = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}):    &ecrecover[nist.PublicKey]{},
-	common.BytesToAddress([]byte{2}):    &sha256hash{},
-	common.BytesToAddress([]byte{3}):    &ripemd160hash{},
-	common.BytesToAddress([]byte{4}):    &dataCopy{},
-	common.BytesToAddress([]byte{5}):    &bigModExp{eip2565: false},
-	common.BytesToAddress([]byte{0xf5}): &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{6}):    &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}):    &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}):    &bn256PairingIstanbul{},
-	common.BytesToAddress([]byte{9}):    &blake2F{},
-	common.BytesToAddress([]byte{10}):   &bls12381G1Add{},
-	common.BytesToAddress([]byte{11}):   &bls12381G1Mul{},
-	common.BytesToAddress([]byte{12}):   &bls12381G1MultiExp{},
-	common.BytesToAddress([]byte{13}):   &bls12381G2Add{},
-	common.BytesToAddress([]byte{14}):   &bls12381G2Mul{},
-	common.BytesToAddress([]byte{15}):   &bls12381G2MultiExp{},
-	common.BytesToAddress([]byte{16}):   &bls12381Pairing{},
-	common.BytesToAddress([]byte{17}):   &bls12381MapG1{},
-	common.BytesToAddress([]byte{18}):   &bls12381MapG2{},
+func allPrecompiles[P crypto.PublicKey]() map[common.Address]PrecompiledContract[P] {
+	return map[common.Address]PrecompiledContract[P]{
+		common.BytesToAddress([]byte{1}):    &ecrecover[P]{},
+		common.BytesToAddress([]byte{2}):    &sha256hash{},
+		common.BytesToAddress([]byte{3}):    &ripemd160hash{},
+		common.BytesToAddress([]byte{4}):    &dataCopy{},
+		common.BytesToAddress([]byte{5}):    &bigModExp{eip2565: false},
+		common.BytesToAddress([]byte{0xf5}): &bigModExp{eip2565: true},
+		common.BytesToAddress([]byte{6}):    &bn256AddIstanbul{},
+		common.BytesToAddress([]byte{7}):    &bn256ScalarMulIstanbul{},
+		common.BytesToAddress([]byte{8}):    &bn256PairingIstanbul{},
+		common.BytesToAddress([]byte{9}):    &blake2F{},
+		common.BytesToAddress([]byte{10}):   &bls12381G1Add{},
+		common.BytesToAddress([]byte{11}):   &bls12381G1Mul{},
+		common.BytesToAddress([]byte{12}):   &bls12381G1MultiExp{},
+		common.BytesToAddress([]byte{13}):   &bls12381G2Add{},
+		common.BytesToAddress([]byte{14}):   &bls12381G2Mul{},
+		common.BytesToAddress([]byte{15}):   &bls12381G2MultiExp{},
+		common.BytesToAddress([]byte{16}):   &bls12381Pairing{},
+		common.BytesToAddress([]byte{17}):   &bls12381MapG1{},
+		common.BytesToAddress([]byte{18}):   &bls12381MapG2{},
+	}
 }
 
 // EIP-152 test vectors
@@ -92,8 +96,8 @@ var blake2FMalformedInputTests = []precompiledFailureTest{
 	},
 }
 
-func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
-	p := allPrecompiles[common.HexToAddress(addr)]
+func testPrecompiled[P crypto.PublicKey](addr string, test precompiledTest, t *testing.T) {
+	p := allPrecompiles[P]()[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.Input)
 	gas := p.RequiredGas(in)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
@@ -113,8 +117,8 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	})
 }
 
-func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
-	p := allPrecompiles[common.HexToAddress(addr)]
+func testPrecompiledOOG[P crypto.PublicKey](addr string, test precompiledTest, t *testing.T) {
+	p := allPrecompiles[P]()[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.Input)
 	gas := p.RequiredGas(in) - 1
 
@@ -131,8 +135,8 @@ func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
 	})
 }
 
-func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing.T) {
-	p := allPrecompiles[common.HexToAddress(addr)]
+func testPrecompiledFailure[P crypto.PublicKey](addr string, test precompiledFailureTest, t *testing.T) {
+	p := allPrecompiles[P]()[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.Input)
 	gas := p.RequiredGas(in)
 	t.Run(test.Name, func(t *testing.T) {
@@ -148,11 +152,11 @@ func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing
 	})
 }
 
-func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
+func benchmarkPrecompiled[P crypto.PublicKey](addr string, test precompiledTest, bench *testing.B) {
 	if test.NoBenchmark {
 		return
 	}
-	p := allPrecompiles[common.HexToAddress(addr)]
+	p := allPrecompiles[P]()[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.Input)
 	reqGas := p.RequiredGas(in)
 
@@ -199,7 +203,7 @@ func BenchmarkPrecompiledEcrecover(bench *testing.B) {
 		Expected: "000000000000000000000000ceaccac640adf55b2028469bd36ba501f28b699d",
 		Name:     "",
 	}
-	benchmarkPrecompiled("01", t, bench)
+	benchmarkPrecompiled[nist.PublicKey]("01", t, bench)
 }
 
 // Benchmarks the sample inputs from the SHA256 precompile.
@@ -209,7 +213,7 @@ func BenchmarkPrecompiledSha256(bench *testing.B) {
 		Expected: "811c7003375852fabd0d362e40e68607a12bdabae61a7d068fe5fdd1dbbf2a5d",
 		Name:     "128",
 	}
-	benchmarkPrecompiled("02", t, bench)
+	benchmarkPrecompiled[nist.PublicKey]("02", t, bench)
 }
 
 // Benchmarks the sample inputs from the RIPEMD precompile.
@@ -219,7 +223,7 @@ func BenchmarkPrecompiledRipeMD(bench *testing.B) {
 		Expected: "0000000000000000000000009215b8d9882ff46f0dfde6684d78e831467f65e6",
 		Name:     "128",
 	}
-	benchmarkPrecompiled("03", t, bench)
+	benchmarkPrecompiled[nist.PublicKey]("03", t, bench)
 }
 
 // Benchmarks the sample inputs from the identiy precompile.
@@ -229,18 +233,18 @@ func BenchmarkPrecompiledIdentity(bench *testing.B) {
 		Expected: "38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e000000000000000000000000000000000000000000000000000000000000001b38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02",
 		Name:     "128",
 	}
-	benchmarkPrecompiled("04", t, bench)
+	benchmarkPrecompiled[nist.PublicKey]("04", t, bench)
 }
 
 // Tests the sample inputs from the ModExp EIP 198.
-func TestPrecompiledModExp(t *testing.T)      { testJson("modexp", "05", t) }
+func TestPrecompiledModExp(t *testing.T)      { testJson[nist.PublicKey]("modexp", "05", t) }
 func BenchmarkPrecompiledModExp(b *testing.B) { benchJson("modexp", "05", b) }
 
-func TestPrecompiledModExpEip2565(t *testing.T)      { testJson("modexp_eip2565", "f5", t) }
+func TestPrecompiledModExpEip2565(t *testing.T)      { testJson[nist.PublicKey]("modexp_eip2565", "f5", t) }
 func BenchmarkPrecompiledModExpEip2565(b *testing.B) { benchJson("modexp_eip2565", "f5", b) }
 
 // Tests the sample inputs from the elliptic curve addition EIP 213.
-func TestPrecompiledBn256Add(t *testing.T)      { testJson("bn256Add", "06", t) }
+func TestPrecompiledBn256Add(t *testing.T)      { testJson[nist.PublicKey]("bn256Add", "06", t) }
 func BenchmarkPrecompiledBn256Add(b *testing.B) { benchJson("bn256Add", "06", b) }
 
 // Tests OOG
@@ -250,36 +254,40 @@ func TestPrecompiledModExpOOG(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range modexpTests {
-		testPrecompiledOOG("05", test, t)
+		testPrecompiledOOG[nist.PublicKey]("05", test, t)
 	}
 }
 
 // Tests the sample inputs from the elliptic curve scalar multiplication EIP 213.
-func TestPrecompiledBn256ScalarMul(t *testing.T)      { testJson("bn256ScalarMul", "07", t) }
+func TestPrecompiledBn256ScalarMul(t *testing.T)      { testJson[nist.PublicKey]("bn256ScalarMul", "07", t) }
 func BenchmarkPrecompiledBn256ScalarMul(b *testing.B) { benchJson("bn256ScalarMul", "07", b) }
 
 // Tests the sample inputs from the elliptic curve pairing check EIP 197.
-func TestPrecompiledBn256Pairing(t *testing.T)      { testJson("bn256Pairing", "08", t) }
+func TestPrecompiledBn256Pairing(t *testing.T)      { testJson[nist.PublicKey]("bn256Pairing", "08", t) }
 func BenchmarkPrecompiledBn256Pairing(b *testing.B) { benchJson("bn256Pairing", "08", b) }
 
-func TestPrecompiledBlake2F(t *testing.T)      { testJson("blake2F", "09", t) }
+func TestPrecompiledBlake2F(t *testing.T)      { testJson[nist.PublicKey]("blake2F", "09", t) }
 func BenchmarkPrecompiledBlake2F(b *testing.B) { benchJson("blake2F", "09", b) }
 
 func TestPrecompileBlake2FMalformedInput(t *testing.T) {
 	for _, test := range blake2FMalformedInputTests {
-		testPrecompiledFailure("09", test, t)
+		testPrecompiledFailure[nist.PublicKey]("09", test, t)
 	}
 }
 
-func TestPrecompiledEcrecover(t *testing.T) { testJson("ecRecover", "01", t) }
+func TestPrecompiledEcrecover(t *testing.T) { testJson[nist.PublicKey]("ecRecover", "01", t) }
 
-func testJson(name, addr string, t *testing.T) {
+func TestPrecompiledEcrecover_GOST(t *testing.T) {
+	testJson[gost3410.PublicKey]("ecRecover_GOST", "01", t)
+}
+
+func testJson[P crypto.PublicKey](name, addr string, t *testing.T) {
 	tests, err := loadJson(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range tests {
-		testPrecompiled(addr, test, t)
+		testPrecompiled[P](addr, test, t)
 	}
 }
 
@@ -289,7 +297,7 @@ func testJsonFail(name, addr string, t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range tests {
-		testPrecompiledFailure(addr, test, t)
+		testPrecompiledFailure[nist.PublicKey](addr, test, t)
 	}
 }
 
@@ -299,19 +307,23 @@ func benchJson(name, addr string, b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, test := range tests {
-		benchmarkPrecompiled(addr, test, b)
+		benchmarkPrecompiled[nist.PublicKey](addr, test, b)
 	}
 }
 
-func TestPrecompiledBLS12381G1Add(t *testing.T)      { testJson("blsG1Add", "0a", t) }
-func TestPrecompiledBLS12381G1Mul(t *testing.T)      { testJson("blsG1Mul", "0b", t) }
-func TestPrecompiledBLS12381G1MultiExp(t *testing.T) { testJson("blsG1MultiExp", "0c", t) }
-func TestPrecompiledBLS12381G2Add(t *testing.T)      { testJson("blsG2Add", "0d", t) }
-func TestPrecompiledBLS12381G2Mul(t *testing.T)      { testJson("blsG2Mul", "0e", t) }
-func TestPrecompiledBLS12381G2MultiExp(t *testing.T) { testJson("blsG2MultiExp", "0f", t) }
-func TestPrecompiledBLS12381Pairing(t *testing.T)    { testJson("blsPairing", "10", t) }
-func TestPrecompiledBLS12381MapG1(t *testing.T)      { testJson("blsMapG1", "11", t) }
-func TestPrecompiledBLS12381MapG2(t *testing.T)      { testJson("blsMapG2", "12", t) }
+func TestPrecompiledBLS12381G1Add(t *testing.T) { testJson[nist.PublicKey]("blsG1Add", "0a", t) }
+func TestPrecompiledBLS12381G1Mul(t *testing.T) { testJson[nist.PublicKey]("blsG1Mul", "0b", t) }
+func TestPrecompiledBLS12381G1MultiExp(t *testing.T) {
+	testJson[nist.PublicKey]("blsG1MultiExp", "0c", t)
+}
+func TestPrecompiledBLS12381G2Add(t *testing.T) { testJson[nist.PublicKey]("blsG2Add", "0d", t) }
+func TestPrecompiledBLS12381G2Mul(t *testing.T) { testJson[nist.PublicKey]("blsG2Mul", "0e", t) }
+func TestPrecompiledBLS12381G2MultiExp(t *testing.T) {
+	testJson[nist.PublicKey]("blsG2MultiExp", "0f", t)
+}
+func TestPrecompiledBLS12381Pairing(t *testing.T) { testJson[nist.PublicKey]("blsPairing", "10", t) }
+func TestPrecompiledBLS12381MapG1(t *testing.T)   { testJson[nist.PublicKey]("blsMapG1", "11", t) }
+func TestPrecompiledBLS12381MapG2(t *testing.T)   { testJson[nist.PublicKey]("blsMapG2", "12", t) }
 
 func BenchmarkPrecompiledBLS12381G1Add(b *testing.B)      { benchJson("blsG1Add", "0a", b) }
 func BenchmarkPrecompiledBLS12381G1Mul(b *testing.B)      { benchJson("blsG1Mul", "0b", b) }
@@ -369,7 +381,7 @@ func BenchmarkPrecompiledBLS12381G1MultiExpWorstCase(b *testing.B) {
 		Name:        "WorstCaseG1",
 		NoBenchmark: false,
 	}
-	benchmarkPrecompiled("0c", testcase, b)
+	benchmarkPrecompiled[nist.PublicKey]("0c", testcase, b)
 }
 
 // BenchmarkPrecompiledBLS12381G2MultiExpWorstCase benchmarks the worst case we could find that still fits a gaslimit of 10MGas.
@@ -390,5 +402,5 @@ func BenchmarkPrecompiledBLS12381G2MultiExpWorstCase(b *testing.B) {
 		Name:        "WorstCaseG2",
 		NoBenchmark: false,
 	}
-	benchmarkPrecompiled("0f", testcase, b)
+	benchmarkPrecompiled[nist.PublicKey]("0f", testcase, b)
 }

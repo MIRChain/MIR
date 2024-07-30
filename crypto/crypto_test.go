@@ -27,13 +27,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/MIRChain/MIR/common"
 	"github.com/MIRChain/MIR/common/hexutil"
 	"github.com/MIRChain/MIR/crypto/csp"
 	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/crypto/gost3411"
 	"github.com/MIRChain/MIR/crypto/nist"
-	"github.com/stretchr/testify/assert"
 )
 
 var testAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"

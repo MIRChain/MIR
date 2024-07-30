@@ -25,6 +25,7 @@ import (
 	"github.com/MIRChain/MIR/common/hexutil"
 	"github.com/MIRChain/MIR/core/rawdb"
 	"github.com/MIRChain/MIR/core/state"
+	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/MIRChain/MIR/params"
 )
@@ -93,6 +94,35 @@ func TestEIP2200(t *testing.T) {
 			Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
 		}
 		vmenv := NewEVM(vmctx, TxContext{}, statedb, statedb, params.AllEthashProtocolChanges, Config[nist.PublicKey]{ExtraEips: []int{2200}})
+
+		_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
+		if err != tt.failure {
+			t.Errorf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
+		}
+		if used := tt.gaspool - gas; used != tt.used {
+			t.Errorf("test %d: gas used mismatch: have %v, want %v", i, used, tt.used)
+		}
+		if refund := vmenv.StateDB.GetRefund(); refund != tt.refund {
+			t.Errorf("test %d: gas refund mismatch: have %v, want %v", i, refund, tt.refund)
+		}
+	}
+}
+
+func TestEIP2200_GOST(t *testing.T) {
+	for i, tt := range eip2200Tests {
+		address := common.BytesToAddress([]byte("contract"))
+
+		statedb, _ := state.New[gost3410.PublicKey](common.Hash{}, state.NewDatabase[gost3410.PublicKey](rawdb.NewMemoryDatabase()), nil)
+		statedb.CreateAccount(address)
+		statedb.SetCode(address, hexutil.MustDecode(tt.input))
+		statedb.SetState(address, common.Hash{}, common.BytesToHash([]byte{tt.original}))
+		statedb.Finalise(true) // Push the state into the "original" slot
+
+		vmctx := BlockContext{
+			CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
+			Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
+		}
+		vmenv := NewEVM(vmctx, TxContext{}, statedb, statedb, params.AllEthashProtocolChanges, Config[gost3410.PublicKey]{ExtraEips: []int{2200}})
 
 		_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
 		if err != tt.failure {

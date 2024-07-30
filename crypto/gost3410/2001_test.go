@@ -79,7 +79,7 @@ func TestRFCVectors(t *testing.T) {
 	if err != nil {
 		t.Fatal("Sig error ", err)
 	}
-	pub, err = NewPublicKey(c, prv.Public().Raw()) 
+	pub, err = NewPublicKey(c, prv.Public().Raw())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,8 +89,8 @@ func TestRFCVectors(t *testing.T) {
 	}
 	pointSize := pub.C.Params().BitSize / 8
 	var reversedSig [64]byte
-	copy(reversedSig[:32],signature[pointSize:2*pointSize])
-	copy(reversedSig[32:64],signature[:pointSize])
+	copy(reversedSig[:32], signature[pointSize:2*pointSize])
+	copy(reversedSig[32:64], signature[:pointSize])
 	valid, err = pub.VerifyDigest(digest, reversedSig[:])
 	if err != nil || !valid {
 		t.Fatal("Verify error ", err)

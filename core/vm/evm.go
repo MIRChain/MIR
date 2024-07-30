@@ -22,6 +22,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
+
 	"github.com/MIRChain/MIR/common"
 	"github.com/MIRChain/MIR/core/state"
 	"github.com/MIRChain/MIR/core/types"
@@ -29,7 +31,6 @@ import (
 	"github.com/MIRChain/MIR/log"
 	"github.com/MIRChain/MIR/params"
 	"github.com/MIRChain/MIR/trie"
-	"github.com/holiman/uint256"
 )
 
 // note: Quorum, States, and Value Transfer
@@ -57,17 +58,51 @@ type (
 	GetHashFunc func(uint64) common.Hash
 )
 
-func (evm *EVM[P]) precompile(addr common.Address) (PrecompiledContract, bool) {
-	var precompiles map[common.Address]PrecompiledContract
+func (evm *EVM[P]) precompile(addr common.Address) (PrecompiledContract[P], bool) {
+	var precompiles map[common.Address]PrecompiledContract[P]
 	switch {
 	case evm.chainRules.IsBerlin:
-		precompiles = PrecompiledContractsBerlin
+		precompiles = map[common.Address]PrecompiledContract[P]{
+			common.BytesToAddress([]byte{1}): &ecrecover[P]{},
+			common.BytesToAddress([]byte{2}): &sha256hash{},
+			common.BytesToAddress([]byte{3}): &ripemd160hash{},
+			common.BytesToAddress([]byte{4}): &dataCopy{},
+			common.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
+			common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
+			common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
+			common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+			common.BytesToAddress([]byte{9}): &blake2F{},
+		}
 	case evm.chainRules.IsIstanbul:
-		precompiles = PrecompiledContractsIstanbul
+		precompiles = map[common.Address]PrecompiledContract[P]{
+			common.BytesToAddress([]byte{1}): &ecrecover[P]{},
+			common.BytesToAddress([]byte{2}): &sha256hash{},
+			common.BytesToAddress([]byte{3}): &ripemd160hash{},
+			common.BytesToAddress([]byte{4}): &dataCopy{},
+			common.BytesToAddress([]byte{5}): &bigModExp{eip2565: false},
+			common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
+			common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
+			common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+			common.BytesToAddress([]byte{9}): &blake2F{},
+		}
 	case evm.chainRules.IsByzantium:
-		precompiles = PrecompiledContractsByzantium
+		precompiles = map[common.Address]PrecompiledContract[P]{
+			common.BytesToAddress([]byte{1}): &ecrecover[P]{},
+			common.BytesToAddress([]byte{2}): &sha256hash{},
+			common.BytesToAddress([]byte{3}): &ripemd160hash{},
+			common.BytesToAddress([]byte{4}): &dataCopy{},
+			common.BytesToAddress([]byte{5}): &bigModExp{eip2565: false},
+			common.BytesToAddress([]byte{6}): &bn256AddByzantium{},
+			common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
+			common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
+		}
 	default:
-		precompiles = PrecompiledContractsHomestead
+		precompiles = map[common.Address]PrecompiledContract[P]{
+			common.BytesToAddress([]byte{1}): &ecrecover[P]{},
+			common.BytesToAddress([]byte{2}): &sha256hash{},
+			common.BytesToAddress([]byte{3}): &ripemd160hash{},
+			common.BytesToAddress([]byte{4}): &dataCopy{},
+		}
 	}
 	p, ok := precompiles[addr]
 	return p, ok

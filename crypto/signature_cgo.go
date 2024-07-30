@@ -39,7 +39,7 @@ func Ecrecover[P PublicKey](digestHash, sig []byte) ([]byte, error) {
 		return nil, fmt.Errorf("hash length should be 32 bytes, got %d", len(digestHash))
 	}
 	if len(sig) != 65 {
-		return nil, fmt.Errorf("sig length should be 65 bytes, got %d", len(digestHash))
+		return nil, fmt.Errorf("sig length should be 65 bytes, got %d", len(sig))
 	}
 	var pubKey P
 	switch any(&pubKey).(type) {
