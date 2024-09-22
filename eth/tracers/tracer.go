@@ -402,7 +402,8 @@ func New[P crypto.PublicKey](code string, txCtx vm.TxContext) (*Tracer[P], error
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("isPrecompiled", func(ctx *duktape.Context) int {
-		_, ok := vm.PrecompiledContractsIstanbul[common.BytesToAddress(popSlice(ctx))]
+		precompiled := vm.PrecompiledContractsIstanbul[P]()
+		_, ok := precompiled[common.BytesToAddress(popSlice(ctx))]
 		ctx.PushBoolean(ok)
 		return 1
 	})
