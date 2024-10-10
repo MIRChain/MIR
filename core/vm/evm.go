@@ -382,7 +382,7 @@ func (evm *EVM[P]) Call(caller ContractRef, addr common.Address, input []byte, g
 	if isQuorumPrecompile {
 		ret, gas, err = RunQuorumPrecompiledContract(evm, qp, input, gas)
 	} else if isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		ret, gas, err = RunPrecompiledContract[P](p, input, gas)
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
@@ -444,7 +444,7 @@ func (evm *EVM[P]) CallCode(caller ContractRef, addr common.Address, input []byt
 	if qp, isQuorumPrecompile := evm.quorumPrecompile(addr); isQuorumPrecompile { // Quorum
 		ret, gas, err = RunQuorumPrecompiledContract(evm, qp, input, gas)
 	} else if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		ret, gas, err = RunPrecompiledContract[P](p, input, gas)
 	} else {
 		addrCopy := addr
 		// Initialise a new contract and set the code that is to be used by the EVM.
@@ -488,7 +488,7 @@ func (evm *EVM[P]) DelegateCall(caller ContractRef, addr common.Address, input [
 	if qp, isQuorumPrecompile := evm.quorumPrecompile(addr); isQuorumPrecompile { // Quorum
 		ret, gas, err = RunQuorumPrecompiledContract(evm, qp, input, gas)
 	} else if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		ret, gas, err = RunPrecompiledContract[P](p, input, gas)
 	} else {
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
@@ -539,7 +539,7 @@ func (evm *EVM[P]) StaticCall(caller ContractRef, addr common.Address, input []b
 	if qp, isQuorumPrecompile := evm.quorumPrecompile(addr); isQuorumPrecompile { // Quorum
 		ret, gas, err = RunQuorumPrecompiledContract(evm, qp, input, gas)
 	} else if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		ret, gas, err = RunPrecompiledContract[P](p, input, gas)
 	} else {
 		// At this point, we use a copy of address. If we don't, the go compiler will
 		// leak the 'contract' to the outer scope, and make allocation for 'contract'

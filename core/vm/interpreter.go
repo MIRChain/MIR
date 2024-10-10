@@ -300,6 +300,7 @@ func (in *EVMInterpreter[P]) Run(contract *Contract[P], input []byte, readOnly b
 		case err != nil:
 			return nil, err
 		case operation.reverts:
+			fmt.Printf("Operation reverted %v, %d, %v \n", operation, pc, callContext)
 			return res, ErrExecutionReverted
 		case operation.halts:
 			return res, nil

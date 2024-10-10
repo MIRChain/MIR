@@ -258,7 +258,7 @@ func (c *BoundContract[P]) transact(opts *TransactOpts[P], contract *common.Addr
 		msg := ethereum.CallMsg{From: opts.From, To: contract, GasPrice: gasPrice, Value: value, Data: input}
 		gasLimit, err = c.transactor.EstimateGas(ensureContext(opts.Context), msg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
+			return nil, fmt.Errorf("failed to estimate gas needed: %w", err)
 		}
 	}
 	// Create the transaction, sign it and schedule it for execution

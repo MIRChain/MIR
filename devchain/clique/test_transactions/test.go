@@ -81,9 +81,6 @@ func DeploySipmleContract() {
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		panic(err)
-	}
 	log.Println("Value get: ", uuid.UUID(_value))
 
 }

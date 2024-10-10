@@ -973,7 +973,7 @@ func signer[T crypto.PrivateKey, P crypto.PublicKey](c *cli.Context) error {
 	api = apiImpl
 	// Audit logging
 	if logfile := c.GlobalString(auditLogFlag.Name); logfile != "" {
-		api, err = core.NewAuditLogger(logfile, api)
+		api, err = core.NewAuditLogger[T, P](logfile, api)
 		if err != nil {
 			utils.Fatalf(err.Error())
 		}

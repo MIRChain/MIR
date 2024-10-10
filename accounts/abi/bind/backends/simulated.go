@@ -502,7 +502,7 @@ func (b *SimulatedBackend[P]) EstimateGas(ctx context.Context, call ethereum.Cal
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
 			}
-			return true, nil, err // Bail out
+			return true, nil, fmt.Errorf("error from EVM %w", err) // Bail out
 		}
 		return res.Failed(), res, nil
 	}

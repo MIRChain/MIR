@@ -34,7 +34,10 @@ import (
 	"github.com/MIRChain/MIR/core/types"
 	"github.com/MIRChain/MIR/crypto"
 	"github.com/MIRChain/MIR/crypto/gost3410"
+	"github.com/MIRChain/MIR/devchain/clique_gost/test_transactions/simple"
 	"github.com/MIRChain/MIR/params"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimulatedBackendGost(t *testing.T) {
@@ -1121,4 +1124,60 @@ func TestSimulatedBackendGost_CallContractRevert(t *testing.T) {
 		}
 		sim.Commit()
 	}
+}
+
+func TestSimulatedBackendGostSimple(t *testing.T) {
+	/*
+		pragma solidity ^0.8.0;
+		contract Simple {
+		    uint256 public value;
+		    function setValue(uint256 v) public {
+		        value = v;
+		    }
+		    function getValue() public view returns (uint256) {
+		        return value;
+		    }
+		}
+	*/
+	const contractAbi = "[{\"inputs\":[],\"name\":\"getValue\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"v\",\"type\":\"bytes16\"}],\"name\":\"setValue\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"value\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+	const contractBin = "0x608060405234801561001057600080fd5b5060ff8061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c8063209652551460415780633fa4f24514606557806362592ea7146071575b600080fd5b60005460801b5b6040516001600160801b0319909116815260200160405180910390f35b60005460489060801b81565b6098607c366004609a565b600080546001600160801b03191660809290921c919091179055565b005b60006020828403121560ab57600080fd5b81356001600160801b03198116811460c257600080fd5b939250505056fea2646970667358221220e18ee2ddc3a04c7bf622758a3d9a1a1f3c607e911d2a702799162842a9e5d23164736f6c634300080e0033"
+
+	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
+	addr := crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
+	opts, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](key, big.NewInt(1337))
+	ctx := context.Background()
+	sim := NewSimulatedBackend[gost3410.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
+	defer sim.Close()
+
+	parsed, _ := abi.JSON[gost3410.PublicKey](strings.NewReader(contractAbi))
+	contractAddr, tx, _, _ := bind.DeployContract[gost3410.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
+	sim.Commit()
+	receipt, err := bind.WaitMined[gost3410.PublicKey](ctx, sim, tx)
+	require.NoError(t, err)
+	t.Logf("Contract receipt block num : %s ", receipt.BlockNumber.String())
+	code, err := sim.CodeAt(ctx, contractAddr, nil)
+	require.NoError(t, err)
+	if len(code) == 0 {
+		t.Errorf("did not get code for account that has contract code")
+	}
+	deployedCodeWant := "6080604052348015600f57600080fd5b5060043610603c5760003560e01c8063209652551460415780633fa4f24514606557806362592ea7146071575b600080fd5b60005460801b5b6040516001600160801b0319909116815260200160405180910390f35b60005460489060801b81565b6098607c366004609a565b600080546001600160801b03191660809290921c919091179055565b005b60006020828403121560ab57600080fd5b81356001600160801b03198116811460c257600080fd5b939250505056fea2646970667358221220e18ee2ddc3a04c7bf622758a3d9a1a1f3c607e911d2a702799162842a9e5d23164736f6c634300080e0033"
+	// ensure code received equals code deployed
+	if !bytes.Equal(code, common.FromHex(deployedCodeWant)) {
+		t.Errorf("code received did not match expected deployed code:\n expected %v\n actual %v", common.FromHex(deployedCode), code)
+	}
+	contract, err := simple.NewSimple[gost3410.PublicKey](contractAddr, sim)
+	require.NoError(t, err)
+	value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	require.NoError(t, err)
+	t.Log("Value get: ", uuid.UUID(value[:]))
+	tx, err = contract.SetValue(opts, uuid.New())
+	require.NoError(t, err)
+	sim.Commit()
+	receipt, err = bind.WaitMined[gost3410.PublicKey](ctx, sim, tx)
+	require.NoError(t, err)
+	t.Log("Value set receipt block num : ", receipt.BlockNumber.String())
+	t.Log("Value set", tx.Hash().Hex())
+	newValue, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	require.NoError(t, err)
+	t.Log("Value get: ", uuid.UUID(newValue))
 }

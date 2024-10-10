@@ -79,7 +79,7 @@ func New[T crypto.PrivateKey, P crypto.PublicKey](eth Backend[T, P], config *Con
 		exitCh:  make(chan struct{}),
 		startCh: make(chan common.Address),
 		stopCh:  make(chan struct{}),
-		worker:  newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		worker:  newWorker[T,P](config, chainConfig, engine, eth, mux, isLocalBlock, true),
 	}
 	go miner.update()
 
