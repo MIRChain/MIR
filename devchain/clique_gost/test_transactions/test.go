@@ -15,7 +15,7 @@ import (
 	"github.com/MIRChain/MIR/crypto"
 	"github.com/MIRChain/MIR/crypto/csp"
 	"github.com/MIRChain/MIR/crypto/gost3410"
-	"github.com/MIRChain/MIR/devchain/clique/test_transactions/simple"
+	"github.com/MIRChain/MIR/devchain/clique_gost/test_transactions/simple"
 	"github.com/MIRChain/MIR/ethclient"
 )
 
@@ -231,11 +231,11 @@ func DeploySipmleContract() {
 		panic(err)
 	}
 
-	// value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// log.Println("Value get: ", value[:])
+	value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Value get: ", uuid.UUID(value))
 
 	tx, err = contract.SetValue(auth, uuid.New())
 	if err != nil {
