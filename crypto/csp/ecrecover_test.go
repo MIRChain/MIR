@@ -15,7 +15,7 @@ func TestEcrecover(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	skid := "43ad4195a67f95eea752861c96297045bb9ea5a7"
+	skid := "71732462bbc029d911e6d16a3ed00d9d1d772620"
 	// crt, err := store.GetByThumb(signCertThumb)
 	crt, err := store.GetBySubjectId(skid)
 	if err != nil {
@@ -41,11 +41,11 @@ func TestEcrecover(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("hash digest: %x", digest)
-	// sig, err := hash.Sign()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	sig, _ := hex.DecodeString("25e53018b290d115ae96ac6abb49c8e9fd88297499b7a68e600c78d1c20083285ee04229f089bea48703d90c6dd33ed1b4b9051cd5611e7ec9994c968bcb8412")
+	sig, err := hash.Sign()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sig, _ := hex.DecodeString("25e53018b290d115ae96ac6abb49c8e9fd88297499b7a68e600c78d1c20083285ee04229f089bea48703d90c6dd33ed1b4b9051cd5611e7ec9994c968bcb8412")
 	t.Logf("signature: %s", hex.EncodeToString(sig))
 	err = hash.VerifyWithPub(sig, crt.Info().PublicKeyBytes())
 	assert.NoError(t, err)

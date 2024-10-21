@@ -193,7 +193,7 @@ func TestUnmarshalPubkeyGost(t *testing.T) {
 	}
 }
 
-func TestSign(t *testing.T) {
+func TestSignEcRecoverNIST(t *testing.T) {
 	CryptoAlg = NIST
 	key, _ := HexToECDSA[nist.PrivateKey](testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
@@ -222,7 +222,9 @@ func TestSign(t *testing.T) {
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
 	}
+}
 
+func TestSignEcRecoverGOST(t *testing.T) {
 	CryptoAlg = GOST
 	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	gostKey, _ := gost3410.GenPrivateKey(gost3410.CurveIdGostR34102001CryptoProAParamSet(), rand.Reader)
@@ -266,7 +268,9 @@ func TestSign(t *testing.T) {
 	if !bytes.Equal(gostKey.Public().Raw(), recoveredGostPub[1:]) {
 		t.Fatalf("Address mismatch: want: %x have: %x", gostKey.Public().Raw(), recoveredGostPub[1:])
 	}
+}
 
+func TestSignEcRecoverCSP(t *testing.T) {
 	CryptoAlg = GOST_CSP
 	store, err := csp.SystemStore("My")
 	if err != nil {
@@ -274,79 +278,11 @@ func TestSign(t *testing.T) {
 	}
 	defer store.Close()
 	// Cert should be without set pin
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	crt, err := store.GetBySubjectId("71732462bbc029d911e6d16a3ed00d9d1d772620")
 	if err != nil {
 		t.Fatalf("Get cert error: %s", err)
 	}
 	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[:66])
-	defer crt.Close()
-	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = hash.Write([]byte("foo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest = hash.Sum(nil)
-	hash.Reset()
-	hash.Close()
-	t.Logf("hash digest: %x", digest)
-	sig, err = Sign(digest, crt)
-	if err != nil {
-		t.Fatalf("Sign error: %s", err)
-	}
-	t.Log("Sig csp", len(sig))
-	recoveredGostPub, err = Ecrecover[csp.PublicKey](digest, sig)
-	if err != nil {
-		t.Fatalf("ECRecover error: %s", err)
-	}
-	if !bytes.Equal(crt.Info().PublicKeyBytes()[1:66], recoveredGostPub) {
-		t.Fatalf("Address mismatch: want: %x have: %x", crt.Info().PublicKeyBytes()[1:66], recoveredGostPub)
-	}
-}
-
-func TestHashCSP(t *testing.T) {
-	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = hash.Write([]byte("foo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest := hash.Sum(nil)
-	hash.Reset()
-	hash.Close()
-	t.Logf("hash digest: %x", digest)
-}
-func TestHashReadCSP(t *testing.T) {
-	hasher := NewKeccakState[csp.PublicKey]()
-	_, err := hasher.Write([]byte("foo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	digestNew := make([]byte, 32)
-	hasher.Read(digestNew)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Read hash digest: %x", digestNew)
-}
-func TestSignCSPRecoverGOST(t *testing.T) {
-	store, err := csp.SystemStore("My")
-	if err != nil {
-		t.Fatalf("Store error: %s", err)
-	}
-	defer store.Close()
-	// Cert should be without set pin
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
-	if err != nil {
-		t.Fatalf("Get cert error: %s", err)
-	}
 	defer crt.Close()
 	hash, err := csp.NewHash(csp.HashOptions{SignCert: crt, HashAlg: csp.GOST_R3411_12_256})
 	if err != nil {
@@ -367,7 +303,7 @@ func TestSignCSPRecoverGOST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Sign error: %s", err)
 	}
-	t.Log("Sig csp", len(sig))
+	t.Logf("Sig csp: %x", sig)
 	recoveredGostPub, err := Ecrecover[csp.PublicKey](digest, sig)
 	if err != nil {
 		t.Fatalf("ECRecover error: %s", err)
@@ -409,14 +345,34 @@ func TestSignCSPRecoverGOST(t *testing.T) {
 	}
 }
 
-// func TestInvalidSign(t *testing.T) {
-// 	if _, err := Sign(make([]byte, 1), nil); err == nil {
-// 		t.Errorf("expected sign with hash 1 byte to error")
-// 	}
-// 	if _, err := Sign(make([]byte, 33), nil); err == nil {
-// 		t.Errorf("expected sign with hash 33 byte to error")
-// 	}
-// }
+func TestHashCSP(t *testing.T) {
+	hash, err := csp.NewHash(csp.HashOptions{HashAlg: csp.GOST_R3411_12_256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = hash.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := hash.Sum(nil)
+	hash.Reset()
+	hash.Close()
+	t.Logf("hash digest: %x", digest)
+}
+
+func TestHashReadCSP(t *testing.T) {
+	hasher := NewKeccakState[csp.PublicKey]()
+	_, err := hasher.Write([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digestNew := make([]byte, 32)
+	hasher.Read(digestNew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Read hash digest: %x", digestNew)
+}
 
 func TestNewContractAddress(t *testing.T) {
 	key, _ := HexToECDSA[nist.PrivateKey](testPrivHex)

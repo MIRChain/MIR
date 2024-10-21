@@ -1,8 +1,10 @@
 FROM centos:7
-RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-RUN yum update -y
-RUN yum install -y yum-utils deltarpm
-RUN yum install -y gcc-c++ golang wget git kernel-devel kernel-headers jemalloc-devel gmp-devel redhat-lsb-core rsyslog xerces-c-devel lsb-core-noarch gcc gtk2 jq vim htop rsyslog
+
+RUN echo "Installing system packages..." \
+    && sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* \
+    && sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* \
+    && yum update -y \
+    && yum install -y epel-release yum-utils deltarpm gcc-c++ golang wget git kernel-devel kernel-headers jemalloc-devel gmp-devel redhat-lsb-core rsyslog xerces-c-devel lsb-core-noarch gcc gtk2 jq vim htop rsyslog
 
 #setting up CSP
 ENV TZ="Asia/Tokyo"

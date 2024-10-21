@@ -15,9 +15,8 @@ RUN echo "Installing GO v${GO_VERSION}..." \
 RUN echo "Installing system packages..." \
     && sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* \
     && sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* \
-    && yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
     && yum update -y \
-    && yum install -y  lsb-core-noarch jq vim htop rsyslog net-tools git gcc gcc-c++ redhat-lsb-core jemalloc-devel gmp-devel  
+    && yum install -y epel-release lsb-core-noarch jq vim htop rsyslog net-tools git gcc gcc-c++ redhat-lsb-core jemalloc-devel gmp-devel  
 
 RUN echo "Installing CryptoPro..." \
     && tar -xzf linux-amd64_rpm.tgz -C /tmp \
