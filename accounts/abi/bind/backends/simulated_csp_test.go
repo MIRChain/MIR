@@ -36,7 +36,6 @@ import (
 	"github.com/MIRChain/MIR/core/types"
 	"github.com/MIRChain/MIR/crypto"
 	"github.com/MIRChain/MIR/crypto/csp"
-	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/devchain/clique_gost/test_transactions/simple"
 	"github.com/MIRChain/MIR/params"
 	"github.com/google/uuid"
@@ -114,19 +113,18 @@ func TestSimulatedBackendCSP(t *testing.T) {
 	}
 }
 
-
 func TestSimulatedBackendCSPtoGOST3410(t *testing.T) {
 	defer crt.Close()
 	var gasLimit uint64 = 8000029
 	t.Logf("Cert pub key: %x", crt.Info().PublicKeyBytes()[2:66])
-	addr := common.BytesToAddress(crypto.Keccak256[gost3410.PublicKey](crt.PubkeyToAddress()))
+	addr := common.BytesToAddress(crypto.Keccak256[csp.PublicKey](crt.PubkeyToAddress()))
 	t.Logf("Cert address: %s", addr.Hex())
 
 	// auth, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
 	genAlloc := make(core.GenesisAlloc)
 	genAlloc[addr] = core.GenesisAccount{Balance: big.NewInt(9223372036854775807)}
 
-	sim := NewSimulatedBackend[gost3410.PublicKey](genAlloc, gasLimit)
+	sim := NewSimulatedBackend[csp.PublicKey](genAlloc, gasLimit)
 	defer sim.Close()
 
 	// should return an error if the tx is not found
@@ -154,10 +152,10 @@ func TestSimulatedBackendCSPtoGOST3410(t *testing.T) {
 	// generate a transaction and confirm you can retrieve it
 	code := `6060604052600a8060106000396000f360606040526008565b00`
 	var gas uint64 = 3000000
-	tx := types.NewContractCreation[gost3410.PublicKey](0, big.NewInt(0), gas, big.NewInt(1), common.FromHex(code))
+	tx := types.NewContractCreation[csp.PublicKey](0, big.NewInt(0), gas, big.NewInt(1), common.FromHex(code))
 	t.Logf("Tx hash %x", tx.Hash())
 	// Sign TX low level
-	signer := types.NewEIP155Signer[gost3410.PublicKey](sim.config.ChainID)
+	signer := types.NewEIP155Signer[csp.PublicKey](sim.config.ChainID)
 	txHash = signer.Hash(tx)
 	sig, err := crypto.Sign(txHash[:], crt)
 	if err != nil {
@@ -171,12 +169,12 @@ func TestSimulatedBackendCSPtoGOST3410(t *testing.T) {
 	resSig[64] = sig[64]
 
 	// Get address which will be used at pure GO GOST network - recover to get the right value
-	recoveredGostPub, err := crypto.Ecrecover[gost3410.PublicKey](txHash[:], resSig)
+	recoveredGostPub, err := crypto.Ecrecover[csp.PublicKey](txHash[:], resSig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Account From %x", crypto.Keccak256[gost3410.PublicKey](recoveredGostPub[1:])[12:])
-	require.Equal(t, common.BytesToAddress(crypto.Keccak256[gost3410.PublicKey](recoveredGostPub[1:])[12:]).Hex(), addr.Hex())
+	t.Logf("Account From %x", crypto.Keccak256[csp.PublicKey](recoveredGostPub[1:])[12:])
+	require.Equal(t, common.BytesToAddress(crypto.Keccak256[csp.PublicKey](recoveredGostPub[1:])[12:]).Hex(), addr.Hex())
 	resPub := recoveredGostPub[1:]
 	pub := make([]byte, 64)
 	copy(pub[:32], resPub[32:64])
@@ -219,8 +217,7 @@ func TestSimulatedBackendCSPtoGOST3410(t *testing.T) {
 	}
 }
 
-
-// var testKeyGost, _ = crypto.HexToECDSA[gost3410.PrivateKey]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+// var crt, _ = crypto.HexToECDSA[csp.Cert]("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 //	 the following is based on this contract:
 //	 contract T {
@@ -241,8 +238,8 @@ func TestSimulatedBackendCSPtoGOST3410(t *testing.T) {
 // expected return value contains "hello world"
 // var expectedReturnGost = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-func simTestBackendCSP(testAddr common.Address) *SimulatedBackend[gost3410.PublicKey] {
-	return NewSimulatedBackend[gost3410.PublicKey](
+func simTestBackendCSP(testAddr common.Address) *SimulatedBackend[csp.PublicKey] {
+	return NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{
 			testAddr: {Balance: big.NewInt(10000000000)},
 		}, 10000000,
@@ -250,9 +247,9 @@ func simTestBackendCSP(testAddr common.Address) *SimulatedBackend[gost3410.Publi
 }
 
 func TestNewSimulatedBackendCSP(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 	expectedBal := big.NewInt(10000000000)
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 
 	if sim.config != params.AllEthashProtocolChanges {
@@ -271,7 +268,7 @@ func TestNewSimulatedBackendCSP(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_AdjustTime(t *testing.T) {
-	sim := NewSimulatedBackend[gost3410.PublicKey](
+	sim := NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{}, 10000000,
 	)
 	defer sim.Close()
@@ -288,11 +285,11 @@ func TestSimulatedBackendCSP_AdjustTime(t *testing.T) {
 }
 
 func TestNewSimulatedBackendCSP_AdjustTimeFail(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
-	sim := simTestBackendGost(testAddr)
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	sim := simTestBackendCSP(testAddr)
 	// Create tx and send
-	tx := types.NewTransaction[gost3410.PublicKey](0, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](0, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -315,8 +312,8 @@ func TestNewSimulatedBackendCSP_AdjustTimeFail(t *testing.T) {
 		t.Errorf("adjusted time not equal to a minute. prev: %v, new: %v", prevTime, newTime)
 	}
 	// Put a transaction after adjusting time
-	tx2 := types.NewTransaction[gost3410.PublicKey](1, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx2, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx2, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx2 := types.NewTransaction[csp.PublicKey](1, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx2, err := types.SignTx[csp.Cert, csp.PublicKey](tx2, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -332,9 +329,9 @@ func TestNewSimulatedBackendCSP_AdjustTimeFail(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_BalanceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 	expectedBal := big.NewInt(10000000000)
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
@@ -349,7 +346,7 @@ func TestSimulatedBackendCSP_BalanceAt(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_BlockByHash(t *testing.T) {
-	sim := NewSimulatedBackend[gost3410.PublicKey](
+	sim := NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{}, 10000000,
 	)
 	defer sim.Close()
@@ -370,7 +367,7 @@ func TestSimulatedBackendCSP_BlockByHash(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_BlockByNumber(t *testing.T) {
-	sim := NewSimulatedBackend[gost3410.PublicKey](
+	sim := NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{}, 10000000,
 	)
 	defer sim.Close()
@@ -405,9 +402,9 @@ func TestSimulatedBackendCSP_BlockByNumber(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_NonceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
@@ -421,8 +418,8 @@ func TestSimulatedBackendCSP_NonceAt(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](nonce, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](nonce, testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -455,15 +452,15 @@ func TestSimulatedBackendCSP_NonceAt(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_SendTransaction(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -486,9 +483,9 @@ func TestSimulatedBackendCSP_SendTransaction(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_TransactionByHash(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := NewSimulatedBackend[gost3410.PublicKey](
+	sim := NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{
 			testAddr: {Balance: big.NewInt(10000000000)},
 		}, 10000000,
@@ -497,8 +494,8 @@ func TestSimulatedBackendCSP_TransactionByHash(t *testing.T) {
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -549,15 +546,14 @@ func TestSimulatedBackendCSP_EstimateGas(t *testing.T) {
 	const contractAbi = "[{\"inputs\":[],\"name\":\"Assert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OOG\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PureRevert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Revert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Valid\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 	const contractBin = "0x608060405234801561001057600080fd5b5061014c806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c806350f6fe341461005c578063aa8b1d3014610066578063b9b046f91461006e578063d8b9839114610076578063e09fface14610064575b600080fd5b61006461007e565b005b610064600080fd5b610064610093565b61006461009d565b60005b8061008b816100d9565b915050610081565b61009b610100565b565b60405162461bcd60e51b815260206004820152600d60248201526c3932bb32b93a103932b0b9b7b760991b604482015260640160405180910390fd5b6000600182016100f957634e487b7160e01b600052601160045260246000fd5b5060010190565b634e487b7160e01b600052600160045260246000fdfea2646970667358221220fa9541892f70c6a346761b74252579ff4ab68255212504a5f90565be4d22c0a564736f6c63430008120033"
 
-	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
-	addr := crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
-	opts, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](key, big.NewInt(1337))
+	addr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	opts, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
 
-	sim := NewSimulatedBackend[gost3410.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
+	sim := NewSimulatedBackend[csp.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
 	defer sim.Close()
 
-	parsed, _ := abi.JSON[gost3410.PublicKey](strings.NewReader(contractAbi))
-	contractAddr, _, _, _ := bind.DeployContract[gost3410.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
+	parsed, _ := abi.JSON[csp.PublicKey](strings.NewReader(contractAbi))
+	contractAddr, _, _, _ := bind.DeployContract[csp.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
 	sim.Commit()
 
 	var cases = []struct {
@@ -655,10 +651,9 @@ func TestSimulatedBackendCSP_EstimateGas(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_EstimateGasWithPrice(t *testing.T) {
-	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
-	addr := crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
+	addr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := NewSimulatedBackend[gost3410.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether*2 + 2e17)}}, 10000000)
+	sim := NewSimulatedBackend[csp.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether*2 + 2e17)}}, 10000000)
 	defer sim.Close()
 
 	recipient := common.HexToAddress("deadbeef")
@@ -722,9 +717,9 @@ func TestSimulatedBackendCSP_EstimateGasWithPrice(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_HeaderByHash(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
@@ -743,7 +738,7 @@ func TestSimulatedBackendCSP_HeaderByHash(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_HeaderByNumber(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
 	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
@@ -790,7 +785,7 @@ func TestSimulatedBackendCSP_HeaderByNumber(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_TransactionCount(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
 	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
@@ -810,8 +805,8 @@ func TestSimulatedBackendCSP_TransactionCount(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -840,9 +835,9 @@ func TestSimulatedBackendCSP_TransactionCount(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_TransactionInBlock(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
@@ -865,8 +860,8 @@ func TestSimulatedBackendCSP_TransactionInBlock(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -903,9 +898,9 @@ func TestSimulatedBackendCSP_TransactionInBlock(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_PendingNonceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
@@ -920,8 +915,8 @@ func TestSimulatedBackendCSP_PendingNonceAt(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -943,8 +938,8 @@ func TestSimulatedBackendCSP_PendingNonceAt(t *testing.T) {
 	}
 
 	// make a new transaction with a nonce of 1
-	tx = types.NewTransaction[gost3410.PublicKey](uint64(1), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err = types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx = types.NewTransaction[csp.PublicKey](uint64(1), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err = types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -965,15 +960,15 @@ func TestSimulatedBackendCSP_PendingNonceAt(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_TransactionReceipt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
 
-	sim := simTestBackendGost(testAddr)
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	tx := types.NewTransaction[gost3410.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
-	signedTx, err := types.SignTx[gost3410.PrivateKey, gost3410.PublicKey](tx, types.HomesteadSigner[gost3410.PublicKey]{}, testKeyGost)
+	tx := types.NewTransaction[csp.PublicKey](uint64(0), testAddr, big.NewInt(1000), params.TxGas, big.NewInt(1), nil)
+	signedTx, err := types.SignTx[csp.Cert, csp.PublicKey](tx, types.HomesteadSigner[csp.PublicKey]{}, crt)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -996,7 +991,7 @@ func TestSimulatedBackendCSP_TransactionReceipt(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_SuggestGasPrice(t *testing.T) {
-	sim := NewSimulatedBackend[gost3410.PublicKey](
+	sim := NewSimulatedBackend[csp.PublicKey](
 		core.GenesisAlloc{},
 		10000000,
 	)
@@ -1012,8 +1007,8 @@ func TestSimulatedBackendCSP_SuggestGasPrice(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_PendingCodeAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
-	sim := simTestBackendGost(testAddr)
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 	code, err := sim.CodeAt(bgCtx, testAddr, nil)
@@ -1024,12 +1019,12 @@ func TestSimulatedBackendCSP_PendingCodeAt(t *testing.T) {
 		t.Errorf("got code for account that does not have contract code")
 	}
 
-	parsed, err := abi.JSON[gost3410.PublicKey](strings.NewReader(abiJSONGost))
+	parsed, err := abi.JSON[csp.PublicKey](strings.NewReader(abiJSONGost))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
-	auth, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](testKeyGost, big.NewInt(1337))
-	contractAddr, tx, contract, err := bind.DeployContract[gost3410.PublicKey](auth, parsed, common.FromHex(abiBinGost), sim)
+	auth, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
+	contractAddr, tx, contract, err := bind.DeployContract[csp.PublicKey](auth, parsed, common.FromHex(abiBinGost), sim)
 	if err != nil {
 		t.Errorf("could not deploy contract: %v tx: %v contract: %v", err, tx, contract)
 	}
@@ -1048,8 +1043,8 @@ func TestSimulatedBackendCSP_PendingCodeAt(t *testing.T) {
 }
 
 func TestSimulatedBackendCSP_CodeAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
-	sim := simTestBackendGost(testAddr)
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 	code, err := sim.CodeAt(bgCtx, testAddr, nil)
@@ -1060,12 +1055,12 @@ func TestSimulatedBackendCSP_CodeAt(t *testing.T) {
 		t.Errorf("got code for account that does not have contract code")
 	}
 
-	parsed, err := abi.JSON[gost3410.PublicKey](strings.NewReader(abiJSONGost))
+	parsed, err := abi.JSON[csp.PublicKey](strings.NewReader(abiJSONGost))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
-	auth, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](testKeyGost, big.NewInt(1337))
-	contractAddr, tx, contract, err := bind.DeployContract[gost3410.PublicKey](auth, parsed, common.FromHex(abiBinGost), sim)
+	auth, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
+	contractAddr, tx, contract, err := bind.DeployContract[csp.PublicKey](auth, parsed, common.FromHex(abiBinGost), sim)
 	if err != nil {
 		t.Errorf("could not deploy contract: %v tx: %v contract: %v", err, tx, contract)
 	}
@@ -1088,17 +1083,17 @@ func TestSimulatedBackendCSP_CodeAt(t *testing.T) {
 //
 //	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestSimulatedBackendCSP_PendingAndCallContract(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
-	sim := simTestBackendGost(testAddr)
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
-	parsed, err := abi.JSON[gost3410.PublicKey](strings.NewReader(abiJSONGost))
+	parsed, err := abi.JSON[csp.PublicKey](strings.NewReader(abiJSONGost))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
-	contractAuth, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](testKeyGost, big.NewInt(1337))
-	addr, _, _, err := bind.DeployContract[gost3410.PublicKey](contractAuth, parsed, common.FromHex(abiBinGost), sim)
+	contractAuth, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
+	addr, _, _, err := bind.DeployContract[csp.PublicKey](contractAuth, parsed, common.FromHex(abiBinGost), sim)
 	if err != nil {
 		t.Errorf("could not deploy contract: %v", err)
 	}
@@ -1172,20 +1167,20 @@ contract Reverter {
     }
 }*/
 func TestSimulatedBackendCSP_CallContractRevert(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress[gost3410.PublicKey](*testKeyGost.Public())
-	sim := simTestBackendGost(testAddr)
+	testAddr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	sim := simTestBackendCSP(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
 	reverterABI := `[{"inputs": [],"name": "noRevert","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertASM","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertNoString","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertString","outputs": [],"stateMutability": "pure","type": "function"}]`
 	reverterBin := "608060405234801561001057600080fd5b506101d3806100206000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80634b409e01146100515780639b340e361461005b5780639bd6103714610065578063b7246fc11461006f575b600080fd5b610059610079565b005b6100636100ca565b005b61006d6100cf565b005b610077610145565b005b60006100c8576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401808060200182810382526000815260200160200191505060405180910390fd5b565b600080fd5b6000610143576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600a8152602001807f736f6d65206572726f720000000000000000000000000000000000000000000081525060200191505060405180910390fd5b565b7f08c379a0000000000000000000000000000000000000000000000000000000006000526020600452600a6024527f736f6d65206572726f720000000000000000000000000000000000000000000060445260646000f3fea2646970667358221220cdd8af0609ec4996b7360c7c780bad5c735740c64b1fffc3445aa12d37f07cb164736f6c63430006070033"
 
-	parsed, err := abi.JSON[gost3410.PublicKey](strings.NewReader(reverterABI))
+	parsed, err := abi.JSON[csp.PublicKey](strings.NewReader(reverterABI))
 	if err != nil {
 		t.Errorf("could not get code at test addr: %v", err)
 	}
-	contractAuth, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](testKeyGost, big.NewInt(1337))
-	addr, _, _, err := bind.DeployContract[gost3410.PublicKey](contractAuth, parsed, common.FromHex(reverterBin), sim)
+	contractAuth, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
+	addr, _, _, err := bind.DeployContract[csp.PublicKey](contractAuth, parsed, common.FromHex(reverterBin), sim)
 	if err != nil {
 		t.Errorf("could not deploy contract: %v", err)
 	}
@@ -1272,17 +1267,16 @@ func TestSimulatedBackendCSPSimple(t *testing.T) {
 	const contractAbi = "[{\"inputs\":[],\"name\":\"getValue\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"v\",\"type\":\"bytes16\"}],\"name\":\"setValue\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"value\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"\",\"type\":\"bytes16\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 	const contractBin = "0x608060405234801561001057600080fd5b5060ff8061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c806307ea02e11460415780637d7ee50e146065578063c7ff2103146071575b600080fd5b60005460801b5b6040516001600160801b0319909116815260200160405180910390f35b60005460489060801b81565b6098607c366004609a565b600080546001600160801b03191660809290921c919091179055565b005b60006020828403121560ab57600080fd5b81356001600160801b03198116811460c257600080fd5b939250505056fea2646970667358221220e18ee2ddc3a04c7bf622758a3d9a1a1f3c607e911d2a702799162842a9e5d23164736f6c634300080e0033"
 
-	key, _ := crypto.GenerateKey[gost3410.PrivateKey]()
-	addr := crypto.PubkeyToAddress[gost3410.PublicKey](*key.Public())
-	opts, _ := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](key, big.NewInt(1337))
+	addr := crypto.PubkeyToAddress[csp.PublicKey](*crt.Public())
+	opts, _ := bind.NewKeyedTransactorWithChainID[csp.Cert, csp.PublicKey](crt, big.NewInt(1337))
 	ctx := context.Background()
-	sim := NewSimulatedBackend[gost3410.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
+	sim := NewSimulatedBackend[csp.PublicKey](core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
 	defer sim.Close()
 
-	parsed, _ := abi.JSON[gost3410.PublicKey](strings.NewReader(contractAbi))
-	contractAddr, tx, _, _ := bind.DeployContract[gost3410.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
+	parsed, _ := abi.JSON[csp.PublicKey](strings.NewReader(contractAbi))
+	contractAddr, tx, _, _ := bind.DeployContract[csp.PublicKey](opts, parsed, common.FromHex(contractBin), sim)
 	sim.Commit()
-	receipt, err := bind.WaitMined[gost3410.PublicKey](ctx, sim, tx)
+	receipt, err := bind.WaitMined[csp.PublicKey](ctx, sim, tx)
 	require.NoError(t, err)
 	t.Logf("Contract receipt block num : %s ", receipt.BlockNumber.String())
 	code, err := sim.CodeAt(ctx, contractAddr, nil)
@@ -1295,7 +1289,7 @@ func TestSimulatedBackendCSPSimple(t *testing.T) {
 	if !bytes.Equal(code, common.FromHex(deployedCodeWant)) {
 		t.Errorf("code received did not match expected deployed code:\n expected %x\n actual %x", common.FromHex(deployedCode), code)
 	}
-	contract, err := simple.NewSimple[gost3410.PublicKey](contractAddr, sim)
+	contract, err := simple.NewSimple[csp.PublicKey](contractAddr, sim)
 	require.NoError(t, err)
 	value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
 	require.NoError(t, err)
@@ -1303,7 +1297,7 @@ func TestSimulatedBackendCSPSimple(t *testing.T) {
 	tx, err = contract.SetValue(opts, uuid.New())
 	require.NoError(t, err)
 	sim.Commit()
-	receipt, err = bind.WaitMined[gost3410.PublicKey](ctx, sim, tx)
+	receipt, err = bind.WaitMined[csp.PublicKey](ctx, sim, tx)
 	require.NoError(t, err)
 	t.Log("Value set receipt block num : ", receipt.BlockNumber.String())
 	t.Log("Value set", tx.Hash().Hex())
