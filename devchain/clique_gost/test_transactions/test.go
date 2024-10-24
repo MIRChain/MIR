@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"log"
@@ -21,8 +22,8 @@ import (
 
 func main() {
 	// TestTransfer()
-	DeploySipmleContract()
-	// TestTransferFromCSPtoGost()
+	DeploySipmleContractGOST()
+	TestTransferFromCSPtoGost()
 }
 
 func TestTransfer() {
@@ -93,7 +94,7 @@ func TestTransferFromCSPtoGost() {
 		log.Fatalf("Store error: %s", err)
 	}
 	defer store.Close()
-	crt, err := store.GetBySubjectId("4ac93fc08bc0efd24180b0fa47f7309c257e8c85")
+	crt, err := store.GetBySubjectId("71732462bbc029d911e6d16a3ed00d9d1d772620")
 	if err != nil {
 		log.Fatalf("Get cert error: %s", err)
 	}
@@ -101,7 +102,7 @@ func TestTransferFromCSPtoGost() {
 	defer crt.Close()
 	back, err := ethclient.Dial[gost3410.PublicKey]("http://127.0.0.1:8545")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	ctx := context.Background()
 	blockNumber, err := back.BlockNumber(ctx)
@@ -120,7 +121,7 @@ func TestTransferFromCSPtoGost() {
 		log.Fatal(err)
 	}
 	log.Println("gas price ", gasPrice.String())
-	balanceCheck, err := back.BalanceAt(context.Background(), common.HexToAddress("0x07514B71D17497f81008319Fc5Eb8E69A07f2DBe"), nil)
+	balanceCheck, err := back.BalanceAt(context.Background(), common.HexToAddress("0x37B3e5679521f5A652c2C0738EDaa0700C8cCC0a"), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -151,20 +152,20 @@ func TestTransferFromCSPtoGost() {
 	resSig[64] = sig[64]
 
 	// Get address which will be used at pure GO GOST network - recover to get the right value
-	// recoveredGostPub, err := crypto.Ecrecover[gost3410.PublicKey](txHash[:], resSig)
-	// if err != nil {
-	//     log.Fatal(err)
-	// }
-	// log.Printf("Account From %x", crypto.Keccak256[gost3410.PublicKey](recoveredGostPub[1:])[12:])
-	// resPub := recoveredGostPub[1:]
-	// pub := make([]byte, 64)
-	// copy(pub[:32], resPub[32:64])
-	// copy(pub[32:64], resPub[:32])
-	// reverse(pub)
-	// // compare recovered and crt.pub
-	// if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], pub) {
-	// 	log.Fatal("Wrong revovered pub key")
-	// }
+	recoveredGostPub, err := crypto.Ecrecover[gost3410.PublicKey](txHash[:], resSig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Account From %x", crypto.Keccak256[gost3410.PublicKey](recoveredGostPub[1:])[12:])
+	resPub := recoveredGostPub[1:]
+	pub := make([]byte, 64)
+	copy(pub[:32], resPub[32:64])
+	copy(pub[32:64], resPub[:32])
+	reverse(pub)
+	// compare recovered and crt.pub
+	if !bytes.Equal(crt.Info().PublicKeyBytes()[2:66], pub) {
+		log.Fatal("Wrong revovered pub key")
+	}
 
 	signedTx, err := tx.WithSignature(signer, resSig)
 	if err != nil {
@@ -186,7 +187,7 @@ func TestTransferFromCSPtoGost() {
 	log.Printf("Account balance %s", balanceCheck.String())
 }
 
-func DeploySipmleContract() {
+func DeploySipmleContractGOST() {
 	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
 	back, err := ethclient.Dial[gost3410.PublicKey]("http://127.0.0.1:8545")
 	if err != nil {
@@ -194,10 +195,88 @@ func DeploySipmleContract() {
 	}
 	ctx := context.Background()
 	blockNumber, err := back.BlockNumber(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Println("Block number ", blockNumber)
 	blockInfo, err := back.BlockByNumber(ctx, nil)
 	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Block hash ", blockInfo.Hash().Hex())
+	jsonBytes, err := ioutil.ReadFile("../node1/keystore/UTC--2023-04-11T19-26-02.261401864Z--1f1a2f8231efe45f0ff0c2ed3c27eebf58fc175c")
+	if err != nil {
+		log.Fatal(err)
+	}
+	key, err := keystore.DecryptKey[gost3410.PrivateKey, gost3410.PublicKey](jsonBytes, "12345678")
+	if err != nil {
 		panic(err)
+	}
+	auth, err := bind.NewKeyedTransactorWithChainID[gost3410.PrivateKey, gost3410.PublicKey](key.PrivateKey, big.NewInt(1515))
+	if err != nil {
+		panic(err)
+	}
+	address, tx, _, err := simple.DeploySimple[gost3410.PublicKey](auth, back)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("Contract deployed at addr: ", address.Hex())
+	log.Println("Tx hash ", tx.Hash().Hex())
+
+	receipt, err := bind.WaitMined[gost3410.PublicKey](ctx, back, tx)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Contract receipt block num : ", receipt.BlockNumber.String())
+
+	contract, err := simple.NewSimple[gost3410.PublicKey](address, back)
+	if err != nil {
+		panic(err)
+	}
+
+	value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Value get: ", uuid.UUID(value))
+
+	tx, err = contract.SetValue(auth, uuid.New())
+	if err != nil {
+		panic(err)
+	}
+	receipt, err = bind.WaitMined[gost3410.PublicKey](ctx, back, tx)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Value set receipt block num : ", receipt.BlockNumber.String())
+
+	_value, err := contract.GetValue(&bind.CallOpts{Pending: true, Context: ctx})
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Value get: ", uuid.UUID(_value))
+
+}
+
+func DeploySipmleContractCSP() {
+	gost3410.GostCurve = gost3410.CurveIdGostR34102001CryptoProAParamSet()
+	back, err := ethclient.Dial[gost3410.PublicKey]("http://127.0.0.1:8545")
+	if err != nil {
+		panic(err)
+	}
+	ctx := context.Background()
+	blockNumber, err := back.BlockNumber(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Block number ", blockNumber)
+	blockInfo, err := back.BlockByNumber(ctx, nil)
+	if err != nil {
+		log.Fatal(err)
 	}
 	log.Println("Block hash ", blockInfo.Hash().Hex())
 	jsonBytes, err := ioutil.ReadFile("../node1/keystore/UTC--2023-04-11T19-26-02.261401864Z--1f1a2f8231efe45f0ff0c2ed3c27eebf58fc175c")

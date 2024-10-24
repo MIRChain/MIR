@@ -116,3 +116,11 @@ func (c Cert) Context() (Ctx, error) {
 	}
 	return res, nil
 }
+func (c Cert) PubkeyToAddress() []byte {
+	pub := c.Info().PublicKeyBytes()[2:66]
+	reverse(pub)
+	resPub := make([]byte, 64)
+	copy(resPub[:32], pub[32:64])
+	copy(resPub[32:64], pub[:32])
+	return resPub
+}

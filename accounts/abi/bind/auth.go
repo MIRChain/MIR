@@ -29,6 +29,7 @@ import (
 	"github.com/MIRChain/MIR/common"
 	"github.com/MIRChain/MIR/core/types"
 	"github.com/MIRChain/MIR/crypto"
+	"github.com/MIRChain/MIR/crypto/csp"
 	"github.com/MIRChain/MIR/crypto/gost3410"
 	"github.com/MIRChain/MIR/crypto/nist"
 	"github.com/MIRChain/MIR/log"
@@ -176,6 +177,9 @@ func NewKeyedTransactorWithChainID[T crypto.PrivateKey, P crypto.PublicKey](key 
 		*p = *t.Public()
 	case *gost3410.PrivateKey:
 		p := any(&pub).(*gost3410.PublicKey)
+		*p = *t.Public()
+	case *csp.Cert:
+		p := any(&pub).(*csp.PublicKey)
 		*p = *t.Public()
 	}
 	keyAddr := crypto.PubkeyToAddress(pub)
