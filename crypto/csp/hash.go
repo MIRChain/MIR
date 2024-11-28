@@ -130,6 +130,7 @@ func (h *Hash) Read(b []byte) (n int, err error) {
 	copy(b, res)
 	return int(len), nil
 }
+
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
 func (h *Hash) Sum(b []byte) []byte {

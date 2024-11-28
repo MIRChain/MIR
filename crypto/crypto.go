@@ -31,6 +31,8 @@ import (
 	"math/big"
 	"os"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/MIRChain/MIR/common"
 	"github.com/MIRChain/MIR/common/math"
 	"github.com/MIRChain/MIR/crypto/csp"
@@ -40,7 +42,6 @@ import (
 	"github.com/MIRChain/MIR/crypto/secp256k1"
 	"github.com/MIRChain/MIR/params"
 	"github.com/MIRChain/MIR/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // SignatureLength indicates the byte length required to carry a signature with recovery id.

@@ -276,4 +276,3 @@ func BenchmarkHash(b *testing.B) {
 		h.Sum(nil)
 	}
 }
-
